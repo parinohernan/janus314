@@ -1,0 +1,10 @@
+cd ../frontend
+npm create svelte@latest .
+# Seguir el asistente y seleccionar:
+# - Skeleton project
+# - TypeScript
+# - ESLint, Prettier, Playwright
+
+npm install
+npm install axios tailwindcss postcss autoprefixer
+npx svelte-add@latest tailwindcss 

@@ -1,0 +1,102 @@
+Tareas Detalladas para el Sprint
+1. Definir el Diseño de la Web
+Objetivo: Crear un diseño claro y funcional para la interfaz de usuario.
+
+Tareas:
+
+Wireframes: Crea wireframes de las principales pantallas (por ejemplo, listado de productos, formulario de proveedores, etc.). Puedes usar herramientas como Figma o Whimsical.
+
+Diseño Visual: Define la paleta de colores, tipografía y estilos generales. Si no tienes un diseñador, puedes usar frameworks de CSS como Tailwind CSS o Bootstrap para acelerar el proceso.
+
+Componentes Reutilizables: Identifica componentes que se repetirán en la aplicación (por ejemplo, botones, tarjetas, formularios) y diseña su estructura en Svelte.
+
+Entregable: Wireframes y diseño visual aprobado.
+
+2. Crear los CRUDs: Rubros y Proveedores
+Objetivo: Implementar la funcionalidad básica para gestionar rubros y proveedores.
+
+Tareas:
+
+Backend (Express.js + MySQL):
+
+Crear las rutas y controladores para:
+
+Rubros: Crear, Leer, Actualizar y Eliminar (CRUD).
+
+Proveedores: Crear, Leer, Actualizar y Eliminar (CRUD).
+
+Definir los modelos en la base de datos (tablas rubros y proveedores).
+
+Implementar validaciones básicas (por ejemplo, campos obligatorios).
+
+Frontend (Svelte):
+
+Crear las vistas para:
+
+Listar rubros y proveedores.
+
+Formularios para agregar/editar rubros y proveedores.
+
+Conectar el frontend con el backend usando fetch o una librería como axios.
+
+Entregable: CRUDs funcionales para Rubros y Proveedores, tanto en backend como en frontend.
+
+3. Crear la Ruta para Productos (CRUD y Pruebas)
+Objetivo: Implementar la funcionalidad básica para gestionar productos, junto con pruebas automáticas.
+
+Tareas:
+
+Backend (Express.js + MySQL):
+
+Crear las rutas y controladores para:
+
+Productos: Crear, Leer, Actualizar y Eliminar (CRUD).
+
+Definir el modelo en la base de datos (tabla productos).
+
+Implementar validaciones (por ejemplo, campos obligatorios, relaciones con rubros y proveedores).
+
+Frontend (Svelte):
+
+Crear las vistas para:
+
+Listar productos.
+
+Formularios para agregar/editar productos.
+
+Conectar el frontend con el backend.
+
+Pruebas Automáticas:
+
+Escribir pruebas unitarias para las funciones del backend (usando Vitest).
+
+Escribir pruebas de integración para las rutas de la API (usando Vitest).
+
+Escribir pruebas E2E para el flujo de productos en el frontend (usando Playwright).
+
+Entregable: CRUD funcional para Productos, junto con pruebas automáticas.
+
+ARQUITECTURA DE LA APLICACION
+Backend (Express + MySQL):
+├── Modelos
+│   ├── Productos
+│   ├── Proveedores
+│   ├── Rubros
+│   ├── Clientes
+│   ├── Facturas
+│   └── Stock
+├── Controladores
+├── Rutas
+└── Middleware (validación, rendimiento)
+
+Frontend (Svelte):
+├── Componentes
+│   ├── UI Base (botones, tablas, formularios)
+│   ├── Productos
+│   ├── Proveedores
+│   ├── Rubros
+│   ├── Clientes
+│   ├── Facturación
+│   └── Reportes
+├── Stores (estado)
+└── Utilidades (formateo, validación)

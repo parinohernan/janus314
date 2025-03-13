@@ -1,0 +1,4 @@
+cd backend
+npm init -y
+npm install express mysql2 cors dotenv bcrypt jsonwebtoken helmet express-validator
+npm install --save-dev nodemon jest supertest 

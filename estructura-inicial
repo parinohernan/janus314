@@ -1,0 +1,2 @@
+mkdir -p gestion-comercial/{backend/{src/{models,controllers,routes,middleware,config,utils},tests},frontend}
+cd gestion-comercial 
