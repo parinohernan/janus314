@@ -5,14 +5,20 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { PUBLIC_API_URL } from '$env/static/public';
   
-  let rubro = {
+  interface Rubro {
+    Codigo: string;
+    Descripcion: string;
+    RubroGrupoCodigo?: string;
+  }
+  
+  let rubro: Rubro = {
     Codigo: '',
     Descripcion: '',
     RubroGrupoCodigo: ''
   };
   
   let loading = false;
-  let error = null;
+  let error: string | null = null;
   let isEditing = $page.params.id !== 'nuevo';
   
   onMount(async () => {
@@ -22,8 +28,12 @@
         const response = await fetch(`${PUBLIC_API_URL}/rubros/${$page.params.id}`);
         if (!response.ok) throw new Error('Error al cargar el rubro');
         rubro = await response.json();
-      } catch (err) {
-        error = err.message;
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          error = err.message;
+        } else {
+          error = 'Error desconocido';
+        }
       } finally {
         loading = false;
       }

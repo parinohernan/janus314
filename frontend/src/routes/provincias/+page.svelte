@@ -5,23 +5,42 @@
   import { PUBLIC_API_URL } from '$env/static/public';
   import { debounce } from 'lodash-es';
   
-  // Estado de filtros y paginación
-  let filters = {
+  // Definir interfaces para los tipos
+  interface Provincia {
+    Codigo: string;
+    Descripcion: string;
+  }
+  
+  interface Pagination {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    limit: number;
+  }
+  
+  interface Filters {
+    search: string;
+    field: string;
+    order: 'ASC' | 'DESC';
+  }
+  
+  // Estado de filtros y paginación con tipos
+  let filters: Filters = {
     search: '',
     field: 'Descripcion',
     order: 'ASC'
   };
   
-  let pagination = {
+  let pagination: Pagination = {
     currentPage: 1,
     totalPages: 1,
     totalItems: 0,
     limit: 10
   };
   
-  let provincias = [];
+  let provincias: Provincia[] = [];
   let loading = true;
-  let error = null;
+  let error: string | null = null;
   
   // Función para cargar datos con los filtros actuales
   const loadProvincias = async () => {

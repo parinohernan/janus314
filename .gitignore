@@ -20,3 +20,5 @@ node_modules/
 /frontend/build
 /backend/public
 /frontend/public
+# Archivos generados por Svelte Kit
+/frontend/.svelte-kit/

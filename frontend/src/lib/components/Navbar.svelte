@@ -51,10 +51,19 @@
       id: 'productos',
       label: 'Productos',
       submenus: [
-        { label: 'Listado', url: '/productos' },
+        { label: 'Productos', url: '/productos' },
         { label: 'Stock', url: '/productos/stock' },
         { label: 'Rubros', url: '/rubros' },
         { label: 'Actualización de Precios', url: '/productos/precios' }
+      ]
+    },
+    {
+      id: 'clientes',
+      label: 'Clientes',
+      submenus: [
+        { label: 'Clientes', url: '/clientes' },
+        { label: 'Cuentas', url: '/ventas/cuentascorrientes' },
+        { label: 'Reportes', url: '/clientes/reportes' },
       ]
     }
   ];

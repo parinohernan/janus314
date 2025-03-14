@@ -12,6 +12,7 @@ const productoRoutes = require("./routes/producto.routes");
 const proveedorRoutes = require("./routes/proveedor.routes");
 const rubroRoutes = require("./routes/rubro.routes");
 const provinciaRoutes = require("./routes/provincia.routes");
+const localidadRoutes = require("./routes/codigoPostal.routes");
 
 // Crear app Express
 const app = express();
@@ -27,6 +28,7 @@ app.use(express.urlencoded({ extended: true }));
 // app.use("/api/proveedores", proveedorRoutes);
 app.use("/api/rubros", rubroRoutes);
 app.use("/api/provincias", provinciaRoutes);
+app.use("/api/localidades", localidadRoutes);
 
 // Ruta de prueba
 app.get("/", (req, res) => {
@@ -35,7 +37,10 @@ app.get("/", (req, res) => {
 
 // Manejo de rutas no encontradas
 app.use((req, res) => {
-  res.status(404).json({ message: "Ruta no encontrada" });
+  res.status(404).json({
+    message: "Sección en construcción",
+    description: "El recurso solicitado no existe o está en desarrollo.",
+  });
 });
 
 // Middleware de errores

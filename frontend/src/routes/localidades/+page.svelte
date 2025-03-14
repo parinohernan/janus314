@@ -1,24 +1,354 @@
 <script lang="ts">
-  // Módulos para la página principal
-  const modules = [
-    { name: 'Ventas', icon: 'cash-register', url: '/ventas/facturas', description: 'Gestión de facturas y pedidos' },
-    { name: 'Compras', icon: 'truck', url: '/compras/ordenes', description: 'Órdenes de compra y proveedores' },
-    { name: 'Productos', icon: 'box', url: '/productos', description: 'Catálogo y stock de productos' },
-    { name: 'Clientes', icon: 'users', url: '/ventas/clientes', description: 'Gestión de clientes y cuentas corrientes' },
-    { name: 'Reportes', icon: 'chart-bar', url: '/reportes', description: 'Informes y estadísticas' },
-    { name: 'Caja', icon: 'cash', url: '/caja/apertura', description: 'Control de ingresos y egresos' }
-  ];
+  import { onMount } from 'svelte';
+  import Button from '$lib/components/ui/Button.svelte';
+  import { goto } from '$app/navigation';
+  import { PUBLIC_API_URL } from '$env/static/public';
+  import { debounce } from 'lodash-es';
+  
+  // Definir interfaces para los tipos
+  interface Localidad {
+    Codigo: string;
+    Descripcion: string;
+    Provincia: string;
+    ProvinciaRelacion?: {
+      Descripcion: string;
+    };
+  }
+  
+  interface Pagination {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    limit: number;
+  }
+  
+  interface Filters {
+    search: string;
+    field: string;
+    order: 'ASC' | 'DESC';
+  }
+  
+  // Estado de filtros y paginación con tipos
+  let filters: Filters = {
+    search: '',
+    field: 'Descripcion',
+    order: 'ASC'
+  };
+  
+  let pagination: Pagination = {
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    limit: 10
+  };
+  
+  let localidades: Localidad[] = [];
+  let loading = true;
+  let error: string | null = null;
+  
+  // Función para cargar datos con los filtros actuales
+  const loadLocalidades = async (): Promise<void> => {
+    try {
+      loading = true;
+      error = null;
+      
+      // Construir URL con parámetros de búsqueda y paginación
+      const params = new URLSearchParams({
+        page: pagination.currentPage.toString(),
+        limit: pagination.limit.toString(),
+        search: filters.search,
+        field: filters.field,
+        order: filters.order
+      });
+      
+      const response = await fetch(`${PUBLIC_API_URL}/localidades?${params}`);
+      if (!response.ok) throw new Error('Error al cargar las localidades');
+      
+      const data = await response.json();
+      
+      // Actualizar estado con datos y metadata de paginación
+      localidades = data.items;
+      pagination = {
+        currentPage: data.currentPage,
+        totalPages: data.totalPages,
+        totalItems: data.totalItems,
+        limit: pagination.limit
+      };
+      
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        error = err.message;
+      } else {
+        error = 'Error desconocido';
+      }
+      console.error('Error cargando localidades:', err);
+    } finally {
+      loading = false;
+    }
+  };
+  
+  // Cargar datos al inicializar el componente
+  onMount(() => {
+    loadLocalidades();
+  });
+  
+  // Debounce para la búsqueda
+  const debouncedSearch = debounce(() => {
+    pagination.currentPage = 1; // Reset a primera página con cada búsqueda
+    loadLocalidades();
+  }, 300);
+  
+  // Manejar cambios en el campo de búsqueda
+  const handleSearchChange = (e: Event): void => {
+    const target = e.target as HTMLInputElement;
+    filters.search = target.value;
+    debouncedSearch();
+  };
+  
+  // Manejar cambios en el campo de ordenamiento
+  const handleSortChange = (field: string): void => {
+    if (filters.field === field) {
+      // Invertir orden si hacemos clic en el mismo campo
+      filters.order = filters.order === 'ASC' ? 'DESC' : 'ASC';
+    } else {
+      filters.field = field;
+      filters.order = 'ASC';
+    }
+    loadLocalidades();
+  };
+  
+  // Cambiar de página
+  const goToPage = (page: number): void => {
+    if (page < 1 || page > pagination.totalPages) return;
+    pagination.currentPage = page;
+    loadLocalidades();
+  };
+  
+  const handleEdit = (id: string): void => {
+    goto(`/localidades/${id}`);
+  };
+
+  const handleDelete = async (id: string): Promise<void> => {
+    if (!confirm('¿Está seguro que desea eliminar esta localidad?')) return;
+    
+    try {
+      const response = await fetch(`${PUBLIC_API_URL}/localidades/${id}`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al eliminar la localidad');
+      }
+      
+      alert('Localidad eliminada correctamente');
+      loadLocalidades();
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        alert(err.message);
+      } else {
+        alert('Error desconocido al eliminar');
+      }
+    }
+  };
 </script>
 
-<div class="space-y-6">
-  <h1 class="text-3xl font-bold">Panel de Control</h1>
-  
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-    {#each modules as module}
-      <a href={module.url} class="block bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition">
-        <h2 class="text-xl font-bold text-gray-800 mb-2">{module.name}</h2>
-        <p class="text-gray-600">{module.description}</p>
-      </a>
-    {/each}
+<svelte:head>
+  <title>Gestión de Localidades</title>
+</svelte:head>
+
+<div class="container mx-auto p-4">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold">Gestión de Localidades</h1>
+    <Button variant="primary" on:click={() => goto('/localidades/nuevo')}>
+      Nueva Localidad
+    </Button>
   </div>
+  
+  <!-- Barra de búsqueda -->
+  <div class="mb-6 flex items-center space-x-4">
+    <div class="flex-grow">
+      <input
+        type="text"
+        placeholder="Buscar localidades..."
+        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        value={filters.search}
+        on:input={handleSearchChange}
+      />
+    </div>
+    <div>
+      <select
+        bind:value={pagination.limit}
+        on:change={loadLocalidades}
+        class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="5">5 por página</option>
+        <option value="10">10 por página</option>
+        <option value="25">25 por página</option>
+        <option value="50">50 por página</option>
+      </select>
+    </div>
+  </div>
+  
+  {#if loading}
+    <div class="bg-white p-8 rounded-md shadow text-center">
+      <p class="text-gray-500">Cargando localidades...</p>
+    </div>
+  {:else if error}
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+      <p>{error}</p>
+    </div>
+  {:else if localidades.length === 0}
+    <div class="bg-white p-8 rounded-md shadow text-center">
+      <p class="text-gray-500">No hay localidades disponibles</p>
+    </div>
+  {:else}
+    <div class="overflow-x-auto">
+      <table class="min-w-full bg-white border border-gray-200">
+        <thead>
+          <tr>
+            <th 
+              class="px-6 py-3 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+              on:click={() => handleSortChange('Codigo')}
+            >
+              <div class="flex items-center">
+                <span>Código</span>
+                {#if filters.field === 'Codigo'}
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                    {#if filters.order === 'ASC'}
+                      <path fill-rule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L6.707 7.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                    {:else}
+                      <path fill-rule="evenodd" d="M14.707 12.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l2.293-2.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    {/if}
+                  </svg>
+                {/if}
+              </div>
+            </th>
+            <th 
+              class="px-6 py-3 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+              on:click={() => handleSortChange('Descripcion')}
+            >
+              <div class="flex items-center">
+                <span>Descripción</span>
+                {#if filters.field === 'Descripcion'}
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                    {#if filters.order === 'ASC'}
+                      <path fill-rule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L6.707 7.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                    {:else}
+                      <path fill-rule="evenodd" d="M14.707 12.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l2.293-2.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    {/if}
+                  </svg>
+                {/if}
+              </div>
+            </th>
+            <th 
+              class="px-6 py-3 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+              on:click={() => handleSortChange('Provincia')}
+            >
+              <div class="flex items-center">
+                <span>Provincia</span>
+                {#if filters.field === 'Provincia'}
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                    {#if filters.order === 'ASC'}
+                      <path fill-rule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L6.707 7.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                    {:else}
+                      <path fill-rule="evenodd" d="M14.707 12.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l2.293-2.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    {/if}
+                  </svg>
+                {/if}
+              </div>
+            </th>
+            <th class="px-6 py-3 border-b border-gray-200 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Acciones
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each localidades as localidad (localidad.Codigo)}
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-4 whitespace-nowrap border-b border-gray-200">
+                {localidad.Codigo}
+              </td>
+              <td class="px-6 py-4 border-b border-gray-200">
+                {localidad.Descripcion || '-'}
+              </td>
+              <td class="px-6 py-4 border-b border-gray-200">
+                {localidad.ProvinciaRelacion ? localidad.ProvinciaRelacion.Descripcion : '-'}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right border-b border-gray-200">
+                <Button variant="secondary" size="sm" on:click={() => handleEdit(localidad.Codigo)}>
+                  Editar
+                </Button>
+                <Button variant="danger" size="sm" on:click={() => handleDelete(localidad.Codigo)}>
+                  Eliminar
+                </Button>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- Paginación -->
+    {#if pagination.totalPages > 1}
+      <div class="flex justify-between items-center mt-4">
+        <div class="text-sm text-gray-700">
+          Mostrando <span class="font-medium">{(pagination.currentPage - 1) * pagination.limit + 1}</span> a 
+          <span class="font-medium">{Math.min(pagination.currentPage * pagination.limit, pagination.totalItems)}</span> de 
+          <span class="font-medium">{pagination.totalItems}</span> resultados
+        </div>
+        
+        <div class="flex space-x-1">
+          <button 
+            class="px-3 py-1 rounded border {pagination.currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white hover:bg-gray-50'}"
+            on:click={() => goToPage(1)}
+            disabled={pagination.currentPage === 1}
+          >
+            &laquo;
+          </button>
+          
+          <button 
+            class="px-3 py-1 rounded border {pagination.currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white hover:bg-gray-50'}"
+            on:click={() => goToPage(pagination.currentPage - 1)}
+            disabled={pagination.currentPage === 1}
+          >
+            &lsaquo;
+          </button>
+          
+          {#each Array(Math.min(5, pagination.totalPages)) as _, i}
+            {@const pageNum = pagination.currentPage <= 3 
+              ? i + 1 
+              : pagination.currentPage >= pagination.totalPages - 2 
+                ? pagination.totalPages - 4 + i 
+                : pagination.currentPage - 2 + i}
+            
+            {#if pageNum > 0 && pageNum <= pagination.totalPages}
+              <button 
+                class="px-3 py-1 rounded border {pageNum === pagination.currentPage ? 'bg-blue-50 text-blue-600 border-blue-300' : 'bg-white hover:bg-gray-50'}"
+                on:click={() => goToPage(pageNum)}
+              >
+                {pageNum}
+              </button>
+            {/if}
+          {/each}
+          
+          <button 
+            class="px-3 py-1 rounded border {pagination.currentPage === pagination.totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white hover:bg-gray-50'}"
+            on:click={() => goToPage(pagination.currentPage + 1)}
+            disabled={pagination.currentPage === pagination.totalPages}
+          >
+            &rsaquo;
+          </button>
+          
+          <button 
+            class="px-3 py-1 rounded border {pagination.currentPage === pagination.totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white hover:bg-gray-50'}"
+            on:click={() => goToPage(pagination.totalPages)}
+            disabled={pagination.currentPage === pagination.totalPages}
+          >
+            &raquo;
+          </button>
+        </div>
+      </div>
+    {/if}
+  {/if}
 </div>
