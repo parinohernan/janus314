@@ -25,7 +25,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Rutas
 // app.use("/api/productos", productoRoutes);
-// app.use("/api/proveedores", proveedorRoutes);
+app.use("/api/proveedores", proveedorRoutes);
 app.use("/api/rubros", rubroRoutes);
 app.use("/api/provincias", provinciaRoutes);
 app.use("/api/localidades", localidadRoutes);
