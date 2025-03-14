@@ -3,7 +3,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { goto } from '$app/navigation';
   import { PUBLIC_API_URL } from '$env/static/public';
-  import { debounce } from 'lodash-es'; // Necesitarás instalar: npm install lodash-es
+  import { debounce } from 'lodash-es';
   
   // Estado de filtros y paginación
   let filters = {
@@ -19,12 +19,12 @@
     limit: 10
   };
   
-  let rubros = [];
+  let provincias = [];
   let loading = true;
   let error = null;
   
   // Función para cargar datos con los filtros actuales
-  const loadRubros = async () => {
+  const loadProvincias = async () => {
     try {
       loading = true;
       error = null;
@@ -38,13 +38,13 @@
         order: filters.order
       });
       
-      const response = await fetch(`${PUBLIC_API_URL}/rubros?${params}`);
-      if (!response.ok) throw new Error('Error al cargar los rubros');
+      const response = await fetch(`${PUBLIC_API_URL}/provincias?${params}`);
+      if (!response.ok) throw new Error('Error al cargar las provincias');
       
       const data = await response.json();
       
       // Actualizar estado con datos y metadata de paginación
-      rubros = data.items;
+      provincias = data.items;
       pagination = {
         currentPage: data.currentPage,
         totalPages: data.totalPages,
@@ -54,16 +54,21 @@
       
     } catch (err) {
       error = err.message;
-      console.error('Error cargando rubros:', err);
+      console.error('Error cargando provincias:', err);
     } finally {
       loading = false;
     }
   };
   
+  // Cargar datos al inicializar el componente
+  onMount(() => {
+    loadProvincias();
+  });
+  
   // Debounce para la búsqueda
   const debouncedSearch = debounce(() => {
     pagination.currentPage = 1; // Reset a primera página con cada búsqueda
-    loadRubros();
+    loadProvincias();
   }, 300);
   
   // Manejar cambios en el campo de búsqueda
@@ -81,119 +86,86 @@
       filters.field = field;
       filters.order = 'ASC';
     }
-    loadRubros();
+    loadProvincias();
   };
   
   // Cambiar de página
   const goToPage = (page) => {
     if (page < 1 || page > pagination.totalPages) return;
     pagination.currentPage = page;
-    loadRubros();
+    loadProvincias();
   };
   
   const handleEdit = (id) => {
-    goto(`/rubros/${id}`);
+    goto(`/provincias/${id}`);
   };
-  
+
   const handleDelete = async (id) => {
-    if (!confirm('¿Está seguro que desea eliminar este rubro?')) return;
+    if (!confirm('¿Está seguro que desea eliminar esta provincia?')) return;
     
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/rubros/${id}`, {
+      const response = await fetch(`${PUBLIC_API_URL}/provincias/${id}`, {
         method: 'DELETE'
       });
       
-      if (!response.ok) throw new Error('Error al eliminar el rubro');
+      if (!response.ok) throw new Error('Error al eliminar la provincia');
       
       // Recargar la tabla después de eliminar
-      loadRubros();
+      loadProvincias();
     } catch (err) {
       alert(err.message);
     }
   };
-  
-  // Cargar datos iniciales
-  onMount(() => {
-    loadRubros();
-  });
 </script>
 
 <svelte:head>
-  <title>Gestión de Rubros</title>
+  <title>Gestión de Provincias</title>
 </svelte:head>
 
 <div class="container mx-auto p-4">
   <div class="flex justify-between items-center mb-6">
-    <h1 class="text-2xl font-bold">Gestión de Rubros</h1>
-    <Button variant="primary" on:click={() => goto('/rubros/nuevo')}>
-      Nuevo Rubro
+    <h1 class="text-2xl font-bold">Gestión de Provincias</h1>
+    <Button variant="primary" on:click={() => goto('/provincias/nuevo')}>
+      Nueva Provincia
     </Button>
   </div>
   
-  <!-- Filtros -->
-  <div class="mb-6 bg-white p-4 rounded-lg shadow-sm">
-    <div class="flex flex-col md:flex-row gap-4">
-      <div class="flex-grow">
-        <label for="search" class="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
-        <div class="relative">
-          <input
-            type="text"
-            id="search"
-            placeholder="Buscar por código o descripción..."
-            value={filters.search}
-            on:input={handleSearchChange}
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          {#if filters.search}
-            <button 
-              class="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
-              on:click={() => { filters.search = ''; debouncedSearch(); }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-              </svg>
-            </button>
-          {/if}
-        </div>
-      </div>
-      
-      <div class="w-32">
-        <label for="limit" class="block text-sm font-medium text-gray-700 mb-1">Mostrar</label>
-        <select
-          id="limit"
-          bind:value={pagination.limit}
-          on:change={loadRubros}
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="5">5</option>
-          <option value="10">10</option>
-          <option value="25">25</option>
-          <option value="50">50</option>
-        </select>
-      </div>
+  <!-- Barra de búsqueda -->
+  <div class="mb-6 flex items-center space-x-4">
+    <div class="flex-grow">
+      <input
+        type="text"
+        placeholder="Buscar provincias..."
+        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        value={filters.search}
+        on:input={handleSearchChange}
+      />
+    </div>
+    <div>
+      <select
+        bind:value={pagination.limit}
+        on:change={loadProvincias}
+        class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="5">5 por página</option>
+        <option value="10">10 por página</option>
+        <option value="25">25 por página</option>
+        <option value="50">50 por página</option>
+      </select>
     </div>
   </div>
   
   {#if loading}
-    <div class="text-center py-4">
-      <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      <p class="mt-2">Cargando rubros...</p>
+    <div class="bg-white p-8 rounded-md shadow text-center">
+      <p class="text-gray-500">Cargando provincias...</p>
     </div>
   {:else if error}
     <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
       <p>{error}</p>
     </div>
-  {:else if rubros.length === 0}
-    <div class="bg-gray-50 text-center py-10 rounded-lg border border-gray-200">
-      <p class="text-gray-500">No se encontraron rubros con los criterios de búsqueda.</p>
-      {#if filters.search}
-        <button 
-          class="mt-2 text-blue-500 hover:underline"
-          on:click={() => { filters.search = ''; debouncedSearch(); }}
-        >
-          Limpiar filtros
-        </button>
-      {/if}
+  {:else if provincias.length === 0}
+    <div class="bg-white p-8 rounded-md shadow text-center">
+      <p class="text-gray-500">No hay provincias disponibles</p>
     </div>
   {:else}
     <div class="overflow-x-auto">
@@ -240,19 +212,19 @@
           </tr>
         </thead>
         <tbody>
-          {#each rubros as rubro (rubro.Codigo)}
+          {#each provincias as provincia (provincia.Codigo)}
             <tr class="hover:bg-gray-50">
               <td class="px-6 py-4 whitespace-nowrap border-b border-gray-200">
-                {rubro.Codigo}
+                {provincia.Codigo}
               </td>
               <td class="px-6 py-4 border-b border-gray-200">
-                {rubro.Descripcion || '-'}
+                {provincia.Descripcion || '-'}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-right border-b border-gray-200">
-                <Button variant="secondary" size="sm" on:click={() => handleEdit(rubro.Codigo)}>
+                <Button variant="secondary" size="sm" on:click={() => handleEdit(provincia.Codigo)}>
                   Editar
                 </Button>
-                <Button variant="danger" size="sm" on:click={() => handleDelete(rubro.Codigo)}>
+                <Button variant="danger" size="sm" on:click={() => handleDelete(provincia.Codigo)}>
                   Eliminar
                 </Button>
               </td>
@@ -324,4 +296,8 @@
       </div>
     {/if}
   {/if}
-</div> 
+</div>      
+
+
+                
+

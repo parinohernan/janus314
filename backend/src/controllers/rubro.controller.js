@@ -1,10 +1,53 @@
 const Rubro = require("../models/rubro.model");
+const { Op } = require("sequelize");
 
-// Obtener todos los rubros
+// Obtener todos los rubros (con filtros y paginación)
 exports.getAllRubros = async (req, res) => {
   try {
-    const rubros = await Rubro.findAll();
-    return res.status(200).json(rubros);
+    const {
+      page = 1,
+      limit = 10,
+      search = "",
+      field = "Descripcion",
+      order = "ASC",
+    } = req.query;
+
+    // Calcular offset para paginación
+    const offset = (page - 1) * limit;
+
+    // Configurar opciones de búsqueda
+    const whereClause = {};
+    if (search) {
+      // Permitir búsqueda en múltiples campos
+      whereClause[Op.or] = [
+        { Codigo: { [Op.like]: `%${search}%` } },
+        { Descripcion: { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    // Validar campo de ordenamiento para evitar inyección SQL
+    const validFields = ["Codigo", "Descripcion", "RubroGrupoCodigo"];
+    const sortField = validFields.includes(field) ? field : "Descripcion";
+    const sortOrder = order === "DESC" ? "DESC" : "ASC";
+
+    // Obtener total de registros para metadata de paginación
+    const count = await Rubro.count({ where: whereClause });
+
+    // Obtener registros paginados
+    const rubros = await Rubro.findAll({
+      where: whereClause,
+      order: [[sortField, sortOrder]],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
+
+    // Enviar respuesta con metadata de paginación
+    return res.status(200).json({
+      totalItems: count,
+      totalPages: Math.ceil(count / parseInt(limit)),
+      currentPage: parseInt(page),
+      items: rubros,
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Error al obtener los rubros" });

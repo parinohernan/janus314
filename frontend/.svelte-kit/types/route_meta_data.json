@@ -1,5 +1,10 @@
 {
 	"/": [],
+	"/localidades": [],
+	"/localidades/[id]": [],
+	"/provincias": [],
+	"/provincias/[id]": [],
 	"/rubros": [],
-	"/rubros/[id]": []
+	"/rubros/[id]": [],
+	"/rubros/[id]/editar": []
 }
