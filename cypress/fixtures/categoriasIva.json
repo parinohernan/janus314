@@ -1,0 +1,24 @@
+{
+  "items": [
+    {
+      "Codigo": "1",
+      "Descripcion": "Responsable Inscripto"
+    },
+    {
+      "Codigo": "2",
+      "Descripcion": "Consumidor Final"
+    },
+    {
+      "Codigo": "3",
+      "Descripcion": "Exento"
+    },
+    {
+      "Codigo": "4",
+      "Descripcion": "Monotributo"
+    },
+    {
+      "Codigo": "5",
+      "Descripcion": "No Categorizado"
+    }
+  ]
+}

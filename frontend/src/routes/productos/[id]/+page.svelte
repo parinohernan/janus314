@@ -225,16 +225,19 @@
       // Actualizar el artículo con los datos del servidor
       articulo = data;
       
+      // Después de guardar exitosamente, mostrar mensaje y restablecer scroll
       successMessage = isEditing 
-        ? `Artículo "${articulo.Codigo}" actualizado correctamente` 
-        : `Artículo "${articulo.Codigo}" creado correctamente`;
+        ? `Producto "${articulo.Codigo}" actualizado correctamente` 
+        : `Producto "${articulo.Codigo}" creado correctamente`;
       
-      // Si es nuevo, redirigir a la página de edición
+      // Restablecer el scroll al inicio de la página
+      window.scrollTo(0, 0);
+      
+      // Si es nuevo, redirigir y actualizar estado
       if (!isEditing) {
-        goto(`/productos/nuevo`, { replaceState: true });
+        goto(`/productos/${articulo.Codigo}`, { replaceState: true });
         isEditing = true;
       }
-      
       
     } catch (err: unknown) {
       console.error('Error guardando artículo:', err);
@@ -255,7 +258,22 @@
 
 <div class="container mx-auto p-4">
   <div class="bg-white p-6 rounded-lg shadow-md">
-    <h1 class="text-2xl font-bold mb-6">{isEditing ? 'Editar' : 'Nuevo'} Producto</h1>
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold">{isEditing ? 'Editar' : 'Nuevo'} Producto</h1>
+      <Button 
+        variant="secondary" 
+        on:click={() => {
+          goto('/productos', { 
+            replaceState: false 
+          });
+        }}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+        </svg>
+        Volver a productos
+      </Button>
+    </div>
     
     {#if error && isEditing}
       <div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">

@@ -4,6 +4,8 @@
   import { goto } from '$app/navigation';
   import { PUBLIC_API_URL } from '$env/static/public';
   import { debounce } from 'lodash-es';
+  import { page } from '$app/stores';
+  import { navigationState } from '$lib/stores/navigationState';
   
   // Definir interfaces para los tipos
   interface Cliente {
@@ -94,6 +96,24 @@
   
   // Cargar datos al inicializar el componente
   onMount(() => {
+    // Recuperar estado guardado al montar el componente
+    const savedState = navigationState.getState($page.url.pathname);
+    
+    if (savedState?.pagination) {
+      pagination = {
+        ...pagination,
+        ...savedState.pagination
+      };
+    }
+    
+    if (savedState?.filters) {
+      filters = {
+        ...filters,
+        ...savedState.filters
+      };
+    }
+    
+    // Cargar datos con el estado restaurado
     loadClientes();
     
     // Timeout de seguridad para evitar carga infinita
@@ -122,6 +142,7 @@
     const target = event.target as HTMLInputElement;
     filters.search = target.value;
     debouncedSearch();
+    updateState();
   };
   
   // Cambiar ordenamiento
@@ -133,6 +154,7 @@
       filters.order = 'ASC';
     }
     loadClientes();
+    updateState();
   };
   
   // Cambiar de página
@@ -140,6 +162,7 @@
     if (page < 1 || page > pagination.totalPages) return;
     pagination.currentPage = page;
     loadClientes();
+    updateState();
   };
   
   // Manejar cambio en el límite de resultados por página
@@ -148,6 +171,7 @@
     pagination.limit = parseInt(target.value, 10);
     pagination.currentPage = 1;
     loadClientes();
+    updateState();
   };
   
   // Navegar a editar
@@ -178,6 +202,18 @@
         alert('Ha ocurrido un error al cambiar el estado del cliente.');
       }
     }
+  };
+  
+  // Al cambiar página o filtros, guardar el estado actual
+  const updateState = () => {
+    navigationState.saveState($page.url.pathname, {
+      scroll: window.scrollY,
+      pagination: {
+        currentPage: pagination.currentPage,
+        limit: pagination.limit
+      },
+      filters: { ...filters }
+    });
   };
 </script>
 

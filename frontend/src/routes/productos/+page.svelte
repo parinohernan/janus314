@@ -4,6 +4,9 @@
   import { goto } from '$app/navigation';
   import { PUBLIC_API_URL } from '$env/static/public';
   import { debounce } from 'lodash-es';
+  import { navigationState } from '$lib/stores/navigationState';
+  import { page } from '$app/stores';
+  import { beforeNavigate } from '$app/navigation';
   
   // Definir interfaces para los tipos
   interface Articulo {
@@ -51,6 +54,9 @@
   let loading = true;
   let error: string | null = null;
   
+  // También agregamos una variable para rastrear si ya cargamos la primera vez
+  let initialLoadCompleted = false;
+  
   // Función para cargar datos con los filtros actuales
   const loadArticulos = async (): Promise<void> => {
     try {
@@ -96,7 +102,39 @@
   
   // Cargar datos al inicializar el componente
   onMount(() => {
-    loadArticulos();
+    console.log("Montando componente de productos");
+    // Recuperar estado guardado al montar el componente
+    const savedState = navigationState.getState($page.url.pathname);
+    console.log("Estado guardado recuperado:", savedState);
+    
+    if (savedState?.pagination) {
+      console.log("Restaurando paginación:", savedState.pagination);
+      pagination = {
+        ...pagination,
+        ...savedState.pagination
+      };
+    }
+    
+    if (savedState?.filters) {
+      console.log("Restaurando filtros:", savedState.filters);
+      filters = {
+        ...filters,
+        ...savedState.filters
+      };
+    }
+    
+    // Cargar datos con el estado restaurado
+    loadArticulos().then(() => {
+      initialLoadCompleted = true;
+      
+      // Restaurar la posición de scroll después de cargar datos
+      if (savedState?.scroll) {
+        setTimeout(() => {
+          console.log("Restaurando posición de scroll:", savedState.scroll);
+          window.scrollTo(0, savedState.scroll);
+        }, 100); // Pequeño retraso para asegurar que los datos se han renderizado
+      }
+    });
   });
   
   // Debounce para la búsqueda
@@ -110,18 +148,19 @@
     const target = e.target as HTMLInputElement;
     filters.search = target.value;
     debouncedSearch();
+    updateState();
   };
   
   // Manejar cambios en el campo de ordenamiento
   const handleSortChange = (field: string): void => {
     if (filters.field === field) {
-      // Invertir orden si hacemos clic en el mismo campo
       filters.order = filters.order === 'ASC' ? 'DESC' : 'ASC';
     } else {
       filters.field = field;
       filters.order = 'ASC';
     }
     loadArticulos();
+    updateState();
   };
   
   // Cambiar de página
@@ -129,12 +168,16 @@
     if (page < 1 || page > pagination.totalPages) return;
     pagination.currentPage = page;
     loadArticulos();
+    updateState();
   };
   
   // Manejar cambio en el límite de resultados por página
-  const handleLimitChange = (): void => {
-    pagination.currentPage = 1; // Volver a la primera página cuando se cambia el límite
+  const handleLimitChange = (event: Event): void => {
+    const target = event.target as HTMLSelectElement;
+    pagination.limit = parseInt(target.value, 10);
+    pagination.currentPage = 1;
     loadArticulos();
+    updateState();
   };
   
   const handleEdit = (id: string): void => {
@@ -164,6 +207,30 @@
       }
     }
   };
+
+  // Al cambiar página o filtros, guardar el estado actual
+  const updateState = () => {
+    // Solo guardar estado después de la carga inicial
+    if (initialLoadCompleted) {
+      const state = {
+        scroll: window.scrollY,
+        pagination: {
+          currentPage: pagination.currentPage,
+          limit: pagination.limit
+        },
+        filters: { ...filters }
+      };
+      console.log("Actualizando estado:", state);
+      navigationState.saveState($page.url.pathname, state);
+    }
+  };
+  
+  // Asegurarnos de guardar el estado cuando el usuario abandona la página
+  beforeNavigate(({ from, to, cancel }) => {
+    if (from && from.url.pathname === '/productos') {
+      updateState();
+    }
+  });
 </script>
 
 <svelte:head>
@@ -219,6 +286,19 @@
       </div>
     </div>
   </div>
+  
+  <!-- Agregar después de los filtros
+  <div class="text-right text-xs">
+    <button 
+      class="text-gray-500 hover:text-gray-700 underline"
+      on:click={() => {
+        navigationState.clearState($page.url.pathname);
+        window.location.reload();
+      }}
+    >
+      Restablecer filtros y paginación
+    </button>
+  </div> -->
   
   <!-- Tabla / Estado de carga -->
   {#if loading}
