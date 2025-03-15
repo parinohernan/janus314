@@ -1,0 +1,44 @@
+{
+  "items": [
+    {
+      "Codigo": "1",
+      "Descripcion": "Buenos Aires"
+    },
+    {
+      "Codigo": "2",
+      "Descripcion": "Ciudad Autónoma de Buenos Aires"
+    },
+    {
+      "Codigo": "3",
+      "Descripcion": "Catamarca"
+    },
+    {
+      "Codigo": "4",
+      "Descripcion": "Chaco"
+    },
+    {
+      "Codigo": "5",
+      "Descripcion": "Chubut"
+    },
+    {
+      "Codigo": "6",
+      "Descripcion": "Córdoba"
+    },
+    {
+      "Codigo": "7",
+      "Descripcion": "Corrientes"
+    },
+    {
+      "Codigo": "8",
+      "Descripcion": "Entre Ríos"
+    },
+    {
+      "Codigo": "9",
+      "Descripcion": "Formosa"
+    },
+    {
+      "Codigo": "10",
+      "Descripcion": "Jujuy"
+    }
+  ]
+}

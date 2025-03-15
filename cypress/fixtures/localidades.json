@@ -1,0 +1,49 @@
+{
+  "items": [
+    {
+      "Codigo": "1001",
+      "Descripcion": "La Plata",
+      "ProvinciaCodigo": "1"
+    },
+    {
+      "Codigo": "1002",
+      "Descripcion": "Mar del Plata",
+      "ProvinciaCodigo": "1"
+    },
+    {
+      "Codigo": "1003",
+      "Descripcion": "Bahía Blanca",
+      "ProvinciaCodigo": "1"
+    },
+    {
+      "Codigo": "2001",
+      "Descripcion": "Recoleta",
+      "ProvinciaCodigo": "2"
+    },
+    {
+      "Codigo": "2002",
+      "Descripcion": "Palermo",
+      "ProvinciaCodigo": "2"
+    },
+    {
+      "Codigo": "2003",
+      "Descripcion": "San Telmo",
+      "ProvinciaCodigo": "2"
+    },
+    {
+      "Codigo": "6001",
+      "Descripcion": "Córdoba Capital",
+      "ProvinciaCodigo": "6"
+    },
+    {
+      "Codigo": "6002",
+      "Descripcion": "Villa Carlos Paz",
+      "ProvinciaCodigo": "6"
+    },
+    {
+      "Codigo": "6003",
+      "Descripcion": "Río Cuarto",
+      "ProvinciaCodigo": "6"
+    }
+  ]
+}

@@ -2,7 +2,35 @@
 	import '../app.css';
 	import MainBar from '$lib/components/MainBar.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
+	import { beforeNavigate, afterNavigate } from '$app/navigation';
+	import { navigationState } from '$lib/stores/navigationState';
+	
 	let { children } = $props();
+	
+	beforeNavigate(({ from, to, cancel }) => {
+		if (from) {
+			// Guardar posición de scroll antes de navegar
+			navigationState.saveState(from.url.pathname, {
+				scroll: window.scrollY
+				// Los componentes añadirán su estado de paginación/filtros
+			});
+		}
+	});
+	
+	afterNavigate(({ from, to }) => {
+		// Obtener estado guardado
+		const savedState = navigationState.getState(to.url.pathname);
+		
+		if (savedState?.scroll !== undefined) {
+			// Restaurar posición de scroll
+			setTimeout(() => {
+				window.scrollTo(0, savedState.scroll);
+			}, 0);
+		} else {
+			// Si es una página nueva, ir al inicio
+			window.scrollTo(0, 0);
+		}
+	});
 </script>
 
 <div class="min-h-screen flex flex-col">

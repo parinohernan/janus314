@@ -1,2 +1,11 @@
 mkdir -p gestion-comercial/{backend/{src/{models,controllers,routes,middleware,config,utils},tests},frontend}
 cd gestion-comercial 
+cypress/
+├── e2e/                 # Ya creado con tus archivos .cy.js
+├── fixtures/            # Crear y agregar los archivos JSON de prueba
+│   ├── cliente.json
+│   ├── categoriasIva.json
+│   ├── provincias.json
+│   └── localidades.json
+└── support/             # Crear para comandos personalizados
+    └── e2e.js
