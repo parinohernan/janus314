@@ -19,16 +19,18 @@
 	
 	afterNavigate(({ from, to }) => {
 		// Obtener estado guardado
-		const savedState = navigationState.getState(to.url.pathname);
-		
-		if (savedState?.scroll !== undefined) {
-			// Restaurar posición de scroll
-			setTimeout(() => {
-				window.scrollTo(0, savedState.scroll);
-			}, 0);
-		} else {
-			// Si es una página nueva, ir al inicio
-			window.scrollTo(0, 0);
+		if (to) {
+			const savedState = navigationState.getState(to.url.pathname);
+			
+			if (savedState?.scroll !== undefined) {
+				// Restaurar posición de scroll
+				setTimeout(() => {
+					window.scrollTo(0, savedState.scroll);
+				}, 0);
+			} else {
+				// Si es una página nueva, ir al inicio
+				window.scrollTo(0, 0);
+			}
 		}
 	});
 </script>
@@ -38,7 +40,7 @@
 	<Navbar />
 	
 	<main class="flex-grow container mx-auto px-4 py-6">
-		<slot />
+		{@render children()}
 	</main>
 	
 	<footer class="bg-gray-800 text-white text-center py-4 text-sm">

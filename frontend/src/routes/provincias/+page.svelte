@@ -24,6 +24,11 @@
     order: 'ASC' | 'DESC';
   }
   
+  // Estado con tipos correctos
+  let provincias: Provincia[] = [];
+  let loading = true;
+  let error: string | null = null;
+  
   // Estado de filtros y paginación con tipos
   let filters: Filters = {
     search: '',
@@ -38,17 +43,12 @@
     limit: 10
   };
   
-  let provincias: Provincia[] = [];
-  let loading = true;
-  let error: string | null = null;
-  
   // Función para cargar datos con los filtros actuales
-  const loadProvincias = async () => {
+  const loadProvincias = async (): Promise<void> => {
     try {
       loading = true;
       error = null;
       
-      // Construir URL con parámetros de búsqueda y paginación
       const params = new URLSearchParams({
         page: pagination.currentPage.toString(),
         limit: pagination.limit.toString(),
@@ -58,22 +58,25 @@
       });
       
       const response = await fetch(`${PUBLIC_API_URL}/provincias?${params}`);
+      
       if (!response.ok) throw new Error('Error al cargar las provincias');
       
       const data = await response.json();
       
-      // Actualizar estado con datos y metadata de paginación
+      // Actualizar lista de provincias y metadatos de paginación
       provincias = data.items;
+      
+      // Actualizar información de paginación
       pagination = {
-        currentPage: data.currentPage,
-        totalPages: data.totalPages,
-        totalItems: data.totalItems,
-        limit: pagination.limit
+        currentPage: parseInt(data.currentPage, 10),
+        totalPages: parseInt(data.totalPages, 10),
+        totalItems: parseInt(data.totalItems, 10),
+        limit: parseInt(data.limit || pagination.limit, 10)
       };
       
-    } catch (err) {
-      error = err.message;
+    } catch (err: unknown) {
       console.error('Error cargando provincias:', err);
+      error = err instanceof Error ? err.message : 'Error desconocido';
     } finally {
       loading = false;
     }
@@ -91,13 +94,14 @@
   }, 300);
   
   // Manejar cambios en el campo de búsqueda
-  const handleSearchChange = (e) => {
-    filters.search = e.target.value;
+  const handleSearchChange = (e: Event): void => {
+    const target = e.target as HTMLInputElement;
+    filters.search = target.value;
     debouncedSearch();
   };
   
   // Manejar cambios en el campo de ordenamiento
-  const handleSortChange = (field) => {
+  const handleSortChange = (field: string): void => {
     if (filters.field === field) {
       // Invertir orden si hacemos clic en el mismo campo
       filters.order = filters.order === 'ASC' ? 'DESC' : 'ASC';
@@ -109,17 +113,17 @@
   };
   
   // Cambiar de página
-  const goToPage = (page) => {
+  const goToPage = (page: number): void => {
     if (page < 1 || page > pagination.totalPages) return;
     pagination.currentPage = page;
     loadProvincias();
   };
   
-  const handleEdit = (id) => {
+  const handleEdit = (id: string): void => {
     goto(`/provincias/${id}`);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string): Promise<void> => {
     if (!confirm('¿Está seguro que desea eliminar esta provincia?')) return;
     
     try {
@@ -131,8 +135,8 @@
       
       // Recargar la tabla después de eliminar
       loadProvincias();
-    } catch (err) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Error desconocido');
     }
   };
 </script>
@@ -162,14 +166,16 @@
     </div>
     <div>
       <select
+        id="limit"
         bind:value={pagination.limit}
         on:change={loadProvincias}
-        class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
-        <option value="5">5 por página</option>
-        <option value="10">10 por página</option>
-        <option value="25">25 por página</option>
-        <option value="50">50 por página</option>
+        <option value={5}>5</option>
+        <option value={10}>10</option>
+        <option value={25}>25</option>
+        <option value={50}>50</option>
+        <option value={100}>100</option>
       </select>
     </div>
   </div>
