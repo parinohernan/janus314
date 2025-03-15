@@ -1,6 +1,7 @@
 <script lang="ts">
   // Datos de ejemplo - estos vendrían de tu estado/store en una implementación real
   const appName = "janus314";
+  const logo = "./../../../static/janus314.png";
   const companyName = "Tu Empresa S.A.";
   const userName = "Usuario Demo";
   const isLoggedIn = true;
