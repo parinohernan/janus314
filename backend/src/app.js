@@ -13,6 +13,8 @@ const proveedorRoutes = require("./routes/proveedor.routes");
 const rubroRoutes = require("./routes/rubro.routes");
 const provinciaRoutes = require("./routes/provincia.routes");
 const localidadRoutes = require("./routes/codigoPostal.routes");
+const clienteRoutes = require("./routes/cliente.routes");
+const categoriaIvaRoutes = require("./routes/categoriaIva.routes");
 
 // Crear app Express
 const app = express();
@@ -30,6 +32,8 @@ app.use("/api/proveedores", proveedorRoutes);
 app.use("/api/rubros", rubroRoutes);
 app.use("/api/provincias", provinciaRoutes);
 app.use("/api/localidades", localidadRoutes);
+app.use("/api/clientes", clienteRoutes);
+app.use("/api/categoriasiva", categoriaIvaRoutes);
 
 // Ruta de prueba
 app.get("/", (req, res) => {

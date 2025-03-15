@@ -7,14 +7,14 @@ exports.getAllCodigosPostales = async (req, res) => {
   try {
     const {
       page = 1,
-      limit = 10,
+      limit,
       search = "",
       field = "Descripcion",
       order = "ASC",
     } = req.query;
 
-    // Calcular offset para paginación
-    const offset = (page - 1) * limit;
+    // // Calcular offset para paginación
+    // const offset = (page - 1) * limit;
 
     // Configurar opciones de búsqueda
     const whereClause = {};
@@ -34,12 +34,10 @@ exports.getAllCodigosPostales = async (req, res) => {
     // Obtener total de registros para metadata de paginación
     const count = await CodigoPostal.count({ where: whereClause });
 
-    // Obtener registros paginados
-    const codigosPostales = await CodigoPostal.findAll({
+    // Configurar opciones de consulta
+    const queryOptions = {
       where: whereClause,
       order: [[sortField, sortOrder]],
-      limit: parseInt(limit),
-      offset: parseInt(offset),
       include: [
         {
           model: Provincia,
@@ -47,12 +45,21 @@ exports.getAllCodigosPostales = async (req, res) => {
           attributes: ["Descripcion"],
         },
       ],
-    });
+    };
+
+    // Aplicar paginación solo si se proporciona un límite
+    if (limit) {
+      queryOptions.limit = parseInt(limit);
+      queryOptions.offset = parseInt((page - 1) * limit);
+    }
+
+    // Obtener registros
+    const codigosPostales = await CodigoPostal.findAll(queryOptions);
 
     // Enviar respuesta con metadata de paginación
     return res.status(200).json({
       totalItems: count,
-      totalPages: Math.ceil(count / parseInt(limit)),
+      totalPages: limit ? Math.ceil(count / parseInt(limit)) : 1,
       currentPage: parseInt(page),
       items: codigosPostales,
     });

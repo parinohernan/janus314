@@ -90,13 +90,13 @@
   };
 </script>
 
-<nav class="navbar bg-blue-600 text-white shadow-md">
+<nav class="navbar bg-gray-800  text-white shadow-md">  
   <div class="container mx-auto px-4">
     <div class="flex">
       {#each menuItems as item}
         <div class="relative">
           <button 
-            class="px-4 py-3 hover:bg-gray-100 font-medium flex items-center space-x-1 {activeMenu === item.id ? 'bg-gray-100' : ''}"
+            class="px-4 py-3 hover:bg-gray-600 font-medium flex items-center space-x-1 {activeMenu === item.id ? 'bg-gray-500' : ''}"
             on:click|stopPropagation={() => toggleMenu(item.id)}
           >
             <span>{item.label}</span>

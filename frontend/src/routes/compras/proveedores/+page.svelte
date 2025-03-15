@@ -170,7 +170,7 @@
     <!-- <Button variant="primary" on:click={() => goto('/localidades/nuevo')}>
         Nueva Localidad
       </Button> -->
-  </div>
+    </div>
   
   <!-- Filtros -->
   <div class="mb-6 bg-white p-4 rounded-lg shadow-sm">
@@ -178,8 +178,8 @@
       <div class="flex-grow">
         <label for="search" class="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
         <div class="relative">
-          <input
-            type="text"
+      <input 
+        type="text" 
             id="search"
             placeholder="Buscar por código, descripción o CUIT..."
             value={filters.search}
@@ -229,8 +229,8 @@
   {:else}
     <div class="overflow-x-auto">
       <table class="min-w-full bg-white border border-gray-200">
-        <thead>
-          <tr>
+    <thead>
+      <tr>
             <th 
               class="px-6 py-3 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               on:click={() => handleSortChange('Codigo')}
@@ -268,9 +268,9 @@
             <th class="px-6 py-3 border-b border-gray-200 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
               Acciones
             </th>
-          </tr>
-        </thead>
-        <tbody>
+      </tr>
+    </thead>
+    <tbody>
           {#each proveedores as proveedor (proveedor.Codigo)}
             <tr class="hover:bg-gray-50">
               <td class="px-6 py-4 whitespace-nowrap border-b border-gray-200">
@@ -333,8 +333,8 @@
                   {pageNum}
                 </button>
               {/if}
-            {/each}
-            
+      {/each}
+      
             <button 
               class="px-3 py-1 rounded border {pagination.currentPage === pagination.totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white hover:bg-gray-50'}"
               on:click={() => goToPage(pagination.currentPage + 1)}
@@ -354,5 +354,5 @@
         </div>
       </div>
     {/if}
-  {/if}
-</div> 
+      {/if}
+</div>
