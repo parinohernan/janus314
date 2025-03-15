@@ -8,7 +8,7 @@ dotenv.config();
 
 // Importar rutas
 // Comentamos las rutas que aún no existen
-const productoRoutes = require("./routes/producto.routes");
+const productoRoutes = require("./routes/articulo.routes");
 const proveedorRoutes = require("./routes/proveedor.routes");
 const rubroRoutes = require("./routes/rubro.routes");
 const provinciaRoutes = require("./routes/provincia.routes");
@@ -25,6 +25,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Rutas
 // app.use("/api/productos", productoRoutes);
+app.use("/api/articulos", productoRoutes);
 app.use("/api/proveedores", proveedorRoutes);
 app.use("/api/rubros", rubroRoutes);
 app.use("/api/provincias", provinciaRoutes);

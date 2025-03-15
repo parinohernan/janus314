@@ -4,6 +4,7 @@
   export let size: 'sm' | 'md' | 'lg' = 'md';
   export let disabled: boolean = false;
   export let fullWidth: boolean = false;
+  export let className = "";
   
   const variantClasses = {
     primary: 'bg-blue-600 hover:bg-blue-700 text-white',
@@ -24,14 +25,16 @@
     ${fullWidth ? 'w-full' : ''}
     rounded font-medium focus:outline-none focus:ring-2 focus:ring-opacity-50
     transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+    ${className}
   `;
 </script>
 
 <button
   {type}
-  class={classes}
   {disabled}
+  class="{classes}"
   on:click
+  {...$$restProps}
 >
   <slot />
 </button> 

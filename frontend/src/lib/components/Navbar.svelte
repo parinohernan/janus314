@@ -90,7 +90,7 @@
   };
 </script>
 
-<nav class="bg-white border-b border-gray-200">
+<nav class="navbar bg-blue-600 text-white shadow-md">
   <div class="container mx-auto px-4">
     <div class="flex">
       {#each menuItems as item}
@@ -129,23 +129,5 @@
 <svelte:window on:click={handleClickOutside} />
 
 <style>
-  .navbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: #333;
-    color: white;
-    padding: 1rem;
-  }
-  
-  .nav-links {
-    display: flex;
-    list-style: none;
-    gap: 1rem;
-  }
-  
-  a {
-    color: white;
-    text-decoration: none;
-  }
+  /* Mantener solo los selectores que sí están siendo utilizados */
 </style> 
