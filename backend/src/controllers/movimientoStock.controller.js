@@ -2,6 +2,7 @@ const MovimientoStock = require("../models/movimientoStock");
 const Articulo = require("../models/articulo.model");
 const sequelize = require("../config/database");
 const { QueryTypes } = require("sequelize");
+const fetch = require("node-fetch");
 
 // Obtener todos los encabezados de movimientos (agrupados)
 exports.getMovimientos = async (req, res) => {
@@ -132,6 +133,38 @@ exports.crearMovimiento = async (req, res) => {
 
   try {
     const { encabezado, items } = req.body;
+
+    // Si no se proporcionó un número de documento, obtener uno nuevo
+    if (
+      !encabezado.DocumentoNumero ||
+      encabezado.DocumentoNumero.trim() === ""
+    ) {
+      try {
+        // Llamar internamente a nuestro propio servicio para obtener el número
+        const response = await fetch(
+          `${req.protocol}://${req.get("host")}/api/numeros-control/STK/${
+            encabezado.DocumentoSucursal
+          }`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Error al obtener número de comprobante");
+        }
+
+        const numeroData = await response.json();
+        encabezado.DocumentoNumero = numeroData.data.numeroFormateado;
+        encabezado.DocumentoTipo = "STK"; // Asegurar que sea STK para movimientos de stock
+      } catch (error) {
+        console.error("Error obteniendo número de comprobante:", error);
+        throw new Error("No se pudo obtener el número de comprobante");
+      }
+    }
 
     // Validar datos del encabezado
     if (

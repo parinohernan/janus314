@@ -17,6 +17,10 @@ const sequelize = new Sequelize(
       acquire: 30000,
       idle: 10000,
     },
+    dialectOptions: {
+      timezone: "-03:00",
+    },
+    timezone: "-03:00",
   }
 );
 

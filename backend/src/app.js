@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const dotenv = require("dotenv");
+require("./config/timezone");
 
 // Cargar variables de entorno
 dotenv.config();
@@ -16,6 +17,8 @@ const localidadRoutes = require("./routes/codigoPostal.routes");
 const clienteRoutes = require("./routes/cliente.routes");
 const categoriaIvaRoutes = require("./routes/categoriaIva.routes");
 const movimientoStockRoutes = require("./routes/movimientoStock.routes");
+const numerosControlRoutes = require("./routes/numerosControl.routes");
+const datosEmpresaRoutes = require("./routes/datosEmpresa.routes");
 
 // Crear app Express
 const app = express();
@@ -36,6 +39,8 @@ app.use("/api/localidades", localidadRoutes);
 app.use("/api/clientes", clienteRoutes);
 app.use("/api/categoriasiva", categoriaIvaRoutes);
 app.use("/api/movimientos-stock", movimientoStockRoutes);
+app.use("/api/numeros-control", numerosControlRoutes);
+app.use("/api/datos-empresa", datosEmpresaRoutes);
 app.use("/api/stockmovimientos", (req, res) => {
   res.json({ message: "API de Gestión Comercial funcionando correctamente" });
 });

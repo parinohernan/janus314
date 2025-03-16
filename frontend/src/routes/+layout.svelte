@@ -44,6 +44,10 @@
 	</main>
 	
 	<footer class="bg-gray-800 text-white text-center py-4 text-sm">
-		juno314 - sistema de gestión comercial &copy; 2025
+		<div class="flex items-center justify-center">
+			<img src="/janus314.png" alt="janus314" class="w-10 h-10 rotate-180">
+			<span>janus314 - sistema de gestión comercial &copy; 2025</span>
+			<img src="/janus314.png" alt="janus314" class="w-10 h-10">
+		</div>
 	</footer>
 </div>

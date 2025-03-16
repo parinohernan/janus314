@@ -10,7 +10,10 @@
 <div class="bg-gray-800 text-white px-4 py-3">
   <div class="container mx-auto flex items-center justify-between">
     <div class="flex items-center space-x-4">
-      <div class="text-xl font-bold">{appName}</div>
+      <div class="text-xl font-bold flex items-center">
+        <img src="/janus314.png" alt="janus314" class="w-30 h-30 pl-2 pr-2 pt-2 pb-2 " style="border-radius: 50%;">
+        <h1 class="text-xl font-bold pl-6 pr-6 scale-150">{appName}</h1>
+      </div>
       <div class="text-gray-300 hidden md:block">|</div>
       <div class="text-gray-300 hidden md:block">{companyName}</div>
     </div>

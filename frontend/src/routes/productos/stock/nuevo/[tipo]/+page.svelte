@@ -5,6 +5,7 @@
   import { page } from '$app/stores';
   import { PUBLIC_API_URL } from '$env/static/public';
   import { debounce } from 'lodash-es';
+  import { getTodayISOArgentina } from '$lib/utils/dateUtils';
   
   // Tipo de movimiento (ingreso o egreso)
   const tipoMovimiento = $page.params.tipo === 'ingreso' ? 'ING' : 'EGR';
@@ -25,12 +26,18 @@
     Existencia: number;
   }
   
+  interface DatosEmpresa {
+    RazonSocial: string;
+    Sucursal: string;
+    // Otros campos que podrías necesitar
+  }
+  
   // Estado local
   let documento = {
-    DocumentoTipo: 'MOV',
-    DocumentoSucursal: '0001',
-    DocumentoNumero: '',
-    Fecha: new Date().toISOString().split('T')[0],
+    DocumentoTipo: 'STK', // Siempre usamos STK para movimientos de stock
+    DocumentoSucursal: '',
+    DocumentoNumero: '', // Lo obtendremos automáticamente del servidor
+    Fecha: getTodayISOArgentina(), // Usar la función para la fecha en zona Argentina
     MovimientoTipo: tipoMovimiento,
     Observacion: ''
   };
@@ -51,6 +58,36 @@
     codigo: '',
     cantidad: 1
   };
+  
+  // Cargar datos iniciales (sucursal)
+  onMount(async () => {
+    try {
+      if ($page.params.tipo !== 'ingreso' && $page.params.tipo !== 'egreso') {
+        goto('/productos/stock');
+        return;
+      }
+      
+      // Obtener datos de la empresa para la sucursal
+      const response = await fetch(`${PUBLIC_API_URL}/datos-empresa`);
+      
+      if (!response.ok) {
+        throw new Error('Error al cargar datos de la empresa');
+      }
+      
+      const { data } = await response.json();
+      
+      if (!data || !data.Sucursal) {
+        throw new Error('No se encontró configuración de sucursal');
+      }
+      
+      // Establecer la sucursal automáticamente
+      documento.DocumentoSucursal = data.Sucursal;
+      
+    } catch (err) {
+      console.error('Error inicializando formulario:', err);
+      error = err instanceof Error ? err.message : 'Error desconocido';
+    }
+  });
   
   // Buscar artículos por código o descripción
   const searchArticulos = async () => {
@@ -191,11 +228,6 @@
   
   // Validar el formulario completo
   const validarFormulario = () => {
-    if (!documento.DocumentoNumero) {
-      error = 'Debe ingresar un número de documento';
-      return false;
-    }
-    
     if (items.length === 0) {
       error = 'Debe agregar al menos un artículo';
       return false;
@@ -209,10 +241,11 @@
   };
   
   // Guardar el movimiento
-  const handleSubmit = async (event: Event) => {
-    event.preventDefault();
+  const handleSubmit = async (e: Event) => {
+    e.preventDefault();
     
-    if (!validarFormulario()) {
+    if (items.length === 0) {
+      error = 'Debe agregar al menos un artículo al movimiento';
       return;
     }
     
@@ -220,29 +253,21 @@
       loading = true;
       error = null;
       
-      // Preparar datos para enviar
-      const movimientoData = {
-        encabezado: {
-          DocumentoTipo: documento.DocumentoTipo,
-          DocumentoSucursal: documento.DocumentoSucursal,
-          DocumentoNumero: documento.DocumentoNumero,
-          Fecha: documento.Fecha,
-          MovimientoTipo: documento.MovimientoTipo,
-          Observacion: documento.Observacion
-        },
-        items: items.map(item => ({
-          CodigoArticulo: item.CodigoArticulo,
-          Cantidad: item.Cantidad
-        }))
-      };
+      // No es necesario enviar el número de documento, el servidor lo generará
+      // automáticamente desde la tabla t_numeroscontrol
       
-      // Enviar al servidor
       const response = await fetch(`${PUBLIC_API_URL}/movimientos-stock`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(movimientoData)
+        body: JSON.stringify({
+          encabezado: documento,
+          items: items.map(item => ({
+            CodigoArticulo: item.CodigoArticulo,
+            Cantidad: item.Cantidad
+          }))
+        })
       });
       
       if (!response.ok) {
@@ -250,16 +275,13 @@
         throw new Error(errorData.message || 'Error al guardar el movimiento');
       }
       
-      const result = await response.json();
+      const data = await response.json();
+      successMessage = `Movimiento ${data.documento.tipo}-${data.documento.sucursal}-${data.documento.numero} creado correctamente`;
       
-      // Mostrar mensaje de éxito
-      successMessage = `Movimiento creado correctamente. Documento: ${documento.DocumentoTipo}-${documento.DocumentoSucursal}-${documento.DocumentoNumero}`;
-      
-      // Reiniciar formulario
+      // Limpiar el formulario
       items = [];
-      documento.DocumentoNumero = '';
       documento.Observacion = '';
-      documento.Fecha = new Date().toISOString().split('T')[0];
+      documento.Fecha = getTodayISOArgentina();
       nuevoArticulo.codigo = '';
       nuevoArticulo.cantidad = 1;
       
@@ -275,13 +297,6 @@
       loading = false;
     }
   };
-  
-  // Al cargar, si estamos en un movimiento de tipo inválido, redirigir
-  onMount(() => {
-    if ($page.params.tipo !== 'ingreso' && $page.params.tipo !== 'egreso') {
-      goto('/productos/stock');
-    }
-  });
   
   // Formatear el tipo de movimiento para mostrar
   const formatMovimientoTipo = (tipo: string | null): string => {
@@ -326,7 +341,7 @@
     <form on:submit={handleSubmit}>
       <!-- Datos del encabezado -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <!-- Tipo de documento -->
+        <!-- Tipo de documento 
         <div>
           <label for="documentoTipo" class="block text-sm font-medium text-gray-700 mb-1">Tipo de documento</label>
           <input 
@@ -338,7 +353,7 @@
           />
         </div>
         
-        <!-- Sucursal -->
+        Sucursal
         <div>
           <label for="documentoSucursal" class="block text-sm font-medium text-gray-700 mb-1">Sucursal</label>
           <input 
@@ -350,17 +365,18 @@
           />
         </div>
         
-        <!-- Número de documento -->
+        Número de documento
         <div>
           <label for="documentoNumero" class="block text-sm font-medium text-gray-700 mb-1">Número de documento</label>
           <input 
             id="documentoNumero"
             type="text" 
             bind:value={documento.DocumentoNumero}
+            readonly
             placeholder="Ingrese número de documento"
             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-        </div>
+        </div> -->
         
         <!-- Fecha -->
         <div>
@@ -385,6 +401,7 @@
           />
         </div>
         
+        
         <!-- Observación -->
         <div class="md:col-span-2">
           <label for="observacion" class="block text-sm font-medium text-gray-700 mb-1">Observación</label>
@@ -396,7 +413,6 @@
           ></textarea>
         </div>
       </div>
-      
       <!-- Agregar artículos -->
       <div class="border-t border-b border-gray-200 py-4 mb-6">
         <h2 class="text-lg font-semibold mb-4">Artículos</h2>
