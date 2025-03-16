@@ -19,6 +19,9 @@ const categoriaIvaRoutes = require("./routes/categoriaIva.routes");
 const movimientoStockRoutes = require("./routes/movimientoStock.routes");
 const numerosControlRoutes = require("./routes/numerosControl.routes");
 const datosEmpresaRoutes = require("./routes/datosEmpresa.routes");
+const facturaRoutes = require("./routes/factura.routes");
+const vendedorRoutes = require("./routes/vendedor.routes");
+const usuarioRoutes = require("./routes/usuario.routes");
 
 // Crear app Express
 const app = express();
@@ -44,6 +47,9 @@ app.use("/api/datos-empresa", datosEmpresaRoutes);
 app.use("/api/stockmovimientos", (req, res) => {
   res.json({ message: "API de Gestión Comercial funcionando correctamente" });
 });
+app.use("/api/facturas", facturaRoutes);
+app.use("/api/vendedores", vendedorRoutes);
+app.use("/api/usuarios", usuarioRoutes);
 
 // Ruta de prueba
 app.get("/", (req, res) => {
