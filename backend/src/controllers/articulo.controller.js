@@ -60,6 +60,12 @@ exports.getAllArticulos = async (req, res) => {
         "PrecioCosto",
         "Existencia",
         "Activo",
+        "PorcentajeIva1",
+        "Lista1",
+        "Lista2",
+        "Lista3",
+        "Lista4",
+        "Lista5",
       ],
     });
 

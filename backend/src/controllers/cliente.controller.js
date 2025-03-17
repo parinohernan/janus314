@@ -66,6 +66,7 @@ exports.getAllClientes = async (req, res) => {
         "ImporteDeuda",
         "Activo",
         "CategoriaIva",
+        "ListaPrecio",
       ],
     });
 
