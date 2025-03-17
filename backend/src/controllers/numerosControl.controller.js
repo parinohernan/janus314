@@ -1,6 +1,7 @@
 const NumerosControl = require("../models/numerosControl.model");
 const sequelize = require("../config/database");
 const { QueryTypes } = require("sequelize");
+const NumeroControl = require("../models/numerosControl.model");
 
 // Obtener el próximo número disponible para un tipo de comprobante y sucursal
 exports.obtenerProximoNumero = async (req, res) => {
@@ -54,7 +55,7 @@ exports.obtenerProximoNumero = async (req, res) => {
 // Actualizar (incrementar) el próximo número para un tipo de comprobante
 exports.actualizarProximoNumero = async (req, res) => {
   const t = await sequelize.transaction();
-
+  console.log("actualizarProximoNumero", req.params);
   try {
     const { codigo, sucursal } = req.params;
 
@@ -223,6 +224,76 @@ exports.listarNumerosControl = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error al obtener listado de números de control",
+      error: error.message,
+    });
+  }
+};
+
+// Incrementar el número de control según tipo y sucursal
+exports.incrementNumber = async (req, res) => {
+  const { tipo, sucursal } = req.params;
+  const { numeroActual } = req.body;
+
+  try {
+    console.log(
+      `Incrementando número para ${tipo}/${sucursal}, actual: ${numeroActual}`
+    );
+
+    // Buscar el registro de control
+    let numeroControl = await NumeroControl.findOne({
+      where: {
+        Codigo: tipo,
+        Sucursal: sucursal,
+      },
+    });
+
+    if (!numeroControl) {
+      // Si no existe, crear uno nuevo
+      numeroControl = await NumeroControl.create({
+        Codigo: tipo,
+        Sucursal: sucursal,
+        NumeroProximo: parseInt(numeroActual) + 1 || 1,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Número de control creado e incrementado",
+        data: {
+          tipo,
+          sucursal,
+          numeroProximo: numeroControl.NumeroProximo,
+        },
+      });
+    }
+
+    // Verificar que el número actual no sea menor que el último registrado
+    const proximoGuardado = parseInt(numeroControl.NumeroProximo);
+    const actual = parseInt(numeroActual);
+
+    // Si el número actual es mayor o igual al próximo guardado, actualizamos al siguiente
+    if (actual >= proximoGuardado - 1) {
+      await numeroControl.update({
+        NumeroProximo: actual + 1,
+      });
+    } else {
+      // Si el número enviado es menor, mantenemos el mayor
+      // No actualizamos porque el próximo ya es mayor que el actual+1
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Número de control incrementado correctamente",
+      data: {
+        tipo,
+        sucursal,
+        numeroProximo: numeroControl.NumeroProximo,
+      },
+    });
+  } catch (error) {
+    console.error("Error al incrementar número de control:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error al incrementar número de control",
       error: error.message,
     });
   }

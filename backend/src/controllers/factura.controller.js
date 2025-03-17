@@ -5,7 +5,7 @@ const Cliente = require("../models/cliente.model");
 const sequelize = require("../config/database");
 const { Op } = require("sequelize");
 const fetch = require("node-fetch");
-
+const actualizarProximoNumero = require("./numerosControl.controller");
 // Obtener listado de facturas (con paginación y filtros)
 exports.listarFacturas = async (req, res) => {
   try {
@@ -84,7 +84,7 @@ exports.obtenerFactura = async (req, res) => {
       include: [
         {
           model: Cliente,
-          attributes: ["Codigo", "RazonSocial", "Domicilio", "CategoriaIva"],
+          attributes: ["Codigo", "Descripcion", "Domicilio", "CategoriaIva"],
         },
       ],
     });
@@ -137,9 +137,29 @@ exports.obtenerFactura = async (req, res) => {
 // Crear nueva factura
 exports.crearFactura = async (req, res) => {
   const t = await sequelize.transaction();
-
   try {
-    const { encabezado, items } = req.body;
+    // Modificación para aceptar tanto formato {encabezado, items} como formato plano
+    let encabezado, items;
+
+    if (req.body.encabezado && req.body.items) {
+      // Formato esperado {encabezado, items}
+      encabezado = req.body.encabezado;
+      items = req.body.items;
+    } else if (req.body.Items && Array.isArray(req.body.Items)) {
+      // Formato plano con Items en mayúscula
+      items = req.body.Items;
+      // Extraer el encabezado excluyendo la propiedad Items
+      encabezado = { ...req.body };
+      delete encabezado.Items;
+      delete encabezado.Cliente; // Eliminamos datos adicionales que no pertenecen al modelo
+    } else {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message:
+          "Debe proporcionar encabezado y al menos un ítem para la factura",
+      });
+    }
 
     // Validaciones básicas
     if (!encabezado || !items || items.length === 0) {
@@ -151,34 +171,17 @@ exports.crearFactura = async (req, res) => {
       });
     }
 
-    // Si no se proporcionó un número de documento, obtener uno nuevo
-    if (
-      !encabezado.DocumentoNumero ||
-      encabezado.DocumentoNumero.trim() === ""
-    ) {
-      try {
-        // Obtener el próximo número para el tipo de documento
-        const response = await fetch(
-          `${req.protocol}://${req.get("host")}/api/numeros-control/${
-            encabezado.DocumentoTipo
-          }/${encabezado.DocumentoSucursal}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error("Error al obtener número de factura");
-        }
-
-        const numeroData = await response.json();
-        encabezado.DocumentoNumero = numeroData.data.numeroFormateado;
-      } catch (error) {
-        console.error("Error obteniendo número de factura:", error);
-        throw new Error("No se pudo obtener el número de factura");
-      }
-    }
+    // Mapear los items al formato esperado por el modelo
+    const itemsFormateados = items.map((item) => ({
+      CodigoArticulo: item.ArticuloCodigo || item.CodigoArticulo,
+      Cantidad: item.Cantidad,
+      ImporteCosto: item.ImporteCosto || 0,
+      PrecioLista: item.PrecioLista || item.PrecioUnitario || 0,
+      PorcentajeBonificado:
+        item.PorcentajeDescuento || item.PorcentajeBonificado || 0,
+      ImporteBonificado: item.ImporteDescuento || item.ImporteBonificado || 0,
+      PrecioUnitario: item.PrecioUnitario || 0,
+    }));
 
     // Calcular totales
     let importeBruto = 0;
@@ -189,7 +192,7 @@ exports.crearFactura = async (req, res) => {
     let baseImponible2 = 0;
 
     // Procesar artículos y calcular totales
-    for (const item of items) {
+    for (const item of itemsFormateados) {
       const articulo = await Articulo.findByPk(item.CodigoArticulo, {
         transaction: t,
       });
@@ -270,7 +273,7 @@ exports.crearFactura = async (req, res) => {
     });
 
     // Crear items de factura
-    for (const item of items) {
+    for (const item of itemsFormateados) {
       await FacturaItem.create(
         {
           DocumentoTipo: encabezado.DocumentoTipo,
@@ -286,6 +289,30 @@ exports.crearFactura = async (req, res) => {
         },
         { transaction: t }
       );
+    }
+
+    // Actualizar el próximo número de documento
+    try {
+      const response = await fetch(
+        `${req.protocol}://${req.get("host")}/api/numeros-control/${
+          encabezado.DocumentoTipo
+        }/${encabezado.DocumentoSucursal}/incrementar`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ numeroActual: encabezado.DocumentoNumero }),
+        }
+      );
+      console.log("response actualizarProximoNumero", response);
+      if (!response.ok) {
+        console.error(
+          "Error en la respuesta al actualizar próximo número:",
+          await response.text()
+        );
+      }
+    } catch (error) {
+      console.error("Error actualizando próximo número de documento:", error);
+      // No interrumpimos la transacción por este error
     }
 
     await t.commit();

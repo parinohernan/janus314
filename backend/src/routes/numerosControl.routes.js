@@ -20,4 +20,10 @@ router.post(
   numerosControlController.obtenerYActualizarNumero
 );
 
+// Incrementar el próximo número de control
+router.post(
+  "/:tipo/:sucursal/incrementar",
+  numerosControlController.incrementNumber
+);
+
 module.exports = router;

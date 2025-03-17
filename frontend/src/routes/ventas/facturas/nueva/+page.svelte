@@ -454,7 +454,6 @@
   
   // Guardar factura
   const guardarFactura = async () => {
-    console.log("guardarFactura",factura);
     if (!factura.ClienteCodigo) {
       error = "Debe seleccionar un cliente";
       return;
@@ -487,7 +486,8 @@
       
       // Redirigir a la vista de detalle después de 2 segundos
       setTimeout(() => {
-        goto(`/ventas/facturas/${data.DocumentoTipo}/${data.DocumentoSucursal}/${data.DocumentoNumero}`);
+        goto(`/ventas/facturas/`);
+        // ${factura.DocumentoTipo}/${factura.DocumentoSucursal}/${factura.DocumentoNumero}
       }, 2000);
       
     } catch (err) {
