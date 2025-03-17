@@ -456,7 +456,7 @@
                 {formatDateOnly(factura.Fecha)}
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
-                {factura.Cliente ? factura.Cliente.Descripcion || factura.Cliente.RazonSocial || 'Cliente no asignado' : 'Cliente no asignado'}
+                {factura.Cliente ? factura.Cliente.RazonSocial || 'Cliente no asignado' : 'Cliente no asignado'}
               </td>
               <td class="px-4 py-3 whitespace-nowrap text-right">
                 ${factura.ImporteTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

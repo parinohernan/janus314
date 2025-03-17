@@ -25,7 +25,7 @@ exports.getAllClientes = async (req, res) => {
         { Descripcion: { [Op.like]: `%${search}%` } },
         { Cuit: { [Op.like]: `%${search}%` } },
         { NombreFantasia: { [Op.like]: `%${search}%` } },
-        { Localidad: { [Op.like]: `%${search}%` } },
+        // { Localidad: { [Op.like]: `%${search}%` } },
       ];
     }
 
@@ -36,6 +36,7 @@ exports.getAllClientes = async (req, res) => {
       "NombreFantasia",
       "ImporteDeuda",
       "Activo",
+      "CategoriaIva",
     ];
     const sortField = validFields.includes(field) ? field : "Descripcion";
     const sortOrder = order === "DESC" ? "DESC" : "ASC";
@@ -64,6 +65,7 @@ exports.getAllClientes = async (req, res) => {
         "Telefono",
         "ImporteDeuda",
         "Activo",
+        "CategoriaIva",
       ],
     });
 

@@ -11,10 +11,13 @@
   <div class="container mx-auto flex items-center justify-between">
     <div class="flex items-center space-x-4">
       <div class="text-xl font-bold flex items-center">
-        <div class="relative w-30 h-30 pl-2 pr-2 pt-2 pb-2">
-          <img src="/janus314.png" alt="janus314" class="w-full h-full rounded-full" style="mask-image: radial-gradient(circle, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 90%);">
-        </div>
-        <h1 class="text-xl font-bold pl-6 pr-6 scale-150">{appName}</h1>
+        <a href="/" class="relative w-30 h-30 pl-2 pr-2 pt-2 pb-2 group cursor-pointer">
+          <img src="/janus314.png" alt="janus314" class="w-full h-full rounded-full transition-all duration-300 transform group-hover:scale-110 group-hover:rotate-6" style="mask-image: radial-gradient(circle, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 90%);">
+          <div class="absolute inset-0 bg-blue-500 rounded-full opacity-0 group-hover:opacity-25 transition-opacity duration-300" style="mask-image: radial-gradient(circle, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 90%);"></div>
+        </a>
+        <a href="/" class="cursor-pointer">
+          <h1 class="text-xl font-bold pl-6 pr-6 scale-150">{appName}</h1>
+        </a>
       </div>
       <div class="text-gray-300 hidden md:block">|</div>
       <div class="text-gray-300 hidden md:block">{companyName}</div>
