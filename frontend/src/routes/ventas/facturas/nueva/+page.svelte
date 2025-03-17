@@ -19,19 +19,26 @@
     PrecioCosto: number;
     PrecioVenta?: number;
     PorcentajeIva?: number;
+    PorcentajeIva1?: number;
     Existencia: number;
     Activo: number;
+    Lista1?: number;
+    Lista2?: number;
+    Lista3?: number;
+    Lista4?: number;
+    Lista5?: number;
   }
   
   interface ItemFactura {
     ArticuloCodigo: string;
     Descripcion: string;
     Cantidad: number;
-    PrecioUnitario: number;
-    PorcentajeIva: number;
-    PorcentajeDescuento: number;
-    Subtotal: number;
-    SubtotalConIva: number;
+    PrecioLista: number;           // Precio de lista sin IVA
+    PorcentajeDescuento: number;   // Porcentaje de descuento
+    PrecioUnitario: number;        // Precio lista con descuento aplicado (sin IVA)
+    PorcentajeIva: number;         // Porcentaje de IVA
+    PrecioUnitarioConIva: number;  // Precio unitario con IVA
+    Total: number;                 // Total del ítem (precio unitario con IVA * cantidad)
     enEdicion?: boolean;
   }
   
@@ -239,24 +246,25 @@
     console.log("agregarArticulo", articuloSeleccionado);
     if (!articuloSeleccionado) return;
     
-    // Usar PrecioVenta si existe, o PrecioCosto como alternativa
-    const precioUnitario = articuloSeleccionado.PrecioVenta || articuloSeleccionado.PrecioCosto || 0;
+    // Obtener precio según la lista seleccionada
+    const precioLista = obtenerPrecioSegunLista(articuloSeleccionado, factura.ListaPrecio);
     // Usar el PorcentajeIva del artículo o 21 como valor predeterminado
-    const porcentajeIva = articuloSeleccionado.PorcentajeIva || 21;
+    const porcentajeIva = articuloSeleccionado.PorcentajeIva1 || 21;
     
     const nuevoItem: ItemFactura = {
       ArticuloCodigo: articuloSeleccionado.Codigo,
       Descripcion: articuloSeleccionado.Descripcion,
       Cantidad: cantidadArticulo,
-      PrecioUnitario: precioUnitario,
-      PorcentajeIva: porcentajeIva,
+      PrecioLista: precioLista,
       PorcentajeDescuento: 0,
-      Subtotal: 0,
-      SubtotalConIva: 0,
+      PrecioUnitario: precioLista, // Inicialmente igual al precio de lista (sin descuento)
+      PorcentajeIva: porcentajeIva,
+      PrecioUnitarioConIva: 0, // Se calculará en recalcularItem
+      Total: 0, // Se calculará en recalcularItem
       enEdicion: false
     };
     
-    // Calcular subtotales
+    // Calcular valores derivados
     recalcularItem(nuevoItem);
     
     factura.Items = [...factura.Items, nuevoItem];
@@ -268,20 +276,46 @@
     cantidadArticulo = 1;
   };
   
-  // Función para recalcular un ítem individual
+  // Obtener precio según la lista seleccionada
+  const obtenerPrecioSegunLista = (articulo: Articulo, listaId: string): number => {
+    // Aquí deberías implementar la lógica para obtener el precio según la lista
+    // Por ahora, usamos una lógica simple basada en el PrecioCosto
+    
+    const precioCosto = articulo.PrecioCosto || 0;
+    console.log("articulo", articulo);
+    
+    // Valores predeterminados en caso de que las propiedades no existan
+    const lista1 = articulo.Lista1 || 30;
+    const lista2 = articulo.Lista2 || 40;
+    const lista3 = articulo.Lista3 || 50;
+    const lista4 = articulo.Lista4 || 60;
+    const lista5 = articulo.Lista5 || 70;
+    
+    switch(listaId) {
+      case '1': return precioCosto * (1 + lista1/100);
+      case '2': return precioCosto * (1 + lista2/100);
+      case '3': return precioCosto * (1 + lista3/100);
+      case '4': return precioCosto * (1 + lista4/100);
+      case '5': return precioCosto * (1 + lista5/100);
+      default: return precioCosto * (1 + lista1/100);
+    }
+  };
+  
+  // Función para recalcular un ítem individual (actualizada)
   const recalcularItem = (item: ItemFactura) => {
-    // Calcular subtotal con descuento
-    const subtotalSinDescuento = item.Cantidad * item.PrecioUnitario;
-    const descuento = subtotalSinDescuento * (item.PorcentajeDescuento / 100);
-    item.Subtotal = subtotalSinDescuento - descuento;
+    // 1. Calcular precio unitario con descuento aplicado (sin IVA)
+    item.PrecioUnitario = item.PrecioLista * (1 - (item.PorcentajeDescuento / 100));
     
-    // Calcular subtotal con IVA
-    const iva = item.Subtotal * (item.PorcentajeIva / 100);
-    item.SubtotalConIva = item.Subtotal + iva;
+    // 2. Calcular precio unitario con IVA
+    item.PrecioUnitarioConIva = item.PrecioUnitario * (1 + (item.PorcentajeIva / 100));
     
-    // Redondear valores
-    item.Subtotal = parseFloat(item.Subtotal.toFixed(2));
-    item.SubtotalConIva = parseFloat(item.SubtotalConIva.toFixed(2));
+    // 3. Calcular total del ítem (precio unitario con IVA * cantidad)
+    item.Total = item.PrecioUnitarioConIva * item.Cantidad;
+    
+    // Redondear valores para evitar problemas de precisión
+    item.PrecioUnitario = parseFloat(item.PrecioUnitario.toFixed(2));
+    item.PrecioUnitarioConIva = parseFloat(item.PrecioUnitarioConIva.toFixed(2));
+    item.Total = parseFloat(item.Total.toFixed(2));
   };
   
   // Activar/desactivar modo edición para un ítem
@@ -318,44 +352,57 @@
     recalcularTotales();
   };
   
-  // Recalcular totales
+  // Recalcular totales (actualizado)
   const recalcularTotales = () => {
-    // 1. Calcular importe bruto (suma de subtotales sin IVA)
+    // Inicializar valores
     let importeBruto = 0;
+    let importeIva1 = 0; // IVA 21%
+    let importeIva2 = 0; // IVA 10.5%
+    
     factura.Items.forEach(item => {
-      importeBruto += item.Subtotal;
+      // Calcular importe bruto (suma de precios unitarios * cantidad)
+      importeBruto += item.PrecioUnitario * item.Cantidad;
     });
+    
+    // Actualizar importe bruto
     factura.ImporteBruto = parseFloat(importeBruto.toFixed(2));
     
-    // 2. Calcular descuento general
+    // Calcular descuento general
     factura.ImporteDescuento = parseFloat((factura.ImporteBruto * (factura.PorcentajeDescuento / 100)).toFixed(2));
     
-    // 3. Calcular importe neto (después del descuento)
+    // Calcular importe neto (después del descuento)
     factura.ImporteNeto = parseFloat((factura.ImporteBruto - factura.ImporteDescuento).toFixed(2));
     
-    // 4. Calcular IVA1 e IVA2
-    let importeIva1 = 0;
-    let importeIva2 = 0;
+    // Calcular IVA sobre el importe neto (después del descuento general)
+    // Necesitamos calcular la proporción de cada alícuota de IVA en el total
+    let baseIva21 = 0;
+    let baseIva10_5 = 0;
     
     factura.Items.forEach(item => {
-      // Asumimos que IVA1 es 21% e IVA2 es 10.5%
-      // Ajusta estos valores según tu lógica de negocio
+      const importeItem = item.PrecioUnitario * item.Cantidad;
+      // Aplicar el mismo porcentaje de descuento general a cada ítem
+      const importeItemConDescuento = importeItem * (1 - (factura.PorcentajeDescuento / 100));
+      
       if (item.PorcentajeIva === 21) {
-        importeIva1 += item.Subtotal * (item.PorcentajeIva / 100);
+        baseIva21 += importeItemConDescuento;
       } else if (item.PorcentajeIva === 10.5) {
-        importeIva2 += item.Subtotal * (item.PorcentajeIva / 100);
+        baseIva10_5 += importeItemConDescuento;
       }
-      // Otros porcentajes de IVA se pueden manejar según sea necesario
     });
     
+    // Calcular IVA sobre las bases imponibles con descuento aplicado
+    importeIva1 = baseIva21 * 0.21;
+    importeIva2 = baseIva10_5 * 0.105;
+    
+    // Actualizar valores de IVA
     factura.ImporteIva1 = parseFloat(importeIva1.toFixed(2));
     factura.ImporteIva2 = parseFloat(importeIva2.toFixed(2));
     factura.ImporteIva = parseFloat((importeIva1 + importeIva2).toFixed(2));
     
-    // 5. Calcular Ingresos Brutos (por ahora 0)
+    // Calcular Ingresos Brutos
     factura.ImporteIngresosBrutos = parseFloat((factura.ImporteNeto * (factura.PorcentajeIngresosBrutos / 100)).toFixed(2));
     
-    // 6. Calcular importe total
+    // Calcular importe total
     factura.ImporteTotal = parseFloat((
       factura.ImporteNeto + 
       factura.ImporteIva1 + 
@@ -369,10 +416,40 @@
     recalcularTotales();
   };
   
-  // Cambiar lista de precios
+  // Cambiar lista de precios (actualizado)
   const cambiarListaPrecio = () => {
-    // Aquí podrías implementar lógica adicional si es necesario
     console.log("Lista de precios cambiada a:", factura.ListaPrecio);
+    
+    // Actualizar precios de todos los ítems según la nueva lista
+    if (factura.Items.length > 0) {
+      // Crear una copia del array para mantener reactividad
+      const items = [...factura.Items];
+      
+      // Para cada ítem, buscar el artículo y actualizar su precio
+      items.forEach(async (item) => {
+        try {
+          // Obtener datos actualizados del artículo
+          const response = await fetch(`${PUBLIC_API_URL}/articulos/${item.ArticuloCodigo}`);
+          if (response.ok) {
+            const articulo = await response.json();
+            
+            // Actualizar precio de lista según la nueva lista
+            item.PrecioLista = obtenerPrecioSegunLista(articulo, factura.ListaPrecio);
+            
+            // Recalcular valores derivados
+            recalcularItem(item);
+          }
+        } catch (error) {
+          console.error('Error actualizando precio del artículo:', error);
+        }
+      });
+      
+      // Actualizar el array de ítems
+      factura.Items = items;
+      
+      // Recalcular totales de la factura
+      recalcularTotales();
+    }
   };
   
   // Guardar factura
@@ -645,7 +722,7 @@
       </div>
     </div>
     
-    <!-- Tabla de artículos -->
+    <!-- Tabla de artículos (actualizada) -->
     {#if factura.Items.length > 0}
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -654,10 +731,12 @@
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Desc. %</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">IVA %</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Lista</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">% Desc.</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Unit.</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">% IVA</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio C/IVA</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
               <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
             </tr>
           </thead>
@@ -667,7 +746,7 @@
                 <td class="px-4 py-3 whitespace-nowrap text-sm">{item.ArticuloCodigo}</td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm">{item.Descripcion}</td>
                 
-                <!-- Campos editables -->
+                <!-- Cantidad -->
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
                   {#if item.enEdicion}
                     <input 
@@ -682,20 +761,12 @@
                   {/if}
                 </td>
                 
+                <!-- Precio Lista -->
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
-                  {#if item.enEdicion}
-                    <input 
-                      type="number" 
-                      bind:value={item.PrecioUnitario} 
-                      min="0" 
-                      step="0.01"
-                      class="w-24 px-2 py-1 text-right border border-gray-300 rounded"
-                    />
-                  {:else}
-                    ${item.PrecioUnitario.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  {/if}
+                  ${item.PrecioLista.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
                 
+                <!-- % Descuento -->
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
                   {#if item.enEdicion}
                     <input 
@@ -711,13 +782,24 @@
                   {/if}
                 </td>
                 
-                <!-- Campo IVA (no editable) -->
+                <!-- Precio Unitario (con descuento, sin IVA) -->
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
+                  ${item.PrecioUnitario.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+                
+                <!-- % IVA (no editable) -->
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
                   {item.PorcentajeIva}%
                 </td>
                 
+                <!-- Precio con IVA -->
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
-                  ${item.Subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${item.PrecioUnitarioConIva.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+                
+                <!-- Total -->
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
+                  ${item.Total.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
                 
                 <td class="px-4 py-3 whitespace-nowrap text-center">
