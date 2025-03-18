@@ -10,7 +10,8 @@
         { label: 'Usuarios', url: '/usuarios' },
         { label: 'Localidades', url: '/localidades' },
         { label: 'Provincias', url: '/provincias' },
-        { label: 'Rutas', url: '/rutas' }
+        { label: 'Rutas', url: '/rutas' },
+        { label: 'Tipos de Pago', url: '/tablas/tipos-de-pago' }
       ]
     },
     {

@@ -1,46 +1,11 @@
+
 <script lang="ts">
   import { onMount } from 'svelte';
+  import type { Cliente, Articulo, ItemFactura, Factura } from '$lib/types/index';
   import { goto } from '$app/navigation';
   import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
-  import { formatDateOnly } from '$lib/utils/dateUtils';
-  
-  // Interfaces
-  interface Cliente {
-    Codigo: string;
-    Descripcion: string;
-    CategoriaIva: string;
-    ListaPrecio?: string;
-  }
-  
-  interface Articulo {
-    Codigo: string;
-    Descripcion: string;
-    PrecioCosto: number;
-    PrecioVenta?: number;
-    PorcentajeIva?: number;
-    PorcentajeIva1?: number;
-    Existencia: number;
-    Activo: number;
-    Lista1?: number;
-    Lista2?: number;
-    Lista3?: number;
-    Lista4?: number;
-    Lista5?: number;
-  }
-  
-  interface ItemFactura {
-    ArticuloCodigo: string;
-    Descripcion: string;
-    Cantidad: number;
-    PrecioLista: number;           // Precio de lista sin IVA
-    PorcentajeDescuento: number;   // Porcentaje de descuento
-    PrecioUnitario: number;        // Precio lista con descuento aplicado (sin IVA)
-    PorcentajeIva: number;         // Porcentaje de IVA
-    PrecioUnitarioConIva: number;  // Precio unitario con IVA
-    Total: number;                 // Total del ítem (precio unitario con IVA * cantidad)
-    enEdicion?: boolean;
-  }
+  // import { formatDateOnly } from '$lib/utils/dateUtils';
   
   // Modelo de factura
   let factura = {

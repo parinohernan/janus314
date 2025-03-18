@@ -22,6 +22,7 @@ const datosEmpresaRoutes = require("./routes/datosEmpresa.routes");
 const facturaRoutes = require("./routes/factura.routes");
 const vendedorRoutes = require("./routes/vendedor.routes");
 const usuarioRoutes = require("./routes/usuario.routes");
+const tipoDePagoRoutes = require("./routes/tipoDePago.routes");
 
 // Crear app Express
 const app = express();
@@ -50,6 +51,9 @@ app.use("/api/stockmovimientos", (req, res) => {
 app.use("/api/facturas", facturaRoutes);
 app.use("/api/vendedores", vendedorRoutes);
 app.use("/api/usuarios", usuarioRoutes);
+
+// Rutas de tipo de pago
+app.use("/api/tipos-de-pago", tipoDePagoRoutes);
 
 // Ruta de prueba
 app.get("/", (req, res) => {

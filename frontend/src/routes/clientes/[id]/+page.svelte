@@ -7,57 +7,57 @@
   
   let isEditing = $page.params.id !== 'nuevo';
   
-  interface Cliente {
-    Codigo: string;
-    Descripcion: string;
-    NombreFantasia: string;
-    Cuit: string;
-    Calle: string;
-    Numero: string;
-    Piso: string;
-    Departamento: string;
-    ProvinciaCodigo: string;
-    CodigoPostal: string;
-    Localidad: string;
-    ContactoNombre: string;
-    Mail: string;
-    Telefono: string;
-    TelefonoMovil: string;
-    ContactoComercial: string;
-    CategoriaIva: string;
-    ListaPrecio: string;
-    ImporteDeuda: number;
-    CodigoVendedor: string;
-    Actualizado: number;
-    SaldoNTCNoAplicado: number;
-    Activo: number;
-    LimiteCredito: number;
-    CanalCodigo: string;
-    FechaDeAlta: string;
-    FechaDeBaja: string;
-    TransporteCodigo: string;
-    DirEntregaCalle: string;
-    DirEntregaNumero: string;
-    DirEntregaPiso: string;
-    DirEntregaDpto: string;
-    DirEntregaProvinciaCodigo: string;
-    DirEntregaLocalidadCodigo: string;
-    CondicionVentaCodigo: string;
-    PorcentajeBonificacionGeneral: number;
-    GrupoPercepcionIIBBCodigo: string;
-    PorcentajePercepcionIIBB: number;
-    GrupoCodigo: string;
-    cant_facturas_impagas_max: number;
-    ZonaCodigo: string;
-    InvCuentaVentas: number | null;
-    CliCuentaCredito: number | null;
-    TipoDocumento: string;
-    CodigoLocalidad: string;
-    CategoriaIvaRelacion?: {
-      Descripcion: string;
-    };
-  }
-  
+  // interface Cliente {
+  //   Codigo: string;
+  //   Descripcion: string;
+  //   NombreFantasia: string;
+  //   Cuit: string;
+  //   Calle: string;
+  //   Numero: string;
+  //   Piso: string;
+  //   Departamento: string;
+  //   ProvinciaCodigo: string;
+  //   CodigoPostal: string;
+  //   Localidad: string;
+  //   ContactoNombre: string;
+  //   Mail: string;
+  //   Telefono: string;
+  //   TelefonoMovil: string;
+  //   ContactoComercial: string;
+  //   CategoriaIva: string;
+  //   ListaPrecio: string;
+  //   ImporteDeuda: number;
+  //   CodigoVendedor: string;
+  //   Actualizado: number;
+  //   SaldoNTCNoAplicado: number;
+  //   Activo: number;
+  //   LimiteCredito: number;
+  //   CanalCodigo: string;
+  //   FechaDeAlta: string;
+  //   FechaDeBaja: string;
+  //   TransporteCodigo: string;
+  //   DirEntregaCalle: string;
+  //   DirEntregaNumero: string;
+  //   DirEntregaPiso: string;
+  //   DirEntregaDpto: string;
+  //   DirEntregaProvinciaCodigo: string;
+  //   DirEntregaLocalidadCodigo: string;
+  //   CondicionVentaCodigo: string;
+  //   PorcentajeBonificacionGeneral: number;
+  //   GrupoPercepcionIIBBCodigo: string;
+  //   PorcentajePercepcionIIBB: number;
+  //   GrupoCodigo: string;
+  //   cant_facturas_impagas_max: number;
+  //   ZonaCodigo: string;
+  //   InvCuentaVentas: number | null;
+  //   CliCuentaCredito: number | null;
+  //   TipoDocumento: string;
+  //   CodigoLocalidad: string;
+  //   CategoriaIvaRelacion?: {
+  //     Descripcion: string;
+  //   };
+  // }
+  import type { Cliente } from '$lib/types/cliente';
   interface CategoriaIva {
     Codigo: string;
     Descripcion: string;
@@ -217,7 +217,7 @@
         goto(`/clientes/${cliente.Codigo}`, { replaceState: true });
         isEditing = true;
       }
-      
+      goto('/clientes', { replaceState: true });
     } catch (err: unknown) {
       console.error('Error guardando cliente:', err);
       if (err instanceof Error) {

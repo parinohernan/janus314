@@ -8,18 +8,19 @@
   import { navigationState } from '$lib/stores/navigationState';
   
   // Definir interfaces para los tipos
-  interface Cliente {
-    Codigo: string;
-    Descripcion: string;
-    NombreFantasia: string;
-    Cuit: string;
-    Telefono: string;
-    ImporteDeuda: number;
-    Activo: number;
-    CategoriaIvaRelacion?: {
-      Descripcion: string;
-    };
-  }
+  // interface Cliente {
+  //   Codigo: string;
+  //   Descripcion: string;
+  //   NombreFantasia: string;
+  //   Cuit: string;
+  //   Telefono: string;
+  //   ImporteDeuda: number;
+  //   Activo: number;
+  //   CategoriaIvaRelacion?: {
+  //     Descripcion: string;
+  //   };
+  // }
+  import type { Cliente } from '$lib/types/cliente';
   
   interface Pagination {
     currentPage: number;
@@ -383,7 +384,7 @@
                 
                 <button 
                   class="{cliente.Activo ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white px-2 py-1 rounded text-sm ml-2"
-                  on:click={() => handleToggleActivo(cliente.Codigo, cliente.Activo)}
+                  on:click={() => handleToggleActivo(cliente.Codigo, cliente.Activo ?? 0)}
                 >
                   {cliente.Activo ? 'Desactivar' : 'Activar'}
                 </button>

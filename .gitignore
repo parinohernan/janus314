@@ -22,3 +22,8 @@ node_modules/
 /frontend/public
 # Archivos generados por Svelte Kit
 /frontend/.svelte-kit/
+
+# Archivos de configuración de la base de datos
+/backend/config/config.json
+/backend/config/config.js
+/backend/config/config.json
