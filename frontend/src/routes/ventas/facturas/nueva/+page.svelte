@@ -68,7 +68,17 @@
   
   // Cargar formas de pago desde la API
   onMount(async () => {
+    
     try {
+
+    // obtener sucursal
+    const responseSucursal = await fetch(`${PUBLIC_API_URL}/datos-empresa`);
+    if (!responseSucursal.ok) {
+      throw new Error('Error al cargar datos de la empresa');
+    }
+    const { data } = await responseSucursal.json();
+    factura.DocumentoSucursal = data.Sucursal;
+    // Obtener formas de pago
       const response = await fetch(`${PUBLIC_API_URL}/tipos-de-pago`);
       if (response.ok) {
         const data = await response.json();

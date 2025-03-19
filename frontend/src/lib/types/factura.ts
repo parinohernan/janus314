@@ -33,5 +33,7 @@ export interface Factura {
 	ImporteIva: number;
 	ImporteTotal: number;
 	Observacion: string;
+	FormaPagoCodigo: string;
+	FormaPago: string;
 	Items: ItemFactura[];
 }

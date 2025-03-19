@@ -96,6 +96,8 @@
       const params = new URLSearchParams();
       params.append('page', currentPage.toString());
       params.append('limit', itemsPerPage.toString());
+      params.append('orderBy', 'Fecha');  // Ordenar por fecha
+      params.append('orderDir', 'desc');  // Orden
       
       if (filtroTipo) params.append('tipo', filtroTipo);
       if (filtroCliente) params.append('cliente', filtroCliente);
@@ -114,6 +116,7 @@
       
       const data = await response.json();
       facturas = data.items;
+      console.log("facturas", facturas);
       totalItems = data.meta.totalItems;
       currentPage = data.meta.currentPage;
       totalPages = data.meta.totalPages;

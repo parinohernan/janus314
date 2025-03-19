@@ -45,7 +45,12 @@ exports.listarFacturas = async (req, res) => {
           attributes: ["Codigo", "Descripcion"],
         },
       ],
-      order: [["Fecha", "DESC"]],
+      order: [
+        ["DocumentoSucursal", "DESC"],
+        ["DocumentoTipo", "DESC"],
+        ["DocumentoNumero", "DESC"],
+      ],
+
       limit,
       offset,
     });
@@ -173,7 +178,21 @@ exports.crearFactura = async (req, res) => {
       const cliente = await Cliente.findByPk(encabezado.ClienteCodigo, {
         transaction: t,
       });
-      cliente.Saldo = cliente.Saldo + encabezado.ImporteTotal;
+      if (
+        encabezado.DocumentoTipo === "FCA" ||
+        encabezado.DocumentoTipo === "FCB" ||
+        encabezado.DocumentoTipo === "FCC" ||
+        encabezado.DocumentoTipo === "PRF"
+      ) {
+        cliente.ImporteDeuda = cliente.ImporteDeuda + encabezado.ImporteTotal;
+      } else if (
+        encabezado.DocumentoTipo === "NCA" ||
+        encabezado.DocumentoTipo === "NCB" ||
+        encabezado.DocumentoTipo === "NCC" ||
+        encabezado.DocumentoTipo === "NCF"
+      ) {
+        cliente.ImporteDeuda = cliente.ImporteDeuda - encabezado.ImporteTotal;
+      }
       await cliente.save({ transaction: t });
     }
 
