@@ -1,10 +1,10 @@
-
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { Cliente, Articulo, ItemFactura, Factura } from '$lib/types/index';
   import { goto } from '$app/navigation';
   import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
+  import EntitySelector from '$lib/components/ui/EntitySelector.svelte';
   // import { formatDateOnly } from '$lib/utils/dateUtils';
   
   // Modelo de factura
@@ -27,6 +27,8 @@
     ImporteIva: 0,
     ImporteTotal: 0,
     Observacion: '',
+    FormaPagoCodigo: '',
+    FormaPago: null as { value: string, label: string } | null,
     Items: [] as ItemFactura[]
   };
   
@@ -58,22 +60,42 @@
   // Actualizar la variable cuando cambian los valores
   $: sucursalNumeroDisplay = factura.DocumentoSucursal + " - " + (factura.DocumentoNumero ? factura.DocumentoNumero.toString().padStart(8, '0') : '00000000');
   
-  // Cargar datos iniciales
+  // Agregar esto junto a las otras variables de estado
+  let formasPago: { value: string, label: string }[] = [];
+  
+  // Agregar variable para controlar la visibilidad del encabezado completo
+  let mostrarEncabezadoCompleto = true;
+  
+  // Cargar formas de pago desde la API
   onMount(async () => {
-     // Obtener datos de la empresa para la sucursal
-     const response = await fetch(`${PUBLIC_API_URL}/datos-empresa`);
-      
-      if (!response.ok) {
-        throw new Error('Error al cargar datos de la empresa');
+    try {
+      const response = await fetch(`${PUBLIC_API_URL}/tipos-de-pago`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log("data",data);
+        formasPago = data.items.map((item: { Codigo: string, Descripcion: string }) => ({
+          value: item.Codigo,
+          label: item.Descripcion
+        }));
       }
+    } catch (error) {
+      console.error('Error cargando formas de pago:', error);
+    }
+    
+    // Obtener datos de la empresa para la sucursal
+    const responseEmpresa = await fetch(`${PUBLIC_API_URL}/datos-empresa`);
       
-      const { data } = await response.json();
+    if (!responseEmpresa.ok) {
+      throw new Error('Error al cargar datos de la empresa');
+    }
       
-      if (!data || !data.Sucursal) {
-        throw new Error('No se encontró configuración de sucursal');
-      }
-      // Establecer la sucursal automáticamente
-      factura.DocumentoSucursal = data.Sucursal;
+    const { data } = await responseEmpresa.json();
+      
+    if (!data || !data.Sucursal) {
+      throw new Error('No se encontró configuración de sucursal');
+    }
+    // Establecer la sucursal automáticamente
+    factura.DocumentoSucursal = data.Sucursal;
   });
   
   // Actualizar tipos de documento según categoría IVA del cliente
@@ -383,8 +405,6 @@
   
   // Cambiar lista de precios (actualizado)
   const cambiarListaPrecio = () => {
-    console.log("Lista de precios cambiada a:", factura.ListaPrecio);
-    
     // Actualizar precios de todos los ítems según la nueva lista
     if (factura.Items.length > 0) {
       // Crear una copia del array para mantener reactividad
@@ -426,6 +446,11 @@
     
     if (factura.Items.length === 0) {
       error = "La factura debe tener al menos un artículo";
+      return;
+    }
+    
+    if (!factura.FormaPagoCodigo) {
+      error = "Debe seleccionar una forma de pago";
       return;
     }
     
@@ -503,117 +528,156 @@
     </div>
   {/if}
   
-  <!-- Datos de la factura (actualizado) -->
+  <!-- Datos de la factura (reestructurado) -->
   <div class="bg-white p-6 rounded-lg shadow-md mb-6">
-    <h2 class="text-xl font-semibold mb-4">Datos de la Factura</h2>
-    
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <!-- Primera columna -->
-      <div>
-        <div class="mb-4">
-          <label for="tipoDocumento" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento</label>
-          <select 
-            id="tipoDocumento" 
-            bind:value={factura.DocumentoTipo}
-            on:change={obtenerProximoNumero}
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {#each tiposDocumento as tipo}
-              <option value={tipo.value}>{tipo.label}</option>
-            {/each}
-          </select>
-        </div>
-        
-        <div class="mb-4">
-          <label for="sucursal" class="block text-sm font-medium text-gray-700 mb-1">Sucursal - Número</label>
-          <input 
-            id="sucursal" 
-            type="text" 
-            bind:value={sucursalNumeroDisplay}
-            disabled
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-      </div>
-      
-      <!-- Segunda columna -->
-      <div>
-        <div class="mb-4">
-          <label for="fecha" class="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
-          <input 
-            id="fecha" 
-            type="date" 
-            bind:value={factura.Fecha}
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        
-        <div class="mb-4">
-          <label for="listaPrecio" class="block text-sm font-medium text-gray-700 mb-1">Lista de Precios</label>
-          <select 
-            id="listaPrecio" 
-            bind:value={factura.ListaPrecio}
-            on:change={cambiarListaPrecio}
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {#each listasPrecio as lista}
-              <option value={lista.value}>{lista.label}</option>
-            {/each}
-          </select>
-        </div>
-      </div>
-      
-      <!-- Tercera columna -->
-      <div>
-        <div class="mb-4 relative">
-          <label for="cliente" class="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
-          <input
-            type="text"
-            id="cliente"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-            placeholder="Buscar cliente..."
-            bind:value={clientesBusqueda}
-            on:input={() => buscarClientes(clientesBusqueda)}
-            autocomplete="off"
-          />
-          
-          {#if clientesLoading}
-            <div class="absolute right-3 top-1/2 -translate-y-1/2">
-              <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-            </div>
-          {/if}
-          
-          {#if clientesOptions.length > 0}
-            <div class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base overflow-auto focus:outline-none sm:text-sm">
-              <ul>
-                {#each clientesOptions as cliente}
-                  <li>
-                    <button 
-                      class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-100 w-full text-left"
-                      on:click={() => seleccionarCliente(cliente)}
-                    >
-                      <div class="flex items-center">
-                        <span class="font-normal block truncate">{cliente.Codigo} - {cliente.Descripcion}</span>
-                      </div>
-                    </button>
-                  </li>
-                {/each}
-              </ul>
-            </div>
-          {/if}
-        </div>
-        
-        <div class="mb-4">
-          <label for="observacion" class="block text-sm font-medium text-gray-700 mb-1">Observación</label>
-          <textarea 
-            id="observacion" 
-            bind:value={factura.Observacion}
-            rows="2"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          ></textarea>
-        </div>
-      </div>
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-xl font-semibold">Datos de la Factura</h2>
+      <button 
+        type="button" 
+        class="text-sm text-blue-600 hover:text-blue-800"
+        on:click={() => mostrarEncabezadoCompleto = !mostrarEncabezadoCompleto}
+      >
+        {mostrarEncabezadoCompleto ? 'Ocultar detalles' : 'Mostrar detalles'}
+      </button>
     </div>
+    
+    <!-- Primera fila - siempre visible -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 mb-4">
+      <!-- Cliente (siempre visible) - reducido de col-span-2 a col-span-3 -->
+      <div class="relative lg:col-span-3">
+        <label for="cliente" class="block text-sm font-medium text-gray-700 mb-1">Cliente *</label>
+        <input
+          type="text"
+          id="cliente"
+          class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+          placeholder="Buscar cliente..."
+          bind:value={clientesBusqueda}
+          on:input={() => buscarClientes(clientesBusqueda)}
+          autocomplete="off"
+        />
+        
+        {#if clientesLoading}
+          <div class="absolute right-3 top-1/2 -translate-y-1/2">
+            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+          </div>
+        {/if}
+        
+        {#if clientesOptions.length > 0}
+          <div class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base overflow-auto focus:outline-none sm:text-sm">
+            <ul>
+              {#each clientesOptions as cliente}
+                <li>
+                  <button 
+                    class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-100 w-full text-left"
+                    on:click={() => seleccionarCliente(cliente)}
+                  >
+                    <div class="flex items-center">
+                      <span class="font-normal block truncate">{cliente.Codigo} - {cliente.Descripcion}</span>
+                    </div>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+      </div>
+      
+      {#if mostrarEncabezadoCompleto}
+        <!-- Tipo de Documento - aumentado a col-span-4 -->
+        <div class="lg:col-span-4">
+          <label for="tipoDocumento" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento</label>
+          <div class="flex space-x-2">
+            <select 
+              id="tipoDocumento" 
+              bind:value={factura.DocumentoTipo}
+              on:change={obtenerProximoNumero}
+              class="w-2/5 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {#each tiposDocumento as tipo}
+                <option value={tipo.value}>{tipo.label}</option>
+              {/each}
+            </select>
+            
+            <input 
+              id="sucursal" 
+              type="text" 
+              bind:value={sucursalNumeroDisplay}
+              disabled
+              class="w-3/5 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
+              title="Próximo número de documento"
+            />
+          </div>
+        </div>
+        
+        <!-- Forma de Pago - reducido a col-span-2 -->
+        <div class="lg:col-span-2">
+          <label for="formaPago" class="block text-sm font-medium text-gray-700 mb-1">Forma de Pago</label>
+          <select 
+            id="formaPago" 
+            bind:value={factura.FormaPagoCodigo}
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Forma de pago</option>
+            {#each formasPago as forma}
+              <option value={forma.value}>{forma.label}</option>
+            {/each}
+          </select>
+        </div>
+        
+        <!-- Lista de Precios y Fecha - se mantiene en col-span-3 -->
+        <div class="lg:col-span-3">
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label for="listaPrecio" class="block text-sm font-medium text-gray-700 mb-1">Lista de Precios</label>
+              <select 
+                id="listaPrecio" 
+                bind:value={factura.ListaPrecio}
+                on:change={cambiarListaPrecio}
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {#each listasPrecio as lista}
+                  <option value={lista.value}>{lista.label}</option>
+                {/each}
+              </select>
+            </div>
+            <div>
+              <label for="fecha" class="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+              <input 
+                id="fecha" 
+                type="date" 
+                bind:value={factura.Fecha}
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        </div>
+      {/if}
+    </div>
+    
+    <!-- Segunda fila - Observación (visible solo si mostrarEncabezadoCompleto es true) -->
+    {#if mostrarEncabezadoCompleto}
+      <div class="mb-4">
+        <label for="observacion" class="block text-sm font-medium text-gray-700 mb-1">Observación</label>
+        <textarea 
+          id="observacion" 
+          bind:value={factura.Observacion}
+          rows="2"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        ></textarea>
+      </div>
+      
+      <!-- Sucursal - Número (opcional, puedes moverlo donde prefieras)
+      <div class="mb-4">
+        <label for="sucursal" class="block text-sm font-medium text-gray-700 mb-1">Sucursal - Número</label>
+        <input 
+          id="sucursal" 
+          type="text" 
+          bind:value={sucursalNumeroDisplay}
+          disabled
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div> -->
+    {/if}
   </div>
   
   <!-- Artículos de la factura -->

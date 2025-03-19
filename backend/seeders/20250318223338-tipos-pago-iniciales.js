@@ -7,28 +7,14 @@ module.exports = {
       "t_tiposdepago",
       [
         {
-          Codigo: "EFE",
-          Descripcion: "Efectivo",
+          Codigo: "CO",
+          Descripcion: "Contado",
           Activo: true,
           aplicaSaldo: false,
           recargoPorcentaje: 0,
         },
         {
-          Codigo: "TAR",
-          Descripcion: "Tarjeta",
-          Activo: true,
-          aplicaSaldo: false,
-          recargoPorcentaje: 5.0,
-        },
-        {
-          Codigo: "TRA",
-          Descripcion: "Transferencia",
-          Activo: true,
-          aplicaSaldo: false,
-          recargoPorcentaje: 0,
-        },
-        {
-          Codigo: "CTA",
+          Codigo: "CC",
           Descripcion: "Cuenta Corriente",
           Activo: true,
           aplicaSaldo: true,

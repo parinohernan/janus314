@@ -136,11 +136,15 @@ exports.obtenerFactura = async (req, res) => {
 
 // Crear nueva factura
 exports.crearFactura = async (req, res) => {
+  req.body.DocumentoNumero = req.body.DocumentoNumero.toString().padStart(
+    8,
+    "0"
+  );
   const t = await sequelize.transaction();
+  console.log("req.body", req.body);
   try {
     // Modificación para aceptar tanto formato {encabezado, items} como formato plano
     let encabezado, items;
-
     if (req.body.encabezado && req.body.items) {
       // Formato esperado {encabezado, items}
       encabezado = req.body.encabezado;
@@ -160,7 +164,20 @@ exports.crearFactura = async (req, res) => {
           "Debe proporcionar encabezado y al menos un ítem para la factura",
       });
     }
+    encabezado.PagoTipo = encabezado.FormaPagoCodigo;
+    encabezado.VendedorCodigo = "1";
+    delete encabezado.FormaPagoCodigo;
+    delete encabezado.FormaPago;
+    if (encabezado.PagoTipo === "CC") {
+      // actualizo cliente.saldo
+      const cliente = await Cliente.findByPk(encabezado.ClienteCodigo, {
+        transaction: t,
+      });
+      cliente.Saldo = cliente.Saldo + encabezado.ImporteTotal;
+      await cliente.save({ transaction: t });
+    }
 
+    console.log("encabezado", encabezado);
     // Validaciones básicas
     if (!encabezado || !items || items.length === 0) {
       await t.rollback();

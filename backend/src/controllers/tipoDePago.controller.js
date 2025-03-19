@@ -16,7 +16,8 @@ exports.getAllTiposDePago = async (req, res) => {
     const offset = (page - 1) * limit;
 
     // Configurar opciones de búsqueda
-    const whereClause = {};
+    const whereClause = { Activo: true }; // Filtrar solo los activos
+
     if (search) {
       // Permitir búsqueda en múltiples campos
       whereClause[Op.or] = [
