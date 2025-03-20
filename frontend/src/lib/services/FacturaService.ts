@@ -76,6 +76,8 @@ export class FacturaService {
 			ImporteNeto: 0,
 			ImporteIva1: 0,
 			ImporteIva2: 0,
+			BaseImponible1: 0,
+			BaseImponible2: 0,
 			PorcentajeIngresosBrutos: 0,
 			ImporteIngresosBrutos: 0,
 			ImporteIva: 0,

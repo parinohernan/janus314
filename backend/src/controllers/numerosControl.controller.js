@@ -2,6 +2,10 @@ const NumerosControl = require("../models/numerosControl.model");
 const sequelize = require("../config/database");
 const { QueryTypes } = require("sequelize");
 const NumeroControl = require("../models/numerosControl.model");
+const NumeroControlService = require("../services/numeroControl.service");
+
+// Exportar el servicio para uso directo
+exports.servicio = NumeroControlService;
 
 // Obtener el próximo número disponible para un tipo de comprobante y sucursal
 exports.obtenerProximoNumero = async (req, res) => {
@@ -127,83 +131,6 @@ exports.actualizarProximoNumero = async (req, res) => {
 
 // Método para obtener y actualizar en una única operación atómica
 // Esto es útil para asignar un número y actualizarlo inmediatamente
-exports.obtenerYActualizarNumero = async (req, res) => {
-  const t = await sequelize.transaction();
-
-  try {
-    const { codigo, sucursal } = req.params;
-
-    // Validar parámetros
-    if (!codigo || !sucursal) {
-      await t.rollback();
-      return res.status(400).json({
-        success: false,
-        message: "Debe proporcionar el código de comprobante y sucursal",
-      });
-    }
-
-    // Obtener con bloqueo
-    const [numeroControl] = await sequelize.query(
-      `SELECT Codigo, Sucursal, Descripcion, NumeroProximo, Copias 
-       FROM t_numeroscontrol 
-       WHERE Codigo = ? AND Sucursal = ? 
-       FOR UPDATE`,
-      {
-        replacements: [codigo, sucursal],
-        type: QueryTypes.SELECT,
-        transaction: t,
-      }
-    );
-
-    if (!numeroControl) {
-      await t.rollback();
-      return res.status(404).json({
-        success: false,
-        message: `No se encontró configuración para el comprobante ${codigo} y sucursal ${sucursal}`,
-      });
-    }
-
-    const numeroActual = numeroControl.NumeroProximo;
-
-    // Actualizar inmediatamente
-    await sequelize.query(
-      `UPDATE t_numeroscontrol 
-       SET NumeroProximo = NumeroProximo + 1 
-       WHERE Codigo = ? AND Sucursal = ?`,
-      {
-        replacements: [codigo, sucursal],
-        type: QueryTypes.UPDATE,
-        transaction: t,
-      }
-    );
-
-    await t.commit();
-
-    // Formatear el número como string con ceros a la izquierda (8 dígitos)
-    const numeroFormateado = numeroActual.toString().padStart(8, "0");
-
-    // Devolver el número obtenido y ya incrementado para el siguiente
-    res.json({
-      success: true,
-      data: {
-        tipo: numeroControl.Codigo,
-        sucursal: numeroControl.Sucursal,
-        descripcion: numeroControl.Descripcion,
-        numeroAsignado: numeroActual,
-        numeroFormateado: numeroFormateado,
-        copias: numeroControl.Copias,
-      },
-    });
-  } catch (error) {
-    await t.rollback();
-    console.error("Error al obtener y actualizar número:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error al procesar el número de comprobante",
-      error: error.message,
-    });
-  }
-};
 
 // Listar todos los tipos de comprobantes configurados
 exports.listarNumerosControl = async (req, res) => {
@@ -294,6 +221,143 @@ exports.incrementNumber = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Error al incrementar número de control",
+      error: error.message,
+    });
+  }
+};
+
+// Método para actualizar directamente (no como middleware de Express)
+exports.actualizarNumeroDirecto = async (tipo, sucursal) => {
+  const t = await sequelize.transaction();
+
+  try {
+    // Validar parámetros
+    if (!tipo || !sucursal) {
+      await t.rollback();
+      throw new Error("Debe proporcionar el código de comprobante y sucursal");
+    }
+
+    // Primero obtenemos el número actual con bloqueo para evitar concurrencia
+    const [result] = await sequelize.query(
+      `SELECT NumeroProximo FROM t_numeroscontrol 
+       WHERE Codigo = ? AND Sucursal = ? 
+       FOR UPDATE`,
+      {
+        replacements: [tipo, sucursal],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
+    );
+
+    if (!result) {
+      await t.rollback();
+      throw new Error(
+        `No se encontró configuración para el comprobante ${tipo} y sucursal ${sucursal}`
+      );
+    }
+
+    const numeroActual = result.NumeroProximo;
+
+    // Actualizar el número incrementándolo
+    await NumerosControl.update(
+      { NumeroProximo: numeroActual + 1 },
+      {
+        where: {
+          Codigo: tipo,
+          Sucursal: sucursal,
+        },
+        transaction: t,
+      }
+    );
+
+    await t.commit();
+    return {
+      tipo: tipo,
+      sucursal: sucursal,
+      numeroUtilizado: numeroActual,
+      nuevoProximoNumero: numeroActual + 1,
+    };
+  } catch (error) {
+    await t.rollback();
+    console.error("Error al actualizar próximo número:", error);
+    throw error;
+  }
+};
+
+// Añadir el método que fue eliminado para mantener la compatibilidad con las rutas
+exports.obtenerYActualizarNumero = async (req, res) => {
+  const t = await sequelize.transaction();
+
+  try {
+    const { codigo, sucursal } = req.params;
+
+    // Validar parámetros
+    if (!codigo || !sucursal) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Debe proporcionar el código de comprobante y sucursal",
+      });
+    }
+
+    // Obtener con bloqueo
+    const [numeroControl] = await sequelize.query(
+      `SELECT Codigo, Sucursal, Descripcion, NumeroProximo, Copias 
+       FROM t_numeroscontrol 
+       WHERE Codigo = ? AND Sucursal = ? 
+       FOR UPDATE`,
+      {
+        replacements: [codigo, sucursal],
+        type: QueryTypes.SELECT,
+        transaction: t,
+      }
+    );
+
+    if (!numeroControl) {
+      await t.rollback();
+      return res.status(404).json({
+        success: false,
+        message: `No se encontró configuración para el comprobante ${codigo} y sucursal ${sucursal}`,
+      });
+    }
+
+    const numeroActual = numeroControl.NumeroProximo;
+
+    // Actualizar inmediatamente
+    await sequelize.query(
+      `UPDATE t_numeroscontrol 
+       SET NumeroProximo = NumeroProximo + 1 
+       WHERE Codigo = ? AND Sucursal = ?`,
+      {
+        replacements: [codigo, sucursal],
+        type: QueryTypes.UPDATE,
+        transaction: t,
+      }
+    );
+
+    await t.commit();
+
+    // Formatear el número como string con ceros a la izquierda (8 dígitos)
+    const numeroFormateado = numeroActual.toString().padStart(8, "0");
+
+    // Devolver el número obtenido y ya incrementado para el siguiente
+    res.json({
+      success: true,
+      data: {
+        tipo: numeroControl.Codigo,
+        sucursal: numeroControl.Sucursal,
+        descripcion: numeroControl.Descripcion,
+        numeroAsignado: numeroActual,
+        numeroFormateado: numeroFormateado,
+        copias: numeroControl.Copias,
+      },
+    });
+  } catch (error) {
+    await t.rollback();
+    console.error("Error al obtener y actualizar número:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al procesar el número de comprobante",
       error: error.message,
     });
   }

@@ -22,6 +22,8 @@
     ImporteNeto: 0,
     ImporteIva1: 0,
     ImporteIva2: 0,
+    BaseImponible1: 0,
+    BaseImponible2: 0,
     PorcentajeIngresosBrutos: 0,
     ImporteIngresosBrutos: 0,
     ImporteIva: 0,
@@ -391,10 +393,12 @@
     importeIva1 = baseIva21 * 0.21;
     importeIva2 = baseIva10_5 * 0.105;
     
-    // Actualizar valores de IVA
+    // Actualizar valores de IVA y bases imponibles
     factura.ImporteIva1 = parseFloat(importeIva1.toFixed(2));
     factura.ImporteIva2 = parseFloat(importeIva2.toFixed(2));
     factura.ImporteIva = parseFloat((importeIva1 + importeIva2).toFixed(2));
+    factura.BaseImponible1 = parseFloat(baseIva21.toFixed(2));
+    factura.BaseImponible2 = parseFloat(baseIva10_5.toFixed(2));
     
     // Calcular Ingresos Brutos
     factura.ImporteIngresosBrutos = parseFloat((factura.ImporteNeto * (factura.PorcentajeIngresosBrutos / 100)).toFixed(2));

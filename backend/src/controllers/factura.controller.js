@@ -5,7 +5,7 @@ const Cliente = require("../models/cliente.model");
 const sequelize = require("../config/database");
 const { Op } = require("sequelize");
 const fetch = require("node-fetch");
-const actualizarProximoNumero = require("./numerosControl.controller");
+const numerosControlController = require("./numerosControl.controller");
 const FacturaService = require("../services/factura.service");
 
 // Obtener listado de facturas (con paginación y filtros)
@@ -142,18 +142,68 @@ exports.obtenerFactura = async (req, res) => {
 
 // Crear nueva factura - Versión modularizada
 exports.crearFactura = async (req, res) => {
+  const t = await sequelize.transaction();
+
   try {
     const facturaData = req.body;
+    // completo los campos necesarios con los nombres adecuados
+    facturaData.DocumentoNumero =
+      facturaData.DocumentoNumero.toString().padStart(8, "0");
+    facturaData.PagoTipo = facturaData.FormaPagoCodigo;
+    delete facturaData.FormaPagoCodigo;
+    facturaData.VendedorCodigo = facturaData.Vendedor || "1";
+    delete facturaData.Vendedor;
+    facturaData.PorcentajeIva1 = "21";
+    facturaData.PorcentajeIva2 = "10.5";
+    facturaData.ListaNumero = facturaData.ListaPrecio;
+    delete facturaData.ListaPrecio;
+    facturaData.CodigoUsuario = "admin";
 
-    // Crear factura usando el servicio
-    const facturaCreada = await FacturaService.crearFactura(facturaData);
+    if (facturaData.PagoTipo === "CC") {
+      // actualizo saldo del cliente
+      const cliente = await Cliente.findOne({
+        where: { Codigo: facturaData.ClienteCodigo },
+      });
+      await Cliente.update(
+        { ImporteDeuda: cliente.ImporteDeuda + facturaData.ImporteTotal },
+        { where: { Codigo: facturaData.ClienteCodigo } }
+      );
+    } else {
+      facturaData.ImportePagado = facturaData.ImporteTotal;
+    }
 
+    // Crear factura usando el servicio (pasando la transacción)
+    const facturaCreada = await FacturaService.crearFactura(facturaData, t);
+
+    // Actualizar número de control dentro de la transacción
+    try {
+      await numerosControlController.actualizarNumeroDirecto(
+        facturaData.DocumentoTipo,
+        facturaData.DocumentoSucursal,
+        t
+      );
+    } catch (errorNumero) {
+      // Si hay error en la actualización del número, hacemos rollback
+      await t.rollback();
+      return res.status(500).json({
+        success: false,
+        message: "Error al actualizar el número de control",
+        error: errorNumero.message,
+      });
+    }
+
+    // Si todo está bien, confirmamos la transacción
+    await t.commit();
+
+    //aca incluir Comunicacion con ARCA o AFIP
     res.status(201).json({
       success: true,
       message: "Factura creada correctamente",
       data: facturaCreada,
     });
   } catch (error) {
+    // Aseguramos el rollback en caso de cualquier error
+    await t.rollback();
     console.error("Error al crear factura:", error);
     res.status(500).json({
       success: false,

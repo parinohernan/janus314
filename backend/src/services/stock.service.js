@@ -1,5 +1,6 @@
 const MovimientoStock = require("../models/MovimientoStock");
 const Articulo = require("../models/articulo.model");
+const sequelize = require("../config/database");
 const { Op } = require("sequelize");
 
 /**

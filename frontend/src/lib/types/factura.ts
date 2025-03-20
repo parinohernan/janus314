@@ -28,6 +28,8 @@ export interface Factura {
 	ImporteNeto: number;
 	ImporteIva1: number;
 	ImporteIva2: number;
+	BaseImponible1: number;
+	BaseImponible2: number;
 	PorcentajeIngresosBrutos: number;
 	ImporteIngresosBrutos: number;
 	ImporteIva: number;

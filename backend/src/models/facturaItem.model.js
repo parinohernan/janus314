@@ -35,7 +35,7 @@ const FacturaItem = sequelize.define(
     },
     CodigoArticulo: {
       type: DataTypes.STRING(13),
-      allowNull: true,
+      allowNull: false,
       primaryKey: true,
       references: {
         model: Articulo,

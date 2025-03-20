@@ -104,12 +104,12 @@ const FacturaService = {
       // Preparar items con sus claves primarias
       const itemsConPK = items.map((item, index) => ({
         ...item,
+        CodigoArticulo: item.ArticuloCodigo,
         DocumentoTipo: documentoTipo,
         DocumentoSucursal: documentoSucursal,
         DocumentoNumero: documentoNumero,
         ItemNumero: index + 1,
       }));
-
       // Crear todos los items
       return await FacturaItem.bulkCreate(itemsConPK, { transaction });
     } catch (error) {

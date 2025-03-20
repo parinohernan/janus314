@@ -1,4 +1,5 @@
 import { writable, get } from 'svelte/store';
+import { browser } from '$app/environment';
 
 // Interfaz para el estado de navegación
 interface PageState {
@@ -10,46 +11,45 @@ interface PageState {
 	filters?: Record<string, any>;
 }
 
-const STORAGE_KEY = 'app_navigation_state';
+// Estado de navegación para diferentes rutas
+type NavigationState = Record<string, PageState>;
 
-// Recuperar estado guardado del localStorage
-const getInitialState = (): Record<string, PageState> => {
+const getInitialState = (): NavigationState => {
+	if (!browser) {
+		return {};
+	}
+
 	try {
-		const saved = localStorage.getItem(STORAGE_KEY);
-		return saved ? JSON.parse(saved) : {};
-	} catch (e) {
-		console.warn('Error recuperando estado de navegación:', e);
+		const savedState = localStorage.getItem('navigationState');
+		return savedState ? JSON.parse(savedState) : {};
+	} catch (error) {
+		console.error('Error recuperando estado de navegación:', error);
 		return {};
 	}
 };
 
-// Store que almacena el estado por ruta
-const createNavigationStore = () => {
-	const { subscribe, update, set } = writable<Record<string, PageState>>(getInitialState());
+export const createNavigationStore = () => {
+	const { subscribe, set, update } = writable<NavigationState>(getInitialState());
 
-	// Suscribirse a cambios y guardar en localStorage
-	subscribe((state) => {
-		try {
-			localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-		} catch (e) {
-			console.warn('Error guardando estado de navegación:', e);
-		}
-	});
+	// Guardar en localStorage cuando el store cambia
+	if (browser) {
+		subscribe((value) => {
+			try {
+				localStorage.setItem('navigationState', JSON.stringify(value));
+			} catch (error) {
+				console.error('Error guardando estado de navegación:', error);
+			}
+		});
+	}
 
 	return {
 		subscribe,
 		saveState: (path: string, state: PageState) => {
-			console.log(`Guardando estado para ${path}:`, state);
-			update((states) => ({
-				...states,
-				[path]: state
-			}));
+			update((states) => ({ ...states, [path]: state }));
 		},
 		getState: (path: string): PageState | null => {
 			const states = get({ subscribe });
-			const state = states[path] || null;
-			console.log(`Recuperando estado para ${path}:`, state);
-			return state;
+			return states[path] || null;
 		},
 		clearState: (path: string) => {
 			update((states) => {
