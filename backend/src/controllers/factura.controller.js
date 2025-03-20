@@ -6,6 +6,8 @@ const sequelize = require("../config/database");
 const { Op } = require("sequelize");
 const fetch = require("node-fetch");
 const actualizarProximoNumero = require("./numerosControl.controller");
+const FacturaService = require("../services/factura.service");
+
 // Obtener listado de facturas (con paginación y filtros)
 exports.listarFacturas = async (req, res) => {
   try {
@@ -50,7 +52,6 @@ exports.listarFacturas = async (req, res) => {
         ["DocumentoTipo", "DESC"],
         ["DocumentoNumero", "DESC"],
       ],
-
       limit,
       offset,
     });
@@ -139,232 +140,20 @@ exports.obtenerFactura = async (req, res) => {
   }
 };
 
-// Crear nueva factura
+// Crear nueva factura - Versión modularizada
 exports.crearFactura = async (req, res) => {
-  req.body.DocumentoNumero = req.body.DocumentoNumero.toString().padStart(
-    8,
-    "0"
-  );
-  const t = await sequelize.transaction();
-  console.log("req.body", req.body);
   try {
-    // Modificación para aceptar tanto formato {encabezado, items} como formato plano
-    let encabezado, items;
-    if (req.body.encabezado && req.body.items) {
-      // Formato esperado {encabezado, items}
-      encabezado = req.body.encabezado;
-      items = req.body.items;
-    } else if (req.body.Items && Array.isArray(req.body.Items)) {
-      // Formato plano con Items en mayúscula
-      items = req.body.Items;
-      // Extraer el encabezado excluyendo la propiedad Items
-      encabezado = { ...req.body };
-      delete encabezado.Items;
-      delete encabezado.Cliente; // Eliminamos datos adicionales que no pertenecen al modelo
-    } else {
-      await t.rollback();
-      return res.status(400).json({
-        success: false,
-        message:
-          "Debe proporcionar encabezado y al menos un ítem para la factura",
-      });
-    }
-    encabezado.PagoTipo = encabezado.FormaPagoCodigo;
-    encabezado.VendedorCodigo = "1";
-    delete encabezado.FormaPagoCodigo;
-    delete encabezado.FormaPago;
-    if (encabezado.PagoTipo === "CC") {
-      // actualizo cliente.saldo
-      const cliente = await Cliente.findByPk(encabezado.ClienteCodigo, {
-        transaction: t,
-      });
-      if (
-        encabezado.DocumentoTipo === "FCA" ||
-        encabezado.DocumentoTipo === "FCB" ||
-        encabezado.DocumentoTipo === "FCC" ||
-        encabezado.DocumentoTipo === "PRF"
-      ) {
-        cliente.ImporteDeuda = cliente.ImporteDeuda + encabezado.ImporteTotal;
-      } else if (
-        encabezado.DocumentoTipo === "NCA" ||
-        encabezado.DocumentoTipo === "NCB" ||
-        encabezado.DocumentoTipo === "NCC" ||
-        encabezado.DocumentoTipo === "NCF"
-      ) {
-        cliente.ImporteDeuda = cliente.ImporteDeuda - encabezado.ImporteTotal;
-      }
-      await cliente.save({ transaction: t });
-    }
+    const facturaData = req.body;
 
-    console.log("encabezado", encabezado);
-    // Validaciones básicas
-    if (!encabezado || !items || items.length === 0) {
-      await t.rollback();
-      return res.status(400).json({
-        success: false,
-        message:
-          "Debe proporcionar encabezado y al menos un ítem para la factura",
-      });
-    }
-
-    // Mapear los items al formato esperado por el modelo
-    const itemsFormateados = items.map((item) => ({
-      CodigoArticulo: item.ArticuloCodigo || item.CodigoArticulo,
-      Cantidad: item.Cantidad,
-      ImporteCosto: item.ImporteCosto || 0,
-      PrecioLista: item.PrecioLista || item.PrecioUnitario || 0,
-      PorcentajeBonificado:
-        item.PorcentajeDescuento || item.PorcentajeBonificado || 0,
-      ImporteBonificado: item.ImporteDescuento || item.ImporteBonificado || 0,
-      PrecioUnitario: item.PrecioUnitario || 0,
-    }));
-
-    // Calcular totales
-    let importeBruto = 0;
-    let importeNeto = 0;
-    let importeIva1 = 0;
-    let importeIva2 = 0;
-    let baseImponible1 = 0;
-    let baseImponible2 = 0;
-
-    // Procesar artículos y calcular totales
-    for (const item of itemsFormateados) {
-      const articulo = await Articulo.findByPk(item.CodigoArticulo, {
-        transaction: t,
-      });
-      if (!articulo) {
-        await t.rollback();
-        return res.status(404).json({
-          success: false,
-          message: `Artículo con código ${item.CodigoArticulo} no encontrado`,
-        });
-      }
-
-      // Calcular importes del ítem
-      const precioUnitario = parseFloat(
-        item.PrecioUnitario || articulo.PrecioVenta
-      );
-      const cantidad = parseFloat(item.Cantidad);
-      const importeItem = precioUnitario * cantidad;
-
-      // Acumular al total bruto
-      importeBruto += importeItem;
-
-      // Calcular IVA según categoría del artículo
-      if (articulo.CategoriaIva === "1") {
-        // 21%
-        baseImponible1 += importeItem;
-        importeIva1 += importeItem * 0.21;
-      } else if (articulo.CategoriaIva === "2") {
-        // 10.5%
-        baseImponible2 += importeItem;
-        importeIva2 += importeItem * 0.105;
-      }
-
-      // Actualizar stock si es necesario
-      if (encabezado.DocumentoTipo === "FAC") {
-        const nuevoStock = parseFloat(articulo.Existencia) - cantidad;
-        await articulo.update({ Existencia: nuevoStock }, { transaction: t });
-      } else if (encabezado.DocumentoTipo === "NCA") {
-        const nuevoStock = parseFloat(articulo.Existencia) + cantidad;
-        await articulo.update({ Existencia: nuevoStock }, { transaction: t });
-      }
-    }
-
-    // Calcular totales finales
-    importeNeto = importeBruto;
-
-    if (encabezado.PorcentajeBonificacion > 0) {
-      const importeBonificado =
-        importeBruto * (encabezado.PorcentajeBonificacion / 100);
-      importeNeto = importeBruto - importeBonificado;
-      encabezado.ImporteBonificado = importeBonificado;
-    }
-
-    const importeTotal =
-      importeNeto +
-      importeIva1 +
-      importeIva2 +
-      (encabezado.ImportePercepcionIIBB || 0) +
-      (encabezado.ImporteAdicional || 0);
-
-    // Completar datos del encabezado
-    encabezado.ImporteBruto = importeBruto;
-    encabezado.ImporteNeto = importeNeto;
-    encabezado.ImporteIva1 = importeIva1;
-    encabezado.ImporteIva2 = importeIva2;
-    encabezado.BaseImponible1 = baseImponible1;
-    encabezado.BaseImponible2 = baseImponible2;
-    encabezado.ImporteTotal = importeTotal;
-    encabezado.PorcentajeIva1 = 21;
-    encabezado.PorcentajeIva2 = 10.5;
-
-    if (!encabezado.Fecha) {
-      encabezado.Fecha = new Date();
-    }
-
-    // Crear encabezado de factura
-    const facturaCabeza = await FacturaCabeza.create(encabezado, {
-      transaction: t,
-    });
-
-    // Crear items de factura
-    for (const item of itemsFormateados) {
-      await FacturaItem.create(
-        {
-          DocumentoTipo: encabezado.DocumentoTipo,
-          DocumentoSucursal: encabezado.DocumentoSucursal,
-          DocumentoNumero: encabezado.DocumentoNumero,
-          CodigoArticulo: item.CodigoArticulo,
-          Cantidad: item.Cantidad,
-          ImporteCosto: item.ImporteCosto || 0,
-          PrecioLista: item.PrecioLista || item.PrecioUnitario || 0,
-          PorcentajeBonificado: item.PorcentajeBonificado || 0,
-          ImporteBonificado: item.ImporteBonificado || 0,
-          PrecioUnitario: item.PrecioUnitario || 0,
-        },
-        { transaction: t }
-      );
-    }
-
-    // Actualizar el próximo número de documento
-    try {
-      const response = await fetch(
-        `${req.protocol}://${req.get("host")}/api/numeros-control/${
-          encabezado.DocumentoTipo
-        }/${encabezado.DocumentoSucursal}/incrementar`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ numeroActual: encabezado.DocumentoNumero }),
-        }
-      );
-      console.log("response actualizarProximoNumero", response);
-      if (!response.ok) {
-        console.error(
-          "Error en la respuesta al actualizar próximo número:",
-          await response.text()
-        );
-      }
-    } catch (error) {
-      console.error("Error actualizando próximo número de documento:", error);
-      // No interrumpimos la transacción por este error
-    }
-
-    await t.commit();
+    // Crear factura usando el servicio
+    const facturaCreada = await FacturaService.crearFactura(facturaData);
 
     res.status(201).json({
       success: true,
       message: "Factura creada correctamente",
-      documento: {
-        tipo: encabezado.DocumentoTipo,
-        sucursal: encabezado.DocumentoSucursal,
-        numero: encabezado.DocumentoNumero,
-        total: importeTotal,
-      },
+      data: facturaCreada,
     });
   } catch (error) {
-    await t.rollback();
     console.error("Error al crear factura:", error);
     res.status(500).json({
       success: false,
