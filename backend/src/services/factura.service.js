@@ -35,7 +35,8 @@ const FacturaService = {
               transaction
             );
         }
-
+        // corregir el codigo del vendedor
+        facturaData.VendedorCodigo = facturaData.VendedorCodigo.data.Codigo;
         // Crear cabecera de factura
         const facturaCabeza = await this.crearCabeceraFactura(
           facturaData,
@@ -76,6 +77,7 @@ const FacturaService = {
    * @returns {Object} - Cabecera de factura creada
    */
   async crearCabeceraFactura(facturaData, transaction) {
+    console.log("facturaData", facturaData);
     try {
       return await FacturaCabeza.create(facturaData, { transaction });
     } catch (error) {

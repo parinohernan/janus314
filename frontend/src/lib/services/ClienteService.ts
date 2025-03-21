@@ -41,7 +41,7 @@ export class ClienteService {
 			if (!response.ok) {
 				throw new Error('Error al obtener cliente');
 			}
-
+			console.log('obtenerClientePorCodigo response. services', await response.json());
 			return await response.json();
 		} catch (error) {
 			console.error(`Error al obtener cliente ${codigo}:`, error);

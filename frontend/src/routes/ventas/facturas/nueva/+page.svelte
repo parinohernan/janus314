@@ -31,7 +31,9 @@
     Observacion: '',
     FormaPagoCodigo: '',
     FormaPago: null as { value: string, label: string } | null,
-    Items: [] as ItemFactura[]
+    Items: [] as ItemFactura[],
+    VendedorCodigo: '',
+    Vendedor: null as { value: string, label: string } | null,
   };
   
   // Estados para selectores
@@ -67,6 +69,15 @@
   
   // Agregar variable para controlar la visibilidad del encabezado completo
   let mostrarEncabezadoCompleto = true;
+  
+  // Añadir variables para vendedores
+
+  let vendedoresOptions: { value: string, label: string }[] = [];
+  let vendedoresLoading = false;
+  let vendedorTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  
+  // Agregar esta variable para controlar la visibilidad del selector de clientes
+  let mostrarSelectorClientes = false;
   
   // Cargar formas de pago desde la API
   onMount(async () => {
@@ -108,6 +119,33 @@
     }
     // Establecer la sucursal automáticamente
     factura.DocumentoSucursal = data.Sucursal;
+
+    // Cargar vendedores
+    try {
+      const responseVendedores = await fetch(`${PUBLIC_API_URL}/vendedores`);
+      
+      if (responseVendedores.ok) {
+        const {data} = await responseVendedores.json();
+        console.log("Datos de vendedores recibidos:", data);
+        
+        // Verificar la estructura de los datos
+        if (data  && Array.isArray(data)) {
+          // Filtrar solo vendedores activos antes de mapear
+          vendedoresOptions = data
+            .filter((item: { Codigo: string, Descripcion: string, Activo: number }) => item.Activo == 1)
+            .map((item: { Codigo: string, Descripcion: string }) => ({
+              value: item.Codigo || '',
+              label: item.Descripcion || 'Sin nombre'
+            }));
+          console.log("vendedoresOptions procesados:", vendedoresOptions);
+        } else {
+          console.error("Estructura de datos de vendedores inesperada:", data);
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando vendedores:', error);
+      vendedoresOptions = [];
+    }
   });
   
   // Actualizar tipos de documento según categoría IVA del cliente
@@ -206,31 +244,32 @@
   };
   
   // Seleccionar cliente
-  const seleccionarCliente = async (cliente: Cliente) => {
+  const seleccionarCliente = (cliente: Cliente) => {
     factura.ClienteCodigo = cliente.Codigo;
     factura.Cliente = cliente;
+    
+    // Cerrar el selector de cliente
+    mostrarSelectorClientes = false;
     clientesBusqueda = `${cliente.Codigo} - ${cliente.Descripcion}`;
     clientesOptions = [];
-    console.log("cliente",cliente);
-    // Establecer la lista de precios del cliente
-    if (cliente.ListaPrecio) {
-      factura.ListaPrecio = cliente.ListaPrecio;
-    } else {
-      factura.ListaPrecio = '1'; // Valor por defecto como string
+    
+    // Asignar el vendedor del cliente si existe
+
+    if (cliente.CodigoVendedor) {
+      console.log("cliente.CodigoVendedor", cliente.CodigoVendedor);
+      factura.VendedorCodigo = cliente.CodigoVendedor;
+      
+      // Buscar datos del vendedor si es necesario
+      buscarDatosVendedor(cliente.CodigoVendedor);
     }
+
+
     
     // Actualizar tipos de documento según categoría IVA
     actualizarTiposDocumento(cliente.CategoriaIva);
     
-    // Si se cambió el tipo de documento, obtener próximo número
-    if (factura.DocumentoTipo !== 'PRF') {
-      const proximoNumero = await obtenerProximoNumero();
-      console.log("proximoNumero",proximoNumero);
-      if (proximoNumero) {
-        // Aquí podrías mostrar el próximo número o guardarlo en el estado
-        console.log(`Próximo número para ${factura.DocumentoTipo}: ${proximoNumero}`);
-      }
-    }
+    // Obtener próximo número de comprobante
+    obtenerProximoNumero();
   };
   
   // Seleccionar artículo
@@ -517,6 +556,54 @@
     { value: '4', label: 'Lista 4' },
     { value: '5', label: 'Lista 5' }
   ];
+
+  // Función para buscar datos del vendedor por código
+  const buscarDatosVendedor = async (codigoVendedor: string) => {
+    try {
+      const response = await fetch(`${PUBLIC_API_URL}/vendedores/${codigoVendedor}`);
+      if (response.ok) {
+        const data = await response.json();
+        factura.Vendedor = data;
+      }
+    } catch (error) {
+      console.error('Error obteniendo datos del vendedor:', error);
+    }
+  };
+
+  // Función para manejar la selección de vendedor
+  const seleccionarVendedor = (vendedor: { value: string, label: string }) => {
+    factura.VendedorCodigo = vendedor.value;
+    factura.Vendedor = vendedor;
+  };
+
+  // Función para buscar vendedores
+  const buscarVendedores = async (busqueda = '') => {
+    if (vendedorTimeoutId) clearTimeout(vendedorTimeoutId);
+    
+    if (!busqueda || busqueda.length < 2) {
+      vendedoresOptions = [];
+      return;
+    }
+    
+    vendedoresLoading = true;
+    
+    vendedorTimeoutId = setTimeout(async () => {
+      try {
+        const response = await fetch(`${PUBLIC_API_URL}/vendedores?search=${encodeURIComponent(busqueda)}&limit=10`);
+        
+        if (!response.ok) {
+          throw new Error('Error al buscar vendedores');
+        }
+        
+        const data = await response.json();
+        vendedoresOptions = data.items;
+      } catch (error) {
+        console.error('Error buscando vendedores:', error);
+      } finally {
+        vendedoresLoading = false;
+      }
+    }, 300);
+  };
 </script>
 
 <div class="container mx-auto px-4 py-8">
@@ -546,13 +633,6 @@
   <div class="bg-white p-6 rounded-lg shadow-md mb-6">
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-xl font-semibold">Datos de la Factura</h2>
-      <button 
-        type="button" 
-        class="text-sm text-blue-600 hover:text-blue-800"
-        on:click={() => mostrarEncabezadoCompleto = !mostrarEncabezadoCompleto}
-      >
-        {mostrarEncabezadoCompleto ? 'Ocultar detalles' : 'Mostrar detalles'}
-      </button>
     </div>
     
     <!-- Primera fila - siempre visible -->
@@ -566,7 +646,21 @@
           class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
           placeholder="Buscar cliente..."
           bind:value={clientesBusqueda}
-          on:input={() => buscarClientes(clientesBusqueda)}
+          on:input={() => {
+            buscarClientes(clientesBusqueda);
+            mostrarSelectorClientes = clientesBusqueda.length >= 2;
+          }}
+          on:focus={() => {
+            if (clientesBusqueda.length >= 2) {
+              mostrarSelectorClientes = true;
+            }
+          }}
+          on:blur={() => {
+            // Retrasar el cierre para permitir que se capture el clic en las opciones
+            setTimeout(() => {
+              mostrarSelectorClientes = false;
+            }, 200);
+          }}
           autocomplete="off"
         />
         
@@ -576,7 +670,7 @@
           </div>
         {/if}
         
-        {#if clientesOptions.length > 0}
+        {#if mostrarSelectorClientes && clientesOptions.length > 0}
           <div class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base overflow-auto focus:outline-none sm:text-sm">
             <ul>
               {#each clientesOptions as cliente}
@@ -584,6 +678,7 @@
                   <button 
                     class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-100 w-full text-left"
                     on:click={() => seleccionarCliente(cliente)}
+                    on:mousedown|preventDefault
                   >
                     <div class="flex items-center">
                       <span class="font-normal block truncate">{cliente.Codigo} - {cliente.Descripcion}</span>
@@ -668,7 +763,7 @@
       {/if}
     </div>
     
-    <!-- Segunda fila - Observación (visible solo si mostrarEncabezadoCompleto es true) -->
+    <!-- Segunda fila - Observación (visible solo si mostrarEncabezadoCompleto es true)
     {#if mostrarEncabezadoCompleto}
       <div class="mb-4">
         <label for="observacion" class="block text-sm font-medium text-gray-700 mb-1">Observación</label>
@@ -690,8 +785,8 @@
           disabled
           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-      </div> -->
-    {/if}
+      </div> 
+    {/if} -->
   </div>
   
   <!-- Artículos de la factura -->
@@ -951,4 +1046,55 @@
       </div>
     {/if}
   </div>
+
+  <!-- Añadir el selector de vendedor en la sección de detalles -->
+  {#if mostrarEncabezadoCompleto}
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5>Detalles adicionales</h5>
+        <Button variant="secondary" size="sm" on:click={() => mostrarEncabezadoCompleto = false}>
+          Ocultar detalles
+        </Button>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <!-- Otras filas existentes para detalles adicionales -->
+          <!-- Segunda fila - Observación (visible solo si mostrarEncabezadoCompleto es true) -->
+    
+    <div class="mb-4">
+      <label for="observacion" class="block text-sm font-medium text-gray-700 mb-1">Observación</label>
+      <textarea 
+        id="observacion" 
+        bind:value={factura.Observacion}
+        rows="2"
+        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+      ></textarea>
+    </div>
+    
+          <!-- Nuevo selector de vendedor similar al de forma de pago -->
+          <div class="col-md-6 mb-3">
+            <label for="vendedor" class="block text-sm font-medium text-gray-700 mb-1">Vendedor</label>
+            <select 
+              id="vendedor" 
+              bind:value={factura.VendedorCodigo}
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Seleccionar vendedor</option>
+              {#each vendedoresOptions as vendedor}
+                <option value={vendedor.value}>{vendedor.label}</option>
+              {/each}
+            </select>
+          </div>
+          
+          <!-- Otras columnas de detalles -->
+        </div>
+      </div>
+    </div>
+  {:else}
+    <div class="d-flex justify-content-end mb-3">
+      <Button variant="secondary"  on:click={() => mostrarEncabezadoCompleto = true}>
+        Mostrar más detalles
+      </Button>
+    </div>
+  {/if}
 </div> 
