@@ -5,6 +5,7 @@ const Cliente = require("../models/cliente.model");
 const Articulo = require("../models/articulo.model");
 const fs = require("fs");
 const path = require("path");
+const { getTemplateRenderer } = require("../templates/pdf");
 
 // Función para generar PDF de factura
 exports.generarFacturaPDF = async (req, res) => {
@@ -89,8 +90,14 @@ exports.generarFacturaPDF = async (req, res) => {
     // Pipe el PDF a la respuesta HTTP
     doc.pipe(res);
 
-    // Agregar contenido al PDF
-    generarContenidoPDF(doc, factura, itemsConArticulos);
+    // Obtener la plantilla adecuada según el tipo de documento
+    const renderTemplate = getTemplateRenderer(tipo);
+
+    // Renderizar el documento usando la plantilla
+    renderTemplate(doc, {
+      factura: factura.toJSON(),
+      items: itemsConArticulos,
+    });
 
     // Finalizar el documento
     doc.end();
