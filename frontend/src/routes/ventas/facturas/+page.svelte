@@ -169,7 +169,7 @@
   
   // Ver detalle de factura
   const verDetalle = (tipo: string, sucursal: string, numero: string) => {
-    goto(`/ventas/facturas/${tipo}/${sucursal}/${numero}`);
+    goto(`/ventas/facturas/imprimir/${tipo}/${sucursal}/${numero}`);
   };
   
   // Anular factura
@@ -457,7 +457,7 @@
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">CAE</th>
-            <!-- <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th> -->
+            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
           </tr>
         </thead>
@@ -486,13 +486,13 @@
                 {factura.DocumentoSucursal}-{factura.DocumentoNumero}
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
-                {formatDateOnly(factura.Fecha)}
+                {factura.Fecha ? new Date(factura.Fecha).toLocaleDateString('es-AR') : ''}
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 {factura.Cliente ? factura.Cliente.Descripcion || 'Cliente no asignado' : 'Cliente no asignado'}
               </td>
               <td class="px-4 py-3 whitespace-nowrap text-right">
-                ${factura.ImporteTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {factura.ImporteTotal ? factura.ImporteTotal.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' }) : '$0,00'}
               </td>
               <td class="px-4 py-3 whitespace-nowrap text-center">
                 {#if factura.afip_cae}

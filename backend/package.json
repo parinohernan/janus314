@@ -17,6 +17,7 @@
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.13.0",
+    "pdfkit": "^0.16.0",
     "sequelize": "^6.37.6"
   },
   "devDependencies": {

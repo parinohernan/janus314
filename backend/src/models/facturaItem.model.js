@@ -1,7 +1,5 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/database");
-const FacturaCabeza = require("./facturaCabeza.model");
-const Articulo = require("./articulo.model");
 
 const FacturaItem = sequelize.define(
   "FacturaItem",
@@ -10,42 +8,27 @@ const FacturaItem = sequelize.define(
       type: DataTypes.CHAR(3),
       allowNull: false,
       primaryKey: true,
-      references: {
-        model: FacturaCabeza,
-        key: "DocumentoTipo",
-      },
+      defaultValue: "",
     },
     DocumentoSucursal: {
       type: DataTypes.STRING(4),
       allowNull: false,
       primaryKey: true,
-      references: {
-        model: FacturaCabeza,
-        key: "DocumentoSucursal",
-      },
+      defaultValue: "",
     },
     DocumentoNumero: {
       type: DataTypes.STRING(8),
       allowNull: false,
       primaryKey: true,
-      references: {
-        model: FacturaCabeza,
-        key: "DocumentoNumero",
-      },
+      defaultValue: "",
     },
     CodigoArticulo: {
       type: DataTypes.STRING(13),
-      allowNull: false,
-      primaryKey: true,
-      references: {
-        model: Articulo,
-        key: "Codigo",
-      },
+      allowNull: true,
     },
     Cantidad: {
       type: DataTypes.DOUBLE(15, 2),
       allowNull: true,
-      defaultValue: 0,
     },
     ImporteCosto: {
       type: DataTypes.DOUBLE(15, 3),
@@ -70,7 +53,6 @@ const FacturaItem = sequelize.define(
     PrecioUnitario: {
       type: DataTypes.DOUBLE(15, 2),
       allowNull: true,
-      defaultValue: 0.0,
     },
     DocumentoLiqTipo: {
       type: DataTypes.STRING(3),
@@ -89,7 +71,7 @@ const FacturaItem = sequelize.define(
       allowNull: true,
     },
     es_merma: {
-      type: DataTypes.TINYINT,
+      type: DataTypes.TINYINT(4),
       allowNull: true,
       defaultValue: 0,
     },
@@ -103,15 +85,5 @@ const FacturaItem = sequelize.define(
     ],
   }
 );
-
-// Asociaciones
-FacturaItem.belongsTo(FacturaCabeza, {
-  foreignKey: ["DocumentoTipo", "DocumentoSucursal", "DocumentoNumero"],
-});
-
-FacturaItem.belongsTo(Articulo, {
-  foreignKey: "CodigoArticulo",
-  targetKey: "Codigo",
-});
 
 module.exports = FacturaItem;

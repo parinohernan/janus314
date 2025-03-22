@@ -90,7 +90,7 @@ exports.obtenerFactura = async (req, res) => {
       include: [
         {
           model: Cliente,
-          attributes: ["Codigo", "Descripcion", "Domicilio", "CategoriaIva"],
+          attributes: ["Codigo", "Descripcion", "CategoriaIva"],
         },
       ],
     });
@@ -102,32 +102,47 @@ exports.obtenerFactura = async (req, res) => {
       });
     }
 
-    // Obtener items con información del artículo
+    // Obtener items sin usar la asociación
     const items = await FacturaItem.findAll({
       where: {
         DocumentoTipo: tipo,
         DocumentoSucursal: sucursal,
         DocumentoNumero: numero,
       },
-      include: [
-        {
-          model: Articulo,
-          attributes: [
-            "Codigo",
-            "Descripcion",
-            "PrecioVenta",
-            "Existencia",
-            "CategoriaIva",
-          ],
-        },
-      ],
+      raw: true,
+    });
+
+    // Obtener los códigos de artículos para buscarlos
+    const codigosArticulos = items.map((item) => item.CodigoArticulo);
+
+    // Buscar los artículos correspondientes
+    const articulos = await Articulo.findAll({
+      where: {
+        Codigo: codigosArticulos,
+      },
+      raw: true,
+    });
+
+    // Crear un mapa de artículos por código para facilitar la búsqueda
+    const articulosPorCodigo = {};
+    articulos.forEach((articulo) => {
+      articulosPorCodigo[articulo.Codigo] = articulo;
+    });
+
+    // Combinar los items con la información de artículos
+    const itemsConArticulos = items.map((item) => {
+      const articulo = articulosPorCodigo[item.CodigoArticulo] || null;
+      return {
+        ...item,
+        Articulo: articulo,
+      };
     });
 
     res.json({
       success: true,
       data: {
         encabezado: factura,
-        items: items,
+        items: itemsConArticulos,
       },
     });
   } catch (error) {
