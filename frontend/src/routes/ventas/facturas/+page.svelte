@@ -6,7 +6,8 @@
   import { formatDateOnly } from '$lib/utils/dateUtils';
   import { navigationState } from '$lib/stores/navigationState';
   import { writable } from 'svelte/store';
-  
+  import CaeModal from '$lib/components/facturas/CaeModal.svelte';
+
   // Definición de interfaces
   interface Factura {
     DocumentoTipo: string;
@@ -15,6 +16,7 @@
     Fecha: string;
     ImporteTotal: number;
     FechaAnulacion: string | null;
+    afip_cae?: string;
     Cliente?: {
       Codigo: string;
       Descripcion: string;
@@ -296,6 +298,33 @@
     
     return [1, '...', actual - 1, actual, actual + 1, '...', total];
   }
+  
+  // Modificar la función para abrir modal CAE
+  let mostrarModalCAE = false;
+  let facturaSeleccionada: { 
+    DocumentoTipo: string, 
+    DocumentoSucursal: string, 
+    DocumentoNumero: string 
+  } | null = null;
+
+  const abrirModalCAE = (tipo: string, sucursal: string, numero: string) => {
+    facturaSeleccionada = { 
+      DocumentoTipo: tipo, 
+      DocumentoSucursal: sucursal, 
+      DocumentoNumero: numero 
+    };
+    mostrarModalCAE = true;
+  };
+
+  const cerrarModalCAE = () => {
+    mostrarModalCAE = false;
+    facturaSeleccionada = null;
+  };
+
+  const handleCaeObtenido = () => {
+    cargarFacturas(); // Recargar la lista después de obtener el CAE
+    cerrarModalCAE();
+  };
 </script>
 
 <div>
@@ -427,7 +456,8 @@
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">CAE</th>
+            <!-- <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th> -->
             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
           </tr>
         </thead>
@@ -463,6 +493,20 @@
               </td>
               <td class="px-4 py-3 whitespace-nowrap text-right">
                 ${factura.ImporteTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap text-center">
+                {#if factura.afip_cae}
+                  <span class="text-sm text-gray-700">{factura.afip_cae}</span>
+                {:else if !factura.FechaAnulacion && (factura.DocumentoTipo === 'FCA' || factura.DocumentoTipo === 'FCB' || factura.DocumentoTipo === 'FCC')}
+                  <button 
+                    class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    on:click={() => abrirModalCAE(factura.DocumentoTipo, factura.DocumentoSucursal, factura.DocumentoNumero)}
+                  >
+                    Obtener CAE
+                  </button>
+                {:else}
+                  <span class="text-sm text-gray-400">N/A</span>
+                {/if}
               </td>
               <td class="px-4 py-3 whitespace-nowrap text-center">
                 {#if factura.FechaAnulacion}
@@ -574,3 +618,14 @@
     {/if}
   {/if}
 </div>
+
+<!-- Usar el componente CaeModal importado -->
+{#if mostrarModalCAE && facturaSeleccionada}
+  <CaeModal 
+    show={mostrarModalCAE} 
+    factura={facturaSeleccionada} 
+    on:close={cerrarModalCAE}
+    on:caeObtenido={handleCaeObtenido}
+  />
+{/if}
+

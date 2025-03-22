@@ -23,6 +23,7 @@ const facturaRoutes = require("./routes/factura.routes");
 const vendedorRoutes = require("./routes/vendedor.routes");
 const usuarioRoutes = require("./routes/usuario.routes");
 const tipoDePagoRoutes = require("./routes/tipoDePago.routes");
+const afipRoutes = require("./routes/arca.routes");
 
 // Crear app Express
 const app = express();
@@ -54,6 +55,9 @@ app.use("/api/usuarios", usuarioRoutes);
 
 // Rutas de tipo de pago
 app.use("/api/tipos-de-pago", tipoDePagoRoutes);
+
+// Rutas de AFIP ARCA
+app.use("/api/arca", afipRoutes);
 
 // Ruta de prueba
 app.get("/", (req, res) => {

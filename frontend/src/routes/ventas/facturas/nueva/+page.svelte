@@ -5,6 +5,7 @@
   import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
   import EntitySelector from '$lib/components/ui/EntitySelector.svelte';
+  import CaeModal from '$lib/components/facturas/CaeModal.svelte';
   // import { formatDateOnly } from '$lib/utils/dateUtils';
   
   // Modelo de factura
@@ -78,6 +79,10 @@
   
   // Agregar esta variable para controlar la visibilidad del selector de clientes
   let mostrarSelectorClientes = false;
+  
+  // Variables para el modal de CAE
+  let showCaeModal = false;
+  let facturaCreada:any = null;
   
   // Cargar formas de pago desde la API
   onMount(async () => {
@@ -270,6 +275,7 @@
     
     // Obtener próximo número de comprobante
     obtenerProximoNumero();
+
   };
   
   // Seleccionar artículo
@@ -490,57 +496,114 @@
     }
   };
   
-  // Guardar factura
-  const guardarFactura = async () => {
+  // Funciones de validación modularizadas
+  const validarCliente = () => {
     if (!factura.ClienteCodigo) {
-      error = "Debe seleccionar un cliente";
-      return;
+      return "Debe seleccionar un cliente";
     }
-    
+    return null;
+  };
+
+  const validarItems = () => {
     if (factura.Items.length === 0) {
-      error = "La factura debe tener al menos un artículo";
-      return;
+      return "Debe agregar al menos un artículo a la factura";
+    }
+    return null;
+  };
+
+  const validarFormaPago = () => {
+    if (!factura.FormaPagoCodigo) {
+      return "Debe seleccionar una forma de pago";
+    }
+    return null;
+  };
+
+  // Función principal de validación
+  const validarFactura = () => {
+    const validaciones = [
+      validarCliente(),
+      validarItems(),
+      validarFormaPago()
+    ];
+    
+    // Filtrar solo los mensajes de error (no nulos)
+    const errores = validaciones.filter(v => v !== null);
+    
+    if (errores.length > 0) {
+      error = errores[0]; // Mostrar el primer error encontrado
+      return false;
     }
     
-    if (!factura.FormaPagoCodigo) {
-      error = "Debe seleccionar una forma de pago";
-      return;
-    }
+    error = null;
+    return true;
+  };
+  
+  // Función para crear factura
+  const crearFactura = async () => {
+    if (!validarFactura()) return;
+    
+    loading = true;
+    error = null;
+    guardadoExitoso = false;
     
     try {
-      loading = true;
-      error = null;
-      
+      // Realizar las operaciones para guardar la factura...
       const response = await fetch(`${PUBLIC_API_URL}/facturas`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(factura)
       });
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al guardar la factura');
+        throw new Error(errorData.message || 'Error al crear la factura');
       }
       
-      const data = await response.json();
+      const { data } = await response.json();
+      
+      // Guardar la factura creada para usarla en el modal de CAE
+      facturaCreada = data;
       guardadoExitoso = true;
       
-      // Redirigir a la vista de detalle después de 2 segundos
-      setTimeout(() => {
-        goto(`/ventas/facturas/`);
-        // ${factura.DocumentoTipo}/${factura.DocumentoSucursal}/${factura.DocumentoNumero}
-      }, 2000);
-      
+      // Solo mostrar el modal de CAE para facturas electrónicas (no PRF)
+      if (factura.DocumentoTipo !== 'PRF') {
+        showCaeModal = true;
+      } else {
+        // Si es PRF, redirigir a la lista de facturas después de un breve retraso
+        setTimeout(() => {
+          goto('/ventas/facturas/');
+        }, 1500);
+      }
     } catch (err) {
-      console.error('Error guardando factura:', err);
+      console.error('Error al crear factura:', err);
       error = err instanceof Error ? err.message : 'Error desconocido';
     } finally {
       loading = false;
     }
   };
   
+  // Manejador para cuando se obtiene el CAE
+  const handleCaeObtenido = (event: any) => {
+    const caeData = event.detail;
+    console.log('CAE obtenido:', caeData);
+    
+    // Aquí puedes guardar el CAE en la factura si es necesario
+    // mediante otra llamada a la API
+  };
+  
+  // Manejador para cerrar el modal de CAE
+  const handleCloseCaeModal = () => {
+    showCaeModal = false;
+    // Redirigir a la lista de facturas
+    goto('/ventas/facturas/');
+  };
+  
+  // Manejador para imprimir la factura
+  const handleImprimirFactura = () => {
+    // Implementar la funcionalidad de impresión
+    window.open(`${PUBLIC_API_URL}/facturas/${factura.DocumentoTipo}/${factura.DocumentoSucursal}/${factura.DocumentoNumero}/pdf`, '_blank');
+  };
+
   // Cancelar creación
   const cancelar = () => {
     if (confirm('¿Está seguro que desea cancelar? Perderá todos los datos ingresados.')) {
@@ -611,7 +674,7 @@
     <h1 class="text-2xl font-bold text-gray-800">Nueva Factura</h1>
     <div class="flex space-x-2">
       <Button variant="secondary" on:click={cancelar}>Cancelar</Button>
-      <Button variant="primary" on:click={guardarFactura} disabled={loading}>
+      <Button variant="primary" on:click={crearFactura} disabled={loading}>
         {loading ? 'Guardando...' : 'Guardar Factura'}
       </Button>
     </div>
@@ -1098,3 +1161,12 @@
     </div>
   {/if}
 </div> 
+
+<!-- Al final del HTML, añadir el componente modal: -->
+<CaeModal 
+  bind:show={showCaeModal} 
+  factura={facturaCreada}
+  on:close={handleCloseCaeModal}
+  on:caeObtenido={handleCaeObtenido}
+  on:imprimir={handleImprimirFactura}
+/> 
