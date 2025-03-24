@@ -6,6 +6,7 @@ export class DocumentService {
 	 */
 	static async generarPDF(tipo: string, sucursal: string, numero: string): Promise<string> {
 		try {
+			console.log('URL', `${PUBLIC_API_URL}/facturas/pdf/${tipo}/${sucursal}/${numero}`);
 			const response = await fetch(`${PUBLIC_API_URL}/facturas/pdf/${tipo}/${sucursal}/${numero}`, {
 				method: 'GET',
 				headers: {

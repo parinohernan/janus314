@@ -6,7 +6,8 @@ const Articulo = require("../models/articulo.model");
 const fs = require("fs");
 const path = require("path");
 const { getTemplateRenderer } = require("../templates/pdf");
-
+const DatosEmpresa = require("../models/datosEmpresa.model");
+// const datosEmpresaController = require("../controllers/datosEmpresa.controller");
 // Función para generar PDF de factura
 exports.generarFacturaPDF = async (req, res) => {
   try {
@@ -41,6 +42,13 @@ exports.generarFacturaPDF = async (req, res) => {
       });
     }
 
+    // Obtener datos de la empresa
+    const datosEmpresa = await DatosEmpresa.findOne({
+      where: {},
+      raw: true,
+    });
+
+    // console.log("!!!!!!!!!!!!!!!!!!!!!!!datosEmpresa", datosEmpresa.toJSON());
     // Obtener items
     const items = await FacturaItem.findAll({
       where: {
@@ -78,7 +86,7 @@ exports.generarFacturaPDF = async (req, res) => {
     });
 
     // Crear un nuevo documento PDF
-    const doc = new PDFDocument({ margin: 50 });
+    const doc = new PDFDocument({ margin: 20 });
 
     // Configurar la respuesta HTTP
     res.setHeader("Content-Type", "application/pdf");
@@ -93,9 +101,12 @@ exports.generarFacturaPDF = async (req, res) => {
     // Obtener la plantilla adecuada según el tipo de documento
     const renderTemplate = getTemplateRenderer(tipo);
 
+    factura.datosEmpresa = datosEmpresa;
+    let dataFactura = factura.toJSON();
+    dataFactura.Empresa = datosEmpresa;
     // Renderizar el documento usando la plantilla
     renderTemplate(doc, {
-      factura: factura.toJSON(),
+      factura: dataFactura,
       items: itemsConArticulos,
     });
 

@@ -46,6 +46,10 @@ const DatosEmpresa = sequelize.define(
       type: DataTypes.STRING(40),
       allowNull: true,
     },
+    InicioActividades: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     DomicilioComercial: {
       type: DataTypes.STRING(80),
       allowNull: true,
