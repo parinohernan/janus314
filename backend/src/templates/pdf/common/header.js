@@ -105,10 +105,10 @@ function renderHeader(doc, options = {}) {
   doc.fontSize(fontSize.infoEmpresa).text(`CUIT: ${companyTaxId}`);
   doc
     .fontSize(fontSize.infoEmpresa)
-    .text(`Ingresos Brutos: ${companyIngresosBrutos}`);
+    .text(`ING.BRUTOS: ${companyIngresosBrutos}`);
   doc
     .fontSize(fontSize.infoEmpresa)
-    .text(`Inicio de Actividades: ${companyInicioActividades}`);
+    .text(`INICIO ACTIVIDADES: ${companyInicioActividades}`);
   //   doc.text(`Dirección: ${companyAddress}`);
   //   doc.text(`Tel: ${companyPhone}`);
   doc.moveDown(); // espacio

@@ -32,27 +32,28 @@ function renderFacturaA(doc, data) {
   });
 
   // Información del cliente
-
+  let yCliente = y; // marca para saber donde empezar a escribir el cliente
   doc.x = 20;
-  doc.moveDown();
   doc
     .fontSize(12)
     .text(`CLIENTE: ${factura.Cliente ? factura.Cliente.Descripcion : "N/A"}`);
   doc.text(`DOMICILIO: ${factura.Cliente ? factura.Cliente.Calle : "N/A"}`);
   doc.text(
-    `Categoría IVA: ${
+    `CAT IVA: ${
       factura.Cliente.CategoriaIva === "I"
-        ? "Responsable Inscrito"
+        ? "RESPONSABLE INSCRIPTO"
         : factura.Cliente.CategoriaIva === "M"
-        ? "Monotributo"
+        ? "MONOTRIBUTO"
         : factura.Cliente.CategoriaIva === "E"
-        ? "Exento"
+        ? "EXENTO"
         : "N/A"
     }`
   );
+  //   doc.moveDown();
+  let yTablaItems = doc.y;
   console.log("factura", factura);
-  doc.x = 230;
-  doc.y = 130;
+  doc.x = 270;
+  doc.y = yCliente;
   doc
     .fontSize(12)
     .text(
@@ -65,22 +66,131 @@ function renderFacturaA(doc, data) {
       )}-${factura.Cliente.Cuit.substring(10, 11)}`
     ); //se muestran 2 digitos luego un - luego 8 digitos otro - luego 1 digito
   doc.text(`LOCALIDAD: ${factura.Cliente ? factura.Cliente.Localidad : "N/A"}`);
-  doc.moveDown();
 
-  doc.x = 420;
-  doc.y = 130;
+  doc.x = 440;
+  doc.y = yCliente;
   doc
     .fontSize(12)
     .text(
       `PAGO: ${
         factura.PagoTipo === "CO"
-          ? "CONTADO"
+          ? "CTADO"
           : factura.PagoTipo === "CC"
-          ? "CUENTA CORRIENTE"
+          ? "CTA CTE"
           : "N/A"
       }`
     );
   doc.text(`LISTA: ${factura.ListaNumero}`);
+
+  // Tabla de items
+  const itemsConSubtotal = items.map((item) => {
+    const articulo = item.Articulo || {};
+    console.log("item", item);
+    return {
+      ...item,
+      Descripcion: articulo.Descripcion || "Artículo no encontrado",
+      PrecioUnitario: item.PrecioUnitario || 0,
+      Cantidad: item.Cantidad || 0,
+      Descuento: item.PorcentajeBonificado || 0,
+      Subtotal: item.Total,
+    };
+  });
+  doc.y = yTablaItems;
+  doc.x = 0;
+
+  y = renderTable(doc, itemsConSubtotal, {
+    startY: doc.y,
+    startX: 0,
+    columns: [
+      {
+        header: "Código",
+        property: "CodigoArticulo",
+        width: 50,
+        align: "left",
+      },
+      {
+        header: "Descripción",
+        property: "Descripcion",
+        width: 300,
+        align: "left",
+      },
+      { header: "Cant.", property: "Cantidad", width: 30, align: "right" },
+      {
+        header: "Precio U.",
+        property: "PrecioUnitario",
+        width: 80,
+        align: "right",
+        format: (value) => value.toFixed(2),
+      },
+      {
+        header: "Desc.",
+        property: "Descuento",
+        width: 40,
+        align: "right",
+        format: (value) => value.toFixed(2),
+      },
+      {
+        header: "Subtotal",
+        property: "Subtotal",
+        width: 80,
+        align: "right",
+        format: (value) => value.toFixed(2),
+      },
+    ],
+  });
+
+  // Espacio después de la tabla
+  y += 10;
+
+  // Totales
+  doc.font("Helvetica-Bold");
+  doc.text("Subtotal:", 350, y, { width: 90, align: "right" });
+  doc.text(
+    factura.ImporteNeto ? factura.ImporteNeto.toFixed(2) : "0.00",
+    440,
+    y,
+    { width: 70, align: "right" }
+  );
+  y += 20;
+
+  doc.text("IVA 21%:", 350, y, { width: 90, align: "right" });
+  doc.text(
+    factura.ImporteIva1 ? factura.ImporteIva1.toFixed(2) : "0.00",
+    440,
+    y,
+    { width: 70, align: "right" }
+  );
+  y += 20;
+
+  if (factura.ImporteIva2 && factura.ImporteIva2 > 0) {
+    doc.text("IVA 10.5%:", 350, y, { width: 90, align: "right" });
+    doc.text(factura.ImporteIva2.toFixed(2), 440, y, {
+      width: 70,
+      align: "right",
+    });
+    y += 20;
+  }
+
+  if (factura.ImportePercepcionIIBB && factura.ImportePercepcionIIBB > 0) {
+    doc.text("Perc. IIBB:", 350, y, { width: 90, align: "right" });
+    doc.text(factura.ImportePercepcionIIBB.toFixed(2), 440, y, {
+      width: 70,
+      align: "right",
+    });
+    y += 20;
+  }
+
+  // Línea antes del total
+  doc.strokeColor("#000000").moveTo(350, y).lineTo(510, y).stroke();
+  y += 10;
+
+  doc.fontSize(12).text("TOTAL:", 350, y, { width: 90, align: "right" });
+  doc.text(
+    factura.ImporteTotal ? factura.ImporteTotal.toFixed(2) : "0.00",
+    440,
+    y,
+    { width: 70, align: "right" }
+  );
 
   //   // Fecha y CAE
   //   // Fecha y CAE
@@ -96,112 +206,22 @@ function renderFacturaA(doc, data) {
   //     );
   //   }
   //   doc.moveDown();
-
-  //   // Tabla de items
-  //   const itemsConSubtotal = items.map((item) => {
-  //     const articulo = item.Articulo || {};
-  //     return {
-  //       ...item,
-  //       Descripcion: articulo.Descripcion || "Artículo no encontrado",
-  //       Subtotal: (item.Cantidad || 0) * (item.PrecioUnitario || 0),
-  //     };
+  // Pie de página
+  //   doc.text("Documento válido como factura", 20, 750, {
+  //     width: 90,
+  //     align: "left",
   //   });
-
-  //   y = renderTable(doc, itemsConSubtotal, {
-  //     startY: doc.y,
-  //     columns: [
-  //       {
-  //         header: "Código",
-  //         property: "CodigoArticulo",
-  //         width: 80,
-  //         align: "left",
-  //       },
-  //       {
-  //         header: "Descripción",
-  //         property: "Descripcion",
-  //         width: 200,
-  //         align: "left",
-  //       },
-  //       { header: "Cant.", property: "Cantidad", width: 40, align: "right" },
-  //       {
-  //         header: "Precio",
-  //         property: "PrecioUnitario",
-  //         width: 70,
-  //         align: "right",
-  //         format: (value) => value.toFixed(2),
-  //       },
-  //       {
-  //         header: "Subtotal",
-  //         property: "Subtotal",
-  //         width: 70,
-  //         align: "right",
-  //         format: (value) => value.toFixed(2),
-  //       },
-  //     ],
-  //   });
-
-  //   // Espacio después de la tabla
-  //   y += 20;
-
-  //   // Totales
-  //   doc.font("Helvetica-Bold");
-  //   doc.text("Subtotal:", 350, y, { width: 90, align: "right" });
-  //   doc.text(
-  //     factura.ImporteNeto ? factura.ImporteNeto.toFixed(2) : "0.00",
-  //     440,
-  //     y,
-  //     { width: 70, align: "right" }
-  //   );
-  //   y += 20;
-
-  //   doc.text("IVA 21%:", 350, y, { width: 90, align: "right" });
-  //   doc.text(
-  //     factura.ImporteIva1 ? factura.ImporteIva1.toFixed(2) : "0.00",
-  //     440,
-  //     y,
-  //     { width: 70, align: "right" }
-  //   );
-  //   y += 20;
-
-  //   if (factura.ImporteIva2 && factura.ImporteIva2 > 0) {
-  //     doc.text("IVA 10.5%:", 350, y, { width: 90, align: "right" });
-  //     doc.text(factura.ImporteIva2.toFixed(2), 440, y, {
-  //       width: 70,
-  //       align: "right",
-  //     });
-  //     y += 20;
-  //   }
-
-  //   if (factura.ImportePercepcionIIBB && factura.ImportePercepcionIIBB > 0) {
-  //     doc.text("Perc. IIBB:", 350, y, { width: 90, align: "right" });
-  //     doc.text(factura.ImportePercepcionIIBB.toFixed(2), 440, y, {
-  //       width: 70,
-  //       align: "right",
-  //     });
-  //     y += 20;
-  //   }
-
-  //   // Línea antes del total
-  //   doc.strokeColor("#000000").moveTo(350, y).lineTo(510, y).stroke();
-  //   y += 10;
-
-  //   doc.fontSize(12).text("TOTAL:", 350, y, { width: 90, align: "right" });
-  //   doc.text(
-  //     factura.ImporteTotal ? factura.ImporteTotal.toFixed(2) : "0.00",
-  //     440,
-  //     y,
-  //     { width: 70, align: "right" }
-  //   );
-
-  //   // Pie de página
-  //   renderFooter(doc, {
-  //     legalText: "Documento válido como factura",
-  //     additionalText: factura.afip_cae
-  //       ? `CAE: ${factura.afip_cae} - Vto: ${new Date(
-  //           factura.afip_cae_vencimiento
-  //         ).toLocaleDateString("es-AR")}`
-  //       : null,
-  //   });
+  if (factura.DocumentoTipo === "FCA" || factura.DocumentoTipo === "FCB") {
+    doc.x = 20;
+    doc.y = 750;
+    doc.text(
+      factura.afip_cae
+        ? `CAE: ${factura.afip_cae} - Vto: ${new Date(
+            factura.afip_cae_vencimiento
+          ).toLocaleDateString("es-AR")}`
+        : null
+    );
+  }
 }
 
 module.exports = renderFacturaA;
