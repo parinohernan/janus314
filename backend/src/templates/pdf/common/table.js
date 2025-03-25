@@ -11,14 +11,14 @@ function renderTable(doc, items, options = {}) {
       {
         header: "Código",
         property: "CodigoArticulo",
-        width: 80,
+        width: 40,
         align: "left",
       },
-      { header: "Cant.", property: "Cantidad", width: 40, align: "right" },
+      { header: "Cant.", property: "Cantidad", width: 30, align: "left" },
       {
         header: "Descripción",
         property: "Descripcion",
-        width: 200,
+        width: 280,
         align: "left",
       },
       {
@@ -43,16 +43,18 @@ function renderTable(doc, items, options = {}) {
         format: (value) => value.toFixed(2),
       },
     ],
-    padding = 10,
-    margin = 10,
+    padding = 20,
+    margin = 20,
     headerBgColor = "#ffffff",
     rowBgColor = null,
     alternateRowBgColor = null,
     borderColor = "#000000",
     headerTextColor = "#000000",
     textColor = "#000000",
-    fontSize = 12,
-    headerFontSize = 12,
+    fontSize = 10,
+    headerFontSize = 10,
+    font = "Helvetica",
+    interlineado = 5,
   } = options;
 
   // Calcular ancho total y posición inicial
@@ -88,7 +90,7 @@ function renderTable(doc, items, options = {}) {
     .stroke();
 
   // Dibujar filas
-  doc.font("Helvetica").fontSize(fontSize).fillColor(textColor);
+  doc.font(font).fontSize(fontSize).fillColor(textColor);
 
   items.forEach((item, i) => {
     // Calcular subtotal si no existe
@@ -182,13 +184,13 @@ function renderTable(doc, items, options = {}) {
   });
 
   // Línea después de las filas
-  doc
-    .strokeColor(borderColor)
-    .moveTo(startX, y)
-    .lineTo(startX + tableWidth, y)
-    .stroke();
+  // doc
+  //   .strokeColor(borderColor)
+  //   .moveTo(startX, y + 10)
+  //   .lineTo(startX + tableWidth, y + 10)
+  //   .stroke();
 
-  return y; // Retornar la posición Y actual para saber dónde continuar
+  return y + 10; // Retornar la posición Y actual para saber dónde continuar
 }
 
 module.exports = renderTable;

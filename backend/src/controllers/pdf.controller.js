@@ -7,32 +7,24 @@ const fs = require("fs");
 const path = require("path");
 const { getTemplateRenderer } = require("../templates/pdf");
 const DatosEmpresa = require("../models/datosEmpresa.model");
+const renderFacturaA = require("../templates/pdf/facturaA.template");
+const renderFacturaB = require("../templates/pdf/facturaB.template");
+const renderPresupuesto = require("../templates/pdf/presupuesto.template");
 // const datosEmpresaController = require("../controllers/datosEmpresa.controller");
 // Función para generar PDF de factura
 exports.generarFacturaPDF = async (req, res) => {
   try {
     const { tipo, sucursal, numero } = req.params;
 
-    // Obtener datos de la factura
+    // Obtener datos de la factura con el cliente
     const factura = await FacturaCabeza.findOne({
       where: {
         DocumentoTipo: tipo,
         DocumentoSucursal: sucursal,
         DocumentoNumero: numero,
       },
-      include: [
-        {
-          model: Cliente,
-          attributes: [
-            "Codigo",
-            "Descripcion",
-            "CategoriaIva",
-            "Calle",
-            "Localidad",
-            "Cuit",
-          ],
-        },
-      ],
+      include: [{ model: Cliente }],
+      raw: false,
     });
 
     if (!factura) {
@@ -42,14 +34,7 @@ exports.generarFacturaPDF = async (req, res) => {
       });
     }
 
-    // Obtener datos de la empresa
-    const datosEmpresa = await DatosEmpresa.findOne({
-      where: {},
-      raw: true,
-    });
-
-    // console.log("!!!!!!!!!!!!!!!!!!!!!!!datosEmpresa", datosEmpresa.toJSON());
-    // Obtener items
+    // Obtener ítems de la factura
     const items = await FacturaItem.findAll({
       where: {
         DocumentoTipo: tipo,
@@ -59,7 +44,7 @@ exports.generarFacturaPDF = async (req, res) => {
       raw: true,
     });
 
-    // Obtener los códigos de artículos para buscarlos
+    // Obtener códigos de artículos para buscarlos
     const codigosArticulos = items.map((item) => item.CodigoArticulo);
 
     // Buscar los artículos correspondientes
@@ -85,35 +70,47 @@ exports.generarFacturaPDF = async (req, res) => {
       };
     });
 
-    // Crear un nuevo documento PDF
-    const doc = new PDFDocument({ margin: 20 });
+    // Obtener datos de la empresa
+    const datosEmpresa = await DatosEmpresa.findOne();
+    if (!datosEmpresa) {
+      return res.status(404).json({
+        success: false,
+        message: "Datos de empresa no encontrados",
+      });
+    }
 
-    // Configurar la respuesta HTTP
+    // Asignar datos de empresa a la factura para la plantilla
+    factura.Empresa = datosEmpresa;
+
+    // Crear documento PDF
+    const doc = new PDFDocument({ margin: 50, size: "A4" });
+
+    // Configurar respuesta HTTP
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `inline; filename=factura-${tipo}-${sucursal}-${numero}.pdf`
+      `inline; filename="factura-${tipo}-${sucursal}-${numero}.pdf"`
     );
 
-    // Pipe el PDF a la respuesta HTTP
+    // Pipe PDF a la respuesta
     doc.pipe(res);
 
-    // Obtener la plantilla adecuada según el tipo de documento
-    const renderTemplate = getTemplateRenderer(tipo);
+    // Aplicar plantilla adecuada según tipo de documento
+    if (tipo === "FCA" || tipo === "NCA" || tipo === "NDA") {
+      await renderFacturaA(doc, { factura, items: itemsConArticulos });
+    } else if (tipo === "FCB" || tipo === "NCB" || tipo === "NDB") {
+      await renderFacturaB(doc, { factura, items: itemsConArticulos });
+    } else if (tipo === "PRF") {
+      await renderPresupuesto(doc, { factura, items: itemsConArticulos });
+    } else {
+      // Si el tipo no está entre los soportados, mostrar mensaje
+      doc.fontSize(20).text("Tipo de documento no soportado", 100, 100);
+    }
 
-    factura.datosEmpresa = datosEmpresa;
-    let dataFactura = factura.toJSON();
-    dataFactura.Empresa = datosEmpresa;
-    // Renderizar el documento usando la plantilla
-    renderTemplate(doc, {
-      factura: dataFactura,
-      items: itemsConArticulos,
-    });
-
-    // Finalizar el documento
+    // Finalizar documento
     doc.end();
   } catch (error) {
-    console.error("Error al generar PDF:", error);
+    console.error("Error generando PDF:", error);
     res.status(500).json({
       success: false,
       message: "Error al generar PDF",

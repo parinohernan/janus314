@@ -33,17 +33,20 @@ function renderHeader(doc, options = {}) {
   const titleWidth = 12;
   const titleHeight = 7;
   const infoEmpresaY = logoY + 50;
-  const infoEmpresaX = logoX + logoWidth + 10;
+  const infoEmpresaX = logoX + logoWidth + 20;
 
   const fontSize = {
     infoEmpresa: 12,
     fecha: 12,
   };
   //   // Título del documento
-  doc.rect(10, 10, doc.page.width - 20, 110).stroke(); //rectangulo contenedor del encabezado
+  //   doc.rect(10, 10, doc.page.width - 20, 110).stroke(); //rectangulo contenedor del encabezado
+  //linea debajo del rectangulo
+  //   doc.rect(10, 115, doc.page.width - 20, 0.1).stroke();
+  doc.strokeColor("#000000").moveTo(20, 115).lineTo(580, 115).stroke();
   const rectY = doc.y;
-  doc.rect(doc.page.width / 2 - 12, rectY - 8, 24, 24).stroke();
-  doc.fontSize(20).text(title, doc.page.width / 2 - 12, rectY - 2, {
+  doc.rect(doc.page.width / 2 - 15, 20, 30, 30).stroke(); //rectangulo contenedor de letra de Comprobante
+  doc.fontSize(26).text(title, doc.page.width / 2 - 14, 26, {
     width: 12,
     align: "center",
     height: 7,
@@ -69,10 +72,10 @@ function renderHeader(doc, options = {}) {
 
   // Tipo y número de documento
   if (documentType && documentNumber) {
-    doc.fontSize(12).text(`FACTURA N° ${documentNumber}`, { align: "right" });
+    doc.fontSize(12).text(`Factura N° ${documentNumber}`, { align: "right" });
   }
   // fecha
-  doc.fontSize(12).text(`FECHA: ${fecha}`, { align: "right" });
+  doc.fontSize(12).text(`Fecha: ${fecha}`, { align: "right" });
   doc.moveDown();
 
   // informacion general de la empresa
@@ -95,20 +98,20 @@ function renderHeader(doc, options = {}) {
     .text(`${companyAddress}`, { align: "left" });
   doc
     .fontSize(fontSize.infoEmpresa)
-    .text(`TEL: ${companyPhone}`, { align: "left" });
+    .text(`Teléfono: ${companyPhone}`, { align: "left" });
 
   // Información legalde la empresa
-  doc.x = doc.page.width / 2 + 10;
+  doc.x = doc.page.width / 2 + 40;
   doc.y = infoEmpresaY;
 
   //   doc.fontSize(12).text(companyName, { align: "left" });
   doc.fontSize(fontSize.infoEmpresa).text(`CUIT: ${companyTaxId}`);
   doc
     .fontSize(fontSize.infoEmpresa)
-    .text(`ING.BRUTOS: ${companyIngresosBrutos}`);
+    .text(`Ingresos Brutos: ${companyIngresosBrutos}`);
   doc
     .fontSize(fontSize.infoEmpresa)
-    .text(`INICIO ACTIVIDADES: ${companyInicioActividades}`);
+    .text(`Inicio de Actividades: ${companyInicioActividades}`);
   //   doc.text(`Dirección: ${companyAddress}`);
   //   doc.text(`Tel: ${companyPhone}`);
   doc.moveDown(); // espacio
