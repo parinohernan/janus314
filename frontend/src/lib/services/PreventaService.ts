@@ -67,7 +67,7 @@ export class PreventaService {
 				...preventa,
 				Items: items
 			};
-
+			// console.log('preventaData', preventaData);
 			const response = await fetch(`${PUBLIC_API_URL}/preventas`, {
 				method: 'POST',
 				headers: {

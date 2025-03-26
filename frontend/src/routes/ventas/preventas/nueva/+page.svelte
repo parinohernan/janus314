@@ -71,8 +71,8 @@
 	
 	// Modificar el modelo de preventa
 	let preventa = {
-		// Siempre será PRF (prefactura)
-		DocumentoTipo: 'PRF',
+		// Siempre será PRV (preventa)
+		DocumentoTipo: 'PRV',
 		DocumentoSucursal: '', // Se obtendrá de la API
 		DocumentoNumero: '',
 		// Quitar fecha como solicitado
@@ -217,51 +217,50 @@
 		clienteSearch = cliente.Descripcion;
 		clientesOptions = [];
 		
-		// Si hay artículos en la lista, actualizar sus precios según la lista del cliente
-		if (items.length > 0 && cliente.ListaPrecio) {
-			actualizarPreciosSegunLista(cliente.ListaPrecio);
-		}
-	}
-	
-	// Actualizar precios de los artículos según la lista de precios
-	function actualizarPreciosSegunLista(listaPrecio: string) {
-		items = items.map(item => {
-			const articulo = item.Articulo;
-			if (!articulo) return item;
-			
-			let nuevoPrecio = articulo.PrecioVenta || 0; // Precio por defecto
-			
-			// Determinar el precio según la lista
-			switch (listaPrecio) {
-				case 'LISTA1':
-					nuevoPrecio = articulo.PrecioCosto * (1 + (articulo.Lista1 || 0)/100) || articulo.PrecioVenta || 0;
-					break;
-				case 'LISTA2':
-					nuevoPrecio = articulo.PrecioCosto * (1 + (articulo.Lista2 || 0)/100) || articulo.PrecioVenta || 0;
-					break;
-				case 'LISTA3':
-					nuevoPrecio = articulo.PrecioCosto * (1 + (articulo.Lista3 || 0)/100) || articulo.PrecioVenta || 0;
-					break;
-				case 'LISTA4':
-					nuevoPrecio = articulo.PrecioCosto * (1 + (articulo.Lista4 || 0)/100) || articulo.PrecioVenta || 0;
-					break;
-				case 'LISTA5':
-					nuevoPrecio = articulo.PrecioCosto * (1 + (articulo.Lista5 || 0)/100) || articulo.PrecioVenta || 0;
-					break;  
-				default:
-                nuevoPrecio = articulo.PrecioCosto * (1 + (articulo.Lista1 || 0)/100) || articulo.PrecioVenta || 0;
-				// Agregar más listas según sea necesario
-			}
-			
-			return {
-				...item,
-				PrecioUnitario: nuevoPrecio,
-				PrecioLista: nuevoPrecio
-			};
-		});
+		// Actualizar precios de los artículos según la lista del cliente
+		const listaPrecio = cliente.ListaPrecio || 'LISTA1';
 		
-		// Recalcular totales
-		calcularTotales();
+		// Actualizar los artículos ya agregados
+		if (items.length > 0) {
+            console.log("items",listaPrecio,items);
+			items = items.map(item => {
+				const articulo = item.Articulo;
+				if (!articulo) return item;
+				
+				let nuevoPrecio = articulo.PrecioVenta || 0; // Precio por defecto
+				
+				// Determinar el precio según la lista
+				switch (listaPrecio) {
+					case '1':
+                        console.log("1",articulo.PrecioCosto,articulo.Lista1);
+						nuevoPrecio = articulo.PrecioCosto * (1 + (articulo.Lista1 || 0)/100) || articulo.PrecioVenta || 0;
+						break;
+					case '2':
+                        console.log("2",articulo.PrecioCosto,articulo.Lista2);
+						nuevoPrecio = articulo.PrecioCosto * (1 + (articulo.Lista2 || 0)/100) || articulo.PrecioVenta || 0;
+						break;
+					case '3':
+						nuevoPrecio = articulo.PrecioCosto * (1 + (articulo.Lista3 || 0)/100) || articulo.PrecioVenta || 0;
+						break;
+					case '4':
+						nuevoPrecio = articulo.PrecioCosto * (1 + (articulo.Lista4 || 0)/100) || articulo.PrecioVenta || 0;
+						break;
+					case '5':
+						nuevoPrecio = articulo.PrecioCosto * (1 + (articulo.Lista5 || 0)/100) || articulo.PrecioVenta || 0;
+						break;
+					// Agregar más listas según sea necesario
+				}
+				
+				return {
+					...item,
+					PrecioUnitario: nuevoPrecio,
+					PrecioLista: nuevoPrecio
+				};
+			});
+			
+			// Recalcular totales después de actualizar los precios
+			calcularTotales();
+		}
 	}
 	
 	// Seleccionar un artículo
