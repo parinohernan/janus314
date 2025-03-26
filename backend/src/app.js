@@ -24,6 +24,8 @@ const vendedorRoutes = require("./routes/vendedor.routes");
 const usuarioRoutes = require("./routes/usuario.routes");
 const tipoDePagoRoutes = require("./routes/tipoDePago.routes");
 const afipRoutes = require("./routes/arca.routes");
+const pedidoRoutes = require("./routes/pedido.routes");
+const preventaRoutes = require("./routes/preventa.routes");
 
 // Crear app Express
 const app = express();
@@ -58,6 +60,12 @@ app.use("/api/tipos-de-pago", tipoDePagoRoutes);
 
 // Rutas de AFIP ARCA
 app.use("/api/arca", afipRoutes);
+
+// Rutas de pedidos
+app.use("/api/pedidos", pedidoRoutes);
+
+// Rutas de preventas
+app.use("/api/preventas", preventaRoutes);
 
 // Ruta de prueba
 app.get("/", (req, res) => {

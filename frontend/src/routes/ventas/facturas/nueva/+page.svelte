@@ -600,8 +600,7 @@
   
   // Manejador para imprimir la factura
   const handleImprimirFactura = () => {
-    // Implementar la funcionalidad de impresión
-    window.open(`${PUBLIC_API_URL}/facturas/${factura.DocumentoTipo}/${factura.DocumentoSucursal}/${factura.DocumentoNumero}/pdf`, '_blank');
+    goto(`/ventas/facturas/imprimir/${factura.DocumentoTipo}/${factura.DocumentoSucursal}/${factura.DocumentoNumero.toString().padStart(8, '0')}`)
   };
 
   // Cancelar creación
