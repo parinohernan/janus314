@@ -11,6 +11,10 @@
 	let loading = true;
 	let error: string | null = null;
 	
+	// Selección múltiple
+	let selectedPreventas: string[] = []; // IDs de preventas seleccionadas
+	let selectedAll = false;
+	
 	// Paginación
 	let currentPage = 1;
 	let totalPages = 0;
@@ -27,6 +31,12 @@
 		pendientes: false
 	};
 	let filtrosVisibles = false;
+	let resumenVisible = false;
+	
+	// Cargar preventas al montar el componente
+	onMount(() => {
+		cargarPreventas();
+	});
 	
 	// Función para cargar preventas usando el servicio
 	async function cargarPreventas() {
@@ -38,9 +48,12 @@
 			preventas = resultado.data;
 			totalItems = resultado.meta.totalItems;
 			totalPages = resultado.meta.totalPages;
+			// Limpiar selecciones al cambiar la página
+			selectedPreventas = [];
+			selectedAll = false;
 		} catch (err) {
 			console.error('Error al cargar preventas:', err);
-			error = err.message;
+			error = err instanceof Error ? err.message : 'Error desconocido';
 		} finally {
 			loading = false;
 		}
@@ -92,7 +105,7 @@
 			cargarPreventas(); // Recargar lista
 		} catch (err) {
 			console.error('Error al anular preventa:', err);
-			alert(`Error al anular preventa: ${err.message}`);
+			alert(`Error al anular preventa: ${err instanceof Error ? err.message : 'Error desconocido'}`);
 		}
 	}
 	
@@ -108,7 +121,7 @@
 		return 'Pendiente';
 	}
 	
-	// Agregar clases según estado
+	// Retornar clase CSS según estado
 	function getClaseEstado(estado: string): string {
 		switch (estado) {
 			case 'Anulada':
@@ -116,44 +129,99 @@
 			case 'Facturada':
 				return 'bg-green-100 text-green-800';
 			case 'Pendiente':
-			default:
 				return 'bg-yellow-100 text-yellow-800';
-		}
-	}
-	
-	// Obtener clase para la fila según estado
-	function getClaseFila(preventa: PreventaCabeza): string {
-		const estado = getEstadoPreventa(preventa);
-		switch (estado) {
-			case 'Anulada':
-				return 'bg-red-50';
-			case 'Facturada':
-				return 'bg-green-50';
 			default:
-				return '';
+				return 'bg-gray-100 text-gray-800';
 		}
 	}
 	
-	// Cargar datos al montar el componente
-	onMount(() => {
-		cargarPreventas();
-	});
+	// Alternar selección de una preventa
+	function toggleSelectPreventa(preventa: PreventaCabeza) {
+		const preventaId = `${preventa.DocumentoTipo}-${preventa.DocumentoSucursal}-${preventa.DocumentoNumero}`;
+		
+		if (selectedPreventas.includes(preventaId)) {
+			selectedPreventas = selectedPreventas.filter(id => id !== preventaId);
+		} else {
+			selectedPreventas = [...selectedPreventas, preventaId];
+		}
+		
+		// Actualizar estado de "seleccionar todos"
+		selectedAll = preventas.length > 0 && selectedPreventas.length === preventas.length;
+	}
+	
+	// Manejar seleccionar/deseleccionar todos
+	function handleSelectAll() {
+		if (selectedAll) {
+			selectedPreventas = [];
+		} else {
+			selectedPreventas = preventas.map(preventa => 
+				`${preventa.DocumentoTipo}-${preventa.DocumentoSucursal}-${preventa.DocumentoNumero}`
+			);
+		}
+		selectedAll = !selectedAll;
+	}
+	
+	// Obtener resumen de preventas
+	function generarResumen() {
+		if (selectedPreventas.length === 0) {
+			alert('Seleccione al menos una preventa para generar el resumen');
+			return;
+		}
+		
+		resumenVisible = true;
+		// Aquí se podría implementar la lógica para mostrar el resumen
+		// Podría ser un modal, o navegar a otra ruta con los IDs seleccionados
+		alert(`Generando resumen de ${selectedPreventas.length} preventas seleccionadas`);
+	}
+	
+	// Calcular totales para el resumen
+	function calcularTotales() {
+		const preventasSeleccionadas = selectedPreventas.length > 0 
+			? preventas.filter(p => selectedPreventas.includes(`${p.DocumentoTipo}-${p.DocumentoSucursal}-${p.DocumentoNumero}`))
+			: preventas;
+		
+		const totalImporte = preventasSeleccionadas.reduce((sum, p) => sum + (p.ImporteTotal || 0), 0);
+		const totalPendientes = preventasSeleccionadas.filter(p => !p.FechaAnulacion && !p.FacturaNumero).length;
+		const totalFacturadas = preventasSeleccionadas.filter(p => p.FacturaNumero).length;
+		const totalAnuladas = preventasSeleccionadas.filter(p => p.FechaAnulacion).length;
+		
+		return {
+			totalImporte,
+			totalPendientes,
+			totalFacturadas,
+			totalAnuladas,
+			totalPreventas: preventasSeleccionadas.length
+		};
+	}
 </script>
 
-<div class="container mx-auto px-4 py-8">
-	<div class="flex justify-between items-center mb-6">
-		<h1 class="text-2xl font-bold">Preventas</h1>
-		<Button variant="primary" href="/ventas/preventas/nueva">Nueva Preventa</Button>
-	</div>
+<div class="container mx-auto px-4 py-6">
+	<h1 class="text-2xl font-bold mb-6">Listado de Preventas</h1>
 	
-	<!-- Botón para mostrar/ocultar filtros -->
-	<div class="mb-4">
-		<Button 
-			variant="secondary" 
-			on:click={() => filtrosVisibles = !filtrosVisibles}
-		>
-			{filtrosVisibles ? 'Ocultar filtros' : 'Mostrar filtros'}
-		</Button>
+	<!-- Botones de acción -->
+	<div class="flex flex-wrap items-center justify-between mb-6">
+		<div class="flex flex-wrap items-center space-x-2 mb-2">
+			<Button 
+				variant="secondary" 
+				on:click={() => filtrosVisibles = !filtrosVisibles}
+			>
+				{filtrosVisibles ? 'Ocultar filtros' : 'Mostrar filtros'}
+			</Button>
+			
+			<Button 
+				variant="primary"
+				on:click={generarResumen}
+			>
+				Resumen
+			</Button>
+		</div>
+		
+		<!-- Mostrar cantidad seleccionada -->
+		{#if selectedPreventas.length > 0}
+			<div class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-md text-sm">
+				{selectedPreventas.length} preventas seleccionadas
+			</div>
+		{/if}
 	</div>
 	
 	<!-- Filtros -->
@@ -213,86 +281,158 @@
 					/>
 				</div>
 				
-				<div class="flex items-center mt-6">
-					<input 
-						type="checkbox" 
-						id="filtroPendientes" 
-						bind:checked={filtros.pendientes}
-						class="h-4 w-4 text-indigo-600 border-gray-300 rounded"
-					/>
-					<label for="filtroPendientes" class="ml-2 block text-sm text-gray-700">Solo pendientes</label>
+				<div class="flex items-end">
+					<label class="inline-flex items-center">
+						<input type="checkbox" bind:checked={filtros.pendientes} class="form-checkbox h-5 w-5 text-indigo-600">
+						<span class="ml-2 text-gray-700">Solo pendientes</span>
+					</label>
 				</div>
 			</div>
 			
-			<div class="flex justify-end mt-4 space-x-3">
-				<Button variant="outline" on:click={limpiarFiltros}>Limpiar</Button>
-				<Button variant="primary" on:click={aplicarFiltros}>Aplicar filtros</Button>
+			<div class="mt-4 flex justify-end space-x-2">
+				<Button variant="secondary" on:click={limpiarFiltros}>Limpiar</Button>
+				<Button variant="primary" on:click={aplicarFiltros}>Aplicar</Button>
 			</div>
 		</div>
 	{/if}
 	
-	<!-- Tabla de preventas -->
+	<!-- Resumen de preventas (visible cuando se solicita) -->
+	{#if resumenVisible}
+		{@const totales = calcularTotales()}
+		<div class="bg-white rounded-lg shadow-md p-4 mb-6">
+			<h2 class="text-lg font-bold mb-4">Resumen de Preventas</h2>
+			
+			<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+				<div class="bg-gray-50 p-3 rounded-lg">
+					<p class="text-sm text-gray-500">Total Preventas</p>
+					<p class="text-2xl font-bold">{totales.totalPreventas}</p>
+				</div>
+				
+				<div class="bg-yellow-50 p-3 rounded-lg">
+					<p class="text-sm text-yellow-500">Pendientes</p>
+					<p class="text-2xl font-bold">{totales.totalPendientes}</p>
+				</div>
+				
+				<div class="bg-green-50 p-3 rounded-lg">
+					<p class="text-sm text-green-500">Facturadas</p>
+					<p class="text-2xl font-bold">{totales.totalFacturadas}</p>
+				</div>
+				
+				<div class="bg-red-50 p-3 rounded-lg">
+					<p class="text-sm text-red-500">Anuladas</p>
+					<p class="text-2xl font-bold">{totales.totalAnuladas}</p>
+				</div>
+			</div>
+			
+			<div class="mt-4 p-3 bg-indigo-50 rounded-lg">
+				<p class="text-sm text-indigo-500">Importe Total</p>
+				<p class="text-2xl font-bold">${totales.totalImporte.toFixed(2)}</p>
+			</div>
+			
+			<div class="mt-4 flex justify-end">
+				<Button variant="secondary" on:click={() => resumenVisible = false}>Cerrar Resumen</Button>
+			</div>
+		</div>
+	{/if}
+	
+	<!-- Loading indicator -->
 	{#if loading}
-		<div class="flex justify-center p-12">
-			<div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-700"></div>
+		<div class="flex justify-center items-center h-48">
+			<div class="spinner"></div>
 		</div>
 	{:else if error}
-		<div class="p-4 bg-red-100 text-red-700 rounded-md">
-			<p>Error: {error}</p>
-			<Button variant="outline" class="mt-2" on:click={cargarPreventas}>Reintentar</Button>
+		<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+			<strong class="font-bold">Error: </strong>
+			<span class="block sm:inline">{error}</span>
 		</div>
 	{:else if preventas.length === 0}
-		<div class="p-8 text-center bg-gray-50 rounded-md">
-			<p class="text-gray-500">No se encontraron preventas. Intente cambiar los filtros o cree una nueva preventa.</p>
+		<div class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mb-6" role="alert">
+			<span class="block sm:inline">No se encontraron preventas con los criterios seleccionados.</span>
 		</div>
 	{:else}
+		<!-- Tabla de preventas -->
 		<div class="overflow-x-auto shadow-md rounded-lg">
 			<table class="min-w-full divide-y divide-gray-200">
 				<thead class="bg-gray-50">
 					<tr>
-						<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-						<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Número</th>
-						<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-						<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
-						<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendedor</th>
-						<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-						<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-						<th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+						<th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+							<input 
+								type="checkbox" 
+								checked={selectedAll}
+								on:click={handleSelectAll}
+								class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+							/>
+						</th>
+						<th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+							Tipo
+						</th>
+						<th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+							Número
+						</th>
+						<th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+							Fecha
+						</th>
+						<th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+							Cliente
+						</th>
+						<th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+							Vendedor
+						</th>
+						<th scope="col" class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+							Total
+						</th>
+						<th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+							Estado
+						</th>
+						<th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+							Acciones
+						</th>
 					</tr>
 				</thead>
 				<tbody class="bg-white divide-y divide-gray-200">
-					{#each preventas as preventa}
-						<tr class={getClaseFila(preventa)}>
-							<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+					{#each preventas as preventa (preventa.DocumentoTipo + preventa.DocumentoSucursal + preventa.DocumentoNumero)}
+						{@const estado = getEstadoPreventa(preventa)}
+						{@const preventaId = `${preventa.DocumentoTipo}-${preventa.DocumentoSucursal}-${preventa.DocumentoNumero}`}
+						<tr class="hover:bg-gray-50">
+							<td class="px-3 py-4 whitespace-nowrap">
+								<input 
+									type="checkbox" 
+									checked={selectedPreventas.includes(preventaId)}
+									on:click={() => toggleSelectPreventa(preventa)}
+									class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+								/>
+							</td>
+							<td class="px-3 py-4 whitespace-nowrap">
 								{preventa.DocumentoTipo}
 							</td>
-							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+							<td class="px-3 py-4 whitespace-nowrap">
 								{preventa.DocumentoSucursal}-{preventa.DocumentoNumero}
 							</td>
-							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+							<td class="px-3 py-4 whitespace-nowrap">
 								{formatDate(preventa.Fecha)}
 							</td>
-							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-								{preventa.Cliente?.Descripcion || preventa.ClienteCodigo}
+							<td class="px-3 py-4 whitespace-nowrap">
+								{preventa.Cliente?.Descripcion || 'No especificado'}
 							</td>
-							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-								{preventa.Vendedor?.Nombre || preventa.VendedorCodigo || 'N/A'}
+							<td class="px-3 py-4 whitespace-nowrap">
+								{preventa.Vendedor?.Descripcion || 'No especificado'}
 							</td>
-							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+							<td class="px-3 py-4 whitespace-nowrap text-right">
 								${preventa.ImporteTotal?.toFixed(2) || '0.00'}
 							</td>
-							<td class="px-6 py-4 whitespace-nowrap">
-								<span class={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getClaseEstado(getEstadoPreventa(preventa))}`}>
-									{getEstadoPreventa(preventa)}
+							<td class="px-3 py-4 whitespace-nowrap">
+								<span class={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getClaseEstado(estado)}`}>
+									{estado}
 								</span>
 							</td>
-							<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-								<div class="flex justify-end space-x-2">
-									<!-- Ver detalle -->
+							<td class="px-3 py-4 whitespace-nowrap text-right text-sm font-medium">
+								<div class="flex items-center space-x-2">
+									<!-- Ver detalle (siempre disponible) -->
 									<button 
 										class="text-indigo-600 hover:text-indigo-900"
 										on:click={() => verDetalle(preventa)}
 										title="Ver detalle"
+										aria-label="Ver detalle"
 									>
 										<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -300,31 +440,31 @@
 										</svg>
 									</button>
 									
-									<!-- Facturar (solo si está pendiente) -->
-									{#if !preventa.FechaAnulacion && !preventa.FacturaNumero}
-										<button 
-											class="text-green-600 hover:text-green-900"
-											on:click={() => facturarPreventa(preventa)}
-											title="Facturar"
-										>
-											<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-											</svg>
-										</button>
-									{/if}
+									<!-- Facturar (siempre disponible) -->
+									<button 
+										class="text-green-600 hover:text-green-900"
+										on:click={() => facturarPreventa(preventa)}
+										title="Facturar"
+										aria-label="Facturar preventa"
+										disabled={preventa.FechaAnulacion !== null}
+									>
+										<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+										</svg>
+									</button>
 									
-									<!-- Anular (solo si está pendiente) -->
-									{#if !preventa.FechaAnulacion && !preventa.FacturaNumero}
-										<button 
-											class="text-red-600 hover:text-red-900"
-											on:click={() => anularPreventa(preventa)}
-											title="Anular"
-										>
-											<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-											</svg>
-										</button>
-									{/if}
+									<!-- Anular (siempre disponible) -->
+									<button 
+										class="text-red-600 hover:text-red-900"
+										on:click={() => anularPreventa(preventa)}
+										title="Anular"
+										aria-label="Anular preventa"
+										disabled={preventa.FechaAnulacion !== null}
+									>
+										<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+										</svg>
+									</button>
 								</div>
 							</td>
 						</tr>
@@ -335,12 +475,34 @@
 		
 		<!-- Paginación -->
 		{#if totalPages > 1}
-			<div class="flex justify-center mt-6">
+			<div class="flex justify-between items-center mt-6">
+				<div class="flex items-center space-x-4">
+					<div class="text-sm text-gray-700">
+						Mostrando <span class="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> a <span class="font-medium">{Math.min(currentPage * itemsPerPage, totalItems)}</span> de <span class="font-medium">{totalItems}</span> resultados
+					</div>
+					
+					<div class="flex items-center space-x-2">
+						<label for="itemsPerPage" class="text-sm text-gray-700">Mostrar:</label>
+						<select 
+							id="itemsPerPage" 
+							bind:value={itemsPerPage}
+							on:change={() => { currentPage = 1; cargarPreventas(); }}
+							class="border border-gray-300 rounded-md text-sm p-1"
+						>
+							<option value="5">5</option>
+							<option value="10">10</option>
+							<option value="25">25</option>
+							<option value="50">50</option>
+						</select>
+					</div>
+				</div>
+				
 				<nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
 					<button 
 						class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
 						on:click={() => cambiarPagina(1)}
 						disabled={currentPage === 1}
+						aria-label="Primera página"
 					>
 						<span class="sr-only">Primera</span>
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -352,6 +514,7 @@
 						class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
 						on:click={() => cambiarPagina(currentPage - 1)}
 						disabled={currentPage === 1}
+						aria-label="Página anterior"
 					>
 						<span class="sr-only">Anterior</span>
 						<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -384,6 +547,7 @@
 						class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
 						on:click={() => cambiarPagina(currentPage + 1)}
 						disabled={currentPage === totalPages}
+						aria-label="Página siguiente"
 					>
 						<span class="sr-only">Siguiente</span>
 						<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -395,6 +559,7 @@
 						class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
 						on:click={() => cambiarPagina(totalPages)}
 						disabled={currentPage === totalPages}
+						aria-label="Última página"
 					>
 						<span class="sr-only">Última</span>
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -405,4 +570,24 @@
 			</div>
 		{/if}
 	{/if}
-</div> 
+</div>
+
+<style>
+	.spinner {
+		border: 4px solid rgba(0, 0, 0, 0.1);
+		width: 36px;
+		height: 36px;
+		border-radius: 50%;
+		border-left-color: #09f;
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		0% {
+			transform: rotate(0deg);
+		}
+		100% {
+			transform: rotate(360deg);
+		}
+	}
+</style> 

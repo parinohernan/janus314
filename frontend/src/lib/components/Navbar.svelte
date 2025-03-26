@@ -27,7 +27,7 @@
       id: 'ventas',
       label: 'Ventas',
       submenus: [
-        { label: 'Pedidos', url: '/ventas/pedidos' },
+        { label: 'Pedidos | Preventas', url: '/ventas/preventas' },
         { label: 'Facturas', url: '/ventas/facturas' },
         { label: 'Notas de Crédito', url: '/ventas/notascredito' },
         { label: 'Recibos', url: '/ventas/recibos' },
