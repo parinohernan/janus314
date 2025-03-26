@@ -118,6 +118,68 @@
 		}
 	}
 	
+	// Buscar clientes (exactamente como en nueva factura)
+	const buscarClientes = async (busqueda = '') => {
+		if (timeoutId) clearTimeout(timeoutId);
+		
+		if (!busqueda || busqueda.length < 2) {
+			clientesOptions = [];
+			return;
+		}
+		
+		clientesLoading = true;
+		
+		timeoutId = setTimeout(async () => {
+			try {
+				const response = await fetch(`${PUBLIC_API_URL}/clientes?search=${encodeURIComponent(busqueda)}&limit=10`);
+				
+				if (!response.ok) {
+					throw new Error('Error al buscar clientes');
+				}
+				
+				const data = await response.json();
+				console.log("data", data);
+				clientesOptions = data.items;
+			} catch (error) {
+				console.error('Error buscando clientes:', error);
+				clientesOptions = [];
+			} finally {
+				clientesLoading = false;
+			}
+		}, 300);
+	};
+	
+	// Buscar artículos (siguiendo el mismo patrón)
+	const buscarArticulos = async (busqueda = '') => {
+		if (articuloTimeoutId) clearTimeout(articuloTimeoutId);
+		
+		if (!busqueda || busqueda.length < 2) {
+			articulosOptions = [];
+			return;
+		}
+		
+		articulosLoading = true;
+		
+		articuloTimeoutId = setTimeout(async () => {
+			try {
+				const response = await fetch(`${PUBLIC_API_URL}/articulos?search=${encodeURIComponent(busqueda)}&limit=10`);
+				
+				if (!response.ok) {
+					throw new Error('Error al buscar artículos');
+				}
+				
+				const data = await response.json();
+				console.log("articulos data", data);
+				articulosOptions = data.items;
+			} catch (error) {
+				console.error('Error buscando artículos:', error);
+				articulosOptions = [];
+			} finally {
+				articulosLoading = false;
+			}
+		}, 300);
+	};
+	
 	// Cargar clientes 
 	async function cargarClientes() {
 		loadingClientes = true;
@@ -148,78 +210,91 @@
 		}
 	}
 	
-	// Buscar clientes (como en nueva factura)
-	const buscarClientes = async (busqueda = '') => {
-		if (timeoutId) clearTimeout(timeoutId);
-		
-		if (!busqueda || busqueda.length < 2) {
-			clientesOptions = [];
-			return;
-		}
-		
-		clientesLoading = true;
-		
-		timeoutId = setTimeout(async () => {
-			try {
-				const response = await fetch(`${PUBLIC_API_URL}/clientes?search=${encodeURIComponent(busqueda)}&limit=10`);
-				
-				if (!response.ok) {
-					throw new Error('Error al buscar clientes');
-				}
-				
-				const data = await response.json();
-				clientesOptions = data.items;
-			} catch (error) {
-				console.error('Error buscando clientes:', error);
-				clientesOptions = [];
-			} finally {
-				clientesLoading = false;
-			}
-		}, 300);
-	};
-	
-	// Buscar artículos
-	const buscarArticulos = async (busqueda = '') => {
-		if (articuloTimeoutId) clearTimeout(articuloTimeoutId);
-		
-		if (!busqueda || busqueda.length < 2) {
-			articulosOptions = [];
-			return;
-		}
-		
-		articulosLoading = true;
-		
-		articuloTimeoutId = setTimeout(async () => {
-			try {
-				const response = await fetch(`${PUBLIC_API_URL}/articulos?search=${encodeURIComponent(busqueda)}&limit=10`);
-				
-				if (!response.ok) {
-					throw new Error('Error al buscar artículos');
-				}
-				
-				const data = await response.json();
-				articulosOptions = data.items;
-			} catch (error) {
-				console.error('Error buscando artículos:', error);
-				articulosOptions = [];
-			} finally {
-				articulosLoading = false;
-			}
-		}, 300);
-	};
-	
 	// Seleccionar un cliente
 	function seleccionarCliente(cliente: Cliente) {
 		clienteSeleccionado = cliente;
 		codigoCliente = cliente.Codigo;
 		clienteSearch = cliente.Descripcion;
 		clientesOptions = [];
+		
+		// Si hay artículos en la lista, actualizar sus precios según la lista del cliente
+		if (items.length > 0 && cliente.ListaPrecio) {
+			actualizarPreciosSegunLista(cliente.ListaPrecio);
+		}
+	}
+	
+	// Actualizar precios de los artículos según la lista de precios
+	function actualizarPreciosSegunLista(listaPrecio: string) {
+		items = items.map(item => {
+			const articulo = item.Articulo;
+			if (!articulo) return item;
+			
+			let nuevoPrecio = articulo.PrecioVenta || 0; // Precio por defecto
+			
+			// Determinar el precio según la lista
+			switch (listaPrecio) {
+				case 'LISTA1':
+					nuevoPrecio = articulo.PrecioCosto * (1 + (articulo.Lista1 || 0)/100) || articulo.PrecioVenta || 0;
+					break;
+				case 'LISTA2':
+					nuevoPrecio = articulo.PrecioCosto * (1 + (articulo.Lista2 || 0)/100) || articulo.PrecioVenta || 0;
+					break;
+				case 'LISTA3':
+					nuevoPrecio = articulo.PrecioCosto * (1 + (articulo.Lista3 || 0)/100) || articulo.PrecioVenta || 0;
+					break;
+				case 'LISTA4':
+					nuevoPrecio = articulo.PrecioCosto * (1 + (articulo.Lista4 || 0)/100) || articulo.PrecioVenta || 0;
+					break;
+				case 'LISTA5':
+					nuevoPrecio = articulo.PrecioCosto * (1 + (articulo.Lista5 || 0)/100) || articulo.PrecioVenta || 0;
+					break;  
+				default:
+                nuevoPrecio = articulo.PrecioCosto * (1 + (articulo.Lista1 || 0)/100) || articulo.PrecioVenta || 0;
+				// Agregar más listas según sea necesario
+			}
+			
+			return {
+				...item,
+				PrecioUnitario: nuevoPrecio,
+				PrecioLista: nuevoPrecio
+			};
+		});
+		
+		// Recalcular totales
+		calcularTotales();
 	}
 	
 	// Seleccionar un artículo
 	function seleccionarArticulo(articulo: Articulo) {
 		articuloSeleccionado = articulo;
-		precioArticulo = articulo.PrecioVenta || 0;
+		
+		// Determinar el precio según la lista del cliente
+		if (clienteSeleccionado && clienteSeleccionado.ListaPrecio) {
+			switch (clienteSeleccionado.ListaPrecio) {
+				case 'LISTA1':
+					precioArticulo = articulo.PrecioCosto * (1 + (articulo.Lista1 || 0)/100) || articulo.PrecioVenta || 0;
+					break;
+				case 'LISTA2':
+					precioArticulo = articulo.PrecioCosto * (1 + (articulo.Lista2 || 0)/100) || articulo.PrecioVenta || 0;
+					break;
+				case 'LISTA3':
+					precioArticulo = articulo.PrecioCosto * (1 + (articulo.Lista3 || 0)/100) || articulo.PrecioVenta || 0;
+					break;
+				case 'LISTA4':
+					precioArticulo = articulo.PrecioCosto * (1 + (articulo.Lista4 || 0)/100) || articulo.PrecioVenta || 0;
+					break;
+				case 'LISTA5':
+					precioArticulo = articulo.PrecioCosto * (1 + (articulo.Lista5 || 0)/100) || articulo.PrecioVenta || 0;
+					break;
+				// Agregar más listas según sea  necesario
+				default:
+					precioArticulo = articulo.PrecioCosto * (1 + (articulo.Lista1 || 0)/100) || articulo.PrecioVenta || 0;
+			}
+		} else {
+			// Si no hay cliente seleccionado o no tiene lista, usar LISTA1 por defecto
+			precioArticulo = articulo.PrecioCosto * (1 + (articulo.Lista1 || 0)/100) || articulo.PrecioVenta || 0;
+		}
+		
 		articuloSearch = articulo.Descripcion;
 		articulosOptions = [];
 	}
@@ -243,8 +318,8 @@
 			items = [
 				...items, 
 				{
-					DocumentoTipo: documentoTipo,
-					DocumentoSucursal: documentoSucursal,
+					DocumentoTipo: preventa.DocumentoTipo,
+					DocumentoSucursal: preventa.DocumentoSucursal,
 					DocumentoNumero: '',
 					CodigoArticulo: articuloSeleccionado.Codigo,
 					Cantidad: cantidadArticulo,
@@ -442,7 +517,15 @@
 								on:click={() => seleccionarCliente(cliente)}
 							>
 								<div class="font-medium">{cliente.Descripcion}</div>
-								<div class="text-sm text-gray-500">Código: {cliente.Codigo}</div>
+								<div class="text-sm text-gray-500">
+									<span>Código: {cliente.Codigo}</span>
+									{#if cliente.ImporteDeuda !== undefined}
+										<span class="ml-2">Deuda: ${cliente.ImporteDeuda.toFixed(2)}</span>
+									{/if}
+									{#if cliente.ListaPrecio}
+										<span class="ml-2">Lista: {cliente.ListaPrecio}</span>
+									{/if}
+								</div>
 							</button>
 						{/each}
 					</div>
@@ -453,7 +536,15 @@
 					<div class="mt-2 p-2 bg-blue-50 rounded-md flex justify-between items-center">
 						<div>
 							<p class="font-medium">{clienteSeleccionado.Descripcion}</p>
-							<p class="text-sm text-gray-600">Código: {clienteSeleccionado.Codigo}</p>
+							<p class="text-sm text-gray-600">
+								<span>Código: {clienteSeleccionado.Codigo}</span>
+								{#if clienteSeleccionado.ImporteDeuda !== undefined}
+									<span class="ml-2">Deuda: ${clienteSeleccionado.ImporteDeuda.toFixed(2)}</span>
+								{/if}
+								{#if clienteSeleccionado.ListaPrecio}
+									<span class="ml-2">Lista: {clienteSeleccionado.ListaPrecio}</span>
+								{/if}
+							</p>
 						</div>
 						<button 
 							type="button" 
@@ -472,120 +563,110 @@
 	<div class="bg-white p-6 rounded-lg shadow-md mb-6">
 		<div class="flex justify-between items-center mb-4">
 			<h2 class="text-xl font-semibold">Artículos</h2>
+			<Button variant="secondary" on:click={() => articuloSearch = ''}>Buscar Artículo</Button>
 		</div>
 		
 		<!-- Búsqueda de artículos -->
-		<div class="mb-6">
+		<div class="mb-4">
+			<label for="articulo-search" class="block text-sm font-medium text-gray-700 mb-1">Buscar Artículo</label>
 			<div class="relative">
-				<label for="articulo-search" class="block text-sm font-medium text-gray-700 mb-1">Buscar Artículo</label>
-				<div class="relative">
-					<input
-						id="articulo-search"
-						type="text"
-						class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm pr-10"
-						placeholder="Buscar artículo..."
-						bind:value={articuloSearch}
-						on:input={() => buscarArticulos(articuloSearch)}
-						autocomplete="off"
-					/>
-					{#if articulosLoading}
-						<div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-							<svg class="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-							</svg>
-						</div>
-					{/if}
-				</div>
-				
-				<!-- Resultados de búsqueda de artículos -->
-				{#if articulosOptions.length > 0}
-					<div class="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-300 max-h-60 overflow-auto">
-						{#each articulosOptions as articulo}
-							<button
-								type="button"
-								class="block w-full text-left px-4 py-2 hover:bg-gray-100"
-								on:click={() => seleccionarArticulo(articulo)}
-							>
-								<div class="font-medium">{articulo.Descripcion}</div>
-								<div class="text-sm text-gray-500">
-									<span>Código: {articulo.Codigo}</span>
-									<span class="ml-2">Precio: ${articulo.PrecioVenta?.toFixed(2)}</span>
-								</div>
-							</button>
-						{/each}
+				<input
+					id="articulo-search"
+					type="text"
+					class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm pr-10"
+					placeholder="Buscar artículo..."
+					bind:value={articuloSearch}
+					on:input={() => buscarArticulos(articuloSearch)}
+					autocomplete="off"
+				/>
+				{#if articulosLoading}
+					<div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+						<svg class="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+						</svg>
 					</div>
 				{/if}
 			</div>
 			
-			<!-- Artículo seleccionado -->
-			{#if articuloSeleccionado}
-				<div class="mt-4 p-4 bg-blue-50 rounded-md">
-					<div class="flex justify-between items-start mb-3">
-						<div>
-							<h3 class="font-medium">{articuloSeleccionado.Descripcion}</h3>
-							<p class="text-sm text-gray-600">Código: {articuloSeleccionado.Codigo}</p>
-						</div>
-						<button 
-							type="button" 
-							class="text-sm text-blue-600 hover:text-blue-800"
-							on:click={() => { articuloSeleccionado = null; articuloSearch = ''; }}
+			<!-- Resultados de búsqueda de artículos -->
+			{#if articulosOptions.length > 0}
+				<div class="mt-1 bg-white shadow-lg rounded-md border border-gray-300 max-h-60 overflow-auto">
+					{#each articulosOptions as articulo}
+						<button
+							type="button"
+							class="block w-full text-left px-4 py-2 hover:bg-gray-100"
+							on:click={() => seleccionarArticulo(articulo)}
 						>
-							Cambiar
-						</button>
-					</div>
-					
-					<div class="grid grid-cols-2 gap-4 mb-3">
-						<!-- Cantidad -->
-						<div>
-							<label for="cantidad-input" class="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
-							<div class="flex rounded-md shadow-sm">
-								<button 
-									type="button"
-									class="bg-gray-200 px-3 rounded-l-md"
-									on:click={() => cantidadArticulo = Math.max(1, cantidadArticulo - 1)}
-									aria-label="Disminuir cantidad"
-								>
-									-
-								</button>
-								<input 
-									id="cantidad-input"
-									type="number"
-									bind:value={cantidadArticulo}
-									min="1"
-									class="block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-center"
-								/>
-								<button 
-									type="button"
-									class="bg-gray-200 px-3 rounded-r-md"
-									on:click={() => cantidadArticulo++}
-									aria-label="Aumentar cantidad"
-								>
-									+
-								</button>
+							<div class="font-medium">{articulo.Descripcion}</div>
+							<div class="text-sm text-gray-500">
+								<span>Código: {articulo.Codigo}</span>
+								<span class="ml-2">Precio: ${(articulo.PrecioCosto * (1 + (articulo.Lista1 || 0)/100) * (1 + (articulo.PorcentajeIva1 || 0)/100))?.toFixed(2) || '0.00'}</span>
+								<span class="ml-2">Stock: {articulo.Existencia || 0}</span>
 							</div>
-						</div>
-						
-						<!-- Precio -->
-						<div>
-							<label for="precio-input" class="block text-sm font-medium text-gray-700 mb-1">Precio</label>
-							<input 
-								id="precio-input"
-								type="number"
-								bind:value={precioArticulo}
-								min="0"
-								step="0.01"
-								class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-							/>
-						</div>
-					</div>
-					
-					<div class="flex justify-end">
-						<Button variant="primary" on:click={agregarArticulo}>Agregar a la Preventa</Button>
-					</div>
+						</button>
+					{/each}
 				</div>
 			{/if}
 		</div>
+		
+		<!-- Artículo seleccionado -->
+		{#if articuloSeleccionado}
+			<div class="bg-gray-50 p-4 rounded-md mb-4">
+				<h3 class="font-medium mb-2">{articuloSeleccionado.Descripcion}</h3>
+				<p class="text-sm text-gray-600 mb-3">Código: {articuloSeleccionado.Codigo}</p>
+				
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+					<!-- Cantidad -->
+					<div>
+						<label for="cantidad-input" class="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
+						<div class="flex">
+							<button 
+								type="button"
+								class="bg-gray-200 px-3 rounded-l-md"
+								on:click={() => cantidadArticulo > 1 && cantidadArticulo--}
+								aria-label="Disminuir cantidad"
+							>
+								-
+							</button>
+							<input 
+								id="cantidad-input"
+								type="number"
+								bind:value={cantidadArticulo}
+								min="1"
+								class="block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-center"
+							/>
+							<button 
+								type="button"
+								class="bg-gray-200 px-3 rounded-r-md"
+								on:click={() => cantidadArticulo++}
+								aria-label="Aumentar cantidad"
+							>
+								+
+							</button>
+						</div>
+					</div>
+					
+					<!-- Precio (solo mostrar, no editable) -->
+					<div>
+						<label for="precio-input" class="block text-sm font-medium text-gray-700 mb-1">
+							Precio ({clienteSeleccionado?.ListaPrecio || 'LISTA1'})
+						</label>
+						<input 
+							id="precio-input"
+							type="number"
+							value={precioArticulo}
+							readonly
+							class="block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+					</div>
+				</div>
+				
+				<div class="flex justify-end">
+					<Button variant="primary" on:click={agregarArticulo}>Agregar a la Preventa</Button>
+				</div>
+			</div>
+		{/if}
 		
 		<!-- Lista de artículos agregados -->
 		{#if items.length > 0}
@@ -665,7 +746,7 @@
 
 <style>
 	/* Estilo para inputs en iOS */
-	input[type="date"],
+	/* input[type="date"],
 	input[type="number"],
 	select {
 		-webkit-appearance: none;
@@ -673,9 +754,9 @@
 	}
 	
 	/* Estilos adaptados para móviles */
-	@media (max-width: 640px) {
+	/* @media (max-width: 640px) {
 		input, select, button {
-			font-size: 16px; /* Previene el zoom en iOS */
+			font-size: 16px; /* Previene el zoom en iOS 
 		}
-	}
+	} */
 </style>
