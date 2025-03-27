@@ -5,6 +5,9 @@
 	import { PreventaService } from '$lib/services/PreventaService';
 	import type { PreventaCabeza, PreventaFiltros } from '$lib/types';
 	import { goto } from '$app/navigation';
+	import { ClienteService } from '$lib/services/ClienteService';
+	import { VendedorService } from '$lib/services/VendedorService';
+	import EntitySelector from '$lib/components/ui/EntitySelector.svelte';
 	
 	// Estado
 	let preventas: PreventaCabeza[] = [];
@@ -28,10 +31,14 @@
 		vendedor: '',
 		fechaDesde: '',
 		fechaHasta: '',
-		pendientes: false
+		pendientes: true
 	};
 	let filtrosVisibles = false;
 	let resumenVisible = false;
+	
+	// Variables para almacenar el cliente y vendedor seleccionados
+	let clienteSeleccionado: any = null;
+	let vendedorSeleccionado: any = null;
 	
 	// Cargar preventas al montar el componente
 	onMount(() => {
@@ -80,7 +87,7 @@
 			vendedor: '',
 			fechaDesde: '',
 			fechaHasta: '',
-			pendientes: false
+			pendientes: true
 		};
 		currentPage = 1;
 		cargarPreventas();
@@ -193,6 +200,16 @@
 			totalPreventas: preventasSeleccionadas.length
 		};
 	}
+	
+	// Función para manejar la selección de cliente
+	function handleClienteSelect(event: CustomEvent) {
+		filtros.cliente = event.detail.value;
+	}
+	
+	// Función para manejar la selección de vendedor
+	function handleVendedorSelect(event: CustomEvent) {
+		filtros.vendedor = event.detail.value;
+	}
 </script>
 
 <div class="container mx-auto px-4 py-6">
@@ -227,14 +244,32 @@
 	<!-- Filtros -->
 	{#if filtrosVisibles}
 		<div class="bg-white rounded-lg shadow-md p-4 mb-6">
-			<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+				<!-- Selector de cliente usando EntitySelector -->
 				<div>
-					<label for="filtroCliente" class="block text-sm font-medium text-gray-700">Cliente</label>
-					<input 
-						type="text" 
-						id="filtroCliente" 
-						bind:value={filtros.cliente}
-						class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+					<EntitySelector
+						label="Cliente"
+						placeholder="Buscar cliente..."
+						apiEndpoint="/clientes"
+						valueField="Codigo"
+						labelField="Descripcion"
+						initialValue={filtros.cliente}
+						minSearchLength={3}
+						on:select={handleClienteSelect}
+					/>
+				</div>
+				
+				<!-- Selector de vendedor usando EntitySelector -->
+				<div>
+					<EntitySelector
+						label="Vendedor"
+						placeholder="Buscar vendedor..."
+						apiEndpoint="/vendedores"
+						valueField="Codigo"
+						labelField="Descripcion"
+						initialValue={filtros.vendedor}
+						minSearchLength={0}
+						on:select={handleVendedorSelect}
 					/>
 				</div>
 				
@@ -249,16 +284,6 @@
 						<option value="PPV">Preventa</option>
 						<option value="PRE">Presupuesto</option>
 					</select>
-				</div>
-				
-				<div>
-					<label for="filtroVendedor" class="block text-sm font-medium text-gray-700">Vendedor</label>
-					<input 
-						type="text" 
-						id="filtroVendedor" 
-						bind:value={filtros.vendedor}
-						class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-					/>
 				</div>
 				
 				<div>

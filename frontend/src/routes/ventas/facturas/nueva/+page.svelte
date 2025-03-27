@@ -1,11 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { page } from '$app/stores';
   import type { Cliente, Articulo, ItemFactura, Factura } from '$lib/types/index';
   import { goto } from '$app/navigation';
   import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
   import EntitySelector from '$lib/components/ui/EntitySelector.svelte';
   import CaeModal from '$lib/components/facturas/CaeModal.svelte';
+  import { PreventaService } from '$lib/services/PreventaService';
+  import type { Preventa } from '$lib/types';
   // import { formatDateOnly } from '$lib/utils/dateUtils';
   
   // Modelo de factura
@@ -84,8 +87,16 @@
   let showCaeModal = false;
   let facturaCreada:any = null;
   
+  // Datos de la preventa (si se está facturando una)
+  let preventaParam = $page.url.searchParams.get('preventa');
+  let preventaCargada: Preventa | null = null;
+  
   // Cargar formas de pago desde la API
   onMount(async () => {
+    // Cargar una preventa si viene en los parámetros de URL
+    if (preventaParam) {
+      await cargarPreventa();
+    }
     
     try {
 
@@ -666,6 +677,133 @@
       }
     }, 300);
   };
+
+  // Función para cargar datos completos del cliente por código
+  async function cargarClientePorCodigo(codigoCliente: string) {
+    if (!codigoCliente) return null;
+    
+    try {
+      const response = await fetch(`${PUBLIC_API_URL}/clientes/${codigoCliente}`);
+      if (!response.ok) {
+        throw new Error('Error al cargar datos del cliente');
+      }
+      const cliente = await response.json();
+      return cliente;
+    } catch (error) {
+      console.error('Error al cargar cliente:', error);
+      return null;
+    }
+  }
+
+  // Función para cargar la preventa desde la API
+  async function cargarPreventa() {
+    try {
+      loading = true;
+      error = null;
+      
+      const [tipo, sucursal, numero] = preventaParam!.split('/');
+      
+      // Cargar la preventa con el servicio
+      preventaCargada = await PreventaService.obtenerPreventa(tipo, sucursal, numero);
+      
+      // Llenar el formulario con los datos de la preventa
+      if (preventaCargada) {
+        console.log("preventaCargada cliente", preventaCargada.preventa.ClienteCodigo);
+        
+        // Setear cliente
+        if (preventaCargada.preventa.ClienteCodigo) {
+          // Cargar datos completos del cliente
+          const cliente = await cargarClientePorCodigo(preventaCargada.preventa.ClienteCodigo);
+          
+          if (cliente) {
+            // Aplicar los mismos cambios que en seleccionarCliente
+            factura.ClienteCodigo = cliente.Codigo;
+            factura.Cliente = cliente;
+            clientesBusqueda = `${cliente.Codigo} - ${cliente.Descripcion}`;
+            
+            // Actualizar tipos de documento según categoría IVA
+            actualizarTiposDocumento(cliente.CategoriaIva);
+            
+            // Obtener próximo número de comprobante
+            obtenerProximoNumero();
+            
+            // Si el cliente tiene un vendedor asignado, cargarlo
+            if (cliente.CodigoVendedor) {
+              factura.VendedorCodigo = cliente.CodigoVendedor;
+              buscarDatosVendedor(cliente.CodigoVendedor);
+            }
+          }
+        }
+        
+        // Setear observación
+        factura.Observacion = preventaCargada.preventa.Observacion || '';
+        
+        // Cargar items de la preventa
+        if (preventaCargada.items && preventaCargada.items.length > 0) {
+          // Limpiar items actuales
+          factura.Items = [];
+          
+          // Agregar items de la preventa
+          for (const item of preventaCargada.items) {
+            // Si el artículo existe, agregarlo a la factura
+            if (item.Articulo) {
+              // Crear nuevo item para la factura
+              const facturaItem: ItemFactura = {
+                ArticuloCodigo: item.CodigoArticulo,
+                Descripcion: item.Articulo.Descripcion,
+                Cantidad: item.Cantidad || 0,
+                PrecioLista: item.PrecioUnitario || 0,
+                PorcentajeDescuento: 0,
+                PrecioUnitario: item.PrecioUnitario || 0,
+                PorcentajeIva: item.Articulo.PorcentajeIva1 || 21,
+                PrecioUnitarioConIva: 0,
+                Total: 0,
+                enEdicion: false
+              };
+              
+              // Agregar a la lista de items
+              factura.Items = [...factura.Items, facturaItem];
+            }
+          }
+          
+          // Recalcular totales
+          recalcularTotales();
+        }
+      }
+    } catch (err) {
+      console.error('Error al cargar preventa:', err);
+      error = err instanceof Error ? err.message : 'Error desconocido';
+    } finally {
+      loading = false;
+    }
+  }
+
+  // Función para guardar la factura
+  async function guardarFactura() {
+    // Resto del código existente...
+    
+    try {
+      // ...código existente...
+      
+      // Si estamos facturando una preventa, actualizar también la preventa
+      if (preventaCargada) {
+        // Obtener el número de factura generado
+        // Actualizar la preventa con los datos de la factura
+        await PreventaService.facturarPreventa(
+          preventaCargada.preventa.DocumentoTipo,
+          preventaCargada.preventa.DocumentoSucursal,
+          preventaCargada.preventa.DocumentoNumero,
+          factura.DocumentoTipo,
+          factura.DocumentoSucursal,
+          factura.DocumentoNumero
+        );
+      }
+      
+      // ...resto del código existente...
+    } catch (err) {
+      // ...resto del código existente...
+    }
+  }
 </script>
 
 <div class="container mx-auto px-4 py-8">
@@ -688,6 +826,16 @@
   {#if guardadoExitoso}
     <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
       <p>Factura guardada correctamente. Redirigiendo...</p>
+    </div>
+  {/if}
+  
+  <!-- Si viene de una preventa, mostrar información adicional -->
+  {#if preventaCargada}
+    <div class="bg-blue-50 p-4 rounded-md mb-4">
+      <p class="text-sm text-blue-700">
+        Facturando Preventa: {preventaCargada.preventa.DocumentoTipo}-{preventaCargada.preventa.DocumentoSucursal}-{preventaCargada.preventa.DocumentoNumero}
+        del {preventaCargada.preventa.Fecha ? new Date(preventaCargada.preventa.Fecha).toLocaleDateString() : ''}
+      </p>
     </div>
   {/if}
   

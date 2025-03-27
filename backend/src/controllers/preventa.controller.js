@@ -60,6 +60,7 @@ exports.listarPreventas = async (req, res) => {
         },
       ],
       order: [
+        ["Fecha", "DESC"],
         ["DocumentoSucursal", "DESC"],
         ["DocumentoNumero", "DESC"],
       ],
@@ -94,6 +95,7 @@ exports.listarPreventas = async (req, res) => {
 
 // Obtener detalle de una preventa
 exports.obtenerPreventa = async (req, res) => {
+  console.log("obtenerPreventa", req.params);
   try {
     const { tipo, sucursal, numero } = req.params;
 
@@ -144,16 +146,18 @@ exports.obtenerPreventa = async (req, res) => {
       include: [
         {
           model: Articulo,
-          attributes: [
-            "Codigo",
-            "Descripcion",
-            "Precio1",
-            "Precio2",
-            "Precio3",
-            "Rubro",
-            "Unidad",
-          ],
+          attributes: ["Codigo", "Descripcion"],
         },
+      ],
+      attributes: [
+        "DocumentoTipo",
+        "DocumentoSucursal",
+        "DocumentoNumero",
+        "CodigoArticulo",
+        "Cantidad",
+        "PrecioUnitario",
+        "PrecioLista",
+        "PorcentajeBonificacion",
       ],
     });
 
