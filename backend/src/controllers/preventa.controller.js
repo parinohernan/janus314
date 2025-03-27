@@ -205,7 +205,8 @@ exports.crearPreventa = async (req, res) => {
 
     // Si no viene número, obtener el siguiente
     if (!preventaData.DocumentoNumero) {
-      console.log("preventaData.DocumentoNumero", preventaData.DocumentoNumero);
+      preventaData.PagoTipo = "CC";
+      // preventaData.ListaPrecio = preventaData.PrecioLista;
       try {
         // Usar el método actualizarNumeroDirecto en lugar de obtenerProximoNumero
         const resultado =
@@ -217,10 +218,6 @@ exports.crearPreventa = async (req, res) => {
 
           .toString()
           .padStart(8, "0");
-        console.log(
-          "preventaData.DocumentoNumero",
-          preventaData.DocumentoNumero
-        );
       } catch (error) {
         await t.rollback();
         return res.status(500).json({
@@ -235,6 +232,7 @@ exports.crearPreventa = async (req, res) => {
     if (!preventaData.Fecha) {
       preventaData.Fecha = new Date();
     }
+    preventaData.ListaNumero = preventaData.ListaPrecio;
     console.log("preventaData", preventaData);
     // Crear preventa (cabecera)
     const preventaCreada = await PreventaCabeza.create(preventaData, {

@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
-  import { formatDateOnly } from '$lib/utils/dateUtils';
+  import { formatDate } from '$lib/utils/dateUtils';
   import { navigationState } from '$lib/stores/navigationState';
   import { writable } from 'svelte/store';
   import CaeModal from '$lib/components/facturas/CaeModal.svelte';

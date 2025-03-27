@@ -4,7 +4,7 @@
   import { page } from '$app/stores';
   import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
-  import { formatDateOnly } from '$lib/utils/dateUtils';
+  import { formatDate } from '$lib/utils/dateUtils';
   
   // Interfaces
   interface FacturaDetalle {
@@ -29,6 +29,8 @@
       Cantidad: number;
       PrecioUnitario: number;
       PorcentajeIva: number;
+      PrecioUnitarioIva: number;
+      Total: number;
       Subtotal: number;
     }[];
   }
@@ -168,7 +170,7 @@
     {#if factura.FechaAnulacion}
       <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
         <p class="font-semibold">FACTURA ANULADA</p>
-        <p>Fecha de anulación: {formatDateOnly(factura.FechaAnulacion)}</p>
+        <p>Fecha de anulación: {formatDate(factura.FechaAnulacion)}</p>
       </div>
     {/if}
     
@@ -189,7 +191,7 @@
         
         <div>
           <p class="text-sm font-medium text-gray-700">Fecha</p>
-          <p class="mt-1">{formatDateOnly(factura.Fecha)}</p>
+          <p class="mt-1">{formatDate(factura.Fecha)}</p>
         </div>
         
         <div>
@@ -217,9 +219,11 @@
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio sin IVA</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio con IVA</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">IVA %</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal sin IVA</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total con IVA</th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
@@ -231,9 +235,15 @@
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
                   ${item.PrecioUnitario.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
+                  <!-- ${(Number(item.PrecioUnitarioIva) * (1 + Number(item.PorcentajeIva) / 100)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} -->
+                </td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">{item.PorcentajeIva}%</td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
                   ${item.Subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
+                  ${(Number(item.Subtotal) * (1 + Number(item.PorcentajeIva) / 100)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
               </tr>
             {/each}

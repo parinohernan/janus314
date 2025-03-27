@@ -1142,12 +1142,14 @@
                 
                 <!-- Precio con IVA -->
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
-                  ${item.PrecioUnitarioConIva.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${(Number(item.PrecioUnitario) * (1 + Number(item.PorcentajeIva) / 100)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
                 
                 <!-- Total -->
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
-                  ${item.Total.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${(item.Cantidad * (Number(item.PrecioUnitario) * (1 + Number(item.PorcentajeIva) / 100))).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+
+                  <!-- ${item.Total.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} -->
                 </td>
                 
                 <td class="px-4 py-3 whitespace-nowrap text-center">

@@ -366,49 +366,6 @@
 		importeTotal = importeNeto;
 	}
 	
-	// Guardar preventa
-	async function guardarPreventa() {
-		if (!clienteSeleccionado) {
-			alert('Debe seleccionar un cliente');
-			return;
-		}
-		
-		if (items.length === 0) {
-			alert('Debe agregar al menos un artículo');
-			return;
-		}
-		
-		guardando = true;
-		error = null;
-		
-		try {
-			const preventaData = {
-				DocumentoTipo: documentoTipo,
-				DocumentoSucursal: documentoSucursal,
-				ClienteCodigo: codigoCliente,
-				VendedorCodigo: codigoVendedor || null,
-				PagoTipo: tipoPago || null,
-				Fecha: fecha,
-				FechaEntrega: fechaEntrega || null,
-				ImporteBruto: importeBruto,
-				ImporteNeto: importeNeto,
-				ImporteTotal: importeTotal,
-				Observacion: observacion
-			};
-			
-			const resultado = await PreventaService.crearPreventa(preventaData as PreventaCabeza, items);
-			
-			alert('Preventa creada correctamente');
-			goto('/ventas/preventas'); // Volver al listado
-			
-		} catch (err) {
-			console.error('Error al guardar preventa:', err);
-			error = err instanceof Error ? err.message : 'Error desconocido';
-		} finally {
-			guardando = false;
-		}
-	}
-	
 	// Cancelar y volver al listado
 	function cancelar() {
 		goto('/ventas/preventas');
@@ -439,10 +396,11 @@
 				ImporteBruto: importeBruto,
 				ImporteNeto: importeNeto,
 				ImporteTotal: importeTotal,
-				Observacion: observacion
+				Observacion: observacion,
+				ListaPrecio: clienteSeleccionado.ListaPrecio
 			};
 			
-			const resultado = await PreventaService.crearPreventa(preventaData as PreventaCabeza, items);
+			const resultado = await PreventaService.crearPreventa(preventaData as unknown as PreventaCabeza, items);
 			
 			alert('Preventa creada correctamente');
 			goto('/ventas/preventas'); // Volver al listado
