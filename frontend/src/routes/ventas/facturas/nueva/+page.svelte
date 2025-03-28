@@ -8,6 +8,7 @@
   import EntitySelector from '$lib/components/ui/EntitySelector.svelte';
   import CaeModal from '$lib/components/facturas/CaeModal.svelte';
   import { PreventaService } from '$lib/services/PreventaService';
+  import { ConfiguracionService } from '$lib/services/ConfiguracionService';
   import type { Preventa } from '$lib/types';
   // import { formatDateOnly } from '$lib/utils/dateUtils';
   
@@ -91,76 +92,93 @@
   let preventaParam = $page.url.searchParams.get('preventa');
   let preventaCargada: Preventa | null = null;
   
+  // Control de límite de artículos
+  let cantidadMaximaItems = 0;
+  let cargandoConfiguracion = true;
+  
   // Cargar formas de pago desde la API
   onMount(async () => {
-    // Cargar una preventa si viene en los parámetros de URL
-    if (preventaParam) {
-      await cargarPreventa();
-    }
-    
     try {
-
-    // obtener sucursal
-    const responseSucursal = await fetch(`${PUBLIC_API_URL}/datos-empresa`);
-    if (!responseSucursal.ok) {
-      throw new Error('Error al cargar datos de la empresa');
-    }
-    const { data } = await responseSucursal.json();
-    factura.DocumentoSucursal = data.Sucursal;
-    // Obtener formas de pago
-      const response = await fetch(`${PUBLIC_API_URL}/tipos-de-pago`);
-      if (response.ok) {
-        const data = await response.json();
-        console.log("data",data);
-        formasPago = data.items.map((item: { Codigo: string, Descripcion: string }) => ({
-          value: item.Codigo,
-          label: item.Descripcion
-        }));
+      // Obtener configuración de cantidad máxima de ítems
+      cargandoConfiguracion = true;
+      const configCantItems = await ConfiguracionService.obtenerConfiguracion('CANT_ITEMS');
+      if (configCantItems && configCantItems.ValorConfig) {
+        cantidadMaximaItems = parseInt(configCantItems.ValorConfig, 10);
       }
-    } catch (error) {
-      console.error('Error cargando formas de pago:', error);
-    }
-    
-    // Obtener datos de la empresa para la sucursal
-    const responseEmpresa = await fetch(`${PUBLIC_API_URL}/datos-empresa`);
+      cargandoConfiguracion = false;
       
-    if (!responseEmpresa.ok) {
-      throw new Error('Error al cargar datos de la empresa');
-    }
+      // Cargar una preventa si viene en los parámetros de URL
+      if (preventaParam) {
+        await cargarPreventa();
+      }
       
-    const { data } = await responseEmpresa.json();
-      
-    if (!data || !data.Sucursal) {
-      throw new Error('No se encontró configuración de sucursal');
-    }
-    // Establecer la sucursal automáticamente
-    factura.DocumentoSucursal = data.Sucursal;
+      try {
 
-    // Cargar vendedores
-    try {
-      const responseVendedores = await fetch(`${PUBLIC_API_URL}/vendedores`);
-      
-      if (responseVendedores.ok) {
-        const {data} = await responseVendedores.json();
-        console.log("Datos de vendedores recibidos:", data);
-        
-        // Verificar la estructura de los datos
-        if (data  && Array.isArray(data)) {
-          // Filtrar solo vendedores activos antes de mapear
-          vendedoresOptions = data
-            .filter((item: { Codigo: string, Descripcion: string, Activo: number }) => item.Activo == 1)
-            .map((item: { Codigo: string, Descripcion: string }) => ({
-              value: item.Codigo || '',
-              label: item.Descripcion || 'Sin nombre'
-            }));
-          console.log("vendedoresOptions procesados:", vendedoresOptions);
-        } else {
-          console.error("Estructura de datos de vendedores inesperada:", data);
+      // obtener sucursal
+      const responseSucursal = await fetch(`${PUBLIC_API_URL}/datos-empresa`);
+      if (!responseSucursal.ok) {
+        throw new Error('Error al cargar datos de la empresa');
+      }
+      const { data } = await responseSucursal.json();
+      factura.DocumentoSucursal = data.Sucursal;
+      // Obtener formas de pago
+        const response = await fetch(`${PUBLIC_API_URL}/tipos-de-pago`);
+        if (response.ok) {
+          const data = await response.json();
+          console.log("data",data);
+          formasPago = data.items.map((item: { Codigo: string, Descripcion: string }) => ({
+            value: item.Codigo,
+            label: item.Descripcion
+          }));
         }
+      } catch (error) {
+        console.error('Error cargando formas de pago:', error);
+      }
+      
+      // Obtener datos de la empresa para la sucursal
+      const responseEmpresa = await fetch(`${PUBLIC_API_URL}/datos-empresa`);
+        
+      if (!responseEmpresa.ok) {
+        throw new Error('Error al cargar datos de la empresa');
+      }
+        
+      const { data } = await responseEmpresa.json();
+        
+      if (!data || !data.Sucursal) {
+        throw new Error('No se encontró configuración de sucursal');
+      }
+      // Establecer la sucursal automáticamente
+      factura.DocumentoSucursal = data.Sucursal;
+
+      // Cargar vendedores
+      try {
+        const responseVendedores = await fetch(`${PUBLIC_API_URL}/vendedores`);
+        
+        if (responseVendedores.ok) {
+          const {data} = await responseVendedores.json();
+          console.log("Datos de vendedores recibidos:", data);
+          
+          // Verificar la estructura de los datos
+          if (data  && Array.isArray(data)) {
+            // Filtrar solo vendedores activos antes de mapear
+            vendedoresOptions = data
+              .filter((item: { Codigo: string, Descripcion: string, Activo: number }) => item.Activo == 1)
+              .map((item: { Codigo: string, Descripcion: string }) => ({
+                value: item.Codigo || '',
+                label: item.Descripcion || 'Sin nombre'
+              }));
+            console.log("vendedoresOptions procesados:", vendedoresOptions);
+          } else {
+            console.error("Estructura de datos de vendedores inesperada:", data);
+          }
+        }
+      } catch (error) {
+        console.error('Error cargando vendedores:', error);
+        vendedoresOptions = [];
       }
     } catch (error) {
-      console.error('Error cargando vendedores:', error);
-      vendedoresOptions = [];
+      console.error('Error en inicialización:', error);
+      cargandoConfiguracion = false;
     }
   });
   
@@ -298,8 +316,13 @@
   
   // Agregar artículo a la factura (actualizado)
   const agregarArticulo = () => {
-    console.log("agregarArticulo", articuloSeleccionado);
     if (!articuloSeleccionado) return;
+    
+    // Verificar límite de artículos si está configurado
+    if (cantidadMaximaItems > 0 && factura.Items.length >= cantidadMaximaItems) {
+      error = `No puede agregar más de ${cantidadMaximaItems} artículos a la factura según la configuración del sistema.`;
+      return;
+    }
     
     // Obtener precio según la lista seleccionada
     const precioLista = obtenerPrecioSegunLista(articuloSeleccionado, factura.ListaPrecio);
@@ -551,6 +574,12 @@
   
   // Función para crear factura
   const crearFactura = async () => {
+    // Comprobar límite de artículos
+    if (cantidadMaximaItems > 0 && factura.Items.length > cantidadMaximaItems) {
+      error = `No puede guardar una factura con más de ${cantidadMaximaItems} artículos según la configuración del sistema.`;
+      return;
+    }
+    
     if (!validarFactura()) return;
     
     loading = true;
@@ -842,6 +871,17 @@
       </p>
     </div>
   {/if}
+  
+  <!-- Información sobre límite de ítems cuando está cargando la configuración -->
+  <!-- {#if cargandoConfiguracion}
+    <div class="bg-blue-100 border border-blue-300 text-blue-700 px-4 py-3 rounded mb-4">
+      <p>Cargando configuraciones del sistema...</p>
+    </div>
+  {:else if cantidadMaximaItems > 0}
+    <div class="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-2 rounded mb-4 text-sm">
+      <p>Límite de artículos por factura: {cantidadMaximaItems} (Artículos actuales: {factura.Items.length})</p>
+    </div>
+  {/if} -->
   
   <!-- Datos de la factura (reestructurado) -->
   <div class="bg-white p-6 rounded-lg shadow-md mb-6">
@@ -1191,6 +1231,13 @@
             {/each}
           </tbody>
         </table>
+        
+        <!-- Mensaje de advertencia si se acerca al límite -->
+        {#if cantidadMaximaItems > 0 && factura.Items.length >= cantidadMaximaItems * 0.8}
+          <div class="mt-4 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-2 rounded text-sm">
+            <p>Atención: Se está acercando al límite máximo de {cantidadMaximaItems} artículos por factura.</p>
+          </div>
+        {/if}
       </div>
       
       <!-- Totales -->

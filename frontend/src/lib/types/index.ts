@@ -10,3 +10,4 @@ export * from './pedido.types';
 export * from './unidadMovil.types';
 export * from './usuario.types';
 export * from './preventa.types';
+export * from './configuracion';

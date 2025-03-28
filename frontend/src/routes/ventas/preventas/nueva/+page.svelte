@@ -3,6 +3,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import { PreventaService } from '$lib/services/PreventaService';
 	import { ClienteService } from '$lib/services/ClienteService';
+	import { ConfiguracionService } from '$lib/services/ConfiguracionService';
 	import type { Articulo, Cliente, PreventaItem, Vendedor, TipoDePago, PreventaCabeza } from '$lib/types';
 	import { goto } from '$app/navigation';
 	import { PUBLIC_API_URL } from '$env/static/public';
@@ -71,6 +72,10 @@
 	let importeNeto = 0;
 	let importeTotal = 0;
 	
+	// Control de límite de artículos
+	let cantidadMaximaItems = 0;
+	let cargandoConfiguracion = true;
+	
 	// Modificar el modelo de preventa
 	let preventa = {
 		// Siempre será PRV (preventa)
@@ -91,6 +96,15 @@
 	// Función para obtener la sucursal al cargar la página
 	onMount(async () => {
 		try {
+			// Obtener configuración de cantidad máxima de ítems
+			cargandoConfiguracion = true;
+			const configCantItems = await ConfiguracionService.obtenerConfiguracion('CANT_ITEMS');
+			if (configCantItems && configCantItems.ValorConfig) {
+				cantidadMaximaItems = parseInt(configCantItems.ValorConfig, 10);
+				
+			}
+			cargandoConfiguracion = false;
+			
 			// Obtener sucursal
 			const responseSucursal = await fetch(`${PUBLIC_API_URL}/datos-empresa`);
 			if (!responseSucursal.ok) {
@@ -104,6 +118,7 @@
 			
 		} catch (error) {
 			console.error('Error al inicializar:', error);
+			cargandoConfiguracion = false;
 		}
 	});
 	
@@ -314,6 +329,12 @@
 	function agregarArticulo() {
 		if (!articuloSeleccionado) return;
 		
+		// Verificar límite de artículos si está configurado
+		if (cantidadMaximaItems > 0 && items.length >= cantidadMaximaItems) {
+			alert(`No puede agregar más de ${cantidadMaximaItems} artículos a la preventa según la configuración del sistema.`);
+			return;
+		}
+		
 		// Calcular precio con descuento
 		calcularPrecioConDescuento();
 		
@@ -401,6 +422,12 @@
 			return;
 		}
 		
+		// Verificar límite de artículos antes de guardar
+		if (cantidadMaximaItems > 0 && items.length > cantidadMaximaItems) {
+			alert(`No puede guardar una preventa con más de ${cantidadMaximaItems} artículos según la configuración del sistema.`);
+			return;
+		}
+		
 		loading = true;
 		guardando = true;
 		error = null;
@@ -449,6 +476,17 @@
 	{#if error}
 		<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
 			<p>{error}</p>
+		</div>
+	{/if}
+	
+	<!-- Información sobre límite de ítems cuando está cargando la configuración -->
+	{#if cargandoConfiguracion}
+		<div class="bg-blue-100 border border-blue-300 text-blue-700 px-4 py-3 rounded mb-4">
+			<p>Cargando configuraciones del sistema...</p>
+		</div>
+	{:else if cantidadMaximaItems > 0}
+		<div class="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-2 rounded mb-4 text-sm">
+			<p>Límite de artículos por preventa: {cantidadMaximaItems} (Artículos actuales: {items.length})</p>
 		</div>
 	{/if}
 	
@@ -740,6 +778,13 @@
 						</tr>
 					</tfoot>
 				</table>
+				
+				<!-- Mensaje de advertencia si se acerca al límite -->
+				{#if cantidadMaximaItems > 0 && items.length >= cantidadMaximaItems * 0.8}
+					<div class="mt-2 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-2 rounded text-sm">
+						<p>Atención: Se está acercando al límite máximo de {cantidadMaximaItems} artículos por preventa.</p>
+					</div>
+				{/if}
 			</div>
 		{:else}
 			<div class="text-center py-8 text-gray-500">
