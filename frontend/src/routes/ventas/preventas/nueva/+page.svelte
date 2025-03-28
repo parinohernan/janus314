@@ -63,6 +63,8 @@
 	let articuloSeleccionado: Articulo | null = null;
 	let cantidadArticulo = 1;
 	let precioArticulo = 0;
+	let PorcentajeBonificacion = 0;
+	let precioConDescuento = 0;
 	
 	// Totales
 	let importeBruto = 0;
@@ -294,13 +296,26 @@
 			precioArticulo = articulo.PrecioCosto * (1 + (articulo.Lista1 || 0)/100) || articulo.PrecioVenta || 0;
 		}
 		
+		PorcentajeBonificacion = 0;
+		precioConDescuento = precioArticulo;
 		articuloSearch = articulo.Descripcion;
 		articulosOptions = [];
+	}
+	
+	// Calcular precio con descuento
+	function calcularPrecioConDescuento() {
+		if (PorcentajeBonificacion < 0) PorcentajeBonificacion = 0;
+		if (PorcentajeBonificacion > 100) PorcentajeBonificacion = 100;
+		
+		precioConDescuento = precioArticulo * (1 - PorcentajeBonificacion / 100);
 	}
 	
 	// Agregar artículo a la preventa
 	function agregarArticulo() {
 		if (!articuloSeleccionado) return;
+		
+		// Calcular precio con descuento
+		calcularPrecioConDescuento();
 		
 		// Verificar si ya existe
 		const itemExistente = items.find(item => item.CodigoArticulo === articuloSeleccionado?.Codigo);
@@ -322,8 +337,9 @@
 					DocumentoNumero: '',
 					CodigoArticulo: articuloSeleccionado.Codigo,
 					Cantidad: cantidadArticulo,
-					PrecioUnitario: precioArticulo,
+					PrecioUnitario: precioConDescuento,
 					PrecioLista: precioArticulo,
+					PorcentajeBonificacion: PorcentajeBonificacion,
 					Articulo: articuloSeleccionado
 				}
 			];
@@ -333,6 +349,8 @@
 		articuloSeleccionado = null;
 		cantidadArticulo = 1;
 		precioArticulo = 0;
+		precioConDescuento = 0;
+		PorcentajeBonificacion = 0;
 		articuloSearch = '';
 		
 		// Recalcular totales
@@ -397,7 +415,8 @@
 				ImporteNeto: importeNeto,
 				ImporteTotal: importeTotal,
 				Observacion: observacion,
-				ListaPrecio: clienteSeleccionado.ListaPrecio
+				ListaPrecio: clienteSeleccionado.ListaPrecio,
+				
 			};
 			
 			const resultado = await PreventaService.crearPreventa(preventaData as unknown as PreventaCabeza, items);
@@ -603,8 +622,20 @@
 							</button>
 						</div>
 					</div>
-					
-					<!-- Precio (solo mostrar, no editable) -->
+					<!-- Porcentaje de descuento -->
+					<div>
+						<label for="porcentaje-descuento-input" class="block text-sm font-medium text-gray-700 mb-1">Porcentaje de descuento</label>
+						<input 
+							id="porcentaje-descuento-input"
+							type="number"
+							bind:value={PorcentajeBonificacion}
+							on:input={calcularPrecioConDescuento}
+							min="0"
+							max="100"
+							class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+					</div>
+					<!-- Precio original (no editable) -->
 					<div>
 						<label for="precio-input" class="block text-sm font-medium text-gray-700 mb-1">
 							Precio ({clienteSeleccionado?.ListaPrecio || 'LISTA1'})
@@ -613,6 +644,19 @@
 							id="precio-input"
 							type="number"
 							value={precioArticulo}
+							readonly
+							class="block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+						/>
+					</div>
+					<!-- Precio con descuento -->
+					<div>
+						<label for="precio-descuento-input" class="block text-sm font-medium text-gray-700 mb-1">
+							Precio con descuento
+						</label>
+						<input 
+							id="precio-descuento-input"
+							type="number"
+							value={precioConDescuento}
 							readonly
 							class="block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 						/>
@@ -634,7 +678,9 @@
 							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
 							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
 							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
-							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
+							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Lista</th>
+							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Desc. %</th>
+							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Final</th>
 							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
 							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
 						</tr>
@@ -665,6 +711,8 @@
 										</button>
 									</div>
 								</td>
+								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.PrecioLista?.toFixed(2)}</td>
+								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.PorcentajeBonificacion || 0}%</td>
 								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.PrecioUnitario?.toFixed(2)}</td>
 								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
 									${((item.PrecioUnitario || 0) * (item.Cantidad || 0)).toFixed(2)}

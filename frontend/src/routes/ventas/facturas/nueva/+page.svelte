@@ -311,7 +311,7 @@
       Descripcion: articuloSeleccionado.Descripcion,
       Cantidad: cantidadArticulo,
       PrecioLista: precioLista,
-      PorcentajeDescuento: 0,
+      PorcentajeBonificacion: 0,
       PrecioUnitario: precioLista, // Inicialmente igual al precio de lista (sin descuento)
       PorcentajeIva: porcentajeIva,
       PrecioUnitarioConIva: 0, // Se calculará en recalcularItem
@@ -359,7 +359,7 @@
   // Función para recalcular un ítem individual (actualizada)
   const recalcularItem = (item: ItemFactura) => {
     // 1. Calcular precio unitario con descuento aplicado (sin IVA)
-    item.PrecioUnitario = item.PrecioLista * (1 - (item.PorcentajeDescuento / 100));
+    item.PrecioUnitario = item.PrecioLista * (1 - (item.PorcentajeBonificacion / 100));
     
     // 2. Calcular precio unitario con IVA
     item.PrecioUnitarioConIva = item.PrecioUnitario * (1 + (item.PorcentajeIva / 100));
@@ -752,14 +752,18 @@
                 ArticuloCodigo: item.CodigoArticulo,
                 Descripcion: item.Articulo.Descripcion,
                 Cantidad: item.Cantidad || 0,
-                PrecioLista: item.PrecioUnitario || 0,
-                PorcentajeDescuento: 0,
-                PrecioUnitario: item.PrecioUnitario || 0,
+                PrecioLista: item.PrecioLista || 0,
+                PorcentajeBonificacion: item.PorcentajeBonificacion || 0,
+                PrecioUnitario: (item.PrecioLista || 0) * (1 - (item.PorcentajeBonificacion || 0) / 100),
                 PorcentajeIva: item.Articulo.PorcentajeIva1 || 21,
                 PrecioUnitarioConIva: 0,
                 Total: 0,
                 enEdicion: false
               };
+              
+              // Calcular precio con IVA y total
+              facturaItem.PrecioUnitarioConIva = Number(facturaItem.PrecioUnitario) * (1 + Number(facturaItem.PorcentajeIva) / 100);
+              facturaItem.Total = Number(facturaItem.PrecioUnitarioConIva) * Number(facturaItem.Cantidad);
               
               // Agregar a la lista de items
               factura.Items = [...factura.Items, facturaItem];
@@ -1119,14 +1123,14 @@
                   {#if item.enEdicion}
                     <input 
                       type="number" 
-                      bind:value={item.PorcentajeDescuento} 
+                      bind:value={item.PorcentajeBonificacion} 
                       min="0" 
                       max="100" 
                       step="0.1"
                       class="w-16 px-2 py-1 text-right border border-gray-300 rounded"
                     />
                   {:else}
-                    {item.PorcentajeDescuento}%
+                    {item.PorcentajeBonificacion}%
                   {/if}
                 </td>
                 
@@ -1148,8 +1152,6 @@
                 <!-- Total -->
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
                   ${(item.Cantidad * (Number(item.PrecioUnitario) * (1 + Number(item.PorcentajeIva) / 100))).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-
-                  <!-- ${item.Total.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} -->
                 </td>
                 
                 <td class="px-4 py-3 whitespace-nowrap text-center">
