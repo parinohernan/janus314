@@ -290,3 +290,34 @@ function generarContenidoPDF(doc, factura, items) {
     }
   }
 }
+
+// Agregar el método para generar PDF de nota de crédito
+exports.generarNotaCreditoPDF = async (req, res) => {
+  try {
+    const { tipo, sucursal, numero } = req.params;
+
+    // Implementar la lógica para generar el PDF de la nota de crédito
+    // Puedes basarte en el método generarFacturaPDF si existe
+
+    // Por ahora, podemos implementar una respuesta temporal
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=notacredito-${tipo}-${sucursal}-${numero}.pdf`
+    );
+
+    // Temporalmente, devolvemos un mensaje indicando que la funcionalidad está pendiente
+    res
+      .status(501)
+      .send(
+        "Generación de PDF para notas de crédito pendiente de implementación"
+      );
+  } catch (error) {
+    console.error("Error al generar PDF de nota de crédito:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al generar PDF de nota de crédito",
+      error: error.message,
+    });
+  }
+};

@@ -1,4 +1,4 @@
-const MovimientoStock = require("../models/MovimientoStock");
+const MovimientoStock = require("../models/movimientoStock");
 const Articulo = require("../models/articulo.model");
 const sequelize = require("../config/database");
 const { Op } = require("sequelize");
@@ -101,6 +101,62 @@ const StockService = {
       }
     } catch (error) {
       console.error(`Error al procesar stock para factura:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Procesa el stock para una nota de crédito
+   * @param {Array} items - Ítems de la nota de crédito
+   * @param {string} documentoTipo - Tipo de documento
+   * @param {string} documentoSucursal - Sucursal
+   * @param {string} documentoNumero - Número de documento
+   * @param {Date} fecha - Fecha del movimiento
+   * @param {Object} transaction - Transacción de Sequelize
+   */
+  async procesarStockNotaCredito(
+    items,
+    documentoTipo,
+    documentoSucursal,
+    documentoNumero,
+    fecha,
+    transaction
+  ) {
+    try {
+      // Las notas de crédito aumentan el stock (devuelven mercadería)
+      for (const item of items) {
+        const articulo = await Articulo.findByPk(item.CodigoArticulo, {
+          transaction,
+        });
+
+        if (!articulo) {
+          throw new Error(
+            `Artículo con código ${item.CodigoArticulo} no encontrado`
+          );
+        }
+
+        // Actualizar existencia
+        const nuevoStock =
+          parseFloat(articulo.Existencia) + parseFloat(item.Cantidad);
+        await articulo.update({ Existencia: nuevoStock }, { transaction });
+
+        // Registrar movimiento de stock si existe la funcionalidad
+        if (this.registrarMovimientoStock) {
+          await this.registrarMovimientoStock(
+            item.CodigoArticulo,
+            documentoTipo,
+            documentoSucursal,
+            documentoNumero,
+            fecha,
+            item.Cantidad,
+            "ENTRADA",
+            "Nota de Crédito",
+            transaction
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error procesando stock para nota de crédito:", error);
       throw error;
     }
   },

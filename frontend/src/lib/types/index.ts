@@ -11,3 +11,4 @@ export * from './unidadMovil.types';
 export * from './usuario.types';
 export * from './preventa.types';
 export * from './configuracion';
+export * from './notaCredito';

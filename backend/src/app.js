@@ -27,6 +27,7 @@ const afipRoutes = require("./routes/arca.routes");
 const pedidoRoutes = require("./routes/pedido.routes");
 const preventaRoutes = require("./routes/preventa.routes");
 const configRoutes = require("./routes/config.routes");
+const notaCreditoRoutes = require("./routes/notaCredito.routes");
 // Crear app Express
 const app = express();
 
@@ -69,6 +70,9 @@ app.use("/api/preventas", preventaRoutes);
 
 // Rutas de configuraciones
 app.use("/api/configuraciones", configRoutes);
+
+// Rutas de notas de crédito
+app.use("/api/notascredito", notaCreditoRoutes);
 
 // Ruta de prueba
 app.get("/", (req, res) => {
