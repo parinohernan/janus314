@@ -150,4 +150,36 @@ export class PreventaService {
 			throw error;
 		}
 	}
+
+	/**
+	 * Actualiza una preventa existente
+	 */
+	public static async actualizarPreventa(preventa: PreventaCabeza, items: PreventaItem[]) {
+		try {
+			const preventaData = {
+				...preventa,
+				Items: items
+			};
+
+			const response = await fetch(
+				`${PUBLIC_API_URL}/preventas/${preventa.DocumentoTipo}/${preventa.DocumentoSucursal}/${preventa.DocumentoNumero}`,
+				{
+					method: 'PUT',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify(preventaData)
+				}
+			);
+
+			if (!response.ok) {
+				throw new Error(`Error al actualizar preventa: ${response.statusText}`);
+			}
+
+			return await response.json();
+		} catch (error) {
+			console.error('Error en PreventaService.actualizarPreventa:', error);
+			throw error;
+		}
+	}
 }

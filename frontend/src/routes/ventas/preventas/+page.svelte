@@ -3,7 +3,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import { formatDate } from '$lib/utils/dateUtils';
 	import { PreventaService } from '$lib/services/PreventaService';
-	import type { PreventaCabeza, PreventaFiltros } from '$lib/types';
+	import type { PreventaCabeza, PreventaFiltros, PreventaItem, Preventa } from '$lib/types';
 	import { goto } from '$app/navigation';
 	import { ClienteService } from '$lib/services/ClienteService';
 	import { VendedorService } from '$lib/services/VendedorService';
@@ -17,6 +17,13 @@
 	// Selección múltiple
 	let selectedPreventas: string[] = []; // IDs de preventas seleccionadas
 	let selectedAll = false;
+	
+	// Variables para informes
+	let showInformeModal = false;
+	let informeText = "";
+	let informeTitle = "";
+	let preventasDetalle: Preventa[] = [];
+	let loadingInforme = false;
 	
 	// Paginación
 	let currentPage = 1;
@@ -93,9 +100,9 @@
 		cargarPreventas();
 	}
 	
-	// Navegar al detalle de la preventa
-	function verDetalle(preventa: PreventaCabeza) {
-		goto(`/ventas/preventas/${preventa.DocumentoTipo}/${preventa.DocumentoSucursal}/${preventa.DocumentoNumero}`);
+	// Editar preventa
+	function editarPreventa(preventa: PreventaCabeza) {
+		goto(`/ventas/preventas/nueva?editar=${preventa.DocumentoTipo}/${preventa.DocumentoSucursal}/${preventa.DocumentoNumero}`);
 	}
 	
 	// Anular preventa
@@ -210,6 +217,127 @@
 	function handleVendedorSelect(event: CustomEvent) {
 		filtros.vendedor = event.detail.value;
 	}
+	
+	// Función para cargar los detalles de las preventas seleccionadas
+	async function cargarDetallesPreventas() {
+		if (selectedPreventas.length === 0) {
+			alert('Seleccione al menos una preventa para generar informes');
+			return false;
+		}
+		
+		loadingInforme = true;
+		preventasDetalle = [];
+		
+		try {
+			// Cargar los detalles de cada preventa seleccionada
+			for (const preventaId of selectedPreventas) {
+				const [tipo, sucursal, numero] = preventaId.split('-');
+				const detalle = await PreventaService.obtenerPreventa(tipo, sucursal, numero);
+				if (detalle) {
+					preventasDetalle.push(detalle);
+				}
+			}
+			loadingInforme = false;
+			return true;
+		} catch (err) {
+			console.error('Error al cargar detalles de preventas:', err);
+			error = err instanceof Error ? err.message : 'Error desconocido';
+			loadingInforme = false;
+			return false;
+		}
+	}
+	
+	// Función para generar informe detallado
+	async function generarInformeDetallado() {
+		if (await cargarDetallesPreventas()) {
+			let texto = "";
+			
+			// Para cada preventa, generar detalle
+			for (const preventa of preventasDetalle) {
+				const cabecera = preventa.preventa;
+				texto += `PREVENTA: ${cabecera.DocumentoTipo}-${cabecera.DocumentoSucursal}-${cabecera.DocumentoNumero}\n`;
+				texto += `CLIENTE: ${cabecera.Cliente?.Descripcion || 'No especificado'}\n`;
+				texto += "-----------------------------------------------\n";
+				texto += "CANT.  DESCRIPCIÓN                     CÓDIGO\n";
+				texto += "-----------------------------------------------\n";
+				
+				// Listar cada ítem
+				for (const item of preventa.items) {
+					const cantidad = item.Cantidad?.toString().padEnd(6) || '0     ';
+					const descripcion = (item.Articulo?.Descripcion || 'Sin descripción').padEnd(30);
+					const codigo = item.CodigoArticulo;
+					
+					texto += `${cantidad} ${descripcion} ${codigo}\n`;
+				}
+				
+				// Separador entre preventas
+				texto += "\n\n";
+			}
+			
+			informeTitle = "Informe Detallado de Preventas";
+			informeText = texto;
+			showInformeModal = true;
+		}
+	}
+	
+	// Función para generar informe resumido
+	async function generarInformeResumido() {
+		if (await cargarDetallesPreventas()) {
+			// Agrupar ítems por código y sumar cantidades
+			const itemsSumados = new Map();
+			
+			// Recorrer todas las preventas e ítems
+			for (const preventa of preventasDetalle) {
+				for (const item of preventa.items) {
+					const codigo = item.CodigoArticulo;
+					const cantidad = item.Cantidad || 0;
+					const descripcion = item.Articulo?.Descripcion || 'Sin descripción';
+					
+					if (itemsSumados.has(codigo)) {
+						// Actualizar cantidad si ya existe
+						const itemExistente = itemsSumados.get(codigo);
+						itemExistente.cantidad += cantidad;
+					} else {
+						// Agregar nuevo ítem si no existe
+						itemsSumados.set(codigo, {
+							codigo,
+							descripcion,
+							cantidad
+						});
+					}
+				}
+			}
+			
+			// Convertir el mapa a un array y ordenarlo por código
+			const itemsArray = Array.from(itemsSumados.values())
+				.sort((a, b) => a.codigo.localeCompare(b.codigo));
+			
+			// Generar texto del informe
+			let texto = "RESUMEN DE ARTÍCULOS EN PREVENTAS SELECCIONADAS\n";
+			texto += "-----------------------------------------------\n";
+			texto += "CANT.  DESCRIPCIÓN                     CÓDIGO\n";
+			texto += "-----------------------------------------------\n";
+			
+			// Listar cada ítem sumado
+			for (const [index, item] of itemsArray.entries()) {
+				const numeroItem = (index + 1).toString().padStart(2, '0');
+				const cantidad = item.cantidad.toString().padEnd(6);
+				const descripcion = item.descripcion.padEnd(30);
+				const codigo = item.codigo;
+				
+				texto += `${numeroItem}. ${cantidad} ${descripcion} ${codigo}\n`;
+			}
+			
+			// Agregar total de ítems al final
+			const totalCantidad = itemsArray.reduce((sum, item) => sum + item.cantidad, 0);
+			texto += "-----------------------------------------------\n";
+			texto += `TOTAL ARTÍCULOS: ${totalCantidad}\n`;
+			
+			informeTitle = "Informe Resumido de Preventas";
+			informeText = texto;
+			showInformeModal = true;
+		}
+	}
 </script>
 
 <div class="container mx-auto px-4 py-6">
@@ -225,16 +353,36 @@
 				{filtrosVisibles ? 'Ocultar filtros' : 'Mostrar filtros'}
 			</Button>
 			
-			<Button 
-				variant="primary"
-				on:click={generarResumen}
-			>
-				Resumen
-			</Button>
+			<!-- Botón de resumen ahora es menú desplegable -->
+			<div class="relative inline-block text-left">
+				<Button 
+					variant="primary"
+					on:click={generarResumen}
+				>
+					Resumen
+				</Button>
+			</div>
+			
+			<!-- Nuevos botones para informes -->
+			<div class="ml-2 flex space-x-2">
+				<Button 
+					variant="secondary"
+					on:click={generarInformeDetallado}
+					disabled={selectedPreventas.length === 0 || loadingInforme}
+				>
+					Informe Detallado
+				</Button>
+				
+				<Button 
+					variant="secondary"
+					on:click={generarInformeResumido}
+					disabled={selectedPreventas.length === 0 || loadingInforme}
+				>
+					Informe Resumido
+				</Button>
+			</div>
+			
 			<Button variant="primary" on:click={() => goto('/ventas/preventas/nueva')}>
-			  <!-- <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-			  </svg> -->
 			  Nueva Preventa
 			</Button>
 		</div>
@@ -244,7 +392,6 @@
 			<div class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-md text-sm">
 				{selectedPreventas.length} preventas seleccionadas
 			</div>
-			
 		{/if}
 	</div>
 	<!-- Filtros -->
@@ -366,6 +513,106 @@
 		</div>
 	{/if}
 	
+	<!-- Modal para mostrar informes -->
+	{#if showInformeModal}
+		<div class="fixed inset-0 overflow-y-auto z-50 flex items-center justify-center bg-black bg-opacity-50">
+			<div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-screen flex flex-col">
+				<div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+					<h3 class="text-lg font-medium">{informeTitle}</h3>
+					<button 
+						on:click={() => showInformeModal = false}
+						class="text-gray-400 hover:text-gray-500"
+					>
+						<!-- <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"> -->
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						<!-- </svg> -->
+					</button>
+				</div>
+				
+				<div class="p-4 flex-grow overflow-auto">
+					<pre class="font-mono text-sm whitespace-pre-wrap bg-gray-100 p-4 h-full overflow-y-auto" style="font-size: 10pt;">{informeText}</pre>
+				</div>
+				
+				<div class="px-4 py-3 border-t border-gray-200 flex justify-end space-x-3">
+					<Button 
+						variant="secondary" 
+						on:click={() => {
+							// Copiar al portapapeles
+							navigator.clipboard.writeText(informeText);
+							alert('Informe copiado al portapapeles');
+						}}
+					>
+						Copiar
+					</Button>
+					
+					<Button 
+						variant="secondary" 
+						on:click={() => {
+							// Crear blob y descargar
+							const blob = new Blob([informeText], { type: 'text/plain' });
+							const url = URL.createObjectURL(blob);
+							const a = document.createElement('a');
+							a.href = url;
+							a.download = `${informeTitle.replace(/\s+/g, '_')}.txt`;
+							document.body.appendChild(a);
+							a.click();
+							document.body.removeChild(a);
+							URL.revokeObjectURL(url);
+						}}
+					>
+						Descargar
+					</Button>
+					
+					<Button 
+						variant="primary" 
+						on:click={() => {
+							// Abrir ventana de impresión
+							const printWindow = window.open('', '_blank');
+							if (printWindow) {
+								printWindow.document.write(`
+									<html>
+										<head>
+											<title>${informeTitle}</title>
+											<style>
+												body {
+													font-family: monospace;
+													font-size: 10pt;
+													white-space: pre;
+													line-height: 1.2;
+												}
+												@media print {
+													body { margin: 0.5cm; }
+												}
+											</style>
+										</head>
+										<body>${informeText.replace(/\n/g, '<br>')}</body>
+									</html>
+								`);
+								printWindow.document.close();
+								printWindow.focus();
+								printWindow.print();
+							}
+						}}
+					>
+						Imprimir
+					</Button>
+				</div>
+			</div>
+		</div>
+	{/if}
+	
+	<!-- Loading indicator para informes -->
+	{#if loadingInforme}
+		<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+			<div class="bg-white p-6 rounded-lg shadow-xl">
+				<div class="flex items-center">
+					<div class="spinner mr-3"></div>
+					<p>Generando informe, por favor espere...</p>
+				</div>
+			</div>
+		</div>
+	{/if}
+	
 	<!-- Loading indicator -->
 	{#if loading}
 		<div class="flex justify-center items-center h-48">
@@ -458,16 +705,16 @@
 							</td>
 							<td class="px-3 py-4 whitespace-nowrap text-right text-sm font-medium">
 								<div class="flex items-center space-x-2">
-									<!-- Ver detalle (siempre disponible) -->
+									<!-- Editar (reemplaza el botón de Ver detalle) -->
 									<button 
 										class="text-indigo-600 hover:text-indigo-900"
-										on:click={() => verDetalle(preventa)}
-										title="Ver detalle"
-										aria-label="Ver detalle"
+										on:click={() => editarPreventa(preventa)}
+										title="Editar preventa"
+										aria-label="Editar preventa"
+										disabled={preventa.FechaAnulacion !== null}
 									>
 										<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
 										</svg>
 									</button>
 									

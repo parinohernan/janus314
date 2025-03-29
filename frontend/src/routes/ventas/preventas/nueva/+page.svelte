@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 	import Button from '$lib/components/ui/Button.svelte';
 	import { PreventaService } from '$lib/services/PreventaService';
 	import { ClienteService } from '$lib/services/ClienteService';
 	import { ConfiguracionService } from '$lib/services/ConfiguracionService';
-	import type { Articulo, Cliente, PreventaItem, Vendedor, TipoDePago, PreventaCabeza } from '$lib/types';
+	import type { Articulo, Cliente, PreventaItem, Vendedor, TipoDePago, PreventaCabeza, PreventaFiltros, Preventa } from '$lib/types';
 	import { goto } from '$app/navigation';
 	import { PUBLIC_API_URL } from '$env/static/public';
 	
@@ -76,6 +77,11 @@
 	let cantidadMaximaItems = 0;
 	let cargandoConfiguracion = true;
 	
+	// Variables para edición
+	let modoEdicion = false;
+	let preventaEditar: string | null = $page.url.searchParams.get('editar');
+	let preventaOriginal: Preventa | null = null;
+	
 	// Modificar el modelo de preventa
 	let preventa = {
 		// Siempre será PRV (preventa)
@@ -96,6 +102,12 @@
 	// Función para obtener la sucursal al cargar la página
 	onMount(async () => {
 		try {
+			// Verificar si estamos en modo edición
+			if (preventaEditar) {
+				modoEdicion = true;
+				await cargarPreventa();
+			}
+			
 			// Obtener configuración de cantidad máxima de ítems
 			cargandoConfiguracion = true;
 			const configCantItems = await ConfiguracionService.obtenerConfiguracion('CANT_ITEMS');
@@ -105,13 +117,15 @@
 			}
 			cargandoConfiguracion = false;
 			
-			// Obtener sucursal
-			const responseSucursal = await fetch(`${PUBLIC_API_URL}/datos-empresa`);
-			if (!responseSucursal.ok) {
-				throw new Error('Error al cargar datos de la empresa');
+			// Obtener sucursal (solo si no estamos editando)
+			if (!modoEdicion) {
+				const responseSucursal = await fetch(`${PUBLIC_API_URL}/datos-empresa`);
+				if (!responseSucursal.ok) {
+					throw new Error('Error al cargar datos de la empresa');
+				}
+				const { data } = await responseSucursal.json();
+				preventa.DocumentoSucursal = data.Sucursal;
 			}
-			const { data } = await responseSucursal.json();
-			preventa.DocumentoSucursal = data.Sucursal;
 			
 			// Cargar datos iniciales
 			await cargarDatos();
@@ -410,8 +424,71 @@
 		goto('/ventas/preventas');
 	}
 	
-	// Crear preventa
-	async function crearPreventa() {
+	// Función para cargar la preventa a editar
+	async function cargarPreventa() {
+		if (!preventaEditar) return;
+		
+		loading = true;
+		error = null;
+		
+		try {
+			const [tipo, sucursal, numero] = preventaEditar.split('/');
+			
+			// Cargar la preventa con el servicio
+			preventaOriginal = await PreventaService.obtenerPreventa(tipo, sucursal, numero) as unknown as Preventa	;
+			
+			if (preventaOriginal) {
+				console.log("preventaOriginal", preventaOriginal);
+				const cabecera = preventaOriginal.preventa;
+				
+				// Actualizar el modelo de preventa con los datos cargados
+				preventa.DocumentoTipo = cabecera.DocumentoTipo;
+				preventa.DocumentoSucursal = cabecera.DocumentoSucursal;
+				preventa.DocumentoNumero = cabecera.DocumentoNumero;
+				preventa.ClienteCodigo = cabecera.ClienteCodigo;
+				preventa.VendedorCodigo = cabecera.VendedorCodigo || '1';
+				
+				// Cargar datos del cliente
+				if (cabecera.Cliente) {
+					clienteSeleccionado = cabecera.Cliente;
+					codigoCliente = cabecera.ClienteCodigo;
+					clienteSearch = cabecera.Cliente.Descripcion;
+				} else if (cabecera.ClienteCodigo) {
+					// Si la preventa no tiene el cliente cargado, intentar cargarlo
+					const clienteResponse = await fetch(`${PUBLIC_API_URL}/clientes/${cabecera.ClienteCodigo}`);
+					if (clienteResponse.ok) {
+						const clienteData = await clienteResponse.json();
+						clienteSeleccionado = clienteData;
+						codigoCliente = cabecera.ClienteCodigo;
+						clienteSearch = clienteData.Descripcion;
+					}
+				}
+				
+				// Cargar observación
+				observacion = cabecera.Observacion || '';
+				
+				// Cargar ítems
+				items = preventaOriginal.items.map((item: any) => ({
+					...item,
+					// Asegurarse de que todos los campos necesarios estén presentes
+					DocumentoTipo: cabecera.DocumentoTipo,
+					DocumentoSucursal: cabecera.DocumentoSucursal,
+					DocumentoNumero: cabecera.DocumentoNumero
+				}));
+				
+				// Calcular totales
+				calcularTotales();
+			}
+		} catch (err) {
+			console.error('Error al cargar preventa para editar:', err);
+			error = err instanceof Error ? err.message : 'Error desconocido';
+		} finally {
+			loading = false;
+		}
+	}
+	
+	// Modificar la función de guardar para manejar tanto creación como actualización
+	async function guardarPreventa() {
 		if (!clienteSeleccionado) {
 			alert('Debe seleccionar un cliente');
 			return;
@@ -436,6 +513,7 @@
 			const preventaData = {
 				DocumentoTipo: preventa.DocumentoTipo,
 				DocumentoSucursal: preventa.DocumentoSucursal,
+				DocumentoNumero: preventa.DocumentoNumero,
 				ClienteCodigo: codigoCliente,
 				VendedorCodigo: preventa.VendedorCodigo,
 				ImporteBruto: importeBruto,
@@ -443,12 +521,26 @@
 				ImporteTotal: importeTotal,
 				Observacion: observacion,
 				ListaPrecio: clienteSeleccionado.ListaPrecio,
-				
 			};
 			
-			const resultado = await PreventaService.crearPreventa(preventaData as unknown as PreventaCabeza, items);
+			let resultado;
 			
-			alert('Preventa creada correctamente');
+			// Si estamos en modo edición, actualizar la preventa existente
+			if (modoEdicion) {
+				resultado = await PreventaService.actualizarPreventa(
+					preventaData as unknown as PreventaCabeza, 
+					items
+				);
+				alert('Preventa actualizada correctamente');
+			} else {
+				// Si es una nueva preventa, crearla
+				resultado = await PreventaService.crearPreventa(
+					preventaData as unknown as PreventaCabeza, 
+					items
+				);
+				alert('Preventa creada correctamente');
+			}
+			
 			goto('/ventas/preventas'); // Volver al listado
 			
 		} catch (err) {
@@ -463,11 +555,13 @@
 
 <div class="container mx-auto px-4 py-8">
 	<div class="flex justify-between items-center mb-6">
-		<h1 class="text-2xl font-bold text-gray-800">Nueva Preventa</h1>
+		<h1 class="text-2xl font-bold text-gray-800">
+			{modoEdicion ? 'Editar Preventa' : 'Nueva Preventa'}
+		</h1>
 		<div class="flex space-x-2">
 			<Button variant="secondary" on:click={cancelar}>Cancelar</Button>
-			<Button variant="primary" on:click={crearPreventa} disabled={loading}>
-				{loading ? 'Guardando...' : 'Guardar Preventa'}
+			<Button variant="primary" on:click={guardarPreventa} disabled={loading}>
+				{loading ? 'Guardando...' : modoEdicion ? 'Actualizar Preventa' : 'Guardar Preventa'}
 			</Button>
 		</div>
 	</div>

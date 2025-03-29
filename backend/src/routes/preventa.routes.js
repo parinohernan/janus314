@@ -11,6 +11,9 @@ router.get("/:tipo/:sucursal/:numero", preventaController.obtenerPreventa);
 // Crear nueva preventa
 router.post("/", preventaController.crearPreventa);
 
+// Actualizar preventa existente
+router.put("/:tipo/:sucursal/:numero", preventaController.actualizarPreventa);
+
 // Anular preventa
 router.put(
   "/anular/:tipo/:sucursal/:numero",

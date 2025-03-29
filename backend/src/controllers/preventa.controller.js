@@ -407,3 +407,121 @@ exports.facturarPreventa = async (req, res) => {
     });
   }
 };
+
+// Actualizar preventa existente
+exports.actualizarPreventa = async (req, res) => {
+  // Iniciar transacción
+  const t = await sequelize.transaction();
+
+  try {
+    const { tipo, sucursal, numero } = req.params;
+    const preventaData = req.body;
+    const items = preventaData.Items || [];
+    delete preventaData.Items;
+
+    // Verificar que la preventa existe
+    const preventaExistente = await PreventaCabeza.findOne({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero,
+      },
+      transaction: t,
+    });
+
+    if (!preventaExistente) {
+      await t.rollback();
+      return res.status(404).json({
+        success: false,
+        message: "Preventa no encontrada",
+      });
+    }
+
+    // Verificar que no esté anulada ni facturada
+    if (preventaExistente.FechaAnulacion) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "No se puede actualizar una preventa anulada",
+      });
+    }
+
+    if (preventaExistente.FacturaNumero) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "No se puede actualizar una preventa que ya ha sido facturada",
+      });
+    }
+
+    // Actualizar la cabecera de la preventa
+    await PreventaCabeza.update(preventaData, {
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero,
+      },
+      transaction: t,
+    });
+
+    // Eliminar los ítems existentes
+    await PreventaItem.destroy({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero,
+      },
+      transaction: t,
+    });
+
+    // Crear los nuevos ítems
+    if (items.length > 0) {
+      // Preparar los items con las claves de la preventa
+      const itemsConClaves = items.map((item) => ({
+        ...item,
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero,
+      }));
+
+      await PreventaItem.bulkCreate(itemsConClaves, { transaction: t });
+    }
+
+    // Confirmar transacción
+    await t.commit();
+
+    // Obtener la preventa actualizada con sus relaciones
+    const preventaActualizada = await PreventaCabeza.findOne({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero,
+      },
+      include: [
+        {
+          model: Cliente,
+          attributes: ["Codigo", "Descripcion"],
+        },
+        {
+          model: Vendedor,
+          attributes: ["Codigo", "Descripcion"],
+        },
+      ],
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Preventa actualizada correctamente",
+      data: preventaActualizada,
+    });
+  } catch (error) {
+    // Aseguramos el rollback en caso de cualquier error
+    await t.rollback();
+    console.error("Error al actualizar preventa:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al actualizar preventa",
+      error: error.message,
+    });
+  }
+};
