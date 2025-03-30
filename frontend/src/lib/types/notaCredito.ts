@@ -11,13 +11,20 @@ export interface ItemNotaCredito {
 	enEdicion?: boolean;
 }
 
+export interface ClienteNotaCredito {
+	Codigo: string;
+	Descripcion: string;
+	CategoriaIva: string;
+	// Agrega cualquier otro campo que realmente necesites
+}
+
 export interface NotaCredito {
 	DocumentoTipo: string;
 	DocumentoSucursal: string;
 	DocumentoNumero: string;
 	Fecha: string;
 	CodigoCliente: string;
-	Cliente: Cliente | null;
+	Cliente: ClienteNotaCredito | null;
 	CodigoVendedor?: string;
 	ListaNumero: string;
 	ImporteBruto: number;

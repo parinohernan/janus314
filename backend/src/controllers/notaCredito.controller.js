@@ -17,11 +17,16 @@ exports.listarNotasCredito = async (req, res) => {
     const clienteCodigo = req.query.cliente || null;
     const fechaDesde = req.query.fechaDesde || null;
     const fechaHasta = req.query.fechaHasta || null;
+    const sucursal = req.query.sucursal || null;
 
     // Construir condiciones de filtrado
-    const whereClause = {};
+    const whereClause = {
+      DocumentoTipo: { [Op.ne]: "NTC" }, // Excluir documentos tipo NTC
+    };
+
     if (tipo) whereClause.DocumentoTipo = tipo;
     if (clienteCodigo) whereClause.CodigoCliente = clienteCodigo;
+    if (sucursal) whereClause.DocumentoSucursal = sucursal;
 
     if (fechaDesde && fechaHasta) {
       whereClause.Fecha = {
@@ -36,6 +41,7 @@ exports.listarNotasCredito = async (req, res) => {
         [Op.lte]: fechaHasta,
       };
     }
+    console.log("whereClause", whereClause);
 
     // Consulta con join a cliente
     const notasCredito = await NotaCreditoCabeza.findAndCountAll({

@@ -84,8 +84,10 @@
   const cargarSucursalPredeterminada = async () => {
     try {
       // Solo cargamos si no hay una sucursal ya establecida
+      console.log('cargando sucursal predeterminada', filtroSucursal);
       if (!filtroSucursal) {
-        filtroSucursal = await EmpresaService.obtenerSucursalPredeterminada();
+        filtroSucursal = await EmpresaService.obtenerSucursal();
+        console.log('sucursal', filtroSucursal);
       }
     } catch (error) {
       console.error('Error al cargar sucursal predeterminada:', error);
@@ -105,12 +107,13 @@
       params.append('limit', itemsPerPage.toString());
       params.append('orderBy', 'Fecha');
       params.append('orderDir', 'desc');
-      
+      params.append('sucursal', filtroSucursal);
+
       if (filtroTipo) params.append('tipo', filtroTipo);
       if (filtroCliente) params.append('cliente', filtroCliente);
       if (filtroFechaDesde) params.append('fechaDesde', filtroFechaDesde);
       if (filtroFechaHasta) params.append('fechaHasta', filtroFechaHasta);
-      if (filtroSucursal) params.append('sucursal', filtroSucursal);
+      // if (filtroSucursal) params.append('sucursal', filtroSucursal);
       
       const response = await fetch(`${PUBLIC_API_URL}/notascredito?${params}`);
       
@@ -341,7 +344,7 @@
       </div>
       
       <!-- Filtro de sucursal -->
-      <div>
+      <!-- <div>
         <label for="filtroSucursal" class="block text-sm font-medium text-gray-700 mb-1">Sucursal</label>
         <select 
           id="filtroSucursal" 
@@ -352,7 +355,7 @@
             <option value={sucursal.value}>{sucursal.label}</option>
           {/each}
         </select>
-      </div>
+      </div> -->
       
       <div class="relative w-full md:w-64 mb-4 md:mb-0">
         <label for="filtroCliente" class="block text-sm font-medium text-gray-700 mb-1">Cliente</label>

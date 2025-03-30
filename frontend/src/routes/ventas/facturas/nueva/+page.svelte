@@ -10,6 +10,7 @@
   import { PreventaService } from '$lib/services/PreventaService';
   import { ConfiguracionService } from '$lib/services/ConfiguracionService';
   import type { Preventa } from '$lib/types';
+  import { EmpresaService } from '$lib/services/EmpresaService';
   // import { formatDateOnly } from '$lib/utils/dateUtils';
   
   // Modelo de factura
@@ -113,15 +114,10 @@
       }
       
       try {
-
-      // obtener sucursal
-      const responseSucursal = await fetch(`${PUBLIC_API_URL}/datos-empresa`);
-      if (!responseSucursal.ok) {
-        throw new Error('Error al cargar datos de la empresa');
-      }
-      const { data } = await responseSucursal.json();
-      factura.DocumentoSucursal = data.Sucursal;
-      // Obtener formas de pago
+        // Obtener sucursal usando el servicio
+        factura.DocumentoSucursal = await EmpresaService.obtenerSucursal();
+        
+        // Obtener formas de pago
         const response = await fetch(`${PUBLIC_API_URL}/tipos-de-pago`);
         if (response.ok) {
           const data = await response.json();
@@ -132,7 +128,7 @@
           }));
         }
       } catch (error) {
-        console.error('Error cargando formas de pago:', error);
+        console.error('Error cargando datos:', error);
       }
       
       // Obtener datos de la empresa para la sucursal
