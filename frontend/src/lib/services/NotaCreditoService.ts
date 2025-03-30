@@ -43,6 +43,9 @@ export class NotaCreditoService {
 	 * Obtiene el próximo número de nota de crédito disponible
 	 */
 	public static async obtenerProximoNumero(tipo: string, sucursal: string): Promise<string> {
+		console.log('tipo', tipo);
+		console.log('sucursal', sucursal);
+		console.log('PUBLIC_API_URL', `${PUBLIC_API_URL}/numeros-control/${tipo}/${sucursal}`);
 		try {
 			const response = await fetch(`${PUBLIC_API_URL}/numeros-control/${tipo}/${sucursal}`);
 
@@ -51,7 +54,7 @@ export class NotaCreditoService {
 			}
 
 			const data = await response.json();
-			return data.data.numeroProximo.toString().padStart(8, '0');
+			return data.data.proximoNumero.toString().padStart(8, '0');
 		} catch (error) {
 			console.error('Error al obtener próximo número:', error);
 			return '00000000';

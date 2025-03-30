@@ -18,4 +18,10 @@ router.put("/anular/:tipo/:sucursal/:numero", facturaController.anularFactura);
 // Nueva ruta para generar PDF
 router.get("/pdf/:tipo/:sucursal/:numero", pdfController.generarFacturaPDF);
 
+// Obtener últimas facturas de un cliente
+router.get(
+  "/cliente/:codigoCliente",
+  facturaController.obtenerUltimasFacturasCliente
+);
+
 module.exports = router;

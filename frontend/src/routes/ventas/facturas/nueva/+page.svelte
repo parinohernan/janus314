@@ -201,7 +201,7 @@
   const obtenerProximoNumero = async () => {
 
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/numeros-Control/${factura.DocumentoTipo}/${factura.DocumentoSucursal}`);
+      const response = await fetch(`${PUBLIC_API_URL}/numeroscontrol/${factura.DocumentoTipo}/${factura.DocumentoSucursal}`);
       if (response.ok) {
         const data = await response.json();
         factura.DocumentoNumero = data.data.proximoNumero;

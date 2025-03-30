@@ -7,6 +7,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { formatCurrency } from '$lib/utils/formatters';
   import { PUBLIC_API_URL } from '$env/static/public';
+  import { FacturaService } from '$lib/services/FacturaService';
 
   // Inicializar notaCredito con valores por defecto
   let notaCredito: NotaCredito = {
@@ -46,12 +47,14 @@
   let facturaReferenciaBusqueda = '';
   let facturasOptions: any[] = [];
   let facturasLoading = false;
+  let articuloSeleccionado: any = null;
+  let cantidadArticulo = 1;
 
   // Tipos de documento disponibles
   const tiposDocumento = [
     { value: 'NCA', label: 'Nota de Crédito A' },
     { value: 'NCB', label: 'Nota de Crédito B' },
-    { value: 'NCC', label: 'Nota de Crédito C' }
+    { value: 'NCF', label: 'Nota de Crédito F' }
   ];
 
   onMount(async () => {
@@ -105,46 +108,114 @@
     }, 300);
   }
 
-  // Seleccionar factura de referencia
+  // Seleccionar cliente
+  async function seleccionarCliente(cliente: any) {
+    notaCredito.CodigoCliente = cliente.codigo;
+    const clienteNC: ClienteNotaCredito = {
+      Codigo: cliente.codigo,
+      Descripcion: cliente.descripcion,
+      CategoriaIva: cliente.categoriaIva
+    };
+    notaCredito.Cliente = clienteNC;
+    clienteBusqueda = cliente.label;
+    clientesOptions = [];
+    
+    // Buscar últimas facturas del cliente inmediatamente
+    await buscarFacturasCliente(cliente.codigo);
+  }
+
+  // Actualizar buscarFacturasCliente para mostrar las facturas en la lista
+  async function buscarFacturasCliente(codigoCliente: string) {
+    try {
+      facturasLoading = true;
+      const resultado = await FacturaService.obtenerUltimasFacturasCliente(codigoCliente);
+      
+      if (resultado.success && resultado.data) {
+        facturasOptions = resultado.data.map((factura: any) => ({
+          tipo: factura.tipo,
+          sucursal: factura.sucursal,
+          numero: factura.numero,
+          fecha: factura.fecha,
+          cliente: factura.cliente,
+          total: factura.total,
+          label: `${factura.tipo}-${factura.sucursal}-${factura.numero} (${new Date(factura.fecha).toLocaleDateString()})`
+        }));
+      } else {
+        error = resultado.error || 'Error al buscar facturas del cliente';
+      }
+    } catch (err) {
+      console.error('Error buscando facturas:', err);
+      error = err instanceof Error ? err.message : 'Error desconocido';
+    } finally {
+      facturasLoading = false;
+    }
+  }
+
+  // Actualizar seleccionarFactura para manejar el tipo de documento y cargar items
   async function seleccionarFactura(factura: any) {
     try {
-      // Obtener detalle completo de la factura
-      const response = await fetch(
-        `${PUBLIC_API_URL}/facturas/${factura.tipo}/${factura.sucursal}/${factura.numero}`
+      // 1. Determinar el tipo de nota de crédito según la factura
+      const tipoMap: Record<string, string> = {
+        'FCA': 'NCA',
+        'FCB': 'NCB',
+        'FCC': 'NCC',
+        'PRF': 'NCF'
+      };
+      const tipoNotaCredito = tipoMap[factura.tipo];
+
+      if (!tipoNotaCredito) {
+        throw new Error('Tipo de factura no válido para nota de crédito');
+      }
+
+      // Actualizar tipo de documento
+      notaCredito.DocumentoTipo = tipoNotaCredito;
+
+      // Obtener nuevo número de comprobante
+      notaCredito.DocumentoNumero = await NotaCreditoService.obtenerProximoNumero(
+        tipoNotaCredito,
+        notaCredito.DocumentoSucursal
+      );
+
+      // 2. Obtener detalle de la factura y cargar items
+      const resultado = await FacturaService.obtenerDetalleFactura(
+        factura.tipo,
+        factura.sucursal,
+        factura.numero
       );
       
-      if (!response.ok) throw new Error('Error al obtener detalle de factura');
-      
-      const { data } = await response.json();
-      
-      // Actualizar datos de la nota de crédito
-      notaCredito.CodigoCliente = data.encabezado.ClienteCodigo;
-      notaCredito.Cliente = data.encabezado.Cliente;
-      notaCredito.FacturaReferencia = {
-        tipo: factura.tipo,
-        sucursal: factura.sucursal,
-        numero: factura.numero
-      };
-      
-      // Copiar items de la factura
-      notaCredito.Items = data.items.map((item: any) => ({
-        CodigoArticulo: item.CodigoArticulo,
-        Descripcion: item.Articulo?.Descripcion || '',
-        Cantidad: item.Cantidad,
-        PrecioUnitario: item.PrecioUnitario,
-        PorcentajeIva: item.PorcentajeIva,
-        PrecioUnitarioConIva: item.PrecioUnitarioConIva,
-        Total: item.Total
-      }));
-      
-      // Limpiar búsqueda y opciones
-      facturaReferenciaBusqueda = factura.label;
-      facturasOptions = [];
-      
-      // Recalcular totales
-      calcularTotales();
-    } catch (error) {
-      console.error('Error al cargar detalle de factura:', error);
+      if (resultado.success && resultado.data) {
+        const { data } = resultado;
+        
+        // Actualizar referencia de factura
+        notaCredito.FacturaReferencia = {
+          tipo: factura.tipo,
+          sucursal: factura.sucursal,
+          numero: factura.numero
+        };
+        
+        // Copiar items de la factura
+        notaCredito.Items = data.items.map((item: any) => ({
+          CodigoArticulo: item.CodigoArticulo,
+          Descripcion: item.Articulo?.Descripcion || '',
+          Cantidad: item.Cantidad,
+          PrecioUnitario: item.PrecioUnitario,
+          PorcentajeIva: item.PorcentajeIva,
+          PrecioUnitarioConIva: item.PrecioUnitarioConIva || 0,
+          Total: item.Total || 0
+        }));
+        
+        // Actualizar búsqueda y limpiar opciones
+        facturaReferenciaBusqueda = factura.label;
+        facturasOptions = [];
+        
+        // Recalcular totales
+        calcularTotales();
+      } else {
+        throw new Error(resultado.error || 'Error al obtener detalle de factura');
+      }
+    } catch (err) {
+      console.error('Error al cargar detalle de factura:', err);
+      error = err instanceof Error ? err.message : 'Error desconocido';
     }
   }
 
@@ -178,41 +249,6 @@
         clientesLoading = false;
       }
     }, 300);
-  }
-
-  // Seleccionar cliente
-  function seleccionarCliente(cliente: any) {
-    notaCredito.CodigoCliente = cliente.codigo;
-    const clienteNC: ClienteNotaCredito = {
-      Codigo: cliente.codigo,
-      Descripcion: cliente.descripcion,
-      CategoriaIva: cliente.categoriaIva
-    };
-    notaCredito.Cliente = clienteNC;
-    clienteBusqueda = cliente.label;
-    clientesOptions = [];
-    
-    // Actualizar tipo de documento según categoría IVA
-    actualizarTipoDocumento(cliente.categoriaIva);
-  }
-
-  // Actualizar tipo de documento según IVA
-  function actualizarTipoDocumento(categoriaIva: string) {
-    switch (categoriaIva) {
-      case 'RI':
-        notaCredito.DocumentoTipo = 'NCA';
-        break;
-      case 'CF':
-      case 'EX':
-      case 'NI':
-        notaCredito.DocumentoTipo = 'NCB';
-        break;
-      case 'MT':
-        notaCredito.DocumentoTipo = 'NCC';
-        break;
-      default:
-        notaCredito.DocumentoTipo = 'NCB';
-    }
   }
 
   // Búsqueda de artículos
@@ -251,26 +287,8 @@
 
   // Seleccionar artículo
   function seleccionarArticulo(articulo: any) {
-    if (itemEnEdicion) {
-      itemEnEdicion.CodigoArticulo = articulo.codigo;
-      itemEnEdicion.Descripcion = articulo.descripcion;
-      itemEnEdicion.PrecioUnitario = articulo.precio;
-      itemEnEdicion.PorcentajeIva = articulo.iva;
-      calcularTotalItem(itemEnEdicion);
-    } else {
-      const nuevoItem: ItemNotaCredito = {
-        CodigoArticulo: articulo.codigo,
-        Descripcion: articulo.descripcion,
-        Cantidad: 1,
-        PrecioUnitario: articulo.precio,
-        PorcentajeIva: articulo.iva,
-        PrecioUnitarioConIva: articulo.precio * (1 + articulo.iva / 100),
-        Total: articulo.precio * (1 + articulo.iva / 100),
-        enEdicion: true
-      };
-      notaCredito.Items = [...notaCredito.Items, nuevoItem];
-    }
-    articuloBusqueda = '';
+    articuloSeleccionado = articulo;
+    articuloBusqueda = `${articulo.codigo} - ${articulo.descripcion}`;
     articulosOptions = [];
   }
 
@@ -351,6 +369,50 @@
       loading = false;
     }
   }
+
+  // Función para agregar artículo
+  const agregarArticulo = () => {
+    if (!articuloSeleccionado) return;
+    
+    // Validar que los valores necesarios existan
+    if (!articuloSeleccionado.codigo || !articuloSeleccionado.precio || !cantidadArticulo) {
+      error = 'Faltan datos del artículo o la cantidad';
+      return;
+    }
+
+    // Validar que la cantidad sea mayor a 0
+    if (cantidadArticulo <= 0) {
+      error = 'La cantidad debe ser mayor a 0';
+      return;
+    }
+
+    const nuevoItem: ItemNotaCredito = {
+      CodigoArticulo: articuloSeleccionado.codigo,
+      Descripcion: articuloSeleccionado.descripcion,
+      Cantidad: cantidadArticulo,
+      PrecioUnitario: articuloSeleccionado.precio,
+      PorcentajeIva: articuloSeleccionado.iva,
+      PrecioUnitarioConIva: 0,
+      Total: 0
+    };
+
+    try {
+      // Calcular valores con IVA y total
+      calcularTotalItem(nuevoItem);
+      
+      // Agregar el nuevo item a la lista
+    notaCredito.Items = [...notaCredito.Items, nuevoItem];
+      error = null; // Limpiar cualquier error previo
+
+    // Resetear selección
+    articuloSeleccionado = null;
+    articuloBusqueda = '';
+    cantidadArticulo = 1;
+    } catch (err) {
+      console.error('Error al agregar artículo:', err);
+      error = 'Error al agregar el artículo';
+    }
+  };
 </script>
 
 <div class="container mx-auto px-4 py-8">
@@ -452,7 +514,7 @@
       </div>
 
       <!-- Cliente -->
-      <div class="relative md:col-span-2">
+      <div class="relative md:col-span-2">  
         <label for="cliente" class="block text-sm font-medium text-gray-700 mb-1">
           Cliente
         </label>
@@ -483,115 +545,42 @@
         {/if}
       </div>
     </div>
-  </div>
 
-  <!-- Items -->
-  <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-    <h2 class="text-lg font-semibold text-gray-800 mb-4">Items</h2>
-    
-    {#if notaCredito?.Items}
-      <!-- Tabla de items -->
+    <!-- Items -->
+    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+      <h2 class="text-lg font-bold text-gray-800 mb-4">Ítems</h2>
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
+          <thead>
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descripción</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cantidad</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Precio Unit.</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">IVA %</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Artículo
+              </th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Cantidad
+              </th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Precio Unitario
+              </th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Total
+              </th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Total
+              </th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            {#each notaCredito.Items as item, i}
+            {#each notaCredito.Items as item}
               <tr>
-                <td class="px-4 py-3 whitespace-nowrap">{item.CodigoArticulo}</td>
-                <td class="px-4 py-3">{item.Descripcion}</td>
-                <td class="px-4 py-3 text-right">
-                  <input
-                    type="number"
-                    bind:value={item.Cantidad}
-                    on:change={() => calcularTotalItem(item)}
-                    class="w-20 px-2 py-1 text-right border border-gray-300 rounded-md"
-                    min="0"
-                    step="1"
-                  />
-                </td>
-                <td class="px-4 py-3 text-right">{formatCurrency(item.PrecioUnitario)}</td>
-                <td class="px-4 py-3 text-right">{item.PorcentajeIva}%</td>
-                <td class="px-4 py-3 text-right">{formatCurrency(item.Total)}</td>
-                <td class="px-4 py-3 text-center">
-                  <button
-                    class="text-red-600 hover:text-red-900"
-                    on:click={() => eliminarItem(i)}
-                    aria-label="Eliminar ítem"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {item.Descripcion}
                 </td>
               </tr>
-            {/each}
-            
-            <!-- Fila para agregar nuevo item -->
-            <tr class="bg-gray-50">
-              <td colspan="7" class="px-4 py-3">
-                <div class="relative">
-                  <input
-                    type="text"
-                    bind:value={articuloBusqueda}
-                    on:input={() => buscarArticulos(articuloBusqueda)}
-                    placeholder="Buscar artículo para agregar..."
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {#if articulosLoading}
-                    <div class="absolute right-3 top-2">
-                      <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                    </div>
-                  {/if}
-                  {#if articulosOptions.length > 0}
-                    <div class="absolute z-10 w-full mt-1 bg-white shadow-lg max-h-60 rounded-md overflow-auto">
-                      {#each articulosOptions as articulo}
-                        <button
-                          class="w-full text-left px-4 py-2 hover:bg-gray-100"
-                          on:click={() => seleccionarArticulo(articulo)}
-                        >
-                          {articulo.label}
-                        </button>
-                      {/each}
-                    </div>
-                  {/if}
-                </div>
-              </td>
-            </tr>
+            {/each} 
           </tbody>
         </table>
       </div>
-    {/if}
-  </div>
-
-  <!-- Totales -->
-  <div class="bg-white rounded-lg shadow-sm p-6">
-    <div class="flex flex-col items-end space-y-2">
-      <div class="text-sm">
-        <span class="font-medium">Subtotal:</span>
-        <span class="ml-4">{formatCurrency(notaCredito?.ImporteBruto || 0)}</span>
-      </div>
-      <div class="text-sm">
-        <span class="font-medium">IVA 21%:</span>
-        <span class="ml-4">{formatCurrency(notaCredito?.ImporteIva1 || 0)}</span>
-      </div>
-      <div class="text-sm">
-        <span class="font-medium">IVA 10.5%:</span>
-        <span class="ml-4">{formatCurrency(notaCredito?.ImporteIva2 || 0)}</span>
-      </div>
-      <div class="text-lg font-bold">
-        <span>Total:</span>
-        <span class="ml-4">{formatCurrency(notaCredito?.ImporteTotal || 0)}</span>
-      </div>
     </div>
   </div>
-</div> 
+</div>

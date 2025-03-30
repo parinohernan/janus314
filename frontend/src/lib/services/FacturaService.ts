@@ -88,4 +88,87 @@ export class FacturaService {
 			Items: []
 		};
 	}
+
+	/**
+	 * Obtiene las últimas facturas de un cliente
+	 * @param codigoCliente Código del cliente
+	 * @param limite Cantidad de facturas a obtener (por defecto 5)
+	 */
+	public static async obtenerUltimasFacturasCliente(
+		codigoCliente: string,
+		limite: number = 5
+	): Promise<{ success: boolean; data?: any; error?: string }> {
+		try {
+			console.log('obtener ultimas facturas codigoCliente', codigoCliente);
+			console.log('obtener ultimas facturas limite', limite);
+			const url = `${PUBLIC_API_URL}/facturas/cliente/${codigoCliente}?limit=${limite}&sort=fecha:desc`;
+
+			const response = await fetch(url);
+
+			if (!response.ok) {
+				throw new Error('Error al obtener facturas del cliente');
+			}
+
+			const data = await response.json();
+			console.log('data', data);
+			return {
+				success: true,
+				data: data.items.map((factura: any) => ({
+					tipo: factura.tipo,
+					sucursal: factura.sucursal,
+					numero: factura.numero,
+					fecha: factura.fecha,
+					total: factura.total,
+					label: `${factura.tipo}-${factura.sucursal}-${factura.numero} (${new Date(factura.fecha).toLocaleDateString()})`
+				}))
+			};
+		} catch (error) {
+			console.error('Error al obtener facturas del cliente:', error);
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : 'Error desconocido'
+			};
+		}
+	}
+
+	/**
+	 * Obtiene el detalle completo de una factura
+	 * @param tipo Tipo de factura (FCA, FCB, etc)
+	 * @param sucursal Número de sucursal
+	 * @param numero Número de factura
+	 */
+	public static async obtenerDetalleFactura(
+		tipo: string,
+		sucursal: string,
+		numero: string
+	): Promise<{ success: boolean; data?: any; error?: string }> {
+		try {
+			console.log('obtener detalle tipo', tipo);
+			console.log('obtener detalle sucursal', sucursal);
+			console.log('obtener detalle numero', numero);
+			const response = await fetch(`${PUBLIC_API_URL}/facturas/${tipo}/${sucursal}/${numero}`);
+
+			if (!response.ok) {
+				throw new Error('Error al obtener detalle de factura');
+			}
+
+			const responseData = await response.json();
+			console.log('responseData', responseData);
+			// Verificar que la respuesta tenga la estructura esperada
+			if (!responseData.success || !responseData.data) {
+				throw new Error('Respuesta del servidor inválida');
+			}
+
+			return {
+				success: true,
+				data: responseData.data
+			};
+		} catch (error) {
+			console.error('Error al obtener detalle de factura:', error);
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : 'Error desconocido'
+			};
+		}
+	}
 }

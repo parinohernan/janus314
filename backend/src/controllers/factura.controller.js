@@ -319,3 +319,49 @@ exports.anularFactura = async (req, res) => {
     });
   }
 };
+
+// Obtener últimas facturas de un cliente
+exports.obtenerUltimasFacturasCliente = async (req, res) => {
+  const { codigoCliente } = req.params;
+  const { limit = 5 } = req.query;
+
+  try {
+    // Obtener las facturas
+    const facturas = await FacturaCabeza.findAll({
+      where: {
+        ClienteCodigo: codigoCliente,
+        FechaAnulacion: null, // Opcional: solo facturas no anuladas
+      },
+      include: [
+        {
+          model: Cliente,
+          attributes: ["Codigo", "Descripcion"],
+        },
+      ],
+      order: [["Fecha", "DESC"]],
+      limit: parseInt(limit),
+    });
+
+    res.json({
+      success: true,
+      items: facturas.map((factura) => ({
+        tipo: factura.DocumentoTipo,
+        sucursal: factura.DocumentoSucursal,
+        numero: factura.DocumentoNumero,
+        fecha: factura.Fecha,
+        cliente: factura.Cliente?.Descripcion,
+        total: factura.ImporteTotal,
+        label: `${factura.DocumentoTipo}-${factura.DocumentoSucursal}-${
+          factura.DocumentoNumero
+        } (${new Date(factura.Fecha).toLocaleDateString()})`,
+      })),
+    });
+  } catch (error) {
+    console.error("Error al obtener últimas facturas del cliente:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener últimas facturas del cliente",
+      error: error.message,
+    });
+  }
+};
