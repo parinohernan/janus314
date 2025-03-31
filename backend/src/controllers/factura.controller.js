@@ -137,6 +137,7 @@ exports.obtenerFactura = async (req, res) => {
         ...item,
         PorcentajeIVA1: articulo.PorcentajeIVA1,
         PorcentajeIVA2: articulo.PorcentajeIVA2,
+        Descripcion: articulo.Descripcion,
       };
     });
     // console.log("itemsConArticulos", itemsConArticulos.length);

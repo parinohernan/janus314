@@ -162,6 +162,8 @@ exports.obtenerNotaCredito = async (req, res) => {
 
 // Crear nueva nota de crédito
 exports.crearNotaCredito = async (req, res) => {
+  const t = await sequelize.transaction();
+  console.log("notaCreditoData", req.body);
   try {
     const notaCreditoData = req.body;
 
@@ -181,8 +183,27 @@ exports.crearNotaCredito = async (req, res) => {
 
     // Crear nota de crédito usando el servicio
     const notaCreditoCreada = await NotaCreditoService.crearNotaCredito(
-      notaCreditoData
+      notaCreditoData,
+      t // Pasar la transacción al servicio
     );
+
+    // Actualizar número de control dentro de la transacción
+    try {
+      await numerosControlController.actualizarNumeroDirecto(
+        notaCreditoData.DocumentoTipo,
+        notaCreditoData.DocumentoSucursal,
+        t
+      );
+    } catch (errorNumero) {
+      await t.rollback();
+      return res.status(500).json({
+        success: false,
+        message: "Error al actualizar el número de control",
+        error: errorNumero.message,
+      });
+    }
+
+    await t.commit();
 
     res.status(201).json({
       success: true,
@@ -190,6 +211,7 @@ exports.crearNotaCredito = async (req, res) => {
       data: notaCreditoCreada,
     });
   } catch (error) {
+    await t.rollback();
     console.error("Error al crear nota de crédito:", error);
     res.status(500).json({
       success: false,

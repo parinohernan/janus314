@@ -9,6 +9,9 @@
   import { PUBLIC_API_URL } from '$env/static/public';
   import { FacturaService } from '$lib/services/FacturaService';
 
+  // Agregar variable para formas de pago
+  let formasPago: { value: string, label: string }[] = [];
+
   // Inicializar notaCredito con valores por defecto
   let notaCredito: NotaCredito = {
     DocumentoTipo: 'NCA',
@@ -31,7 +34,8 @@
     ImporteUtilizado: 0,
     Observacion: '',
     PorStock: true,
-    Items: [] // Inicializar el array vacío
+    Items: [], // Inicializar el array vacío
+    FormaPagoCodigo: '',
   };
 
   let loading = false;
@@ -67,6 +71,16 @@
         notaCredito.DocumentoTipo,
         notaCredito.DocumentoSucursal
       );
+
+      // Obtener formas de pago
+      const response = await fetch(`${PUBLIC_API_URL}/tipos-de-pago`);
+      if (response.ok) {
+        const data = await response.json();
+        formasPago = data.items.map((item: { Codigo: string, Descripcion: string }) => ({
+          value: item.Codigo,
+          label: item.Descripcion
+        }));
+      }
     } catch (err) {
       console.error('Error en inicialización:', err);
       error = err instanceof Error ? err.message : 'Error desconocido';
@@ -196,15 +210,15 @@
         // Copiar items de la factura
         notaCredito.Items = data.items.map((item: any) => ({
           CodigoArticulo: item.CodigoArticulo,
-          Descripcion: item.Articulo?.Descripcion || '',
+          Descripcion: item.Articulo?.Descripcion || item.Descripcion,
           Cantidad: item.Cantidad,
-          PrecioUnitario: item.PrecioUnitario / (1 + item.PorcentajeIVA1 / 100),
+          PrecioUnitario: item.PrecioUnitario ,
           PorcentajeIva: item.PorcentajeIVA1,
-
-          PrecioUnitarioConIva: item.PrecioUnitario,
-          Total: item.Cantidad * item.PrecioUnitario
+          PrecioUnitarioConIva: item.PrecioUnitario * (1 + item.PorcentajeIVA1 / 100),
+          Total: item.Cantidad * item.PrecioUnitario,
+          TotalConIva: item.Cantidad * item.PrecioUnitario * (1 + item.PorcentajeIVA1 / 100)
         }));
-        console.log("notaCredito.Items", notaCredito.Items);
+        // console.log("notaCredito.Items", notaCredito.Items);
         
         // Actualizar búsqueda y limpiar opciones
         facturaReferenciaBusqueda = factura.label;
@@ -298,6 +312,7 @@
   function calcularTotalItem(item: ItemNotaCredito) {
     item.PrecioUnitarioConIva = item.PrecioUnitario * (1 + item.PorcentajeIva / 100);
     item.Total = item.Cantidad * item.PrecioUnitarioConIva;
+    item.TotalConIva = item.Cantidad * item.PrecioUnitario;
     calcularTotales();
   }
 
@@ -340,22 +355,39 @@
     calcularTotales();
   }
 
-  // Guardar nota de crédito
-  async function guardarNotaCredito() {
+  // Agregar validación de forma de pago
+  function validarNotaCredito() {
     if (!notaCredito.CodigoCliente) {
       error = 'Debe seleccionar un cliente';
-      return;
+      return false;
     }
 
     if (notaCredito.Items.length === 0) {
       error = 'Debe agregar al menos un ítem';
-      return;
+      return false;
     }
+
+    if (!notaCredito.FormaPagoCodigo) {
+      error = 'Debe seleccionar una forma de pago';
+      return false;
+    }
+
+    return true;
+  }
+
+  // Modificar la función guardarNotaCredito para usar la nueva validación
+  async function guardarNotaCredito() {
+    if (!validarNotaCredito()) return;
 
     try {
       loading = true;
       error = null;
-      
+      // defino importe utilizado segun el pago
+      if (notaCredito.FormaPagoCodigo === 'CC') {
+        notaCredito.ImporteUtilizado = 0;
+      }else{
+        notaCredito.ImporteUtilizado = notaCredito.ImporteTotal;
+      }
       const resultado = await NotaCreditoService.crearNotaCredito(notaCredito);
       
       if (resultado.success) {
@@ -395,7 +427,8 @@
       PrecioUnitario: articuloSeleccionado.precio,
       PorcentajeIva: articuloSeleccionado.iva,
       PrecioUnitarioConIva: 0,
-      Total: 0
+      Total: 0,
+      TotalConIva: 0
     };
 
     try {
@@ -452,6 +485,23 @@
         >
           {#each tiposDocumento as tipo}
             <option value={tipo.value}>{tipo.label}</option>
+          {/each}
+        </select>
+      </div>
+
+      <!-- Forma de Pago -->
+      <div>
+        <label for="formaPago" class="block text-sm font-medium text-gray-700 mb-1">
+          Forma de Pago *
+        </label>
+        <select 
+          id="formaPago" 
+          bind:value={notaCredito.FormaPagoCodigo}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Seleccionar forma de pago</option>
+          {#each formasPago as forma}
+            <option value={forma.value}>{forma.label}</option>
           {/each}
         </select>
       </div>
@@ -577,6 +627,9 @@
                 Total
               </th>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Total Con Iva
+              </th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Acciones
               </th>
             </tr>
@@ -600,6 +653,7 @@
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">{item.PorcentajeIva}%</td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">${item.PrecioUnitarioConIva.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">${item.Total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">${item.TotalConIva.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
                 <td class="px-4 py-3 text-center">
                   <button
                     class="text-red-600 hover:text-red-900"
@@ -615,6 +669,28 @@
             {/each} 
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- Totales -->
+    <div class="bg-white rounded-lg shadow-sm p-6">
+      <div class="flex flex-col gap-2 items-end">
+        <div class="w-64 flex justify-between">
+          <span class="text-gray-600">Total sin IVA:</span>
+          <span class="font-medium">${notaCredito.ImporteBruto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+        </div>
+        <div class="w-64 flex justify-between">
+          <span class="text-gray-600">IVA 21%:</span>
+          <span class="font-medium">${notaCredito.ImporteIva1.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+        </div>
+        <div class="w-64 flex justify-between">
+          <span class="text-gray-600">IVA 10.5%:</span>
+          <span class="font-medium">${notaCredito.ImporteIva2.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+        </div>
+        <div class="w-64 flex justify-between border-t pt-2">
+          <span class="text-gray-800 font-semibold">Total:</span>
+          <span class="font-bold text-lg">${notaCredito.ImporteTotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+        </div>
       </div>
     </div>
   </div>

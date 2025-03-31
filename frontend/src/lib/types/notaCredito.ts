@@ -8,6 +8,7 @@ export interface ItemNotaCredito {
 	PorcentajeIva: number;
 	PrecioUnitarioConIva: number;
 	Total: number;
+	TotalConIva: number;
 	enEdicion?: boolean;
 }
 
@@ -46,4 +47,5 @@ export interface NotaCredito {
 		numero: string;
 	};
 	Items: ItemNotaCredito[];
+	FormaPagoCodigo: string;
 }
