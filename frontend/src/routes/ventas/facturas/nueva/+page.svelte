@@ -199,9 +199,9 @@
   
   // Obtener próximo número de comprobante
   const obtenerProximoNumero = async () => {
-
+    console.log('obtenerProximoNumero', factura.DocumentoTipo, factura.DocumentoSucursal);
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/numeroscontrol/${factura.DocumentoTipo}/${factura.DocumentoSucursal}`);
+      const response = await fetch(`${PUBLIC_API_URL}/numeros-control/${factura.DocumentoTipo}/${factura.DocumentoSucursal}`);
       if (response.ok) {
         const data = await response.json();
         factura.DocumentoNumero = data.data.proximoNumero;

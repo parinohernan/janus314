@@ -198,11 +198,13 @@
           CodigoArticulo: item.CodigoArticulo,
           Descripcion: item.Articulo?.Descripcion || '',
           Cantidad: item.Cantidad,
-          PrecioUnitario: item.PrecioUnitario,
-          PorcentajeIva: item.PorcentajeIva,
-          PrecioUnitarioConIva: item.PrecioUnitarioConIva || 0,
-          Total: item.Total || 0
+          PrecioUnitario: item.PrecioUnitario / (1 + item.PorcentajeIVA1 / 100),
+          PorcentajeIva: item.PorcentajeIVA1,
+
+          PrecioUnitarioConIva: item.PrecioUnitario,
+          Total: item.Cantidad * item.PrecioUnitario
         }));
+        console.log("notaCredito.Items", notaCredito.Items);
         
         // Actualizar búsqueda y limpiar opciones
         facturaReferenciaBusqueda = factura.label;
@@ -557,24 +559,57 @@
                 Artículo
               </th>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Descripción
+              </th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Cantidad
               </th>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Precio Unitario
               </th>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Total
+                Porcentaje Iva
+              </th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Precio Unitario Con Iva
               </th>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Total
               </th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Acciones
+              </th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            {#each notaCredito.Items as item}
-              <tr>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {item.Descripcion}
+            {#each notaCredito.Items as item, i}
+              <tr class={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                <td class="px-4 py-3 whitespace-nowrap text-sm">{item.CodigoArticulo}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm">{item.Descripcion}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
+                  <input
+                    type="number"
+                    bind:value={item.Cantidad}
+                    on:change={() => calcularTotalItem(item)}
+                    class="w-20 px-2 py-1 text-right border border-gray-300 rounded-md"
+                    min="0"
+                    step="1"
+                  />
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">${item.PrecioUnitario.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">{item.PorcentajeIva}%</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">${item.PrecioUnitarioConIva.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">${item.Total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                <td class="px-4 py-3 text-center">
+                  <button
+                    class="text-red-600 hover:text-red-900"
+                    on:click={() => eliminarItem(i)}
+                    aria-label="Eliminar ítem"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
                 </td>
               </tr>
             {/each} 

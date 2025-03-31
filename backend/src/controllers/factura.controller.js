@@ -132,17 +132,20 @@ exports.obtenerFactura = async (req, res) => {
     // Combinar los items con la información de artículos
     const itemsConArticulos = items.map((item) => {
       const articulo = articulosPorCodigo[item.CodigoArticulo] || null;
+      // console.log("articulo", articulo);
       return {
         ...item,
-        Articulo: articulo,
+        PorcentajeIVA1: articulo.PorcentajeIVA1,
+        PorcentajeIVA2: articulo.PorcentajeIVA2,
       };
     });
-
+    // console.log("itemsConArticulos", itemsConArticulos.length);
     res.json({
       success: true,
       data: {
         encabezado: factura,
         items: itemsConArticulos,
+        // articulos: articulos,
       },
     });
   } catch (error) {
