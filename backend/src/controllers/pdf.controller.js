@@ -10,7 +10,14 @@ const DatosEmpresa = require("../models/datosEmpresa.model");
 const renderFacturaA = require("../templates/pdf/facturaA.template");
 const renderFacturaB = require("../templates/pdf/facturaB.template");
 const renderPresupuesto = require("../templates/pdf/presupuesto.template");
+const renderNotaCreditoA = require("../templates/pdf/notaCreditoA.template.js");
+const renderNotaCreditoB = require("../templates/pdf/notaCreditoB.template.js");
+// const renderNotaCreditoC = require("../templates/pdf/notaCreditoC.template");
+// const renderNotaCreditoF = require("../templates/pdf/notaCreditoF.template");
+const NotaCreditoCabeza = require("../models/notaCreditoCabeza.model");
+const NotaCreditoItem = require("../models/notaCreditoItem.model");
 // const datosEmpresaController = require("../controllers/datosEmpresa.controller");
+const docFacturaA4 = { margin: 50, size: "A4" };
 // Función para generar PDF de factura
 exports.generarFacturaPDF = async (req, res) => {
   try {
@@ -83,7 +90,7 @@ exports.generarFacturaPDF = async (req, res) => {
     factura.Empresa = datosEmpresa;
 
     // Crear documento PDF
-    const doc = new PDFDocument({ margin: 50, size: "A4" });
+    const doc = new PDFDocument(docFacturaA4);
 
     // Configurar respuesta HTTP
     res.setHeader("Content-Type", "application/pdf");
@@ -296,24 +303,119 @@ exports.generarNotaCreditoPDF = async (req, res) => {
   try {
     const { tipo, sucursal, numero } = req.params;
 
-    // Implementar la lógica para generar el PDF de la nota de crédito
-    // Puedes basarte en el método generarFacturaPDF si existe
+    // Obtener datos de la nota de crédito con el cliente
+    const notaCredito = await NotaCreditoCabeza.findOne({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero,
+      },
+      include: [{ model: Cliente }],
+      raw: false,
+    });
 
-    // Por ahora, podemos implementar una respuesta temporal
+    if (!notaCredito) {
+      return res.status(404).json({
+        success: false,
+        message: "Nota de crédito no encontrada",
+      });
+    }
+
+    // Obtener ítems de la nota de crédito
+    const items = await NotaCreditoItem.findAll({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero,
+      },
+      raw: true,
+    });
+
+    // Obtener artículos relacionados
+    const codigosArticulos = items.map((item) => item.CodigoArticulo);
+    const articulos = await Articulo.findAll({
+      where: {
+        Codigo: codigosArticulos,
+      },
+      raw: true,
+    });
+
+    // Mapear artículos por código
+    const articulosPorCodigo = {};
+    articulos.forEach((articulo) => {
+      articulosPorCodigo[articulo.Codigo] = articulo;
+    });
+
+    // Combinar items con información de artículos
+    const itemsConArticulos = items.map((item) => {
+      const articulo = articulosPorCodigo[item.CodigoArticulo] || null;
+      return {
+        ...item,
+        Descripcion: item.Descripcion || articulo.Descripcion,
+        PorcentajeBonificado: item.PorcentajeBonificado || 0,
+        Unidad: articulo.Unidad,
+        PrecioUnitario: item.PrecioUnitario || articulo.PrecioUnitario,
+        PorcentajeIVA1: articulo.PorcentajeIVA1 || 0,
+        PorcentajeIVA2: articulo.PorcentajeIVA2 || 0,
+        // Articulo: articulo,
+      };
+    });
+
+    // Obtener datos de la empresa
+    const datosEmpresa = await DatosEmpresa.findOne();
+    if (!datosEmpresa) {
+      return res.status(404).json({
+        success: false,
+        message: "Datos de empresa no encontrados",
+      });
+    }
+
+    // Asignar datos de empresa
+    notaCredito.Empresa = datosEmpresa;
+
+    // Crear documento PDF
+    const doc = new PDFDocument(docFacturaA4);
+
+    // Configurar respuesta HTTP
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=notacredito-${tipo}-${sucursal}-${numero}.pdf`
+      `inline; filename="nota-credito-${tipo}-${sucursal}-${numero}.pdf"`
     );
 
-    // Temporalmente, devolvemos un mensaje indicando que la funcionalidad está pendiente
-    res
-      .status(501)
-      .send(
-        "Generación de PDF para notas de crédito pendiente de implementación"
-      );
+    // Pipe PDF a la respuesta
+    doc.pipe(res);
+
+    // Aplicar plantilla según tipo de nota de crédito
+    if (tipo === "NCA") {
+      await renderNotaCreditoA(doc, {
+        factura: notaCredito,
+        items: itemsConArticulos,
+      });
+    } else if (tipo === "NCB") {
+      await renderNotaCreditoB(doc, {
+        factura: notaCredito,
+        items: itemsConArticulos,
+      });
+    } else if (tipo === "NCC") {
+      // await renderNotaCreditoC(doc, {
+      //   factura: notaCredito,
+      //   items: itemsConArticulos,
+      // });
+      doc.fontSize(20).text("Tipo de nota de crédito no soportado", 100, 100);
+    } else if (tipo === "NCF") {
+      await renderNotaCreditoF(doc, {
+        factura: notaCredito,
+        items: itemsConArticulos,
+      });
+    } else {
+      doc.fontSize(20).text("Tipo de nota de crédito no soportado", 100, 100);
+    }
+
+    // Finalizar documento
+    doc.end();
   } catch (error) {
-    console.error("Error al generar PDF de nota de crédito:", error);
+    console.error("Error generando PDF de nota de crédito:", error);
     res.status(500).json({
       success: false,
       message: "Error al generar PDF de nota de crédito",

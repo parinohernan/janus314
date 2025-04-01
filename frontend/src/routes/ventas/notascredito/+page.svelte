@@ -180,7 +180,14 @@
   
   // Ver detalle de nota de crédito
   const verDetalle = (tipo: string, sucursal: string, numero: string) => {
-    goto(`/ventas/notascredito/imprimir/${tipo}/${sucursal}/${numero}`);
+    // Asegurarse de que el número tenga 8 dígitos
+    const numeroFormateado = numero.padStart(8, '0');
+    // Asegurarse de que la sucursal tenga 4 dígitos
+    const sucursalFormateada = sucursal.padStart(4, '0');
+    console.log('tipo', tipo);
+    console.log('sucursalFormateada', sucursalFormateada);
+    console.log('numeroFormateado', numeroFormateado);
+    goto(`/ventas/notascredito/imprimir/${tipo}/${sucursalFormateada}/${numeroFormateado}`);
   };
   
   // Anular nota de crédito

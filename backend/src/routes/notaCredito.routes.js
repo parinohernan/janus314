@@ -20,6 +20,8 @@ router.put(
   "/anular/:tipo/:sucursal/:numero",
   notaCreditoController.anularNotaCredito
 );
+//pdf
+router.get("/pdf/:tipo/:sucursal/:numero", pdfController.generarNotaCreditoPDF);
 
 // Usar temporalmente el generador de PDF de facturas (modificarlo después si es necesario)
 router.get("/pdf/:tipo/:sucursal/:numero", pdfController.generarFacturaPDF);
