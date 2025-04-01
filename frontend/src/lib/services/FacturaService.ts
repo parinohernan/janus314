@@ -153,7 +153,7 @@ export class FacturaService {
 			}
 
 			const responseData = await response.json();
-			console.log('responseData', responseData);
+			// console.log('responseData', responseData);
 			// Verificar que la respuesta tenga la estructura esperada
 			if (!responseData.success || !responseData.data) {
 				throw new Error('Respuesta del servidor inválida');

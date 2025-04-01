@@ -10,6 +10,7 @@ export interface ItemNotaCredito {
 	Total: number;
 	TotalConIva: number;
 	enEdicion?: boolean;
+	PorcentajeBonificacion?: number;
 }
 
 export interface ClienteNotaCredito {

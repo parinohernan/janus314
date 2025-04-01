@@ -197,6 +197,7 @@
         factura.numero
       );
       
+      
       if (resultado.success && resultado.data) {
         const { data } = resultado;
         
@@ -212,13 +213,15 @@
           CodigoArticulo: item.CodigoArticulo,
           Descripcion: item.Articulo?.Descripcion || item.Descripcion,
           Cantidad: item.Cantidad,
-          PrecioUnitario: item.PrecioUnitario ,
+          PrecioUnitario: item.PrecioUnitario,
+          PorcentajeBonificacion: item.PorcentajeBonificado || 0,
           PorcentajeIva: item.PorcentajeIVA1,
           PrecioUnitarioConIva: item.PrecioUnitario * (1 + item.PorcentajeIVA1 / 100),
           Total: item.Cantidad * item.PrecioUnitario,
-          TotalConIva: item.Cantidad * item.PrecioUnitario * (1 + item.PorcentajeIVA1 / 100)
+          TotalConIva: item.Cantidad * item.PrecioUnitario * (1 + item.PorcentajeIVA1 / 100),
+          enEdicion: false
+
         }));
-        // console.log("notaCredito.Items", notaCredito.Items);
         
         // Actualizar búsqueda y limpiar opciones
         facturaReferenciaBusqueda = factura.label;
@@ -310,9 +313,13 @@
 
   // Calcular total de un item
   function calcularTotalItem(item: ItemNotaCredito) {
-    item.PrecioUnitarioConIva = item.PrecioUnitario * (1 + item.PorcentajeIva / 100);
-    item.Total = item.Cantidad * item.PrecioUnitarioConIva;
-    item.TotalConIva = item.Cantidad * item.PrecioUnitario;
+    // Calcular precio con descuento
+    const precioConDescuento = item.PrecioUnitario * (1 - (item.PorcentajeBonificacion || 0) / 100);
+    
+    // Calcular precio con IVA
+    item.PrecioUnitarioConIva = precioConDescuento * (1 + item.PorcentajeIva / 100);
+    item.Total = item.Cantidad * precioConDescuento;
+    item.TotalConIva = item.Cantidad * item.PrecioUnitarioConIva;
     calcularTotales();
   }
 
@@ -428,7 +435,8 @@
       PorcentajeIva: articuloSeleccionado.iva,
       PrecioUnitarioConIva: 0,
       Total: 0,
-      TotalConIva: 0
+      TotalConIva: 0,
+      enEdicion: false
     };
 
     try {
@@ -448,6 +456,22 @@
       error = 'Error al agregar el artículo';
     }
   };
+
+  // Agregar función para toggle de edición
+  function toggleEdicion(index: number) {
+    notaCredito.Items = notaCredito.Items.map((item, i) => ({
+      ...item,
+      enEdicion: i === index ? !item.enEdicion : false
+    }));
+  }
+
+  // Agregar función para actualizar item después de edición
+  function actualizarItem(index: number) {
+    const item = notaCredito.Items[index];
+    calcularTotalItem(item);
+    item.enEdicion = false;
+    notaCredito.Items = [...notaCredito.Items]; // Forzar actualización
+  }
 </script>
 
 <div class="container mx-auto px-4 py-8">
@@ -473,6 +497,69 @@
 
   <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <!-- Cliente -->
+      <div class="relative md:col-span-2">  
+        <label for="cliente" class="block text-sm font-medium text-gray-700 mb-1">
+          Cliente
+        </label>
+        <input
+          id="cliente"
+          type="text"
+          bind:value={clienteBusqueda}
+          on:input={() => buscarClientes(clienteBusqueda)}
+          placeholder="Buscar cliente..."
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        {#if clientesLoading}
+          <div class="absolute right-3 top-9">
+            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+          </div>
+        {/if}
+        {#if clientesOptions.length > 0}
+          <div class="absolute z-10 w-full mt-1 bg-white shadow-lg max-h-60 rounded-md overflow-auto">
+            {#each clientesOptions as cliente}
+              <button
+                class="w-full text-left px-4 py-2 hover:bg-gray-100"
+                on:click={() => seleccionarCliente(cliente)}
+              >
+                {cliente.label}
+              </button>
+            {/each}
+          </div>
+          {/if}
+        </div>
+      </div>
+      <!-- Factura de referencia -->
+      <div class="relative">
+        <label for="facturaRef" class="block text-sm font-medium text-gray-700 mb-1">
+          Factura de Referencia
+        </label>
+        <input
+          id="facturaRef"
+          type="text"
+          bind:value={facturaReferenciaBusqueda}
+          on:input={() => buscarFacturas(facturaReferenciaBusqueda)}
+          placeholder="Buscar factura..."
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        {#if facturasLoading}
+          <div class="absolute right-3 top-9">
+            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+          </div>
+        {/if}
+        {#if facturasOptions.length > 0}
+          <div class="absolute z-10 w-full mt-1 bg-white shadow-lg max-h-60 rounded-md overflow-auto">
+            {#each facturasOptions as factura}
+              <button
+                class="w-full text-left px-4 py-2 hover:bg-gray-100"
+                on:click={() => seleccionarFactura(factura)}
+              >
+                {factura.label}
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
       <!-- Tipo de documento -->
       <div>
         <label for="tipoDocumento" class="block text-sm font-medium text-gray-700 mb-1">
@@ -533,70 +620,7 @@
         />
       </div>
 
-      <!-- Factura de referencia -->
-      <div class="relative">
-        <label for="facturaRef" class="block text-sm font-medium text-gray-700 mb-1">
-          Factura de Referencia
-        </label>
-        <input
-          id="facturaRef"
-          type="text"
-          bind:value={facturaReferenciaBusqueda}
-          on:input={() => buscarFacturas(facturaReferenciaBusqueda)}
-          placeholder="Buscar factura..."
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        {#if facturasLoading}
-          <div class="absolute right-3 top-9">
-            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-          </div>
-        {/if}
-        {#if facturasOptions.length > 0}
-          <div class="absolute z-10 w-full mt-1 bg-white shadow-lg max-h-60 rounded-md overflow-auto">
-            {#each facturasOptions as factura}
-              <button
-                class="w-full text-left px-4 py-2 hover:bg-gray-100"
-                on:click={() => seleccionarFactura(factura)}
-              >
-                {factura.label}
-              </button>
-            {/each}
-          </div>
-        {/if}
-      </div>
 
-      <!-- Cliente -->
-      <div class="relative md:col-span-2">  
-        <label for="cliente" class="block text-sm font-medium text-gray-700 mb-1">
-          Cliente
-        </label>
-        <input
-          id="cliente"
-          type="text"
-          bind:value={clienteBusqueda}
-          on:input={() => buscarClientes(clienteBusqueda)}
-          placeholder="Buscar cliente..."
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        {#if clientesLoading}
-          <div class="absolute right-3 top-9">
-            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-          </div>
-        {/if}
-        {#if clientesOptions.length > 0}
-          <div class="absolute z-10 w-full mt-1 bg-white shadow-lg max-h-60 rounded-md overflow-auto">
-            {#each clientesOptions as cliente}
-              <button
-                class="w-full text-left px-4 py-2 hover:bg-gray-100"
-                on:click={() => seleccionarCliente(cliente)}
-              >
-                {cliente.label}
-              </button>
-            {/each}
-          </div>
-        {/if}
-      </div>
-    </div>
 
     <!-- Items -->
     <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
@@ -618,16 +642,19 @@
                 Precio Unitario
               </th>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Porcentaje Iva
+                % Bonif.
               </th>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Precio Unitario Con Iva
+                Precio c/Bonif.
+              </th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                % IVA
               </th>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Total
               </th>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Total Con Iva
+                Total c/IVA
               </th>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Acciones
@@ -640,21 +667,67 @@
                 <td class="px-4 py-3 whitespace-nowrap text-sm">{item.CodigoArticulo}</td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm">{item.Descripcion}</td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
-                  <input
-                    type="number"
-                    bind:value={item.Cantidad}
-                    on:change={() => calcularTotalItem(item)}
-                    class="w-20 px-2 py-1 text-right border border-gray-300 rounded-md"
-                    min="0"
-                    step="1"
-                  />
+                  {#if item.enEdicion}
+                    <input
+                      type="number"
+                      bind:value={item.Cantidad}
+                      min="1"
+                      step="1"
+                      class="w-20 px-2 py-1 text-right border border-gray-300 rounded-md"
+                    />
+                  {:else}
+                    {item.Cantidad}
+                  {/if}
                 </td>
-                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">${item.PrecioUnitario.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
+                  ${item.PrecioUnitario.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
+                  {#if item.enEdicion}
+                    <input
+                      type="number"
+                      bind:value={item.PorcentajeBonificacion}
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      class="w-20 px-2 py-1 text-right border border-gray-300 rounded-md"
+                    />
+                  {:else}
+                    {item.PorcentajeBonificacion}%
+                  {/if}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
+                  ${(item.PrecioUnitario * (1 - (item.PorcentajeBonificacion || 0) / 100)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                </td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">{item.PorcentajeIva}%</td>
-                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">${item.PrecioUnitarioConIva.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">${item.Total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">${item.TotalConIva.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
+                  ${item.Total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
+                  ${item.TotalConIva.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                </td>
                 <td class="px-4 py-3 text-center">
+                  {#if item.enEdicion}
+                    <button
+                      class="text-green-600 hover:text-green-900 mr-2"
+                      on:click={() => actualizarItem(i)}
+                      aria-label="Guardar cambios"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </button>
+                  {:else}
+                    <button
+                      class="text-blue-600 hover:text-blue-900 mr-2"
+                      on:click={() => toggleEdicion(i)}
+                      aria-label="Editar ítem"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                  {/if}
                   <button
                     class="text-red-600 hover:text-red-900"
                     on:click={() => eliminarItem(i)}
