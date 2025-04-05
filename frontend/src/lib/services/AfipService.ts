@@ -29,6 +29,7 @@ export class AfipService {
 
 			if (!response.ok) {
 				const errorData = await response.json();
+				console.log('Error al solicitar CAE:', errorData);
 				return {
 					success: false,
 					error: errorData.message || 'Error al solicitar CAE'

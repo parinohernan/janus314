@@ -12,11 +12,11 @@
   import type { Preventa } from '$lib/types';
   import { EmpresaService } from '$lib/services/EmpresaService';
   // import { formatDateOnly } from '$lib/utils/dateUtils';
-  
   // Modelo de factura
+  let sucursalActual = '0001';
   let factura = {
     DocumentoTipo: 'FCB',
-    DocumentoSucursal: '0001',
+    DocumentoSucursal: sucursalActual,
     DocumentoNumero: '',
     Fecha: new Date().toISOString().substring(0, 10),
     ClienteCodigo: '',
@@ -60,7 +60,7 @@
   let cantidadArticulo = 1;
   
   // Estados
-  let loading = false;
+  let loading: boolean = true;
   let error: string | null = null;
   let guardadoExitoso = false;
   
@@ -97,6 +97,34 @@
   let cantidadMaximaItems = 0;
   let cargandoConfiguracion = true;
   
+  // Función asíncrona para inicializar la sucursal
+  async function inicializarSucursal() {
+    try {
+      const sucursal = await EmpresaService.obtenerSucursal();
+      console.log("sucursal", sucursal);
+      sucursalActual = sucursal;
+    } catch (error) {
+      console.error('Error al obtener sucursal:', error);
+      // sucursalActual = '0001';
+    } finally {
+      loading = false;
+    }
+  }
+
+  // Llamar a la función en onMount
+  onMount(() => {
+    inicializarSucursal();
+  });
+
+  // Si necesitas usar la sucursal en alguna función
+  async function algunaFuncion() {
+    if (loading) {
+      await inicializarSucursal();
+    }
+    // Usar sucursalActual aquí
+    return sucursalActual;
+  }
+  
   // Cargar formas de pago desde la API
   onMount(async () => {
     try {
@@ -115,7 +143,7 @@
       
       try {
         // Obtener sucursal usando el servicio
-        factura.DocumentoSucursal = await EmpresaService.obtenerSucursal();
+        sucursalActual = await EmpresaService.obtenerSucursal();
         
         // Obtener formas de pago
         const response = await fetch(`${PUBLIC_API_URL}/tipos-de-pago`);
@@ -199,9 +227,9 @@
   
   // Obtener próximo número de comprobante
   const obtenerProximoNumero = async () => {
-    console.log('obtenerProximoNumero', factura.DocumentoTipo, factura.DocumentoSucursal);
+    console.log('obtenerProximoNumero', factura.DocumentoTipo, sucursalActual);
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/numeros-control/${factura.DocumentoTipo}/${factura.DocumentoSucursal}`);
+      const response = await fetch(`${PUBLIC_API_URL}/numeros-control/${factura.DocumentoTipo}/${sucursalActual}`);
       if (response.ok) {
         const data = await response.json();
         factura.DocumentoNumero = data.data.proximoNumero;
