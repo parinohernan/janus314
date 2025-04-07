@@ -15,7 +15,7 @@
   // Inicializar notaCredito con valores por defecto
   let notaCredito: NotaCredito = {
     DocumentoTipo: 'NCA',
-    DocumentoSucursal: '0001',
+    DocumentoSucursal: '',
     DocumentoNumero: '',
     Fecha: new Date().toISOString().substring(0, 10),
     CodigoCliente: '',
@@ -65,7 +65,7 @@
     try {
       // Obtener sucursal
       notaCredito.DocumentoSucursal = await EmpresaService.obtenerSucursal();
-      
+      console.log("sucursal", notaCredito.DocumentoSucursal);
       // Obtener próximo número
       notaCredito.DocumentoNumero = await NotaCreditoService.obtenerProximoNumero(
         notaCredito.DocumentoTipo,
@@ -472,6 +472,20 @@
     item.enEdicion = false;
     notaCredito.Items = [...notaCredito.Items]; // Forzar actualización
   }
+
+  // Agregar una nueva función para actualizar el número al cambiar el tipo
+  async function actualizarNumeroComprobante() {
+    try {
+      // Obtener nuevo número de comprobante según el tipo de documento actual
+      notaCredito.DocumentoNumero = await NotaCreditoService.obtenerProximoNumero(
+        notaCredito.DocumentoTipo,
+        notaCredito.DocumentoSucursal
+      );
+    } catch (err) {
+      console.error('Error al obtener nuevo número de comprobante:', err);
+      error = err instanceof Error ? err.message : 'Error desconocido';
+    }
+  }
 </script>
 
 <div class="container mx-auto px-4 py-8">
@@ -568,6 +582,7 @@
         <select
           id="tipoDocumento"
           bind:value={notaCredito.DocumentoTipo}
+          on:change={actualizarNumeroComprobante}
           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {#each tiposDocumento as tipo}

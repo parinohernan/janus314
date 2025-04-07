@@ -7,6 +7,7 @@
   import { navigationState } from '$lib/stores/navigationState';
   import { writable } from 'svelte/store';
   import { EmpresaService } from '$lib/services/EmpresaService';
+  import CaeModal from '$lib/components/facturas/CaeModal.svelte';
 
   // Definición de interfaces
   interface NotaCredito {
@@ -270,6 +271,33 @@
     clientesOptions = [];
   };
   
+  // Modificar la función para abrir modal CAE
+  let mostrarModalCAE = false;
+  let notaCreditoSeleccionada: { 
+    DocumentoTipo: string, 
+    DocumentoSucursal: string, 
+    DocumentoNumero: string 
+  } | null = null;
+
+  const abrirModalCAE = (tipo: string, sucursal: string, numero: string) => {
+    notaCreditoSeleccionada = { 
+      DocumentoTipo: tipo, 
+      DocumentoSucursal: sucursal, 
+      DocumentoNumero: numero 
+    };
+    mostrarModalCAE = true;
+  };
+
+  const cerrarModalCAE = () => {
+    mostrarModalCAE = false;
+    notaCreditoSeleccionada = null;
+  };
+
+  const handleCaeObtenido = () => {
+    cargarNotasCredito(); // Recargar la lista después de obtener el CAE
+    cerrarModalCAE();
+  };
+  
   // Al montar el componente
   onMount(async () => {
     // Recuperar estado guardado si existe
@@ -503,6 +531,7 @@
                 {:else if !nc.FechaAnulacion && (nc.DocumentoTipo === 'NCA' || nc.DocumentoTipo === 'NCB' || nc.DocumentoTipo === 'NCC')}
                   <button 
                     class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    on:click={() => abrirModalCAE(nc.DocumentoTipo, nc.DocumentoSucursal, nc.DocumentoNumero)}
                   >
                     Obtener CAE
                   </button>
@@ -619,4 +648,14 @@
       </div>
     {/if}
   {/if}
-</div> 
+</div>
+
+<!-- Usar el componente CaeModal importado -->
+{#if mostrarModalCAE && notaCreditoSeleccionada}
+  <CaeModal 
+    show={mostrarModalCAE} 
+    factura={notaCreditoSeleccionada} 
+    on:close={cerrarModalCAE}
+    on:caeObtenido={handleCaeObtenido}
+  />
+{/if} 

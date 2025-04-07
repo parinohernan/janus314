@@ -1,5 +1,8 @@
 # sv
 
+si tenemos un problema con vite instalar wn windows C++
+El problema se resolvió después de instalar el paquete redistribuible de Microsoft. Descárguelo desde aquí https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170
+
 Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
 
 ## Creating a project
