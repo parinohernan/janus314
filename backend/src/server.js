@@ -2,7 +2,7 @@ const app = require("./app");
 const db = require("./config/database");
 
 // Puerto
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 
 // Iniciar servidor
 app.listen(PORT, async () => {

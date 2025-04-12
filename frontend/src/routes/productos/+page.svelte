@@ -74,7 +74,7 @@
       
       const response = await fetch(`${PUBLIC_API_URL}/articulos?${params}`);
       if (!response.ok) throw new Error('Error al cargar los artículos');
-      
+      console.log(response);
       const data = await response.json();
       
       // Actualizar lista de artículos y metadatos de paginación
