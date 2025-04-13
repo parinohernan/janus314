@@ -37,7 +37,7 @@ exports.getAllArticulos = async (req, res) => {
     const sortField = validFields.includes(field) ? field : "Descripcion";
     const sortOrder = order === "DESC" ? "DESC" : "ASC";
 
-    // Obtener total de registros para metadata de paginación
+    // Obtener total de registros para metadata de paginación de los activos
     const count = await Articulo.count({ where: whereClause });
 
     // Obtener registros paginados
