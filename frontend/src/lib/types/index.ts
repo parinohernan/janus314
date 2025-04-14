@@ -12,3 +12,17 @@ export * from './usuario.types';
 export * from './preventa.types';
 export * from './configuracion';
 export * from './notaCredito';
+
+export interface ItemFactura {
+  ArticuloCodigo: string;
+  Descripcion: string;
+  Cantidad: number;
+  PrecioLista: number;
+  PorcentajeBonificacion: number;
+  PrecioUnitario: number;
+  PorcentajeIva: number;
+  PrecioUnitarioConIva: number;
+  Total: number;
+  enEdicion: boolean;
+  Existencia?: number; // Campo opcional para almacenar la existencia del artículo
+}

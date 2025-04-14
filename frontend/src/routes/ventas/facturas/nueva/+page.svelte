@@ -58,7 +58,6 @@
   // Artículo seleccionado actualmente
   let articuloSeleccionado: Articulo | null = null;
   let cantidadArticulo = 1;
-  
   // Estados
   let loading: boolean = true;
   let error: string | null = null;
@@ -362,8 +361,15 @@
       PorcentajeIva: porcentajeIva,
       PrecioUnitarioConIva: 0, // Se calculará en recalcularItem
       Total: 0, // Se calculará en recalcularItem
-      enEdicion: false
+      enEdicion: false,
+      Existencia: articuloSeleccionado.Existencia, // Agregar existencia al nuevo ítem
     };
+    
+    // Verificar existencia pero permitir agregar con advertencia
+    const existencia = nuevoItem.Existencia ?? 0;
+    if (nuevoItem.Cantidad > existencia) {
+      error = `Advertencia: No hay suficiente stock del artículo "${nuevoItem.Descripcion}". Disponible: ${existencia}`;
+    }
     
     // Calcular valores derivados
     recalcularItem(nuevoItem);
@@ -433,6 +439,13 @@
   const actualizarItem = (index: number) => {
     // Crear una copia del array para mantener reactividad
     const items = [...factura.Items];
+    
+    // Verificar existencia pero permitir actualizar con advertencia
+    const existencia = items[index].Existencia ?? 0;
+    if (items[index].Cantidad > existencia) {
+      error = `Advertencia: No hay suficiente stock del artículo "${items[index].Descripcion}". Disponible: ${existencia}`;
+      // No retornamos aquí, permitimos continuar
+    }
     
     // Recalcular el ítem editado
     recalcularItem(items[index]);
@@ -825,26 +838,65 @@
           for (const item of preventaCargada.items) {
             // Si el artículo existe, agregarlo a la factura
             if (item.Articulo) {
-              // Crear nuevo item para la factura
-              const facturaItem: ItemFactura = {
-                ArticuloCodigo: item.CodigoArticulo,
-                Descripcion: item.Articulo.Descripcion,
-                Cantidad: item.Cantidad || 0,
-                PrecioLista: item.PrecioLista || 0,
-                PorcentajeBonificacion: item.PorcentajeBonificacion || 0,
-                PrecioUnitario: (item.PrecioLista || 0) * (1 - (item.PorcentajeBonificacion || 0) / 100),
-                PorcentajeIva: item.Articulo.PorcentajeIva1 || 21,
-                PrecioUnitarioConIva: 0,
-                Total: 0,
-                enEdicion: false
-              };
-              
-              // Calcular precio con IVA y total
-              facturaItem.PrecioUnitarioConIva = Number(facturaItem.PrecioUnitario) * (1 + Number(facturaItem.PorcentajeIva) / 100);
-              facturaItem.Total = Number(facturaItem.PrecioUnitarioConIva) * Number(facturaItem.Cantidad);
-              
-              // Agregar a la lista de items
-              factura.Items = [...factura.Items, facturaItem];
+              // Obtener datos actualizados del artículo para tener la existencia correcta
+              try {
+                const response = await fetch(`${PUBLIC_API_URL}/articulos/${item.CodigoArticulo}`);
+                if (response.ok) {
+                  const articuloActualizado = await response.json();
+                  console.log("Artículo actualizado:", articuloActualizado);
+                  
+                  // Crear nuevo item para la factura con la existencia actualizada
+                  const facturaItem: ItemFactura = {
+                    ArticuloCodigo: item.CodigoArticulo,
+                    Descripcion: item.Articulo.Descripcion,
+                    Cantidad: item.Cantidad || 0,
+                    PrecioLista: item.PrecioLista || 0,
+                    PorcentajeBonificacion: item.PorcentajeBonificacion || 0,
+                    PrecioUnitario: (item.PrecioLista || 0) * (1 - (item.PorcentajeBonificacion || 0) / 100),
+                    PorcentajeIva: item.Articulo.PorcentajeIva1 || 21,
+                    PrecioUnitarioConIva: 0,
+                    Total: 0,
+                    enEdicion: false,
+                    Existencia: articuloActualizado.Existencia ?? 0 // Usar el operador de coalescencia nula
+                  };
+                  
+                  // Calcular precio con IVA y total
+                  facturaItem.PrecioUnitarioConIva = Number(facturaItem.PrecioUnitario) * (1 + Number(facturaItem.PorcentajeIva) / 100);
+                  facturaItem.Total = Number(facturaItem.PrecioUnitarioConIva) * Number(facturaItem.Cantidad);
+                  
+                  // Verificar si hay stock insuficiente
+                  const existencia = facturaItem.Existencia ?? 0;
+                  if (facturaItem.Cantidad > existencia) {
+                    error = `Advertencia: No hay suficiente stock del artículo "${facturaItem.Descripcion}". Disponible: ${existencia}`;
+                  }
+                  
+                  // Agregar a la lista de items
+                  factura.Items = [...factura.Items, facturaItem];
+                }
+              } catch (error) {
+                console.error('Error al obtener datos actualizados del artículo:', error);
+                // Si falla la obtención del artículo actualizado, usar los datos de la preventa
+                const facturaItem: ItemFactura = {
+                  ArticuloCodigo: item.CodigoArticulo,
+                  Descripcion: item.Articulo.Descripcion,
+                  Cantidad: item.Cantidad || 0,
+                  PrecioLista: item.PrecioLista || 0,
+                  PorcentajeBonificacion: item.PorcentajeBonificacion || 0,
+                  PrecioUnitario: (item.PrecioLista || 0) * (1 - (item.PorcentajeBonificacion || 0) / 100),
+                  PorcentajeIva: item.Articulo.PorcentajeIva1 || 21,
+                  PrecioUnitarioConIva: 0,
+                  Total: 0,
+                  enEdicion: false,
+                  Existencia: item.Articulo.Existencia ?? 0 // Usar el operador de coalescencia nula
+                };
+                
+                // Calcular precio con IVA y total
+                facturaItem.PrecioUnitarioConIva = Number(facturaItem.PrecioUnitario) * (1 + Number(facturaItem.PorcentajeIva) / 100);
+                facturaItem.Total = Number(facturaItem.PrecioUnitarioConIva) * Number(facturaItem.Cantidad);
+                
+                // Agregar a la lista de items
+                factura.Items = [...factura.Items, facturaItem];
+              }
             }
           }
           
@@ -1136,7 +1188,6 @@
           {/if}
         </div>
       </div>
-      
       <div>
         <label for="cantidad" class="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
         <input 
@@ -1171,6 +1222,7 @@
             <tr>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Existencia</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Lista</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">% Desc.</th>
@@ -1183,10 +1235,10 @@
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
             {#each factura.Items as item, i}
-              <tr class={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+              <tr class={`${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${item.Cantidad > (item.Existencia ?? 0) ? 'text-red-500' : ''}`}>
                 <td class="px-4 py-3 whitespace-nowrap text-sm">{item.ArticuloCodigo}</td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm">{item.Descripcion}</td>
-                
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">{item.Existencia}</td> 
                 <!-- Cantidad -->
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
                   {#if item.enEdicion}
