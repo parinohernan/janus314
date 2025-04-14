@@ -101,7 +101,6 @@
   async function inicializarSucursal() {
     try {
       const sucursal = await EmpresaService.obtenerSucursal();
-      console.log("sucursal", sucursal);
       sucursalActual = sucursal;
     } catch (error) {
       console.error('Error al obtener sucursal:', error);
@@ -628,14 +627,36 @@
       // Guardar la factura creada para usarla en el modal de CAE
       facturaCreada = data;
       guardadoExitoso = true;
+
+      // Si estamos facturando una preventa, actualizar también la preventa
+      if (preventaCargada) {
+        try {
+          await PreventaService.facturarPreventa(
+            preventaCargada.preventa.DocumentoTipo,
+            preventaCargada.preventa.DocumentoSucursal,
+            preventaCargada.preventa.DocumentoNumero,
+            factura.DocumentoTipo,
+            factura.DocumentoSucursal,
+            factura.DocumentoNumero
+          );
+        } catch (err) {
+          console.error('Error al actualizar la preventa:', err);
+          // No interrumpimos el flujo si falla la actualización de la preventa
+          // pero lo registramos en la consola
+        }
+      }
       
       // Solo mostrar el modal de CAE para facturas electrónicas (no PRF)
       if (factura.DocumentoTipo !== 'PRF') {
         showCaeModal = true;
       } else {
-        // Si es PRF, redirigir a la lista de facturas después de un breve retraso
+        // Si es PRF, redirigir según el origen después de un breve retraso
         setTimeout(() => {
-          goto('/ventas/facturas/');
+          if (preventaCargada) {
+            goto('/ventas/preventas/');
+          } else {
+            goto('/ventas/facturas/');
+          }
         }, 1500);
       }
     } catch (err) {
@@ -658,8 +679,12 @@
   // Manejador para cerrar el modal de CAE
   const handleCloseCaeModal = () => {
     showCaeModal = false;
-    // Redirigir a la lista de facturas
-    goto('/ventas/facturas/');
+    // Redirigir según el origen de la factura
+    if (preventaCargada) {
+      goto('/ventas/preventas/');
+    } else {
+      goto('/ventas/facturas/');
+    }
   };
   
   // Manejador para imprimir la factura
