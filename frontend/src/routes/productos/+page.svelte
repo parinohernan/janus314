@@ -34,13 +34,19 @@
     search: string;
     field: string;
     order: 'ASC' | 'DESC';
+    proveedor: string;
+    rubro: string;
+    activo: number;
   }
   
   // Estado de filtros y paginación con tipos
   let filters: Filters = {
     search: '',
     field: 'Descripcion',
-    order: 'ASC'
+    order: 'ASC',
+    proveedor: '',
+    rubro: '',
+    activo: 1
   };
   
   let pagination: Pagination = {
@@ -57,6 +63,9 @@
   // También agregamos una variable para rastrear si ya cargamos la primera vez
   let initialLoadCompleted = false;
   
+  let proveedores: { Codigo: string; Descripcion: string; }[] = [];
+  let rubros: { Codigo: string; Descripcion: string; }[] = [];
+  
   // Función para cargar datos con los filtros actuales
   const loadArticulos = async (): Promise<void> => {
     try {
@@ -69,8 +78,17 @@
         limit: pagination.limit.toString(),
         search: filters.search,
         field: filters.field,
-        order: filters.order
+        order: filters.order,
+        activo: filters.activo.toString()
       });
+      
+      // Agregar filtros opcionales solo si tienen valor
+      if (filters.proveedor) {
+        params.append('proveedor', filters.proveedor);
+      }
+      if (filters.rubro) {
+        params.append('rubro', filters.rubro);
+      }
       
       const response = await fetch(`${PUBLIC_API_URL}/articulos?${params}`);
       if (!response.ok) throw new Error('Error al cargar los artículos');
@@ -100,9 +118,35 @@
     }
   };
   
+  // Cargar datos de proveedores y rubros
+  const loadProveedores = async (): Promise<void> => {
+    try {
+      const response = await fetch(`${PUBLIC_API_URL}/proveedores?limit=500`);
+      if (!response.ok) throw new Error('Error al cargar los proveedores');
+      const data = await response.json();
+      proveedores = data.items;
+    } catch (err) {
+      console.error('Error cargando proveedores:', err);
+    }
+  };
+  
+  const loadRubros = async (): Promise<void> => {
+    try {
+      const response = await fetch(`${PUBLIC_API_URL}/rubros?limit=500`);
+      if (!response.ok) throw new Error('Error al cargar los rubros');
+      const data = await response.json();
+      rubros = data.items;
+    } catch (err) {
+      console.error('Error cargando rubros:', err);
+    }
+  };
+  
   // Cargar datos al inicializar el componente
   onMount(() => {
     console.log("Montando componente de productos");
+    // Cargar datos de proveedores y rubros
+    Promise.all([loadProveedores(), loadRubros()]);
+    
     // Recuperar estado guardado al montar el componente
     const savedState = navigationState.getState($page.url.pathname);
     console.log("Estado guardado recuperado:", savedState);
@@ -132,7 +176,7 @@
         setTimeout(() => {
           console.log("Restaurando posición de scroll:", savedState.scroll);
           window.scrollTo(0, savedState.scroll);
-        }, 100); // Pequeño retraso para asegurar que los datos se han renderizado
+        }, 100);
       }
     });
   });
@@ -231,6 +275,13 @@
       updateState();
     }
   });
+
+  // Manejar cambios en los filtros
+  const handleFilterChange = (): void => {
+    pagination.currentPage = 1; // Reset a primera página con cada cambio de filtro
+    loadArticulos();
+    updateState();
+  };
 </script>
 
 <svelte:head>
@@ -266,6 +317,53 @@
             </svg>
           </div>
         </div>
+      </div>
+      
+      <!-- Filtro de Proveedor -->
+      <div class="md:w-48">
+        <label for="proveedor" class="block text-sm font-medium text-gray-700 mb-1">Proveedor</label>
+        <select
+          id="proveedor"
+          bind:value={filters.proveedor}
+          on:change={handleFilterChange}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Todos los proveedores</option>
+          {#each proveedores as proveedor}
+            <option value={proveedor.Codigo}>{proveedor.Descripcion}</option>
+          {/each}
+        </select>
+      </div>
+      
+      <!-- Filtro de Rubro -->
+      <div class="md:w-48">
+        <label for="rubro" class="block text-sm font-medium text-gray-700 mb-1">Rubro</label>
+        <select
+          id="rubro"
+          bind:value={filters.rubro}
+          on:change={handleFilterChange}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Todos los rubros</option>
+          {#each rubros as rubro}
+            <option value={rubro.Codigo}>{rubro.Descripcion}</option>
+          {/each}
+        </select>
+      </div>
+      
+      <!-- Filtro de Estado -->
+      <div class="md:w-48">
+        <label for="activo" class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+        <select
+          id="activo"
+          bind:value={filters.activo}
+          on:change={handleFilterChange}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value={1}>Activos</option>
+          <option value={0}>Inactivos</option>
+          <option value={-1}>Todos</option>
+        </select>
       </div>
       
       <!-- Selector de resultados por página -->

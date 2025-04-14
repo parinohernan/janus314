@@ -12,16 +12,31 @@ exports.getAllArticulos = async (req, res) => {
       search = "",
       field = "Descripcion",
       order = "ASC",
-      activo = 1, // Valor por defecto: solo mostrar activos
+      activo = 1,
+      proveedor = "",
+      rubro = ""
     } = req.query;
 
     // Calcular offset para paginación
     const offset = (page - 1) * limit;
 
     // Configurar opciones de búsqueda
-    const whereClause = {
-      Activo: parseInt(activo) === 1 ? 1 : 0, // Filtrar por estado activo/inactivo
-    };
+    const whereClause = {};
+    
+    // Filtrar por estado activo/inactivo
+    if (parseInt(activo) !== -1) {
+      whereClause.Activo = parseInt(activo) === 1 ? 1 : 0;
+    }
+    
+    // Filtrar por proveedor
+    if (proveedor) {
+      whereClause.ProveedorCodigo = proveedor;
+    }
+    
+    // Filtrar por rubro
+    if (rubro) {
+      whereClause.RubroCodigo = rubro;
+    }
     
     if (search) {
       // Permitir búsqueda en múltiples campos
@@ -37,7 +52,7 @@ exports.getAllArticulos = async (req, res) => {
     const sortField = validFields.includes(field) ? field : "Descripcion";
     const sortOrder = order === "DESC" ? "DESC" : "ASC";
 
-    // Obtener total de registros para metadata de paginación de los activos
+    // Obtener total de registros para metadata de paginación
     const count = await Articulo.count({ where: whereClause });
 
     // Obtener registros paginados
@@ -51,13 +66,13 @@ exports.getAllArticulos = async (req, res) => {
           model: Proveedor,
           as: "Proveedor",
           attributes: ["Codigo", "Descripcion"],
-          required: false, // Hacer la unión LEFT JOIN en lugar de INNER JOIN
+          required: false,
         },
         {
           model: Rubro,
           as: "Rubro",
           attributes: ["Codigo", "Descripcion"],
-          required: false, // Hacer la unión LEFT JOIN en lugar de INNER JOIN
+          required: false,
         },
       ],
       attributes: [
@@ -75,37 +90,14 @@ exports.getAllArticulos = async (req, res) => {
         "ProveedorCodigo",
         "RubroCodigo",
       ],
-      raw: false, // Mantener los objetos Sequelize para poder acceder a los métodos de instancia
-    });
-
-    console.log("articulos", articulos);
-    
-    // Procesar los resultados para manejar valores nulos o por defecto
-    const processedArticulos = articulos.map(articulo => {
-      const plainArticulo = articulo.get({ plain: true });
-      
-      // Asegurarse de que los valores numéricos sean números y no nulos
-      plainArticulo.PrecioCosto = plainArticulo.PrecioCosto !== null ? plainArticulo.PrecioCosto : 0;
-      plainArticulo.Existencia = plainArticulo.Existencia !== null ? plainArticulo.Existencia : 0;
-      plainArticulo.Activo = plainArticulo.Activo !== null ? plainArticulo.Activo : 1; // Valor por defecto 1 para Activo
-      plainArticulo.PorcentajeIVA1 = plainArticulo.PorcentajeIVA1 !== null ? plainArticulo.PorcentajeIVA1 : 0;
-      plainArticulo.Lista1 = plainArticulo.Lista1 !== null ? plainArticulo.Lista1 : 0;
-      plainArticulo.Lista2 = plainArticulo.Lista2 !== null ? plainArticulo.Lista2 : 0;
-      plainArticulo.Lista3 = plainArticulo.Lista3 !== null ? plainArticulo.Lista3 : 0;
-      plainArticulo.Lista4 = plainArticulo.Lista4 !== null ? plainArticulo.Lista4 : 0;
-      plainArticulo.Lista5 = plainArticulo.Lista5 !== null ? plainArticulo.Lista5 : 0;
-      
-      // Asegurarse de que la descripción no sea nula
-      plainArticulo.Descripcion = plainArticulo.Descripcion || '';
-      
-      return plainArticulo;
+      raw: false,
     });
 
     // Calcular páginas totales y devolver con metadatos de paginación
     const totalPages = Math.ceil(count / limit);
 
     return res.status(200).json({
-      items: processedArticulos,
+      items: articulos,
       meta: {
         totalItems: count,
         itemsPerPage: parseInt(limit),
