@@ -4,6 +4,7 @@
   import { goto } from '$app/navigation';
   import Button from '$lib/components/ui/Button.svelte';
   import { PUBLIC_API_URL } from '$env/static/public';
+  import { } from '$lib/utils/dateUtils';
 
   interface Comprobante {
     Fecha: string;
@@ -17,7 +18,7 @@
   let loading = true;
   let error: string | null = null;
   let clienteDescripcion = '';
-
+  let clienteCodigo = '';
   const loadComprobantes = async (): Promise<void> => {
     try {
       loading = true;
@@ -37,6 +38,7 @@
       if (clienteResponse.ok) {
         const clienteData = await clienteResponse.json();
         clienteDescripcion = clienteData.Descripcion;
+        clienteCodigo = clienteData.Codigo;
       }
       
     } catch (err: unknown) {
@@ -53,14 +55,14 @@
 </script>
 
 <svelte:head>
-  <title>Resumen de Comprobantes - {clienteDescripcion}</title>
+  <title>Detalles de Cuentas Corrientes - {clienteDescripcion}</title>
 </svelte:head>
 
 <div class="container mx-auto p-4">
   <div class="flex justify-between items-center mb-4">
     <div>
-      <h1 class="text-2xl font-bold">Resumen de Comprobantes</h1>
-      <p class="text-gray-600">{clienteDescripcion}</p>
+      <h1 class="text-2xl font-bold">Detalle de cuentas corrientes</h1>
+      <h1 class="text-2xl font-bold">{clienteDescripcion} - {clienteCodigo}</h1>
     </div>
     <Button variant="secondary" on:click={() => goto('/clientes/cuentascorrientes')}>
       Volver
@@ -102,7 +104,7 @@
           {#each comprobantes as comprobante}
             <tr class="hover:bg-gray-50">
               <td class="px-6 py-4 whitespace-nowrap">
-                {new Date(comprobante.Fecha).toLocaleDateString()}
+                {comprobante.Fecha}
               </td>
               <td class="px-6 py-4">
                 {comprobante.Detalle}

@@ -4,19 +4,10 @@
  * @returns Fecha formateada en formato local
  */
 export function formatDate(dateString: string): string {
-	if (!dateString) return 'N/A';
-
-	try {
-		const date = new Date(dateString);
-		return date.toLocaleDateString('es-AR', {
-			day: '2-digit',
-			month: '2-digit',
-			year: 'numeric'
-		});
-	} catch (error) {
-		console.error('Error al formatear fecha:', error);
-		return 'Fecha inválida';
-	}
+	// Asegurarse de que la fecha se interprete en la zona horaria local
+	console.log("dateString",dateString);
+	const [year, month, day] = dateString.split('-');
+	return new Date(parseInt(year), parseInt(month) - 1, parseInt(day)).toLocaleDateString();
 }
 
 /**
@@ -34,4 +25,9 @@ export function formatDateForInput(dateString: string): string {
 		console.error('Error al formatear fecha para input:', error);
 		return '';
 	}
+}
+
+export function parseDate(dateString: string): Date {
+	const [year, month, day] = dateString.split('-');
+	return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
 }

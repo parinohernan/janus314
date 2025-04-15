@@ -3,6 +3,7 @@ const CategoriaIva = require("../models/categoriaIva.model");
 const Factura = require("../models/facturaCabeza.model");
 const NotaCredito = require("../models/notaCreditoCabeza.model");
 const NotaDebito = require("../models/notaDebitoCabeza.model");
+const Recibo = require("../models/reciboCabeza.model");
 const { Op } = require("sequelize");
 const sequelize = require("sequelize");
 
@@ -373,8 +374,8 @@ exports.getComprobantesCliente = async (req, res) => {
     comprobantes = facturas.map(factura => (factura.PagoTipo === 'CC' ? {
       Fecha: factura.Fecha,
       Detalle: `${factura.DocumentoTipo} - ${factura.DocumentoSucursal} - ${factura.DocumentoNumero}`,
-      Debitos:  0,
-      Creditos: factura.ImporteTotal,
+      Debitos: factura.ImporteTotal,
+      Creditos: 0,
       Saldo: factura.ImporteTotal
     } : {
       Fecha: factura.Fecha,
@@ -392,8 +393,7 @@ exports.getComprobantesCliente = async (req, res) => {
         'DocumentoSucursal',
         'DocumentoNumero',
         'ImporteTotal',
-        'ImporteUtilizado',
-        //'PagoTipo'
+        'ImporteUtilizado'
       ],
       raw: true
     });
@@ -429,25 +429,33 @@ exports.getComprobantesCliente = async (req, res) => {
     const notasDebitoFormateadas = notasDebito.map(nota => ({
       Fecha: nota.Fecha,
       Detalle: `${nota.DocumentoTipo} - ${nota.DocumentoSucursal} - ${nota.DocumentoNumero}`,
-      Debitos: 0,
-      Creditos: nota.ImporteTotal || 0, 
+      Debitos: nota.ImporteTotal || 0,
+      Creditos: 0, 
       Saldo: (nota.ImporteTotal || 0) 
     }));
     // obtener los recibos
-    //const recibos = await Recibo.findAll({
-    //  where: { ClienteCodigo: id },
-    //  attributes: [
-    //    'Fecha',
-    //    'DocumentoTipo',
-    //    'DocumentoSucursal',
-    //    'DocumentoNumero',
-    //    'ImporteTotal',
-    //    'ImportePagado'
-    //  ],
-    //  raw: true
-    //});
-    //agregar notas de credito y debito al array de comprobantes
-    comprobantes = [...comprobantes, ...notasCreditoFormateadas, ...notasDebitoFormateadas]; 
+    const recibos = await Recibo.findAll({
+      where: { ClienteCodigo: id },
+      attributes: [
+        'Fecha',
+        'DocumentoTipo',
+        'DocumentoSucursal',
+        'DocumentoNumero',
+        'ImporteTotal'
+      ],
+      raw: true
+    });
+    // Formatear los datos de los recibos
+    const recibosFormateados = recibos.map(recibo => ({
+      Fecha: recibo.Fecha,
+      Detalle: `${recibo.DocumentoTipo} - ${recibo.DocumentoSucursal} - ${recibo.DocumentoNumero}`,
+      Debitos: 0,
+      Creditos: recibo.ImporteTotal, 
+      Saldo: -1 * recibo.ImporteTotal
+    }));
+    //agregar recibos,notas de credito y debito al array de comprobantes
+
+    comprobantes = [...comprobantes, ...notasCreditoFormateadas, ...notasDebitoFormateadas, ...recibosFormateados]; 
 
     //ordenar por fecha descendente
     comprobantes.sort((a, b) => new Date(b.Fecha) - new Date(a.Fecha));
