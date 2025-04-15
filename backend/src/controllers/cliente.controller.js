@@ -1,6 +1,7 @@
 const Cliente = require("../models/cliente.model");
 const CategoriaIva = require("../models/categoriaIva.model");
 const { Op } = require("sequelize");
+const sequelize = require("sequelize");
 
 // Obtener todos los clientes (con filtros y paginación)
 exports.getAllClientes = async (req, res) => {
@@ -279,5 +280,118 @@ exports.toggleActivoCliente = async (req, res) => {
     return res
       .status(500)
       .json({ message: "Error al cambiar el estado del cliente" });
+  }
+};
+
+// Obtener cuentas corrientes de clientes
+exports.getCuentasCorrientes = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search = "",
+      field = "Descripcion",
+      order = "ASC",
+    } = req.query;
+
+    const offset = (page - 1) * limit;
+
+    const whereClause = {};
+    if (search) {
+      whereClause[Op.or] = [
+        { Codigo: { [Op.like]: `%${search}%` } },
+        { Descripcion: { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    const validFields = ["Codigo", "Descripcion", "Saldo"];
+    const sortField = validFields.includes(field) ? field : "Descripcion";
+    const sortOrder = order === "DESC" ? "DESC" : "ASC";
+
+    // Obtener clientes con sus saldos
+    const clientes = await Cliente.findAll({
+      where: whereClause,
+      order: [[sortField, sortOrder]],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      attributes: [
+        "Codigo",
+        "Descripcion",
+        [sequelize.literal('COALESCE(ImporteDeuda, 0)'), 'Saldo']
+      ],
+    });
+
+    const count = await Cliente.count({ where: whereClause });
+    const totalPages = Math.ceil(count / limit);
+
+    return res.status(200).json({
+      items: clientes,
+      meta: {
+        totalItems: count,
+        itemsPerPage: parseInt(limit),
+        currentPage: parseInt(page),
+        totalPages: totalPages,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al obtener las cuentas corrientes" });
+  }
+};
+
+// Obtener comprobantes de un cliente
+exports.getComprobantesCliente = async (req, res) => {
+  try {
+    console.log("getComprobantesCliente", req.params);
+    const { id } = req.params;
+    
+    // Verificar que el cliente existe
+    const cliente = await Cliente.findByPk(id);
+    if (!cliente) {
+
+      return res.status(404).json({ message: "Cliente no encontrado" });
+    }
+
+    // Obtener comprobantes del cliente (facturas y pagos)
+    const comprobantes = await sequelize.query(`
+      SELECT 
+        Fecha,
+        Detalle,
+        ImporteTotal as Debitos,
+        ImportePagado as Creditos,
+        (ImporteTotal - COALESCE(ImportePagado, 0)) as Saldo
+      FROM (
+        -- Facturas
+        SELECT 
+          Fecha,
+          CONCAT('FCA ', Numero) as Detalle,
+          ImporteTotal,
+          ImportePagado
+        FROM Facturas
+        WHERE CodigoCliente = :codigoCliente
+        
+        UNION ALL
+        
+        -- Pagos
+        SELECT 
+          Fecha,
+          CONCAT('PAGO ', Numero) as Detalle,
+          0 as ImporteTotal,
+          Importe as ImportePagado
+        FROM Pagos
+        WHERE CodigoCliente = :codigoCliente
+      ) as Comprobantes
+      ORDER BY Fecha ASC
+    `, {
+      replacements: { codigoCliente: id },
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    return res.status(200).json({
+      items: comprobantes
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al obtener los comprobantes del cliente" });
   }
 };

@@ -63,7 +63,7 @@
       label: 'Clientes',
       submenus: [
         { label: 'Clientes', url: '/clientes' },
-        { label: 'Cuentas', url: '/ventas/cuentascorrientes' },
+        { label: 'Cuentas', url: '/clientes/cuentascorrientes' },
         { label: 'Reportes', url: '/clientes/reportes' },
       ]
     }
