@@ -1,5 +1,8 @@
 const Cliente = require("../models/cliente.model");
 const CategoriaIva = require("../models/categoriaIva.model");
+const Factura = require("../models/facturaCabeza.model");
+const NotaCredito = require("../models/notaCreditoCabeza.model");
+//const NotaDebito = require("../models/notaDebito.model");
 const { Op } = require("sequelize");
 const sequelize = require("sequelize");
 
@@ -348,48 +351,40 @@ exports.getComprobantesCliente = async (req, res) => {
     // Verificar que el cliente existe
     const cliente = await Cliente.findByPk(id);
     if (!cliente) {
-
       return res.status(404).json({ message: "Cliente no encontrado" });
     }
 
-    // Obtener comprobantes del cliente (facturas y pagos)
-    const comprobantes = await sequelize.query(`
-      SELECT 
-        Fecha,
-        Detalle,
-        ImporteTotal as Debitos,
-        ImportePagado as Creditos,
-        (ImporteTotal - COALESCE(ImportePagado, 0)) as Saldo
-      FROM (
-        -- Facturas
-        SELECT 
-          Fecha,
-          CONCAT('FCA ', Numero) as Detalle,
-          ImporteTotal,
-          ImportePagado
-        FROM Facturas
-        WHERE CodigoCliente = :codigoCliente
-        
-        UNION ALL
-        
-        -- Pagos
-        SELECT 
-          Fecha,
-          CONCAT('PAGO ', Numero) as Detalle,
-          0 as ImporteTotal,
-          Importe as ImportePagado
-        FROM Pagos
-        WHERE CodigoCliente = :codigoCliente
-      ) as Comprobantes
-      ORDER BY Fecha ASC
-    `, {
-      replacements: { codigoCliente: id },
-      type: sequelize.QueryTypes.SELECT
+    let comprobantes = [];
+    //obtener facturas
+    const facturas = await Factura.findAll({
+      where: { ClienteCodigo: id },
+      attributes: [
+        'Fecha',
+        'DocumentoTipo',
+        'DocumentoSucursal',
+        'DocumentoNumero',
+        'ImporteTotal',
+        'ImportePagado'
+      ],
+      raw: true
     });
+
+    // Formatear los datos de las facturas
+    comprobantes = facturas.map(factura => ({
+      Fecha: factura.Fecha,
+      Detalle: `${factura.DocumentoTipo} - ${factura.DocumentoSucursal} - ${factura.DocumentoNumero}`,
+      Debitos: factura.ImporteTotal || 0,
+      Creditos: factura.ImportePagado || 0,
+      Saldo: (factura.ImporteTotal || 0) - (factura.ImportePagado || 0)
+    }));
+
+    //ordenar por fecha
+    comprobantes.sort((a, b) => new Date(a.Fecha) - new Date(b.Fecha));
 
     return res.status(200).json({
       items: comprobantes
     });
+
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Error al obtener los comprobantes del cliente" });
