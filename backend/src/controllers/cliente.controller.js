@@ -2,7 +2,7 @@ const Cliente = require("../models/cliente.model");
 const CategoriaIva = require("../models/categoriaIva.model");
 const Factura = require("../models/facturaCabeza.model");
 const NotaCredito = require("../models/notaCreditoCabeza.model");
-//const NotaDebito = require("../models/notaDebito.model");
+const NotaDebito = require("../models/notaDebitoCabeza.model");
 const { Op } = require("sequelize");
 const sequelize = require("sequelize");
 
@@ -364,23 +364,99 @@ exports.getComprobantesCliente = async (req, res) => {
         'DocumentoSucursal',
         'DocumentoNumero',
         'ImporteTotal',
+        'ImportePagado',
+        'PagoTipo'
+      ],
+      raw: true
+    });
+    // Formatear los datos de las facturas
+    comprobantes = facturas.map(factura => (factura.PagoTipo === 'CC' ? {
+      Fecha: factura.Fecha,
+      Detalle: `${factura.DocumentoTipo} - ${factura.DocumentoSucursal} - ${factura.DocumentoNumero}`,
+      Debitos:  0,
+      Creditos: factura.ImporteTotal,
+      Saldo: factura.ImporteTotal
+    } : {
+      Fecha: factura.Fecha,
+      Detalle: `${factura.DocumentoTipo} - ${factura.DocumentoSucursal} - ${factura.DocumentoNumero}`,
+      Debitos: factura.ImportePagado || 0,
+      Creditos: factura.ImporteTotal || 0,
+      Saldo: 0
+    }));
+    //obtener notas de credito
+    const notasCredito = await NotaCredito.findAll({
+      where: { CodigoCliente: id },
+      attributes: [
+        'Fecha',
+        'DocumentoTipo',
+        'DocumentoSucursal',
+        'DocumentoNumero',
+        'ImporteTotal',
+        'ImporteUtilizado',
+        //'PagoTipo'
+      ],
+      raw: true
+    });
+    // Formatear los datos de las notas de credito
+    const notasCreditoFormateadas = notasCredito.map(nota => ('CO' === 'CC' ? {//asumo que todass son CC ya que todavia no existe el tipo de pago en las notas de credito
+      Fecha: nota.Fecha,
+      Detalle: `${nota.DocumentoTipo} - ${nota.DocumentoSucursal} - ${nota.DocumentoNumero}`,
+      Debitos: 0,
+      Creditos: nota.ImporteTotal,
+      Saldo: -1 * nota.ImporteTotal
+    } : {
+      Fecha: nota.Fecha,
+      Detalle: `${nota.DocumentoTipo} - ${nota.DocumentoSucursal} - ${nota.DocumentoNumero}`,
+      Debitos: nota.ImporteTotal,
+      Creditos: nota.ImporteTotal,
+      Saldo: 0
+    }));
+
+    //obtener notas de debito
+    const notasDebito = await NotaDebito.findAll({
+      where: { ClienteCodigo: id },
+      attributes: [
+        'Fecha',
+        'DocumentoTipo',  
+        'DocumentoSucursal',
+        'DocumentoNumero',
+        'ImporteTotal',
         'ImportePagado'
       ],
       raw: true
     });
-
-    // Formatear los datos de las facturas
-    comprobantes = facturas.map(factura => ({
-      Fecha: factura.Fecha,
-      Detalle: `${factura.DocumentoTipo} - ${factura.DocumentoSucursal} - ${factura.DocumentoNumero}`,
-      Debitos: factura.ImporteTotal || 0,
-      Creditos: factura.ImportePagado || 0,
-      Saldo: (factura.ImporteTotal || 0) - (factura.ImportePagado || 0)
+    // Formatear los datos de las notas de debito
+    const notasDebitoFormateadas = notasDebito.map(nota => ({
+      Fecha: nota.Fecha,
+      Detalle: `${nota.DocumentoTipo} - ${nota.DocumentoSucursal} - ${nota.DocumentoNumero}`,
+      Debitos: 0,
+      Creditos: nota.ImporteTotal || 0, 
+      Saldo: (nota.ImporteTotal || 0) 
     }));
+    // obtener los recibos
+    //const recibos = await Recibo.findAll({
+    //  where: { ClienteCodigo: id },
+    //  attributes: [
+    //    'Fecha',
+    //    'DocumentoTipo',
+    //    'DocumentoSucursal',
+    //    'DocumentoNumero',
+    //    'ImporteTotal',
+    //    'ImportePagado'
+    //  ],
+    //  raw: true
+    //});
+    //agregar notas de credito y debito al array de comprobantes
+    comprobantes = [...comprobantes, ...notasCreditoFormateadas, ...notasDebitoFormateadas]; 
 
-    //ordenar por fecha
-    comprobantes.sort((a, b) => new Date(a.Fecha) - new Date(b.Fecha));
-
+    //ordenar por fecha descendente
+    comprobantes.sort((a, b) => new Date(b.Fecha) - new Date(a.Fecha));
+    //acumular los saldos, desde el final hasta la primer linea saldo de linea x = saldo (x) + saldo (x+1)
+    for (let i = comprobantes.length - 1; i >= 0; i--) {
+      if (i < comprobantes.length - 1) {
+        comprobantes[i].Saldo = comprobantes[i].Saldo + comprobantes[i + 1].Saldo;
+      }
+    }
     return res.status(200).json({
       items: comprobantes
     });

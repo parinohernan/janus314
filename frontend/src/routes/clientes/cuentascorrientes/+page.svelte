@@ -319,7 +319,7 @@
                 ${cliente.Saldo.toFixed(2)}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-right border-b border-gray-200">
-                <Button variant="secondary" size="sm" on:click={() => handleShowResumen(cliente)}>
+                <Button variant="secondary" size="sm" on:click={() => goto(`/clientes/cuentascorrientes/${cliente.Codigo}`)}>
                   Mostrar Resumen
                 </Button>
               </td>
@@ -390,72 +390,5 @@
         </div>
       </div>
     {/if}
-  {/if}
-  
-  <!-- Modal de Resumen -->
-  {#if showResumen && clienteSeleccionado}
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-        <div class="p-4 border-b">
-          <div class="flex justify-between items-center">
-            <h2 class="text-xl font-bold">Resumen - {clienteSeleccionado.Descripcion}</h2>
-            <button 
-              class="text-gray-500 hover:text-gray-700"
-              on:click={() => {
-                showResumen = false;
-                clienteSeleccionado = null;
-                comprobantes = [];
-              }}
-              aria-label="Cerrar resumen"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-        
-        <div class="p-4 overflow-auto max-h-[calc(90vh-8rem)]">
-          {#if loading}
-            <div class="text-center py-8">
-              <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-              <p class="mt-2 text-gray-600">Cargando comprobantes...</p>
-            </div>
-          {:else if error}
-            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-              <p class="font-bold">Error al cargar los comprobantes</p>
-              <p>{error}</p>
-            </div>
-          {:else if comprobantes.length === 0}
-            <div class="text-center py-8 text-gray-500">
-              No hay comprobantes para mostrar
-            </div>
-          {:else}
-            <table class="min-w-full">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Detalle</th>
-                  <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Débitos</th>
-                  <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Créditos</th>
-                  <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Saldo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each comprobantes as comprobante}
-                  <tr class="border-t">
-                    <td class="px-4 py-2">{new Date(comprobante.Fecha).toLocaleDateString()}</td>
-                    <td class="px-4 py-2">{comprobante.Detalle}</td>
-                    <td class="px-4 py-2 text-right">${comprobante.Debitos.toFixed(2)}</td>
-                    <td class="px-4 py-2 text-right">${comprobante.Creditos.toFixed(2)}</td>
-                    <td class="px-4 py-2 text-right">${comprobante.Saldo.toFixed(2)}</td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          {/if}
-        </div>
-      </div>
-    </div>
   {/if}
 </div>

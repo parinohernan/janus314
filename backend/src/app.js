@@ -28,6 +28,7 @@ const pedidoRoutes = require("./routes/pedido.routes");
 const preventaRoutes = require("./routes/preventa.routes");
 const configRoutes = require("./routes/config.routes");
 const notaCreditoRoutes = require("./routes/notaCredito.routes");
+const notaDebitoRoutes = require("./routes/notaDebito.routes");
 // Crear app Express
 const app = express();
 
@@ -73,6 +74,9 @@ app.use("/api/configuraciones", configRoutes);
 
 // Rutas de notas de crédito
 app.use("/api/notascredito", notaCreditoRoutes);
+
+// Rutas de notas de débito
+app.use("/api/notasdebito", notaDebitoRoutes);
 
 // Ruta de prueba
 app.get("/", (req, res) => {
