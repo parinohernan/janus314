@@ -22,17 +22,19 @@ function renderClienteInfo(doc, factura, y) {
   doc.x = 270;
   doc.y = y;
   doc.fontSize(12)
-    .text(formatearCuit(factura.Cliente.Cuit))
-    .text(`Localidad: ${factura.Cliente ? factura.Cliente.Localidad : "N/A"}`);
+    .text(' ')
+    .text(`Localidad: ${factura.Cliente ? factura.Cliente.Localidad : "N/A"}`)
+    .text(formatearCuit(factura.Cliente.Cuit));
 
   // Columna derecha  
   doc.x = 440;
   doc.y = y;
   doc.fontSize(12)
+    .text(' ')
     .text(`Pago: ${getTipoPagoTxt(factura.PagoTipo)}`)
     .text(`Lista: ${factura.ListaNumero}`);
 
-  return doc.y;
+  return doc.y+10;
 }
 
 function getCategoriaTxt(categoria) {
