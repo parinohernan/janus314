@@ -15,8 +15,6 @@ function renderHeader(doc, options = {}) {
     companyAddress = "",
     companyLocalidad = "",
     companyPhone = "",
-    companyEmail = "",
-
     companyIngresosBrutos = "",
     companyInicioActividades = "",
     showLogo = true,
@@ -38,6 +36,7 @@ function renderHeader(doc, options = {}) {
   const fontSize = {
     infoEmpresa: 12,
     fecha: 12,
+    companyName: 16, // Tamaño fijo para el nombre de la empresa
   };
   //   // Título del documento
   //   doc.rect(10, 10, doc.page.width - 20, 110).stroke(); //rectangulo contenedor del encabezado
@@ -57,9 +56,11 @@ function renderHeader(doc, options = {}) {
   // Logo de la empresa (si está habilitado y se proporciona una ruta)
   if (showLogo && logoPath) {
     try {
+      // Cargar el logo con resolución de 300 DPI
       doc.image(logoPath, logoX, logoY, {
         width: logoWidth,
         height: logoHeight,
+        resolution: 300 // Establecer resolución a 300 DPI
       });
     } catch (error) {
       console.error("Error al cargar el logo:", error);
@@ -84,8 +85,9 @@ function renderHeader(doc, options = {}) {
   doc.y = 20;
   doc.x = infoEmpresaX;
 
+  // Usar un tamaño de fuente fijo para el nombre de la empresa
   doc
-    .fontSize(fontSize.infoEmpresa + 4)
+    .fontSize(fontSize.companyName)
     .text(`${companyName}`, { align: "left" });
   doc.text(`${companyName2}`, { align: "left" });
 

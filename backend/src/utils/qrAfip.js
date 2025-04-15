@@ -32,7 +32,6 @@ async function generarDatosQR(factura) {
       tipoCodAut: "E", // E para CAE, A para CAEA
       codAut: factura.afip_cae, // Código de autorización (CAE)
     };
-
     // Convertir a string y codificar en Base64
     const datosQRString = JSON.stringify(datosQR);
     const datosQRBase64 = Buffer.from(datosQRString).toString("base64");

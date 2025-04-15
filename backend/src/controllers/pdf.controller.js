@@ -17,7 +17,7 @@ const renderNotaCreditoB = require("../templates/pdf/notaCreditoB.template.js");
 const NotaCreditoCabeza = require("../models/notaCreditoCabeza.model");
 const NotaCreditoItem = require("../models/notaCreditoItem.model");
 // const datosEmpresaController = require("../controllers/datosEmpresa.controller");
-const docFacturaA4 = { margin: 50, size: "A4" };
+const docFacturaA4 = { margin: 42.5, size: "A4" }; // 1.5cm = 42.5 puntos (1cm = 28.35 puntos)
 // Función para generar PDF de factura
 exports.generarFacturaPDF = async (req, res) => {
   try {
@@ -85,9 +85,13 @@ exports.generarFacturaPDF = async (req, res) => {
         message: "Datos de empresa no encontrados",
       });
     }
-
     // Asignar datos de empresa a la factura para la plantilla
     factura.Empresa = datosEmpresa;
+    
+    // Convertir la cadena de fecha InicioActividades a un objeto Date
+    if (factura.Empresa.InicioActividades) {
+      factura.Empresa.InicioActividades = new Date(factura.Empresa.InicioActividades);
+    }
 
     // Crear documento PDF
     const doc = new PDFDocument(docFacturaA4);
@@ -372,6 +376,11 @@ exports.generarNotaCreditoPDF = async (req, res) => {
 
     // Asignar datos de empresa
     notaCredito.Empresa = datosEmpresa;
+    
+    // Convertir la cadena de fecha InicioActividades a un objeto Date
+    if (notaCredito.Empresa.InicioActividades) {
+      notaCredito.Empresa.InicioActividades = new Date(notaCredito.Empresa.InicioActividades);
+    }
 
     // Crear documento PDF
     const doc = new PDFDocument(docFacturaA4);
