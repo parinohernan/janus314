@@ -5,7 +5,7 @@
  * @param {number} startY - Posición Y inicial
  * @returns {number} - Posición Y final
  */
-function renderItemsListConIva(doc, items, startY) {
+function renderItemsListConIva(doc, items, startY, interlineado=20) {
   // Configuración de la tabla
   const tableTop = startY + 20;
   const tableLeft = 20;
@@ -62,13 +62,13 @@ function renderItemsListConIva(doc, items, startY) {
   doc.text("Total", x, tableTop, { width: columnWidth.total, align: "right" });
   
   // Línea horizontal debajo de los encabezados
-  doc.moveTo(tableLeft, tableTop + 15).lineTo(tableLeft + tableWidth, tableTop + 15).stroke();
+  doc.moveTo(tableLeft, tableTop + (interlineado)).lineTo(tableLeft + tableWidth, tableTop + interlineado).stroke();
   
   // Restaurar fuente normal
   doc.font("Helvetica");
   
   // Renderizar ítems
-  let y = tableTop + 20;
+  let y = tableTop + interlineado + interlineado/2;
   let maxY = y;
   
   itemsConSubtotal.forEach((item, i) => {
@@ -102,7 +102,7 @@ function renderItemsListConIva(doc, items, startY) {
       // Restaurar fuente normal
       doc.font("Helvetica");
       
-      y += 20;
+      y += interlineado;
     }
     
     // Renderizar fila
@@ -121,7 +121,7 @@ function renderItemsListConIva(doc, items, startY) {
     
     doc.text(item.TotalConIva.toFixed(2), x, y, { width: columnWidth.total, align: "right" });
     
-    y += 20;
+    y += interlineado;
     maxY = Math.max(maxY, y);
   });
   

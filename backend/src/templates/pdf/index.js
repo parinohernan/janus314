@@ -10,6 +10,7 @@ const renderPresupuesto = require("./presupuesto.template");
  * @returns {Function} - Función de renderizado para el tipo de documento
  */
 function getTemplateRenderer(documentType) {
+  console.log("13 documentType", documentType);
   switch (documentType) {
     case "FCA":
       return renderFacturaA;

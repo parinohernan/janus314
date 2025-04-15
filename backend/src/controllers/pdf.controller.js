@@ -9,7 +9,7 @@ const { getTemplateRenderer } = require("../templates/pdf");
 const DatosEmpresa = require("../models/datosEmpresa.model");
 const renderFacturaA = require("../templates/pdf/facturaA.template");
 const renderFacturaB = require("../templates/pdf/facturaB.template");
-const renderPresupuesto = require("../templates/pdf/presupuesto.template");
+const renderPrefactura = require("../templates/pdf/prefactura.template.js");
 const renderNotaCreditoA = require("../templates/pdf/notaCreditoA.template.js");
 const renderNotaCreditoB = require("../templates/pdf/notaCreditoB.template.js");
 // const renderNotaCreditoC = require("../templates/pdf/notaCreditoC.template");
@@ -112,7 +112,7 @@ exports.generarFacturaPDF = async (req, res) => {
     } else if (tipo === "FCB" || tipo === "NCB" || tipo === "NDB") {
       await renderFacturaB(doc, { factura, items: itemsConArticulos });
     } else if (tipo === "PRF") {
-      await renderPresupuesto(doc, { factura, items: itemsConArticulos });
+      await renderPrefactura(doc, { prefactura: factura, items: itemsConArticulos });
     } else {
       // Si el tipo no está entre los soportados, mostrar mensaje
       doc.fontSize(20).text("Tipo de documento no soportado", 100, 100);
