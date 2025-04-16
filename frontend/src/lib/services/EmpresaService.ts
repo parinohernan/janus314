@@ -3,10 +3,13 @@ import { PUBLIC_API_URL } from '$env/static/public';
 // Interfaz para los datos de la empresa que coincide con tu API
 export interface DatosEmpresa {
 	Nombre?: string;
+	RazonSocial?: string;
+	Domicilio?: string;
 	Direccion?: string;
 	Telefono?: string;
-	Email?: string;
-	CUIT?: string;
+	EMail?: string;
+	Cuit?: string;
+	Localidad?: string;
 	Sucursal: string; // La API devuelve "Sucursal", no "SucursalPredeterminada"
 	LogoURL?: string;
 	IngresosBrutos?: string;
@@ -63,8 +66,9 @@ export class EmpresaService {
 			Nombre: 'Mi Empresa',
 			Direccion: 'Dirección no disponible',
 			Telefono: 'Teléfono no disponible',
-			Email: 'email@empresa.com',
-			CUIT: '00-00000000-0',
+			EMail: 'email@empresa.com',
+			Cuit: '00-00000000-0',
+			Localidad: 'Ciudad no disponible',
 			Sucursal: '0001'
 		};
 	}

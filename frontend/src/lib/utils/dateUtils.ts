@@ -27,7 +27,25 @@ export function formatDateForInput(dateString: string): string {
 	}
 }
 
+/**
+ * Parsea una fecha en formato YYYY-MM-DD a objeto Date
+ * @param dateString Fecha en formato YYYY-MM-DD
+ * @returns Objeto Date
+ */
 export function parseDate(dateString: string): Date {
 	const [year, month, day] = dateString.split('-');
 	return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+}
+
+/**
+ * Formatea un número como moneda en pesos argentinos
+ * @param amount Monto a formatear
+ * @returns String formateado como moneda
+ */
+export const formatCurrency = (amount: number): string => {
+	return new Intl.NumberFormat('es-AR', {
+		style: 'currency',
+		currency: 'ARS',
+		minimumFractionDigits: 2
+	}).format(amount);
 }

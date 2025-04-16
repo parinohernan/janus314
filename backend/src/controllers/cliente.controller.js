@@ -346,8 +346,8 @@ exports.getCuentasCorrientes = async (req, res) => {
 // Obtener comprobantes de un cliente
 exports.getComprobantesCliente = async (req, res) => {
   try {
-    console.log("getComprobantesCliente", req.params);
     const { id } = req.params;
+    const { page = 1, limit = 10 } = req.query;
     
     // Verificar que el cliente existe
     const cliente = await Cliente.findByPk(id);
@@ -465,8 +465,21 @@ exports.getComprobantesCliente = async (req, res) => {
         comprobantes[i].Saldo = comprobantes[i].Saldo + comprobantes[i + 1].Saldo;
       }
     }
+
+    // Implementar paginación
+    const totalItems = comprobantes.length;
+    const totalPages = Math.ceil(totalItems / limit);
+    const offset = (page - 1) * limit;
+    const paginatedComprobantes = comprobantes.slice(offset, offset + parseInt(limit));
+
     return res.status(200).json({
-      items: comprobantes
+      items: paginatedComprobantes,
+      meta: {
+        totalItems,
+        itemsPerPage: parseInt(limit),
+        currentPage: parseInt(page),
+        totalPages
+      }
     });
 
   } catch (error) {

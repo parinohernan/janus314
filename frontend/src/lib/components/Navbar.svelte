@@ -7,6 +7,7 @@
       id: 'general',
       label: 'General',
       submenus: [
+        { label: 'Mi Empresa', url: '/empresa' },
         { label: 'Usuarios', url: '/usuarios' },
         { label: 'Localidades', url: '/localidades' },
         { label: 'Provincias', url: '/provincias' },
@@ -40,11 +41,11 @@
       id: 'compras',
       label: 'Compras',
       submenus: [
-        { label: 'Órdenes', url: '/compras/ordenes' },
-        { label: 'Facturas', url: '/compras/facturas' },
-        { label: 'Notas de Crédito', url: '/compras/notascredito' },
-        { label: 'Pagos', url: '/compras/pagos' },
-        { label: 'Informes', url: '/compras/informes' },
+        //{ label: 'Órdenes', url: '/compras/ordenes' },
+        //{ label: 'Facturas', url: '/compras/facturas' },
+        //{ label: 'Notas de Crédito', url: '/compras/notascredito' },
+        //{ label: 'Pagos', url: '/compras/pagos' },
+        //{ label: 'Informes', url: '/compras/informes' },
         { label: 'Proveedores', url: '/compras/proveedores' }
       ]
     },
@@ -55,7 +56,7 @@
         { label: 'Productos', url: '/productos' },
         { label: 'Stock', url: '/productos/stock' },
         { label: 'Rubros', url: '/rubros' },
-        { label: 'Actualización de Precios', url: '/productos/precios' }
+        { label: 'Actualización de Precios', url: '/productos/precios/actualizacion' }
       ]
     },
     {
@@ -64,7 +65,7 @@
       submenus: [
         { label: 'Clientes', url: '/clientes' },
         { label: 'Cuentas', url: '/clientes/cuentascorrientes' },
-        { label: 'Reportes', url: '/clientes/reportes' },
+        { label: 'Reportes', url: '/clientes/reportes/ver' },
       ]
     }
   ];
