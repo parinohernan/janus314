@@ -1,12 +1,14 @@
 const app = require("./app");
 const db = require("./config/database");
+// Importar el archivo de asociaciones para definir las relaciones entre modelos
+require("./models/associations");
 
 // Puerto
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3330;
 
 // Iniciar servidor
-app.listen(PORT, async () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', async () => {
+  console.log(`Servidor corriendo en http://0.0.0.0:${PORT}`);
 
   try {
     // Verificar conexión a la base de datos

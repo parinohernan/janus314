@@ -1,6 +1,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
-const ReciboCabeza = require('./reciboCabeza.model');
+// Eliminamos la importación de ReciboCabeza para evitar dependencia circular
+// const ReciboCabeza = require('./reciboCabeza.model');
 
 const ReciboItem = sequelize.define('ReciboItem', {
   DocumentoTipo: {
@@ -50,15 +51,16 @@ const ReciboItem = sequelize.define('ReciboItem', {
   freezeTableName: true
 });
 
-// Definir relaciones
-ReciboItem.belongsTo(ReciboCabeza, {
-  foreignKey: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero'],
-  as: 'ReciboCabeza'
-});
+// Eliminamos la relación belongsTo para evitar dependencia circular
+// ReciboItem.belongsTo(ReciboCabeza, {
+//   foreignKey: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero'],
+//   as: 'ReciboCabeza'
+// });
 
-ReciboCabeza.hasMany(ReciboItem, {
-  foreignKey: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero'],
-  as: 'Items'
-});
+// La relación hasMany debe definirse en el modelo ReciboCabeza, no aquí
+// ReciboCabeza.hasMany(ReciboItem, {
+//   foreignKey: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero'],
+//   as: 'Items'
+// });
 
 module.exports = ReciboItem; 

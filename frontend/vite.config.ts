@@ -5,7 +5,9 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
-
+	server: {
+		allowedHosts: ['078ff12b0f772e359c3c334e37c09b3b.serveo.net']
+	},
 	test: {
 		workspace: [
 			{

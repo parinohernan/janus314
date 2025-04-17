@@ -45,7 +45,11 @@ exports.getAllRecibos = async (req, res) => {
 
     const recibos = await ReciboCabeza.findAll({
       where: whereClause,
-      order: [[sortField, sortOrder]],
+      order: [
+        ['Fecha', sortOrder],
+        ['DocumentoSucursal', sortOrder],
+        ['DocumentoNumero', sortOrder]
+      ],
       limit: parseInt(limit),
       offset: parseInt(offset),
       include: [
@@ -88,7 +92,9 @@ exports.getAllRecibos = async (req, res) => {
 exports.getReciboById = async (req, res) => {
   try {
     const { tipo, sucursal, numero } = req.params;
+    console.log("tipo, sucursal, numero", tipo, sucursal, numero);
     
+    // Obtener encabezado
     const recibo = await ReciboCabeza.findOne({
       where: {
         DocumentoTipo: tipo,
@@ -110,10 +116,6 @@ exports.getReciboById = async (req, res) => {
           model: Vendedor,
           as: 'VendedorRelacion',
           attributes: ['Descripcion']
-        },
-        {
-          model: ReciboItem,
-          as: 'Items'
         }
       ]
     });
@@ -122,7 +124,22 @@ exports.getReciboById = async (req, res) => {
       return res.status(404).json({ message: 'Recibo no encontrado' });
     }
 
-    return res.status(200).json(recibo);
+    // Obtener items manualmente
+    const items = await ReciboItem.findAll({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero
+      }
+    });
+
+    // Combinar los datos
+    const reciboCompleto = {
+      ...recibo.toJSON(),
+      Items: items
+    };
+
+    return res.status(200).json(reciboCompleto);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Error al obtener el recibo' });

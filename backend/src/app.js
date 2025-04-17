@@ -34,9 +34,19 @@ const reciboRoutes = require("./routes/recibo.routes");
 // Crear app Express
 const app = express();
 
+// Configuración de CORS
+const corsOptions = {
+  origin: ['http://localhost:5173', 'https://*.serveo.net'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
+
 // Middleware
-app.use(helmet()); // Seguridad HTTP
-app.use(cors()); // Habilitar CORS
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+})); // Seguridad HTTP con configuración para recursos externos
+app.use(cors(corsOptions)); // Habilitar CORS con opciones específicas
 app.use(express.json()); // Parsear JSON
 app.use(express.urlencoded({ extended: true }));
 
