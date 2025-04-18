@@ -5,6 +5,8 @@
   import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
   import { formatDate } from '$lib/utils/dateUtils';
+  import html2pdf from 'html2pdf.js';
+  import ReciboPDF from './ReciboPDF.svelte';
 
   // Obtener parámetros de la URL
   const tipo = $page.params.tipo;
@@ -15,6 +17,8 @@
   let recibo: any = null;
   let loading = true;
   let error: string | null = null;
+  let contentRef: HTMLElement;
+  let pdfContentRef: HTMLElement;
 
   // Cargar datos del recibo
   const cargarRecibo = async () => {
@@ -22,16 +26,21 @@
       loading = true;
       error = null;
       
+      console.log('Cargando recibo:', { tipo, sucursal, numero });
       const response = await fetch(`${PUBLIC_API_URL}/recibos/${tipo}/${sucursal}/${numero}`);
       
       if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        console.error('Error response:', errorData);
+        
         if (response.status === 404) {
           throw new Error('Recibo no encontrado');
         }
-        throw new Error('Error al cargar el recibo');
+        throw new Error(errorData?.message || 'Error al cargar el recibo');
       }
       
       recibo = await response.json();
+      console.log('Recibo cargado:', recibo);
     } catch (err) {
       console.error('Error cargando recibo:', err);
       error = err instanceof Error ? err.message : 'Error desconocido';
@@ -43,6 +52,67 @@
   // Función para imprimir el recibo
   const imprimirRecibo = () => {
     window.print();
+  };
+
+  // Función para generar PDF
+  const generarPDF = async () => {
+    if (!pdfContentRef) return;
+    
+    const opt = {
+      margin: 10,
+      filename: `recibo-${tipo}-${sucursal}-${numero}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { 
+        scale: 2,
+        useCORS: true,
+        logging: true
+      },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
+    };
+
+    try {
+      await html2pdf().set(opt).from(pdfContentRef).save();
+    } catch (err) {
+      console.error('Error generando PDF:', err);
+      alert('Error al generar el PDF');
+    }
+  };
+
+  // Función para compartir
+  const compartirRecibo = async () => {
+    if (!pdfContentRef) return;
+    
+    try {
+      const opt = {
+        margin: 10,
+        filename: `recibo-${tipo}-${sucursal}-${numero}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { 
+          scale: 2,
+          useCORS: true,
+          logging: true
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
+      };
+
+      const pdf = await html2pdf().set(opt).from(pdfContentRef).output('blob');
+      
+      // Verificamos si el navegador soporta la API de compartir
+      if (navigator.share) {
+        const file = new File([pdf], `recibo-${tipo}-${sucursal}-${numero}.pdf`, { type: 'application/pdf' });
+        await navigator.share({
+          title: 'Recibo de Pago',
+          text: `Recibo ${tipo}-${sucursal}-${numero}`,
+          files: [file]
+        });
+      } else {
+        // Si no soporta compartir, descargamos el PDF
+        generarPDF();
+      }
+    } catch (err) {
+      console.error('Error compartiendo recibo:', err);
+      alert('Error al compartir el recibo');
+    }
   };
 
   // Función para volver a la lista de recibos
@@ -65,25 +135,40 @@
       </svg>
       Volver
     </Button>
-    <Button variant="primary" on:click={imprimirRecibo}>
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-      </svg>
-      Imprimir
-    </Button>
+    <div class="flex gap-2">
+      <Button variant="primary" on:click={imprimirRecibo}>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+        </svg>
+        Imprimir
+      </Button>
+      <Button variant="primary" on:click={generarPDF}>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        Descargar PDF
+      </Button>
+      <Button variant="primary" on:click={compartirRecibo}>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+        </svg>
+        Compartir
+      </Button>
+    </div>
   </div>
 
   <!-- Contenido del recibo -->
   {#if loading}
-    <div class="flex justify-center items-center py-12">
+    <div class="flex justify-center items-center py-12 print:hidden">
       <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
     </div>
   {:else if error}
-    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 print:hidden">
       <p>{error}</p>
     </div>
   {:else if recibo}
-    <div class="bg-white rounded-lg shadow-sm p-8 max-w-4xl mx-auto">
+    <!-- Versión para pantalla -->
+    <div bind:this={contentRef} class="bg-white rounded-lg shadow-sm p-8 max-w-4xl mx-auto print:shadow-none print:p-0">
       <!-- Encabezado del recibo -->
       <div class="text-center mb-8">
         <h1 class="text-2xl font-bold mb-2">RECIBO</h1>
@@ -218,6 +303,13 @@
         </div>
       </div>
     </div>
+
+    <!-- Versión para PDF (oculta) -->
+    <div class="hidden">
+      <div bind:this={pdfContentRef}>
+        <ReciboPDF {recibo} />
+      </div>
+    </div>
   {/if}
 </div>
 
@@ -234,10 +326,52 @@
     
     .container {
       padding: 0 !important;
+      margin: 0 !important;
     }
     
     .bg-white {
       box-shadow: none !important;
     }
+
+    @page {
+      margin: 0.5cm;
+    }
+  }
+
+  /* Estilos específicos para PDF */
+  :global(.pdf-version) {
+    background-color: #ffffff !important;
+  }
+
+  :global(.pdf-version .bg-gray-50) {
+    background-color: #f9fafb !important;
+  }
+
+  :global(.pdf-version .bg-red-100) {
+    background-color: #fee2e2 !important;
+  }
+
+  :global(.pdf-version .text-red-800) {
+    color: #991b1b !important;
+  }
+
+  :global(.pdf-version .text-red-600) {
+    color: #dc2626 !important;
+  }
+
+  :global(.pdf-version .text-gray-600) {
+    color: #4b5563 !important;
+  }
+
+  :global(.pdf-version .text-gray-500) {
+    color: #6b7280 !important;
+  }
+
+  :global(.pdf-version .border) {
+    border-color: #e5e7eb !important;
+  }
+
+  :global(.pdf-version .border-t) {
+    border-top-color: #e5e7eb !important;
   }
 </style> 
