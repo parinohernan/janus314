@@ -301,4 +301,133 @@ exports.anularRecibo = async (req, res) => {
     console.error(error);
     return res.status(500).json({ message: 'Error al anular el recibo' });
   }
+};
+
+// Obtener documentos de deuda (facturas impagas) de un cliente
+exports.getDocumentosDeuda = async (req, res) => {
+  try {
+    const { codigocliente } = req.params;
+    
+    if (!codigocliente) {
+      return res.status(400).json({ message: 'Se requiere el código del cliente' });
+    }
+    
+    // Consulta SQL para obtener las facturas impagas del cliente
+    const query = `
+      SELECT 
+        f.DocumentoTipo,
+        f.DocumentoSucursal,
+        f.DocumentoNumero,
+        f.Fecha,
+        f.ImporteTotal
+      FROM 
+        FacturaCabeza f
+      WHERE 
+        f.ClienteCodigo = :codigocliente
+        AND f.ImporteTotal - COALESCE(f.ImportePagado, 0) > 0
+      ORDER BY 
+        f.Fecha ASC
+    `;
+//consulta para obtener las notas de debito impagas
+const queryNotasDebito = `
+  SELECT 
+    n.DocumentoTipo,
+    n.DocumentoSucursal,
+    n.DocumentoNumero,
+    n.Fecha,
+    n.ImporteTotal
+  FROM 
+    NotaDebitoCabeza n
+  WHERE 
+    n.ClienteCodigo = :codigocliente
+    AND n.ImporteTotal - COALESCE(n.ImportePagado, 0) > 0 
+    ORDER BY 
+      n.Fecha ASC
+    `;
+    // obtener las facturas impagas
+    const facturas = await sequelize.query(query, {
+      replacements: { codigocliente },
+      type: sequelize.QueryTypes.SELECT
+    });
+    // obtener las notas de debito impagas
+    const notasDebito = await sequelize.query(queryNotasDebito, {
+      replacements: { codigocliente },
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    // combinar las facturas y notas de debito
+    const documentosDeuda = [...facturas, ...notasDebito];
+    //ordenalas por fecha ascendente
+    documentosDeuda.sort((a, b) => new Date(a.Fecha) - new Date(b.Fecha));
+    
+    return res.status(200).json({
+      success: true,
+      data: documentosDeuda
+    });
+  } catch (error) {
+    console.error('Error al obtener documentos de deuda:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Error al obtener los documentos de deuda del cliente' 
+    });
+  }
+};
+
+// Obtener documentos de crédito (notas de crédito) de un cliente
+exports.getDocumentosCredito = async (req, res) => {
+  try {
+    const { codigocliente } = req.params;
+    
+    if (!codigocliente) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'El código de cliente es requerido' 
+      });
+    }
+    
+    // Consulta para obtener notas de crédito con saldo disponible
+    const query = `
+      SELECT 
+        'NCF' as documento,
+        nc.DocumentoSucursal as sucursal,
+        nc.DocumentoNumero as numero,
+        nc.Fecha as fecha,
+        nc.ImporteTotal as total,
+        COALESCE(nc.ImporteUtilizado, 0) as importeUtilizado,
+        (nc.ImporteTotal - COALESCE(nc.ImporteUtilizado, 0)) as saldo
+      FROM 
+        NotaCreditoCabeza nc
+      WHERE 
+        nc.codigocliente = :codigocliente
+        AND nc.ImporteTotal > COALESCE(nc.ImporteUtilizado, 0)
+      ORDER BY 
+        nc.Fecha DESC
+    `;
+    
+    const documentosCredito = await sequelize.query(query, {
+      replacements: { codigocliente },
+      type: sequelize.QueryTypes.SELECT
+    });
+    
+    // Formatear los resultados
+    const resultados = documentosCredito.map(doc => ({
+      documento: `${doc.documento}-${doc.sucursal}-${doc.numero}`,
+      fecha: doc.fecha,
+      total: doc.total,
+      importeUtilizado: doc.importeUtilizado,
+      saldo: doc.saldo
+    }));
+    
+    return res.status(200).json({
+      success: true,
+      data: resultados
+    });
+  } catch (error) {
+    console.error('Error al obtener documentos de crédito:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Error al obtener documentos de crédito',
+      error: error.message 
+    });
+  }
 }; 

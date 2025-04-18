@@ -27,6 +27,119 @@
   let documentosSeleccionados: any[] = [];
   let importeTotalPagar = 0;
 
+  // Función para verificar si un documento está seleccionado
+  $: documentosSeleccionadosMap = new Map(
+    documentosSeleccionados.map(doc => [
+      `${doc.DocumentoTipo}-${doc.DocumentoSucursal}-${doc.DocumentoNumero}`,
+      true
+    ])
+  );
+
+  function isDocumentoSeleccionado(doc: any) {
+    const key = `${doc.DocumentoTipo}-${doc.DocumentoSucursal}-${doc.DocumentoNumero}`;
+    return documentosSeleccionadosMap.has(key);
+  }
+
+  // Seleccionar un documento de deuda
+  function seleccionarDocumento(doc: any) {
+    const key = `${doc.DocumentoTipo}-${doc.DocumentoSucursal}-${doc.DocumentoNumero}`;
+    const index = documentosSeleccionados.findIndex(
+      d => `${d.DocumentoTipo}-${d.DocumentoSucursal}-${d.DocumentoNumero}` === key
+    );
+    
+    if (index === -1) {
+      // Agregar documento a la selección
+      documentosSeleccionados = [...documentosSeleccionados, doc];
+    } else {
+      // Remover documento de la selección
+      documentosSeleccionados = documentosSeleccionados.filter((_, i) => i !== index);
+    }
+    
+    // Calcular importe total a pagar
+    importeTotalPagar = documentosSeleccionados.reduce((total, doc) => total + (doc.ImporteTotal || 0), 0);
+  }
+
+  // Estado de formas de pago
+  let formasPago: any[] = [
+    { codigo: 'EF', descripcion: 'EFECTIVO', total: 4550.39 }
+  ];
+  let nuevaFormaPago = {
+    codigo: '',
+    descripcion: '',
+    total: 0
+  };
+  let mostrarFormularioPago = false;
+
+  // Estado de documentos de crédito
+  let documentosCredito: any[] = [];
+  let loadingDocumentosCredito = false;
+  let errorDocumentosCredito: string | null = null;
+  let documentosCreditoSeleccionados: any[] = [];
+  let importeTotalCredito = 0;
+
+  // Función para verificar si un documento de crédito está seleccionado
+  $: documentosCreditoSeleccionadosMap = new Map(
+    documentosCreditoSeleccionados.map(doc => [doc.documento, true])
+  );
+
+  function isDocumentoCreditoSeleccionado(doc: any) {
+    return documentosCreditoSeleccionadosMap.has(doc.documento);
+  }
+
+  // Seleccionar documento de crédito
+  function seleccionarDocumentoCredito(doc: any) {
+    const index = documentosCreditoSeleccionados.findIndex(
+      d => d.documento === doc.documento
+    );
+    
+    if (index === -1) {
+      // Agregar documento a la selección
+      documentosCreditoSeleccionados = [...documentosCreditoSeleccionados, doc];
+    } else {
+      // Remover documento de la selección
+      documentosCreditoSeleccionados = documentosCreditoSeleccionados.filter((_, i) => i !== index);
+    }
+    
+    // Calcular importe total de crédito
+    importeTotalCredito = documentosCreditoSeleccionados.reduce((total, doc) => total + doc.saldo, 0);
+  }
+
+  // Cargar documentos de crédito de un cliente
+  async function cargarDocumentosCredito(codigoCliente: string) {
+    if (!codigoCliente) return;
+    
+    loadingDocumentosCredito = true;
+    errorDocumentosCredito = null;
+    
+    try {
+      console.log('Cargando documentos de crédito para cliente:', codigoCliente);
+      const response = await fetch(`${PUBLIC_API_URL}/recibos/doccredito/${codigoCliente}`);
+      
+      if (!response.ok) {
+        throw new Error(`Error al cargar documentos de crédito: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Respuesta de documentos de crédito:', data);
+      
+      if (data.success && Array.isArray(data.data)) {
+        documentosCredito = data.data;
+        console.log('Documentos de crédito cargados:', documentosCredito.length);
+      } else {
+        console.error('Formato de respuesta incorrecto:', data);
+        documentosCredito = [];
+        errorDocumentosCredito = 'Formato de respuesta incorrecto';
+      }
+    } catch (err) {
+      console.error('Error cargando documentos de crédito:', err);
+      errorDocumentosCredito = err instanceof Error ? err.message : 'Error desconocido';
+      documentosCredito = [];
+    } finally {
+      loadingDocumentosCredito = false;
+      console.log('Estado final de documentosCredito:', documentosCredito);
+    }
+  }
+
   // Datos del recibo
   let recibo = {
     DocumentoTipo: 'RCF',
@@ -80,6 +193,10 @@
     if (cliente.Codigo) {
       console.log('Llamando a cargarDocumentosDeuda con código:', cliente.Codigo);
       cargarDocumentosDeuda(cliente.Codigo);
+      
+      // Cargar documentos de crédito del cliente
+      console.log('Llamando a cargarDocumentosCredito con código:', cliente.Codigo);
+      cargarDocumentosCredito(cliente.Codigo);
     } else {
       console.error('El cliente seleccionado no tiene código:', cliente);
       errorDocumentosDeuda = 'El cliente seleccionado no tiene código';
@@ -165,36 +282,24 @@
     recibo.ClienteId = select.value;
   };
 
-  // Seleccionar un documento de deuda
-  function seleccionarDocumento(doc: any) {
-    const index = documentosSeleccionados.findIndex(
-      d => d.DocumentoTipo === doc.DocumentoTipo && 
-           d.DocumentoSucursal === doc.DocumentoSucursal && 
-           d.DocumentoNumero === doc.DocumentoNumero
-    );
-    
-    if (index === -1) {
-      // Agregar documento a la selección
-      documentosSeleccionados = [...documentosSeleccionados, doc];
-    } else {
-      // Remover documento de la selección
-      documentosSeleccionados = documentosSeleccionados.filter((_, i) => i !== index);
+  // Agregar forma de pago
+  function agregarFormaPago() {
+    if (nuevaFormaPago.codigo && nuevaFormaPago.descripcion && nuevaFormaPago.total > 0) {
+      formasPago = [...formasPago, { ...nuevaFormaPago }];
+      nuevaFormaPago = { codigo: '', descripcion: '', total: 0 };
+      mostrarFormularioPago = false;
     }
-    
-    // Calcular importe total a pagar
-    importeTotalPagar = documentosSeleccionados.reduce((total, doc) => total + (doc.ImporteTotal || 0), 0);
   }
-  
-  // Verificar si un documento está seleccionado
-  function isDocumentoSeleccionado(doc: any) {
-    return documentosSeleccionados.some(
-      d => d.DocumentoTipo === doc.DocumentoTipo && 
-           d.DocumentoSucursal === doc.DocumentoSucursal && 
-           d.DocumentoNumero === doc.DocumentoNumero
-    );
+
+  // Eliminar forma de pago
+  function eliminarFormaPago(index: number) {
+    formasPago = formasPago.filter((_, i) => i !== index);
   }
-  console.log('documentosSeleccionados', documentosSeleccionados);
-  console.log('documentosDeuda', documentosDeuda);
+
+  // Calcular totales
+  $: importeTotalRecibo = importeTotalPagar - importeTotalCredito;
+  $: importeTotalFormasPago = formasPago.reduce((total, fp) => total + (fp.total || 0), 0);
+  $: saldoPendiente = importeTotalRecibo - importeTotalFormasPago;
 </script>
 
 <div class="container mx-auto px-4 py-8">
@@ -328,9 +433,9 @@
 
       <!-- Documentos de Deuda -->
       {#if clienteSeleccionado}
-        <div class="mt-6">
+        <div class="mt-6 border-t pt-6">
           <div class="flex justify-between items-center mb-2">
-            <h3 class="text-lg font-medium text-gray-900">Documentos de Deuda</h3>
+            <h3 class="text-lg font-medium text-gray-900">1. Documentos de Deuda</h3>
             <button 
               type="button" 
               class="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
@@ -386,51 +491,194 @@
                           class={`px-3 py-1 rounded-md ${isDocumentoSeleccionado(doc) ? 'bg-blue-600 text-white' : 'text-blue-600 hover:bg-blue-50'}`}
                           on:click={() => seleccionarDocumento(doc)}
                         >
-                          {isDocumentoSeleccionado(doc) ? 'Seleccionado' : 'Seleccionar'}
+                          {isDocumentoSeleccionado(doc) ? 'Quitar' : 'Seleccionar'}
                         </button>
                       </td>
                     </tr>
                   {/each}
                 </tbody>
+                <tfoot class="bg-gray-50">
+                  <tr>
+                    <td colspan="3" class="px-6 py-4 text-right text-sm font-medium text-gray-900">Total a Pagar:</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">${importeTotalPagar.toFixed(2)}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           {/if}
         </div>
       {/if}
 
-      <!-- Documentos Seleccionados -->
-      {#if documentosSeleccionados.length > 0}
-        <div class="mt-6">
-          <h3 class="text-lg font-medium text-gray-900 mb-2">Documentos Seleccionados</h3>
+      <!-- Formas de Pago -->
+      <div class="mt-6 border-t pt-6">
+        <div class="flex justify-between items-center mb-2">
+          <h3 class="text-lg font-medium text-gray-900">2. Formas de Pago</h3>
+          <button 
+            type="button" 
+            class="px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700"
+            on:click={() => mostrarFormularioPago = !mostrarFormularioPago}
+          >
+            {mostrarFormularioPago ? 'Cancelar' : 'Agregar Forma de Pago'}
+          </button>
+        </div>
+
+        {#if mostrarFormularioPago}
+          <div class="bg-gray-50 p-4 rounded-md mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label for="codigo-pago" class="block text-sm font-medium text-gray-700 mb-1">Código</label>
+                <input
+                  id="codigo-pago"
+                  type="text"
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                  placeholder="Ej: EF, TC, TD"
+                  bind:value={nuevaFormaPago.codigo}
+                />
+              </div>
+              <div>
+                <label for="descripcion-pago" class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                <input
+                  id="descripcion-pago"
+                  type="text"
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                  placeholder="Ej: EFECTIVO, TARJETA DE CRÉDITO"
+                  bind:value={nuevaFormaPago.descripcion}
+                />
+              </div>
+              <div>
+                <label for="total-pago" class="block text-sm font-medium text-gray-700 mb-1">Total</label>
+                <input
+                  id="total-pago"
+                  type="number"
+                  step="0.01"
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                  placeholder="0.00"
+                  bind:value={nuevaFormaPago.total}
+                />
+              </div>
+            </div>
+            <div class="mt-4 flex justify-end">
+              <button 
+                type="button" 
+                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                on:click={agregarFormaPago}
+              >
+                Agregar
+              </button>
+            </div>
+          </div>
+        {/if}
+
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              {#each formasPago as formaPago, index}
+                <tr>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formaPago.codigo}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formaPago.descripcion}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    ${formaPago.total.toFixed(2)}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <button 
+                      type="button" 
+                      class="text-red-600 hover:text-red-800"
+                      on:click={() => eliminarFormaPago(index)}
+                    >
+                      Eliminar
+                    </button>
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+            <tfoot class="bg-gray-50">
+              <tr>
+                <td colspan="2" class="px-6 py-4 text-right text-sm font-medium text-gray-900">Total Formas de Pago:</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">${importeTotalFormasPago.toFixed(2)}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- Documentos de Crédito -->
+      <div class="mt-6 border-t pt-6">
+        <div class="flex justify-between items-center mb-2">
+          <h3 class="text-lg font-medium text-gray-900">3. Documentos de Crédito</h3>
+          <button 
+            type="button" 
+            class="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            on:click={() => cargarDocumentosCredito(clienteSeleccionado.Codigo)}
+            disabled={loadingDocumentosCredito}
+          >
+            {loadingDocumentosCredito ? 'Cargando...' : 'Recargar Documentos'}
+          </button>
+        </div>
+        
+        {#if loadingDocumentosCredito}
+          <div class="h-20 flex items-center justify-center bg-gray-100 rounded">
+            <span class="text-gray-500">Cargando documentos de crédito...</span>
+          </div>
+        {:else if errorDocumentosCredito}
+          <div class="h-20 flex items-center justify-center bg-red-100 rounded">
+            <span class="text-red-500">{errorDocumentosCredito}</span>
+          </div>
+        {:else if !documentosCredito || documentosCredito.length === 0}
+          <div class="h-20 flex items-center justify-center bg-gray-100 rounded">
+            <span class="text-gray-500">No hay documentos de crédito para este cliente</span>
+          </div>
+        {:else}
           <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
               <thead class="bg-gray-50">
                 <tr>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Documento</th>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe</th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe Utilizado</th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Saldo</th>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200">
-                {#each documentosSeleccionados as doc}
+                {#each documentosCredito as doc}
                   <tr>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {doc.DocumentoTipo}-{doc.DocumentoSucursal}-{doc.DocumentoNumero}
+                      {doc.documento}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(doc.Fecha)}
+                      {formatDate(doc.fecha)}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      ${doc.ImporteTotal ? doc.ImporteTotal.toFixed(2) : '0.00'}
+                      ${doc.total.toFixed(2)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      ${doc.importeUtilizado.toFixed(2)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                      ${doc.saldo.toFixed(2)}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <button 
                         type="button" 
-                        class="text-red-600 hover:text-red-800"
-                        on:click={() => seleccionarDocumento(doc)}
+                        class={`px-3 py-1 rounded-md ${isDocumentoCreditoSeleccionado(doc) ? 'bg-blue-600 text-white' : 'text-blue-600 hover:bg-blue-50'}`}
+                        on:click={() => seleccionarDocumentoCredito(doc)}
                       >
-                        Quitar
+                        {isDocumentoCreditoSeleccionado(doc) ? 'Quitar' : 'Seleccionar'}
                       </button>
                     </td>
                   </tr>
@@ -438,17 +686,48 @@
               </tbody>
               <tfoot class="bg-gray-50">
                 <tr>
-                  <td colspan="2" class="px-6 py-4 text-right text-sm font-medium text-gray-900">Total a Pagar:</td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">${importeTotalPagar.toFixed(2)}</td>
+                  <td colspan="4" class="px-6 py-4 text-right text-sm font-medium text-gray-900">Total Crédito:</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">${importeTotalCredito.toFixed(2)}</td>
                   <td></td>
                 </tr>
               </tfoot>
             </table>
           </div>
-        </div>
-      {/if}
+        {/if}
+      </div>
 
-      <!-- Observaciones
+      <!-- Resumen de Totales -->
+      <div class="mt-6 border-t pt-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Resumen de Totales</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-gray-50 p-4 rounded-md">
+            <div class="flex justify-between mb-2">
+              <span class="text-sm font-medium text-gray-700">Total Documentos de Deuda:</span>
+              <span class="text-sm font-medium text-red-600">${importeTotalPagar.toFixed(2)}</span>
+            </div>
+            <div class="flex justify-between mb-2">
+              <span class="text-sm font-medium text-gray-700">Total Documentos de Crédito:</span>
+              <span class="text-sm font-medium text-blue-600">-${importeTotalCredito.toFixed(2)}</span>
+            </div>
+            <div class="flex justify-between mb-2">
+              <span class="text-sm font-medium text-gray-700">Total Formas de Pago:</span>
+              <span class="text-sm font-medium text-green-600">-${importeTotalFormasPago.toFixed(2)}</span>
+            </div>
+            <div class="flex justify-between pt-2 border-t">
+              <span class="text-sm font-medium text-gray-700">Total a Pagar:</span>
+              <span class="text-sm font-medium text-red-600">${importeTotalRecibo.toFixed(2)}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm font-medium text-gray-900">Saldo Pendiente:</span>
+              <span class="text-sm font-medium {saldoPendiente > 0 ? 'text-red-600' : 'text-green-600'}">
+                ${saldoPendiente.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Observaciones -->
       <div class="mt-6">
         <label for="observaciones" class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
         <textarea 
@@ -458,7 +737,7 @@
           value={recibo.Observaciones}
           on:input={(e: Event) => recibo.Observaciones = (e.target as HTMLTextAreaElement).value}
         ></textarea>
-      </div> -->
+      </div>
 
       <!-- Botones de acción -->
       <div class="mt-6 flex justify-end gap-3">

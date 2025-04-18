@@ -8,6 +8,12 @@ router.get('/', reciboController.getAllRecibos);
 // Obtener un recibo por ID (tipo, sucursal, número)
 router.get('/:tipo/:sucursal/:numero', reciboController.getReciboById);
 
+// Obtener documentos de deuda (facturas impagas) de un cliente
+router.get('/docdeuda/:codigocliente', reciboController.getDocumentosDeuda);
+
+// Obtener documentos de crédito (notas de crédito) de un cliente
+router.get('/doccredito/:codigocliente', reciboController.getDocumentosCredito);
+
 // Crear un nuevo recibo
 router.post('/', reciboController.createRecibo);
 
