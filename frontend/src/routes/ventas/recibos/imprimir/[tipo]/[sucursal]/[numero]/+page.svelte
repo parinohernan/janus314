@@ -113,39 +113,84 @@
       <!-- Detalles del pago -->
       <div class="mb-8">
         <h2 class="text-lg font-semibold mb-2">Detalles del Pago</h2>
-        <div class="border rounded overflow-hidden">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Concepto</th>
-                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Importe</th>
-              </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-              {#if recibo.Detalles && recibo.Detalles.length > 0}
-                {#each recibo.Detalles as detalle}
-                  <tr>
-                    <td class="px-4 py-3 whitespace-nowrap">{detalle.Concepto}</td>
-                    <td class="px-4 py-3 whitespace-nowrap text-right">
-                      {detalle.Importe.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
-                    </td>
-                  </tr>
-                {/each}
-              {:else}
+        <div class="grid grid-cols-2 gap-4">
+          <!-- Columna de Deuda -->
+          <div class="border rounded overflow-hidden">
+            <h3 class="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700">Documentos de Deuda</h3>
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
                 <tr>
-                  <td colspan="2" class="px-4 py-3 text-center text-gray-500">No hay detalles disponibles</td>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Documento</th>
+                  <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Importe</th>
                 </tr>
-              {/if}
-            </tbody>
-            <tfoot class="bg-gray-50">
-              <tr>
-                <td class="px-4 py-3 text-right font-medium">Total:</td>
-                <td class="px-4 py-3 text-right font-bold">
-                  {recibo.ImporteTotal.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                {#if recibo.Items && recibo.Items.length > 0}
+                  {#each recibo.Items as item}
+                    <tr>
+                      <td class="px-4 py-2 whitespace-nowrap">
+                        {item.FacturaTipo}-{item.FacturaSucursal}-{item.FacturaNumero}
+                      </td>
+                      <td class="px-4 py-2 whitespace-nowrap text-right">
+                        {item.ImportePagado.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+                      </td>
+                    </tr>
+                  {/each}
+                {:else}
+                  <tr>
+                    <td colspan="2" class="px-4 py-2 text-center text-gray-500">No hay documentos de deuda</td>
+                  </tr>
+                {/if}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Columna de Pagos -->
+          <div class="border rounded overflow-hidden">
+            <h3 class="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700">Documentos de Pago</h3>
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
+                  <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Importe</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                {#if recibo.Valores && recibo.Valores.length > 0}
+                  {#each recibo.Valores as valor}
+                    <tr>
+                      <td class="px-4 py-2 whitespace-nowrap">
+                        {valor.ValorCodigo}
+                        {#if valor.ValorNumero}
+                          - {valor.ValorNumero}
+                        {/if}
+                        {#if valor.Valorbanco}
+                          ({valor.Valorbanco})
+                        {/if}
+                      </td>
+                      <td class="px-4 py-2 whitespace-nowrap text-right">
+                        {valor.ValorImporte.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+                      </td>
+                    </tr>
+                  {/each}
+                {:else}
+                  <tr>
+                    <td colspan="2" class="px-4 py-2 text-center text-gray-500">No hay documentos de pago</td>
+                  </tr>
+                {/if}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Total -->
+        <div class="mt-4 border rounded p-4 bg-gray-50">
+          <div class="flex justify-between items-center">
+            <span class="font-medium">Total:</span>
+            <span class="font-bold">
+              {recibo.ImporteTotal.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -178,7 +223,7 @@
 
 <style>
   @media print {
-    body {
+    :global(body) {
       print-color-adjust: exact;
       -webkit-print-color-adjust: exact;
     }

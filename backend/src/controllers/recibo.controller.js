@@ -1,5 +1,6 @@
 const ReciboCabeza = require('../models/reciboCabeza.model');
 const ReciboItem = require('../models/reciboItem.model');
+const ReciboValor = require('../models/reciboValor.model');
 const Cliente = require('../models/cliente.model');
 const Usuario = require('../models/usuario.model');
 const Vendedor = require('../models/vendedor.model');
@@ -124,8 +125,17 @@ exports.getReciboById = async (req, res) => {
       return res.status(404).json({ message: 'Recibo no encontrado' });
     }
 
-    // Obtener items manualmente
+    // Obtener items manualmente (documentos de deuda)
     const items = await ReciboItem.findAll({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero
+      }
+    });
+
+    // Obtener valores manualmente (documentos de pago)
+    const valores = await ReciboValor.findAll({
       where: {
         DocumentoTipo: tipo,
         DocumentoSucursal: sucursal,
@@ -136,7 +146,8 @@ exports.getReciboById = async (req, res) => {
     // Combinar los datos
     const reciboCompleto = {
       ...recibo.toJSON(),
-      Items: items
+      Items: items,
+      Valores: valores
     };
 
     return res.status(200).json(reciboCompleto);
