@@ -209,41 +209,8 @@
 
     <div class="bg-white rounded-lg shadow-sm p-6">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- Tipo de Documento -->
-        <div>
-          <label for="tipo" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento</label>
-          <Input 
-            id="tipo" 
-            value={recibo.DocumentoTipo} 
-            disabled 
-            className="bg-gray-100"
-          />
-        </div>
-
-        <!-- Número de Documento -->
-        <div>
-          <label for="numero" class="block text-sm font-medium text-gray-700 mb-1">Número</label>
-          <Input 
-            id="numero" 
-            value={recibo.DocumentoSucursal && recibo.DocumentoNumero ? `${recibo.DocumentoSucursal}-${recibo.DocumentoNumero}` : 'Cargando...'} 
-            disabled 
-            className="bg-gray-100"
-          />
-        </div>
-
-        <!-- Fecha -->
-        <div>
-          <label for="fecha" class="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
-          <Input 
-            id="fecha" 
-            type="date" 
-            value={recibo.Fecha} 
-            on:input={(e: Event) => recibo.Fecha = (e.target as HTMLInputElement).value}
-          />
-        </div>
-
-        <!-- Cliente -->
-        <div>
+        <!-- Cliente (mitad izquierda) -->
+        <div class="md:col-span-1">
           <label for="cliente" class="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
           <div class="relative">
             <input
@@ -318,6 +285,44 @@
               </button>
             </div>
           {/if}
+        </div>
+
+        <!-- Datos del recibo (mitad derecha) -->
+        <div class="md:col-span-1">
+          <div class="grid grid-cols-3 gap-4">
+            <!-- Tipo de Documento -->
+            <div>
+              <label for="tipo" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento</label>
+              <Input 
+                id="tipo" 
+                value={recibo.DocumentoTipo} 
+                disabled 
+                className="bg-gray-100"
+              />
+            </div>
+
+            <!-- Número de Documento -->
+            <div>
+              <label for="numero" class="block text-sm font-medium text-gray-700 mb-1">Número</label>
+              <Input 
+                id="numero" 
+                value={recibo.DocumentoSucursal && recibo.DocumentoNumero ? `${recibo.DocumentoSucursal}-${recibo.DocumentoNumero}` : 'Cargando...'} 
+                disabled 
+                className="bg-gray-100"
+              />
+            </div>
+
+            <!-- Fecha -->
+            <div>
+              <label for="fecha" class="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+              <Input 
+                id="fecha" 
+                type="date" 
+                value={recibo.Fecha} 
+                on:input={(e: Event) => recibo.Fecha = (e.target as HTMLInputElement).value}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
