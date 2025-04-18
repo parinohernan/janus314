@@ -142,12 +142,21 @@ exports.getReciboById = async (req, res) => {
         DocumentoNumero: numero
       }
     });
+    // obtener los documentos de credito
+    const documentosCredito = await ReciboCredito.findAll({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero
+      }
+    });
 
     // Combinar los datos
     const reciboCompleto = {
       ...recibo.toJSON(),
       Items: items,
-      Valores: valores
+      Valores: valores,
+      DocumentosCredito: documentosCredito
     };
 
     return res.status(200).json(reciboCompleto);

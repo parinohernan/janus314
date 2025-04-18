@@ -6,6 +6,7 @@
   import Input from '$lib/components/ui/Input.svelte';
   import { formatDate } from '$lib/utils/dateUtils';
   import { EmpresaService } from '$lib/services/EmpresaService';
+  import FormasPago from '$lib/components/recibos/FormasPago.svelte';
 
   // Estado del formulario
   let loading = false;
@@ -60,15 +61,9 @@
   }
 
   // Estado de formas de pago
-  let formasPago: any[] = [
-    { codigo: 'EF', descripcion: 'EFECTIVO', total: 4550.39 }
-  ];
-  let nuevaFormaPago = {
-    codigo: '',
-    descripcion: '',
-    total: 0
-  };
-  let mostrarFormularioPago = false;
+  let formasPago: any[] = [];
+  let importeTotalFormasPago = 0;
+  let saldoPendiente = 0;
 
   // Estado de documentos de crédito
   let documentosCredito: any[] = [];
@@ -282,24 +277,8 @@
     recibo.ClienteId = select.value;
   };
 
-  // Agregar forma de pago
-  function agregarFormaPago() {
-    if (nuevaFormaPago.codigo && nuevaFormaPago.descripcion && nuevaFormaPago.total > 0) {
-      formasPago = [...formasPago, { ...nuevaFormaPago }];
-      nuevaFormaPago = { codigo: '', descripcion: '', total: 0 };
-      mostrarFormularioPago = false;
-    }
-  }
-
-  // Eliminar forma de pago
-  function eliminarFormaPago(index: number) {
-    formasPago = formasPago.filter((_, i) => i !== index);
-  }
-
   // Calcular totales
   $: importeTotalRecibo = importeTotalPagar - importeTotalCredito;
-  $: importeTotalFormasPago = formasPago.reduce((total, fp) => total + (fp.total || 0), 0);
-  $: saldoPendiente = importeTotalRecibo - importeTotalFormasPago;
 </script>
 
 <div class="container mx-auto px-4 py-8">
@@ -432,10 +411,10 @@
       </div>
 
       <!-- Documentos de Deuda -->
-      {#if clienteSeleccionado}
-        <div class="mt-6 border-t pt-6">
-          <div class="flex justify-between items-center mb-2">
-            <h3 class="text-lg font-medium text-gray-900">1. Documentos de Deuda</h3>
+      <div class="mt-6 border-t pt-6">
+        <div class="flex justify-between items-center mb-2">
+          <h3 class="text-lg font-medium text-gray-900">1. Documentos de Deuda</h3>
+          {#if clienteSeleccionado}
             <button 
               type="button" 
               class="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
@@ -444,176 +423,88 @@
             >
               {loadingDocumentosDeuda ? 'Cargando...' : 'Recargar Documentos'}
             </button>
-          </div>
-          
-          {#if loadingDocumentosDeuda}
-            <div class="h-20 flex items-center justify-center bg-gray-100 rounded">
-              <span class="text-gray-500">Cargando documentos de deuda...</span>
-            </div>
-          {:else if errorDocumentosDeuda}
-            <div class="h-20 flex items-center justify-center bg-red-100 rounded">
-              <span class="text-red-500">{errorDocumentosDeuda}</span>
-            </div>
-          {:else if !documentosDeuda || documentosDeuda.length === 0}
-            <div class="h-20 flex items-center justify-center bg-gray-100 rounded">
-              <span class="text-gray-500">No hay documentos de deuda para este cliente</span>
-            </div>
-          {:else}
-            <div class="overflow-x-auto">
-              <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Documento</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe Total</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe a Pagar</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                  {#each documentosDeuda as doc}
-                    <tr>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {doc.DocumentoTipo}-{doc.DocumentoSucursal}-{doc.DocumentoNumero}
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(doc.Fecha)}
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${doc.ImporteTotal ? doc.ImporteTotal.toFixed(2) : '0.00'}
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
-                        ${doc.ImporteTotal ? doc.ImporteTotal.toFixed(2) : '0.00'}
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <button 
-                          type="button" 
-                          class={`px-3 py-1 rounded-md ${isDocumentoSeleccionado(doc) ? 'bg-blue-600 text-white' : 'text-blue-600 hover:bg-blue-50'}`}
-                          on:click={() => seleccionarDocumento(doc)}
-                        >
-                          {isDocumentoSeleccionado(doc) ? 'Quitar' : 'Seleccionar'}
-                        </button>
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-                <tfoot class="bg-gray-50">
-                  <tr>
-                    <td colspan="3" class="px-6 py-4 text-right text-sm font-medium text-gray-900">Total a Pagar:</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">${importeTotalPagar.toFixed(2)}</td>
-                    <td></td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
           {/if}
         </div>
-      {/if}
-
-      <!-- Formas de Pago -->
-      <div class="mt-6 border-t pt-6">
-        <div class="flex justify-between items-center mb-2">
-          <h3 class="text-lg font-medium text-gray-900">2. Formas de Pago</h3>
-          <button 
-            type="button" 
-            class="px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700"
-            on:click={() => mostrarFormularioPago = !mostrarFormularioPago}
-          >
-            {mostrarFormularioPago ? 'Cancelar' : 'Agregar Forma de Pago'}
-          </button>
-        </div>
-
-        {#if mostrarFormularioPago}
-          <div class="bg-gray-50 p-4 rounded-md mb-4">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label for="codigo-pago" class="block text-sm font-medium text-gray-700 mb-1">Código</label>
-                <input
-                  id="codigo-pago"
-                  type="text"
-                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                  placeholder="Ej: EF, TC, TD"
-                  bind:value={nuevaFormaPago.codigo}
-                />
-              </div>
-              <div>
-                <label for="descripcion-pago" class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-                <input
-                  id="descripcion-pago"
-                  type="text"
-                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                  placeholder="Ej: EFECTIVO, TARJETA DE CRÉDITO"
-                  bind:value={nuevaFormaPago.descripcion}
-                />
-              </div>
-              <div>
-                <label for="total-pago" class="block text-sm font-medium text-gray-700 mb-1">Total</label>
-                <input
-                  id="total-pago"
-                  type="number"
-                  step="0.01"
-                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                  placeholder="0.00"
-                  bind:value={nuevaFormaPago.total}
-                />
-              </div>
-            </div>
-            <div class="mt-4 flex justify-end">
-              <button 
-                type="button" 
-                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                on:click={agregarFormaPago}
-              >
-                Agregar
-              </button>
-            </div>
+        
+        {#if !clienteSeleccionado}
+          <div class="h-20 flex items-center justify-center bg-gray-100 rounded">
+            <span class="text-gray-500">No hay documentos de deuda para este cliente</span>
+          </div>
+        {:else if loadingDocumentosDeuda}
+          <div class="h-20 flex items-center justify-center bg-gray-100 rounded">
+            <span class="text-gray-500">Cargando documentos de deuda...</span>
+          </div>
+        {:else if errorDocumentosDeuda}
+          <div class="h-20 flex items-center justify-center bg-red-100 rounded">
+            <span class="text-red-500">{errorDocumentosDeuda}</span>
+          </div>
+        {:else if !documentosDeuda || documentosDeuda.length === 0}
+          <div class="h-20 flex items-center justify-center bg-gray-100 rounded">
+            <span class="text-gray-500">No hay documentos de deuda para este cliente</span>
+          </div>
+        {:else}
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Documento</th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe Total</th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe a Pagar</th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                {#each documentosDeuda as doc}
+                  <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {doc.DocumentoTipo}-{doc.DocumentoSucursal}-{doc.DocumentoNumero}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(doc.Fecha)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      ${doc.ImporteTotal ? doc.ImporteTotal.toFixed(2) : '0.00'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
+                      ${doc.ImporteTotal ? doc.ImporteTotal.toFixed(2) : '0.00'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <button 
+                        type="button" 
+                        class={`px-3 py-1 rounded-md ${isDocumentoSeleccionado(doc) ? 'bg-blue-600 text-white' : 'text-blue-600 hover:bg-blue-50'}`}
+                        on:click={() => seleccionarDocumento(doc)}
+                      >
+                        {isDocumentoSeleccionado(doc) ? 'Quitar' : 'Seleccionar'}
+                      </button>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+              <tfoot class="bg-gray-50">
+                <tr>
+                  <td colspan="3" class="px-6 py-4 text-right text-sm font-medium text-gray-900">Total a Pagar:</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">${importeTotalPagar.toFixed(2)}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         {/if}
-
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-              </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-              {#each formasPago as formaPago, index}
-                <tr>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formaPago.codigo}
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formaPago.descripcion}
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    ${formaPago.total.toFixed(2)}
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <button 
-                      type="button" 
-                      class="text-red-600 hover:text-red-800"
-                      on:click={() => eliminarFormaPago(index)}
-                    >
-                      Eliminar
-                    </button>
-                  </td>
-                </tr>
-              {/each}
-            </tbody>
-            <tfoot class="bg-gray-50">
-              <tr>
-                <td colspan="2" class="px-6 py-4 text-right text-sm font-medium text-gray-900">Total Formas de Pago:</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">${importeTotalFormasPago.toFixed(2)}</td>
-                <td></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
       </div>
+
+      <!-- Formas de Pago -->
+
+        <FormasPago 
+          bind:formasPago
+          bind:importeTotalFormasPago
+          bind:saldoPendiente
+          on:change={({ detail }) => {
+            formasPago = detail.formasPago;
+            importeTotalFormasPago = detail.importeTotalFormasPago;
+            saldoPendiente = detail.saldoPendiente;
+          }}
+        />
 
       <!-- Documentos de Crédito -->
       <div class="mt-6 border-t pt-6">
