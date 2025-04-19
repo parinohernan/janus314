@@ -7,11 +7,14 @@
   import { formatDate } from '$lib/utils/dateUtils';
   import { EmpresaService } from '$lib/services/EmpresaService';
   import FormasPago from '$lib/components/recibos/FormasPago.svelte';
+  import { goto } from '$app/navigation';
 
   // Estado del formulario
   let loading = false;
   let error: string | null = null;
   let success = false;
+  let successMessage = '';
+  let showCancelConfirm = false;
 
   // Estado de clientes
   let loadingClientes = false;
@@ -27,6 +30,8 @@
   let errorDocumentosDeuda: string | null = null;
   let documentosSeleccionados: any[] = [];
   let importeTotalPagar = 0;
+  let importesEditados: Record<string, number> = {};
+  let erroresImportes: Record<string, boolean> = {};
 
   // Función para verificar si un documento está seleccionado
   $: documentosSeleccionadosMap = new Map(
@@ -37,27 +42,82 @@
   );
 
   function isDocumentoSeleccionado(doc: any) {
-    const key = `${doc.DocumentoTipo}-${doc.DocumentoSucursal}-${doc.DocumentoNumero}`;
+    const key = getDocumentoKey(doc);
     return documentosSeleccionadosMap.has(key);
+  }
+
+  // Función para obtener la clave única de un documento
+  function getDocumentoKey(doc: any) {
+    return `${doc.DocumentoTipo}-${doc.DocumentoSucursal}-${doc.DocumentoNumero}`;
+  }
+
+  // Función para obtener el importe a pagar de un documento
+  function getImportePagar(doc: any) {
+    const key = getDocumentoKey(doc);
+    return importesEditados[key] !== undefined ? importesEditados[key] : doc.ImporteTotal;
+  }
+
+  // Función para verificar si hay error en el importe a pagar
+  function hayErrorImportePagar(doc: any) {
+    const key = getDocumentoKey(doc);
+    return erroresImportes[key] === true;
+  }
+
+  // Función para actualizar el importe a pagar
+  function updateImportePagar(doc: any, nuevoImporte: number) {
+    const key = getDocumentoKey(doc);
+    
+    // Validar que el importe no sea mayor al total
+    if (nuevoImporte > doc.ImporteTotal) {
+      erroresImportes[key] = true;
+      nuevoImporte = doc.ImporteTotal;
+    } else {
+      erroresImportes[key] = false;
+    }
+    
+    importesEditados[key] = nuevoImporte;
+    
+    // Recalcular el total a pagar
+    importeTotalPagar = documentosSeleccionados.reduce((total, doc) => {
+      const key = getDocumentoKey(doc);
+      return total + (importesEditados[key] !== undefined ? importesEditados[key] : doc.ImporteTotal);
+    }, 0);
+    
+    // Actualizar saldo pendiente
+    saldoPendiente = importeTotalPagar - importeTotalCredito - importeTotalFormasPago;
   }
 
   // Seleccionar un documento de deuda
   function seleccionarDocumento(doc: any) {
-    const key = `${doc.DocumentoTipo}-${doc.DocumentoSucursal}-${doc.DocumentoNumero}`;
+    const key = getDocumentoKey(doc);
     const index = documentosSeleccionados.findIndex(
-      d => `${d.DocumentoTipo}-${d.DocumentoSucursal}-${d.DocumentoNumero}` === key
+      d => getDocumentoKey(d) === key
     );
     
     if (index === -1) {
       // Agregar documento a la selección
       documentosSeleccionados = [...documentosSeleccionados, doc];
+      
+      // Inicializar el importe editado con el importe total
+      importesEditados[key] = doc.ImporteTotal;
+      erroresImportes[key] = false;
     } else {
       // Remover documento de la selección
       documentosSeleccionados = documentosSeleccionados.filter((_, i) => i !== index);
+      
+      // Eliminar el importe editado
+      delete importesEditados[key];
+      delete erroresImportes[key];
     }
     
     // Calcular importe total a pagar
-    importeTotalPagar = documentosSeleccionados.reduce((total, doc) => total + (doc.ImporteTotal || 0), 0);
+    importeTotalPagar = documentosSeleccionados.reduce((total, doc) => {
+      const key = getDocumentoKey(doc);
+      return total + (importesEditados[key] !== undefined ? importesEditados[key] : doc.ImporteTotal);
+    }, 0);
+    
+    // Actualizar saldo pendiente
+    saldoPendiente = importeTotalPagar - importeTotalCredito - importeTotalFormasPago;
   }
 
   // Estado de formas de pago
@@ -71,6 +131,8 @@
   let errorDocumentosCredito: string | null = null;
   let documentosCreditoSeleccionados: any[] = [];
   let importeTotalCredito = 0;
+  let importesCreditoEditados: Record<string, number> = {};
+  let erroresImportesCredito: Record<string, boolean> = {};
 
   // Función para verificar si un documento de crédito está seleccionado
   $: documentosCreditoSeleccionadosMap = new Map(
@@ -79,6 +141,37 @@
 
   function isDocumentoCreditoSeleccionado(doc: any) {
     return documentosCreditoSeleccionadosMap.has(doc.documento);
+  }
+
+  // Función para obtener el importe a usar de un documento de crédito
+  function getImporteCreditoUsar(doc: any) {
+    return importesCreditoEditados[doc.documento] !== undefined ? importesCreditoEditados[doc.documento] : doc.saldo;
+  }
+
+  // Función para verificar si hay error en el importe a usar de crédito
+  function hayErrorImporteCreditoUsar(doc: any) {
+    return erroresImportesCredito[doc.documento] === true;
+  }
+
+  // Función para actualizar el importe a usar de un documento de crédito
+  function updateImporteCreditoUsar(doc: any, nuevoImporte: number) {
+    // Validar que el importe no sea mayor al saldo
+    if (nuevoImporte > doc.saldo) {
+      erroresImportesCredito[doc.documento] = true;
+      nuevoImporte = doc.saldo;
+    } else {
+      erroresImportesCredito[doc.documento] = false;
+    }
+    
+    importesCreditoEditados[doc.documento] = nuevoImporte;
+    
+    // Recalcular el total de crédito
+    importeTotalCredito = documentosCreditoSeleccionados.reduce((total, doc) => {
+      return total + (importesCreditoEditados[doc.documento] !== undefined ? importesCreditoEditados[doc.documento] : doc.saldo);
+    }, 0);
+    
+    // Actualizar saldo pendiente
+    saldoPendiente = importeTotalPagar - importeTotalCredito - importeTotalFormasPago;
   }
 
   // Seleccionar documento de crédito
@@ -90,13 +183,26 @@
     if (index === -1) {
       // Agregar documento a la selección
       documentosCreditoSeleccionados = [...documentosCreditoSeleccionados, doc];
+      
+      // Inicializar el importe editado con el saldo
+      importesCreditoEditados[doc.documento] = doc.saldo;
+      erroresImportesCredito[doc.documento] = false;
     } else {
       // Remover documento de la selección
       documentosCreditoSeleccionados = documentosCreditoSeleccionados.filter((_, i) => i !== index);
+      
+      // Eliminar el importe editado
+      delete importesCreditoEditados[doc.documento];
+      delete erroresImportesCredito[doc.documento];
     }
     
     // Calcular importe total de crédito
-    importeTotalCredito = documentosCreditoSeleccionados.reduce((total, doc) => total + doc.saldo, 0);
+    importeTotalCredito = documentosCreditoSeleccionados.reduce((total, doc) => {
+      return total + (importesCreditoEditados[doc.documento] !== undefined ? importesCreditoEditados[doc.documento] : doc.saldo);
+    }, 0);
+    
+    // Actualizar saldo pendiente
+    saldoPendiente = importeTotalPagar - importeTotalCredito - importeTotalFormasPago;
   }
 
   // Cargar documentos de crédito de un cliente
@@ -279,6 +385,110 @@
 
   // Calcular totales
   $: importeTotalRecibo = importeTotalPagar - importeTotalCredito;
+  $: saldoPendiente = importeTotalPagar - importeTotalCredito - importeTotalFormasPago;
+
+  // Función para cancelar
+  function handleCancel() {
+    showCancelConfirm = true;
+  }
+
+  // Función para confirmar cancelación
+  function confirmCancel() {
+    showCancelConfirm = false;
+    goto('/ventas/recibos');
+  }
+
+  // Función para grabar recibo
+  async function handleGrabar() {
+    if (!clienteSeleccionado) {
+      error = 'Debe seleccionar un cliente';
+      return;
+    }
+
+    if (documentosSeleccionados.length === 0) {
+      error = 'Debe seleccionar al menos un documento de deuda';
+      return;
+    }
+
+    if (formasPago.length === 0) {
+      error = 'Debe agregar al menos una forma de pago';
+      return;
+    }
+
+    // Verificar si hay errores en los importes
+    const hayErroresImportes = Object.values(erroresImportes).some(valor => valor === true);
+    const hayErroresImportesCredito = Object.values(erroresImportesCredito).some(valor => valor === true);
+    
+    if (hayErroresImportes || hayErroresImportesCredito) {
+      error = 'Hay importes que exceden los límites permitidos';
+      return;
+    }
+
+    if (saldoPendiente > 0) {
+      error = 'El saldo pendiente debe ser cero';
+      return;
+    }
+
+    loading = true;
+    error = null;
+
+    try {
+      // Preparar datos del recibo
+      const reciboData = {
+        ...recibo,
+        CodigoCliente: clienteSeleccionado.Codigo,
+        DocumentosDeuda: documentosSeleccionados.map(doc => {
+          const key = getDocumentoKey(doc);
+          return {
+            DocumentoTipo: doc.DocumentoTipo,
+            DocumentoSucursal: doc.DocumentoSucursal,
+            DocumentoNumero: doc.DocumentoNumero,
+            Importe: importesEditados[key] !== undefined ? importesEditados[key] : doc.ImporteTotal
+          };
+        }),
+        DocumentosCredito: documentosCreditoSeleccionados.map(doc => ({
+          Documento: doc.documento,
+          Importe: importesCreditoEditados[doc.documento] !== undefined ? importesCreditoEditados[doc.documento] : doc.saldo
+        })),
+        FormasPago: formasPago.map(fp => ({
+          Codigo: fp.codigo,
+          Descripcion: fp.descripcion,
+          Banco: fp.banco,
+          Numero: fp.numero,
+          Fecha: fp.fecha,
+          Importe: fp.importe
+        }))
+      };
+      console.log('reciboData', reciboData);
+      // Enviar datos al servidor
+      const response = await fetch(`${PUBLIC_API_URL}/recibos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(reciboData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al grabar el recibo');
+      }
+
+      // Mostrar mensaje de éxito
+      success = true;
+      successMessage = 'Recibo grabado correctamente';
+      
+      // Redirigir después de 2 segundos
+      setTimeout(() => {
+        goto('/ventas/recibos');
+      }, 2000);
+    } catch (err) {
+      console.error('Error al grabar recibo:', err);
+      error = err instanceof Error ? err.message : 'Error desconocido al grabar el recibo';
+    } finally {
+      loading = false;
+    }
+  }
 </script>
 
 <div class="container mx-auto px-4 py-8">
@@ -413,7 +623,7 @@
       <!-- Documentos de Deuda -->
       <div class="mt-6 border-t pt-6">
         <div class="flex justify-between items-center mb-2">
-          <h3 class="text-lg font-medium text-gray-900">1. Documentos de Deuda</h3>
+          <h3 class="text-lg font-medium text-gray-900">Documentos de Deuda</h3>
           {#if clienteSeleccionado}
             <button 
               type="button" 
@@ -467,7 +677,26 @@
                       ${doc.ImporteTotal ? doc.ImporteTotal.toFixed(2) : '0.00'}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
-                      ${doc.ImporteTotal ? doc.ImporteTotal.toFixed(2) : '0.00'}
+                      {#if isDocumentoSeleccionado(doc)}
+                        <div class="relative">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max={doc.ImporteTotal}
+                            class={`w-24 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm ${hayErrorImportePagar(doc) ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                            value={getImportePagar(doc).toFixed(2)}
+                            on:input={(e) => updateImportePagar(doc, parseFloat((e.target as HTMLInputElement).value) || 0)}
+                          />
+                          {#if hayErrorImportePagar(doc)}
+                            <div class="absolute z-10 mt-1 w-48 bg-red-100 border border-red-400 text-red-700 px-2 py-1 rounded text-xs">
+                              El importe no puede exceder ${doc.ImporteTotal.toFixed(2)}
+                            </div>
+                          {/if}
+                        </div>
+                      {:else}
+                        ${doc.ImporteTotal ? doc.ImporteTotal.toFixed(2) : '0.00'}
+                      {/if}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <button 
@@ -493,34 +722,27 @@
         {/if}
       </div>
 
-      <!-- Formas de Pago -->
-
-        <FormasPago 
-          bind:formasPago
-          bind:importeTotalFormasPago
-          bind:saldoPendiente
-          on:change={({ detail }) => {
-            formasPago = detail.formasPago;
-            importeTotalFormasPago = detail.importeTotalFormasPago;
-            saldoPendiente = detail.saldoPendiente;
-          }}
-        />
-
       <!-- Documentos de Crédito -->
       <div class="mt-6 border-t pt-6">
         <div class="flex justify-between items-center mb-2">
-          <h3 class="text-lg font-medium text-gray-900">3. Documentos de Crédito</h3>
-          <button 
-            type="button" 
-            class="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            on:click={() => cargarDocumentosCredito(clienteSeleccionado.Codigo)}
-            disabled={loadingDocumentosCredito}
-          >
-            {loadingDocumentosCredito ? 'Cargando...' : 'Recargar Documentos'}
-          </button>
+          <h3 class="text-lg font-medium text-gray-900">Documentos de Crédito</h3>
+          {#if clienteSeleccionado}
+            <button 
+              type="button" 
+              class="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              on:click={() => cargarDocumentosCredito(clienteSeleccionado.Codigo)}
+              disabled={loadingDocumentosCredito}
+            >
+              {loadingDocumentosCredito ? 'Cargando...' : 'Recargar Documentos'}
+            </button>
+          {/if}
         </div>
         
-        {#if loadingDocumentosCredito}
+        {#if !clienteSeleccionado}
+          <div class="h-20 flex items-center justify-center bg-gray-100 rounded">
+            <span class="text-gray-500">No hay documentos de crédito para este cliente</span>
+          </div>
+        {:else if loadingDocumentosCredito}
           <div class="h-20 flex items-center justify-center bg-gray-100 rounded">
             <span class="text-gray-500">Cargando documentos de crédito...</span>
           </div>
@@ -540,8 +762,8 @@
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Documento</th>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe Utilizado</th>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Saldo</th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe a Usar</th>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                 </tr>
               </thead>
@@ -558,10 +780,29 @@
                       ${doc.total.toFixed(2)}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      ${doc.importeUtilizado.toFixed(2)}
+                      ${doc.saldo.toFixed(2)}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                      ${doc.saldo.toFixed(2)}
+                      {#if isDocumentoCreditoSeleccionado(doc)}
+                        <div class="relative">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max={doc.saldo}
+                            class={`w-24 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm ${hayErrorImporteCreditoUsar(doc) ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                            value={getImporteCreditoUsar(doc).toFixed(2)}
+                            on:input={(e) => updateImporteCreditoUsar(doc, parseFloat((e.target as HTMLInputElement).value) || 0)}
+                          />
+                          {#if hayErrorImporteCreditoUsar(doc)}
+                            <div class="absolute z-10 mt-1 w-48 bg-red-100 border border-red-400 text-red-700 px-2 py-1 rounded text-xs">
+                              El importe no puede exceder ${doc.saldo.toFixed(2)}
+                            </div>
+                          {/if}
+                        </div>
+                      {:else}
+                        ${doc.saldo.toFixed(2)}
+                      {/if}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <button 
@@ -586,6 +827,24 @@
           </div>
         {/if}
       </div>
+
+      <!-- Formas de Pago -->
+      <!-- <div class="mt-6 border-t pt-6">
+        <div class="flex justify-between items-center mb-2">
+          <h3 class="text-lg font-medium text-gray-900">3. Formas de Pago</h3>
+        </div> -->
+
+        <FormasPago 
+          bind:formasPago
+          bind:importeTotalFormasPago
+          bind:saldoPendiente
+          on:change={({ detail }) => {
+            formasPago = detail.formasPago;
+            importeTotalFormasPago = detail.importeTotalFormasPago;
+            saldoPendiente = detail.saldoPendiente;
+          }}
+        />
+      <!-- </div> -->
 
       <!-- Resumen de Totales -->
       <div class="mt-6 border-t pt-6">
@@ -618,7 +877,7 @@
         </div>
       </div>
 
-      <!-- Observaciones -->
+      <!-- Observaciones
       <div class="mt-6">
         <label for="observaciones" class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
         <textarea 
@@ -628,17 +887,50 @@
           value={recibo.Observaciones}
           on:input={(e: Event) => recibo.Observaciones = (e.target as HTMLTextAreaElement).value}
         ></textarea>
-      </div>
+      </div> -->
 
       <!-- Botones de acción -->
       <div class="mt-6 flex justify-end gap-3">
-        <Button variant="secondary" href="/ventas/recibos">
+        <Button variant="secondary" on:click={handleCancel} disabled={loading}>
           Cancelar
         </Button>
-        <Button variant="primary">
-          Continuar
+        <Button variant="primary" on:click={handleGrabar} disabled={loading}>
+          {loading ? 'Grabando...' : 'Grabar'}
         </Button>
       </div>
+
+      <!-- Modal de confirmación de cancelación -->
+      {#if showCancelConfirm}
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+          <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">¿Está seguro que desea cancelar?</h3>
+            <p class="text-sm text-gray-500 mb-6">Se perderán todos los datos ingresados.</p>
+            <div class="flex justify-end gap-3">
+              <Button variant="secondary" on:click={() => showCancelConfirm = false}>
+                No, continuar editando
+              </Button>
+              <Button variant="primary" on:click={confirmCancel}>
+                Sí, cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      {/if}
+
+      <!-- Mensaje de éxito -->
+      {#if success}
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+          <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full text-center">
+            <div class="text-green-500 mb-4">
+              <svg class="h-12 w-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">{successMessage}</h3>
+            <p class="text-sm text-gray-500">Redirigiendo a la lista de recibos...</p>
+          </div>
+        </div>
+      {/if}
     </div>
   </div>
 </div> 
