@@ -293,7 +293,7 @@
     
     // Cargar documentos de deuda del cliente
     if (cliente.Codigo) {
-      console.log('Llamando a cargarDocumentosDeuda con código:', cliente.Codigo);
+
       cargarDocumentosDeuda(cliente.Codigo);
       
       // Cargar documentos de crédito del cliente
@@ -313,7 +313,7 @@
     errorDocumentosDeuda = null;
     
     try {
-      console.log('Cargando documentos de deuda para cliente:', codigoCliente);
+      
       const response = await fetch(`${PUBLIC_API_URL}/recibos/docdeuda/${codigoCliente}`);
       
       if (!response.ok) {
@@ -321,32 +321,25 @@
       }
       
       const data = await response.json();
-      console.log('Respuesta de documentos de deuda:', data);
       
       if (data.success && Array.isArray(data.data)) {
         documentosDeuda = data.data;
-        console.log('Documentos de deuda cargados:', documentosDeuda.length);
         
         // Verificar cada documento para asegurarse de que tenga las propiedades necesarias
         documentosDeuda.forEach((doc, index) => {
-          console.log(`Documento ${index}:`, doc);
           if (!doc.ImporteTotal) {
-            console.warn(`Documento ${index} no tiene ImporteTotal:`, doc);
             doc.ImporteTotal = 0; // Asignar un valor por defecto
           }
         });
       } else {
-        console.error('Formato de respuesta incorrecto:', data);
         documentosDeuda = [];
         errorDocumentosDeuda = 'Formato de respuesta incorrecto';
       }
     } catch (err) {
-      console.error('Error cargando documentos de deuda:', err);
       errorDocumentosDeuda = err instanceof Error ? err.message : 'Error desconocido';
       documentosDeuda = [];
     } finally {
       loadingDocumentosDeuda = false;
-      console.log('Estado final de documentosDeuda:', documentosDeuda);
     }
   }
 
@@ -664,6 +657,7 @@
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Documento</th>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe Total</th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe Pagado</th>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe a Pagar</th>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                 </tr>
@@ -679,6 +673,9 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       ${doc.ImporteTotal ? doc.ImporteTotal.toFixed(2) : '0.00'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      ${(doc.ImportePagado || 0).toFixed(2)}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
                       {#if isDocumentoSeleccionado(doc)}
@@ -766,6 +763,7 @@
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Documento</th>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe Utilizado</th>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Saldo</th>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe a Usar</th>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
@@ -782,6 +780,9 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       ${doc.total.toFixed(2)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      ${(doc.total - doc.saldo).toFixed(2)}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       ${doc.saldo.toFixed(2)}
