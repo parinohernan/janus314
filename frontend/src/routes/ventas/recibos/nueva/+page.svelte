@@ -54,7 +54,7 @@
   // Función para obtener el importe a pagar de un documento
   function getImportePagar(doc: any) {
     const key = getDocumentoKey(doc);
-    return importesEditados[key] !== undefined ? importesEditados[key] : doc.ImporteTotal;
+    return importesEditados[key] !== undefined ? importesEditados[key] : (doc.ImporteTotal - (doc.ImportePagado || 0));
   }
 
   // Función para verificar si hay error en el importe a pagar
@@ -66,11 +66,12 @@
   // Función para actualizar el importe a pagar
   function updateImportePagar(doc: any, nuevoImporte: number) {
     const key = getDocumentoKey(doc);
+    let saldoPendiente = doc.ImporteTotal - (doc.ImportePagado || 0);
     
-    // Validar que el importe no sea mayor al total
-    if (nuevoImporte > doc.ImporteTotal) {
+    // Validar que el importe no sea mayor al saldo pendiente
+    if (nuevoImporte > saldoPendiente) {
       erroresImportes[key] = true;
-      nuevoImporte = doc.ImporteTotal;
+      nuevoImporte = saldoPendiente;
     } else {
       erroresImportes[key] = false;
     }
@@ -80,7 +81,7 @@
     // Recalcular el total a pagar
     importeTotalPagar = documentosSeleccionados.reduce((total, doc) => {
       const key = getDocumentoKey(doc);
-      return total + (importesEditados[key] !== undefined ? importesEditados[key] : doc.ImporteTotal);
+      return total + (importesEditados[key] !== undefined ? importesEditados[key] : (doc.ImporteTotal - (doc.ImportePagado || 0)));
     }, 0);
     
     // Actualizar saldo pendiente
@@ -98,8 +99,8 @@
       // Agregar documento a la selección
       documentosSeleccionados = [...documentosSeleccionados, doc];
       
-      // Inicializar el importe editado con el importe total
-      importesEditados[key] = doc.ImporteTotal;
+      // Inicializar el importe editado con el saldo pendiente
+      importesEditados[key] = doc.ImporteTotal - (doc.ImportePagado || 0);
       erroresImportes[key] = false;
     } else {
       // Remover documento de la selección
@@ -113,7 +114,7 @@
     // Calcular importe total a pagar
     importeTotalPagar = documentosSeleccionados.reduce((total, doc) => {
       const key = getDocumentoKey(doc);
-      return total + (importesEditados[key] !== undefined ? importesEditados[key] : doc.ImporteTotal);
+      return total + (importesEditados[key] !== undefined ? importesEditados[key] : (doc.ImporteTotal - (doc.ImportePagado || 0)));
     }, 0);
     
     // Actualizar saldo pendiente
@@ -434,15 +435,17 @@
 
     try {
       // Preparar datos del recibo
+      //recibo.DocumentoNumero = recibo.DocumentoNumero.toString().padStart(8, '0');
       const reciboData = {
         ...recibo,
+        DocumentoNumero : recibo.DocumentoNumero.toString().padStart(8, '0'),
         CodigoCliente: clienteSeleccionado.Codigo,
         DocumentosDeuda: documentosSeleccionados.map(doc => {
           const key = getDocumentoKey(doc);
           return {
             DocumentoTipo: doc.DocumentoTipo,
             DocumentoSucursal: doc.DocumentoSucursal,
-            DocumentoNumero: doc.DocumentoNumero,
+            DocumentoNumero: doc.DocumentoNumero.toString().padStart(8, '0'),
             Importe: importesEditados[key] !== undefined ? importesEditados[key] : doc.ImporteTotal
           };
         }),
@@ -457,7 +460,8 @@
           Numero: fp.numero,
           Fecha: fp.fecha,
           Importe: fp.importe
-        }))
+        })),
+        ImporteTotal: importeTotalPagar
       };
       console.log('reciboData', reciboData);
       // Enviar datos al servidor
@@ -683,19 +687,19 @@
                             type="number"
                             step="0.01"
                             min="0"
-                            max={doc.ImporteTotal}
+                            max={doc.ImporteTotal - (doc.ImportePagado || 0)}
                             class={`w-24 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm ${hayErrorImportePagar(doc) ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
                             value={getImportePagar(doc).toFixed(2)}
                             on:input={(e) => updateImportePagar(doc, parseFloat((e.target as HTMLInputElement).value) || 0)}
                           />
                           {#if hayErrorImportePagar(doc)}
                             <div class="absolute z-10 mt-1 w-48 bg-red-100 border border-red-400 text-red-700 px-2 py-1 rounded text-xs">
-                              El importe no puede exceder ${doc.ImporteTotal.toFixed(2)}
+                              El importe no puede exceder ${(doc.ImporteTotal - (doc.ImportePagado || 0)).toFixed(2)}
                             </div>
                           {/if}
                         </div>
                       {:else}
-                        ${doc.ImporteTotal ? doc.ImporteTotal.toFixed(2) : '0.00'}
+                        ${(doc.ImporteTotal - (doc.ImportePagado || 0)).toFixed(2)}
                       {/if}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
