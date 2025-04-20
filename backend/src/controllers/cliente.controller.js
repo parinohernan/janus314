@@ -321,25 +321,29 @@ exports.getCuentasCorrientes = async (req, res) => {
       attributes: [
         "Codigo",
         "Descripcion",
-        [sequelize.literal('COALESCE(ImporteDeuda, 0)'), 'Saldo']
+        [sequelize.literal('COALESCE(ImporteDeuda, 0) - COALESCE(SaldoNTCNoAplicado, 0)'), 'Saldo']
       ],
     });
 
-    const count = await Cliente.count({ where: whereClause });
-    const totalPages = Math.ceil(count / limit);
+    // Obtener el total de registros para la paginación
+    const total = await Cliente.count({ where: whereClause });
 
     return res.status(200).json({
       items: clientes,
       meta: {
-        totalItems: count,
+        totalItems: total,
         itemsPerPage: parseInt(limit),
         currentPage: parseInt(page),
-        totalPages: totalPages,
+        totalPages: Math.ceil(total / limit),
       },
     });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Error al obtener las cuentas corrientes" });
+    console.error("Error al obtener cuentas corrientes:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error al obtener las cuentas corrientes",
+      error: error.message,
+    });
   }
 };
 
