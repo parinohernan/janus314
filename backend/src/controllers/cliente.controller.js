@@ -401,14 +401,14 @@ exports.getComprobantesCliente = async (req, res) => {
     const notasCreditoFormateadas = notasCredito.map(nota => ('CO' !== 'CC' ? {//asumo que todass son CC ya que todavia no existe el tipo de pago en las notas de credito
       Fecha: nota.Fecha,
       Detalle: `${nota.DocumentoTipo} - ${nota.DocumentoSucursal} - ${nota.DocumentoNumero}`,
-      Debitos: 0,
+      Debitos: nota.ImporteUtilizado,
       Creditos: nota.ImporteTotal,
-      Saldo: -1 * nota.ImporteTotal
+      Saldo: -1 * nota.ImporteTotal + nota.ImporteUtilizado
     } : {
       Fecha: nota.Fecha,
       Detalle: `${nota.DocumentoTipo} - ${nota.DocumentoSucursal} - ${nota.DocumentoNumero}`,
-      Debitos: nota.ImporteTotal,
-      Creditos: nota.ImporteTotal,
+      Debitos: nota.ImporteUtilizado,
+      Creditos: nota.ImporteTotal + nota.ImporteUtilizado,
       Saldo: 0
     }));
 
@@ -435,7 +435,7 @@ exports.getComprobantesCliente = async (req, res) => {
     }));
     // obtener los recibos
     const recibos = await Recibo.findAll({
-      where: { ClienteCodigo: id },
+      where: { ClienteCodigo: id ,FechaAnulacion: null},
       attributes: [
         'Fecha',
         'DocumentoTipo',

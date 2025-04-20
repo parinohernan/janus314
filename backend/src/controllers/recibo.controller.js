@@ -628,6 +628,137 @@ exports.anularRecibo = async (req, res) => {
       return res.status(400).json({ message: 'El recibo ya está anulado' });
     }
     
+    // Obtener los valores (formas de pago) del recibo
+    const valores = await ReciboValor.findAll({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero
+      },
+      transaction
+    });
+    
+    // Obtener los documentos de crédito utilizados
+    const documentosCredito = await ReciboValor.findAll({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero,
+        ValorCodigo: {
+          [Op.in]: ['NCF', 'NCA', 'NCB', 'NCC'] // Filtrar todos los tipos de notas de crédito
+        }
+      },
+      transaction
+    });
+    
+    // Obtener los documentos de deuda asociados al recibo
+    const documentosDeuda = await ReciboItem.findAll({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero
+      },
+      transaction
+    });
+    
+    // Obtener el cliente
+    const cliente = await Cliente.findByPk(recibo.ClienteCodigo, { transaction });
+    
+    if (!cliente) {
+      throw new Error(`Cliente no encontrado: ${recibo.ClienteCodigo}`);
+    }
+    
+    // 1. Actualizar el importe de deuda del cliente (sumar el total de valores)
+    const totalValores = valores.reduce((total, valor) => total + valor.ValorImporte, 0);
+    
+    await cliente.update(
+      { 
+        ImporteDeuda: (cliente.ImporteDeuda || 0) + totalValores 
+      },
+      { transaction }
+    );
+    
+    // 2. Actualizar los documentos de deuda (restar el importe pagado)
+    for (const doc of documentosDeuda) {
+      // Determinar el tipo de documento de deuda
+      if (doc.FacturaTipo === 'PRF' || doc.FacturaTipo === 'FCA' || doc.FacturaTipo === 'FCB' || doc.FacturaTipo === 'FCC') {
+        // Es una factura
+        const factura = await FacturaCabeza.findOne({
+          where: {
+            DocumentoTipo: doc.FacturaTipo,
+            DocumentoSucursal: doc.FacturaSucursal,
+            DocumentoNumero: doc.FacturaNumero
+          },
+          transaction
+        });
+        
+        if (factura) {
+          await factura.update(
+            { 
+              ImportePagado: (factura.ImportePagado || 0) - doc.ImportePagado 
+            },
+            { transaction }
+          );
+        }
+      } else if (doc.FacturaTipo === 'NDF' || doc.FacturaTipo === 'NDA' || doc.FacturaTipo === 'NDC' || doc.FacturaTipo === 'NDB') {
+        // Es una nota de débito
+        const notaDebito = await NotaDebitoCabeza.findOne({
+          where: {
+            DocumentoTipo: doc.FacturaTipo,
+            DocumentoSucursal: doc.FacturaSucursal,
+            DocumentoNumero: doc.FacturaNumero
+          },
+          transaction
+        });
+        
+        if (notaDebito) {
+          await notaDebito.update(
+            { 
+              ImportePagado: (notaDebito.ImportePagado || 0) - doc.ImportePagado 
+            },
+            { transaction }
+          );
+        }
+      }
+    }
+    
+    // 3. Actualizar el importe utilizado de las notas de crédito y el saldo no aplicado
+    if (documentosCredito.length > 0) {
+      // Calcular el total de notas de crédito
+      const totalNotasCredito = documentosCredito.reduce((total, doc) => total + doc.ValorImporte, 0);
+      
+      // Actualizar el saldo no aplicado del cliente
+      await cliente.update(
+        { 
+          SaldoNTCNoAplicado: (cliente.SaldoNTCNoAplicado || 0) + totalNotasCredito 
+        },
+        { transaction }
+      );
+      
+      // Actualizar cada nota de crédito
+      for (const doc of documentosCredito) {
+        const notaCredito = await NotaCreditoCabeza.findOne({
+          where: {
+            DocumentoTipo: doc.ValorCodigo,
+            DocumentoSucursal: doc.ValorSucursal,
+            DocumentoNumero: doc.ValorNumero
+          },
+          transaction
+        });
+        
+        if (notaCredito) {
+          // Restar el importe utilizado
+          await notaCredito.update(
+            { 
+              ImporteUtilizado: (notaCredito.ImporteUtilizado || 0) - doc.ValorImporte 
+            },
+            { transaction }
+          );
+        }
+      }
+    }
+    
+    // 4. Marcar el recibo como anulado
     await recibo.update({
       FechaAnulacion: new Date()
     }, { transaction });
