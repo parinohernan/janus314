@@ -404,11 +404,6 @@
       return;
     }
 
-    if (formasPago.length === 0) {
-      error = 'Debe agregar al menos una forma de pago';
-      return;
-    }
-
     // Verificar si hay errores en los importes
     const hayErroresImportes = Object.values(erroresImportes).some(valor => valor === true);
     const hayErroresImportesCredito = Object.values(erroresImportesCredito).some(valor => valor === true);

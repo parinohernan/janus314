@@ -203,6 +203,35 @@ exports.crearNotaCredito = async (req, res) => {
       });
     }
 
+    // Si el pago es en cuenta corriente (CC), actualizar el importe de deuda del cliente
+    if (notaCreditoData.FormaPagoCodigo === 'CC') {
+      console.log("Actualizando deuda del cliente", notaCreditoData);
+      try {
+        // Obtener el cliente
+        const cliente = await Cliente.findByPk(notaCreditoData.CodigoCliente, { transaction: t });
+        
+        if (!cliente) {
+          throw new Error(`Cliente no encontrado: ${notaCreditoData.CodigoCliente}`);
+        }
+        
+        // Actualizar la deuda del cliente (restar el importe de la nota de crédito)
+        await cliente.update(
+          { 
+            ImporteDeuda: (cliente.ImporteDeuda || 0) - notaCreditoData.ImporteTotal 
+          },
+          { transaction: t }
+        );
+      } catch (errorCliente) {
+        // Si hay error en la actualización del cliente, hacemos rollback
+        await t.rollback();
+        return res.status(500).json({
+          success: false,
+          message: "Error al actualizar la deuda del cliente",
+          error: errorCliente.message,
+        });
+      }
+    }
+
     await t.commit();
 
     res.status(201).json({

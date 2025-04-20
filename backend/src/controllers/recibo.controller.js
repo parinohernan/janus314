@@ -98,7 +98,7 @@ exports.getAllRecibos = async (req, res) => {
 exports.getReciboById = async (req, res) => {
   try {
     const { tipo, sucursal, numero } = req.params;
-    console.log("tipo, sucursal, numero", tipo, sucursal, numero);
+    console.log("___________tipo, sucursal, numero", tipo, sucursal, numero);
     
     // Obtener encabezado
     const recibo = await ReciboCabeza.findOne({
@@ -148,11 +148,12 @@ exports.getReciboById = async (req, res) => {
       }
     });
     // obtener los documentos de credito
-    const documentosCredito = await ReciboCredito.findAll({
+    const documentosCredito = await ReciboValor.findAll({
       where: {
         DocumentoTipo: tipo,
         DocumentoSucursal: sucursal,
-        DocumentoNumero: numero
+        DocumentoNumero: numero,
+        ValorCodigo: 'NCF' // Filtrar solo los valores que son notas de crédito
       }
     });
 
@@ -175,6 +176,7 @@ exports.getReciboById = async (req, res) => {
 exports.createRecibo = async (req, res) => {
   const t = await sequelize.transaction();
   
+  console.log("___________req.body", req.body);
   try {
     const {
       DocumentoTipo,
@@ -197,13 +199,23 @@ exports.createRecibo = async (req, res) => {
       });
     }
 
-    // 1. Actualizar documentos de deuda (facturas o notas de débito)
-    await actualizarDocumentosDeuda(DocumentosDeuda, t);
+    // Mapear los documentos de deuda para evitar conflictos de nombres
+    const documentosDeudaMapeados = DocumentosDeuda.map(doc => ({
+      DocDeudaDocumentoTipo: doc.DocumentoTipo,
+      DocDeudaDocumentoSucursal: doc.DocumentoSucursal,
+      DocDeudaDocumentoNumero: doc.DocumentoNumero,
+      DocDeudaImporte: doc.Importe
+    }));
 
-    // 2. Actualizar documentos de crédito
-    await actualizarDocumentosCredito(DocumentosCredito, t);
+    // Mapear los documentos de crédito para evitar conflictos de nombres
+    const documentosCreditoMapeados = DocumentosCredito.map(doc => ({
+      DocCreditoDocumentoTipo: doc.Documento.split('-')[0],
+      DocCreditoDocumentoSucursal: doc.Documento.split('-')[1], 
+      DocCreditoDocumentoNumero: doc.Documento.split('-')[2],
+      DocCreditoImporte: doc.Importe
+    }));
 
-    // 3. Grabar el recibo y las formas de pago
+    // 1. Crear primero el recibo
     const recibo = await grabarReciboYFormasPago(
       DocumentoTipo,
       DocumentoSucursal,
@@ -215,6 +227,12 @@ exports.createRecibo = async (req, res) => {
       ImporteTotal,
       t
     );
+
+    // 2. Actualizar documentos de deuda (facturas o notas de débito)
+    await actualizarDocumentosDeuda(documentosDeudaMapeados, {DocumentoTipo, DocumentoSucursal, DocumentoNumero}, t);
+
+    // 3. Actualizar documentos de crédito
+    await actualizarDocumentosCredito(documentosCreditoMapeados, {DocumentoTipo, DocumentoSucursal, DocumentoNumero}, t);
 
     // 4. Actualizar número de control
     try {
@@ -265,7 +283,7 @@ exports.createRecibo = async (req, res) => {
 
     // Confirmar transacción
     await t.commit();
-
+    
     return res.status(201).json({
       success: true,
       message: 'Recibo creado correctamente',
@@ -285,117 +303,198 @@ exports.createRecibo = async (req, res) => {
 };
 
 // Función para actualizar documentos de deuda
-async function actualizarDocumentosDeuda(documentosDeuda, transaction) {
+async function actualizarDocumentosDeuda(documentosDeuda, {DocumentoTipo, DocumentoSucursal, DocumentoNumero}, transaction) {
   if (!documentosDeuda || documentosDeuda.length === 0) {
     return;
   }
-
+  console.log("***********Recibo numero***********", DocumentoTipo, DocumentoSucursal, DocumentoNumero);
   for (const doc of documentosDeuda) {
-    const { DocumentoTipo, DocumentoSucursal, DocumentoNumero, Importe } = doc;
+    const { DocDeudaDocumentoTipo, DocDeudaDocumentoSucursal, DocDeudaDocumentoNumero, DocDeudaImporte } = doc;
     // Obtener el documento de deuda según su tipo
     let documentoDeuda;
     
-    if (DocumentoTipo === 'PRF' || DocumentoTipo === 'FCA'|| DocumentoTipo === 'FCB' || DocumentoTipo === 'FCC') {
+    if (DocDeudaDocumentoTipo === 'PRF' || DocDeudaDocumentoTipo === 'FCA'|| DocDeudaDocumentoTipo === 'FCB' || DocDeudaDocumentoTipo === 'FCC') {
       // Es una factura
       documentoDeuda = await FacturaCabeza.findOne({
         where: {
-          DocumentoTipo: DocumentoTipo,
-          DocumentoSucursal: DocumentoSucursal,
-          DocumentoNumero: DocumentoNumero
+          DocumentoTipo: DocDeudaDocumentoTipo,
+          DocumentoSucursal: DocDeudaDocumentoSucursal,
+          DocumentoNumero: DocDeudaDocumentoNumero
         },
         transaction
       });
       
       if (!documentoDeuda) {
-        throw new Error(`Factura no encontrada: ${DocumentoTipo}-${DocumentoSucursal}-${DocumentoNumero}`);
+        throw new Error(`Factura no encontrada: ${DocDeudaDocumentoTipo}-${DocDeudaDocumentoSucursal}-${DocDeudaDocumentoNumero}`);
       }
       
       // Verificar que el importe no exceda el saldo pendiente
       const saldoPendiente = documentoDeuda.ImporteTotal - (documentoDeuda.ImportePagado || 0);
-      if (Importe > saldoPendiente) {
-        throw new Error(`El importe a pagar (${Importe}) excede el saldo pendiente (${saldoPendiente}) de la factura ${DocumentoTipo}-${DocumentoSucursal}-${DocumentoNumero}`);
+      if (DocDeudaImporte > saldoPendiente) {
+        throw new Error(`El importe a pagar (${DocDeudaImporte}) excede el saldo pendiente (${saldoPendiente}) de la factura ${DocDeudaDocumentoTipo}-${DocDeudaDocumentoSucursal}-${DocDeudaDocumentoNumero}`);
       }
       
       // Actualizar el importe pagado
       await documentoDeuda.update(
         { 
-          ImportePagado: (documentoDeuda.ImportePagado || 0) + Importe 
+          ImportePagado: (documentoDeuda.ImportePagado || 0) + DocDeudaImporte 
         },
         { transaction }
       );
-    } else if (DocumentoTipo === 'NDF' || DocumentoTipo === 'NDA' || DocumentoTipo === 'NDC' || DocumentoTipo === 'NDB') {
+    } else if (DocDeudaDocumentoTipo === 'NDF' || DocDeudaDocumentoTipo === 'NDA' || DocDeudaDocumentoTipo === 'NDC' || DocDeudaDocumentoTipo === 'NDB') {
       // Es una nota de débito
       documentoDeuda = await NotaDebitoCabeza.findOne({
         where: {
-          DocumentoTipo: DocumentoTipo,
-          DocumentoSucursal: DocumentoSucursal,
-          DocumentoNumero: DocumentoNumero
+          DocumentoTipo: DocDeudaDocumentoTipo,
+          DocumentoSucursal: DocDeudaDocumentoSucursal,
+          DocumentoNumero: DocDeudaDocumentoNumero
         },
         transaction
       });
       
       if (!documentoDeuda) {
-        throw new Error(`Nota de débito no encontrada: ${DocumentoTipo}-${DocumentoSucursal}-${DocumentoNumero}`);
+        throw new Error(`Nota de débito no encontrada: ${DocDeudaDocumentoTipo}-${DocDeudaDocumentoSucursal}-${DocDeudaDocumentoNumero}`);
       }
       
       // Verificar que el importe no exceda el saldo pendiente
       const saldoPendiente = documentoDeuda.ImporteTotal - (documentoDeuda.ImportePagado || 0);
-      if (Importe > saldoPendiente) {
-        throw new Error(`El importe a pagar (${Importe}) excede el saldo pendiente (${saldoPendiente}) de la nota de débito ${DocumentoTipo}-${DocumentoSucursal}-${DocumentoNumero}`);
+      if (DocDeudaImporte > saldoPendiente) {
+        throw new Error(`El importe a pagar (${DocDeudaImporte}) excede el saldo pendiente (${saldoPendiente}) de la nota de débito ${DocDeudaDocumentoTipo}-${DocDeudaDocumentoSucursal}-${DocDeudaDocumentoNumero}`);
       }
       
       // Actualizar el importe pagado
       await documentoDeuda.update(
         { 
-          ImportePagado: (documentoDeuda.ImportePagado || 0) + Importe 
+          ImportePagado: (documentoDeuda.ImportePagado || 0) + DocDeudaImporte 
         },
         { transaction }
       );
     } else {
-      throw new Error(`Tipo de documento no soportado: ${DocumentoTipo}`);
+      throw new Error(`Tipo de documento no soportado: ${DocDeudaDocumentoTipo}`);
+    }
+    
+    // Grabar en la tabla recibositems
+    try {
+      console.log("Verificando si existe registro en recibositems");
+      
+      // Verificar si el registro ya existe
+      const existingItem = await ReciboItem.findOne({
+        where: {
+          DocumentoTipo: DocumentoTipo,
+          DocumentoSucursal: DocumentoSucursal,
+          DocumentoNumero: DocumentoNumero,
+          FacturaTipo: DocDeudaDocumentoTipo,
+          FacturaSucursal: DocDeudaDocumentoSucursal,
+          FacturaNumero: DocDeudaDocumentoNumero
+        },
+        transaction
+      });
+      
+      if (existingItem) {
+        console.log("Registro ya existe, actualizando importe pagado");
+        // Si existe, actualizar el importe pagado
+        await existingItem.update({
+          ImportePagado: existingItem.ImportePagado + DocDeudaImporte
+        }, { transaction });
+      } else {
+        console.log("Insertando nuevo registro en recibositems");
+        // Si no existe, crear uno nuevo
+        await ReciboItem.create({
+          DocumentoTipo: DocumentoTipo,
+          DocumentoSucursal: DocumentoSucursal,
+          DocumentoNumero: DocumentoNumero,
+          FacturaTipo: DocDeudaDocumentoTipo,
+          FacturaSucursal: DocDeudaDocumentoSucursal,
+          FacturaNumero: DocDeudaDocumentoNumero,
+          ImportePagado: DocDeudaImporte
+        }, { transaction });
+      }
+    } catch (error) {
+      console.error("Error al insertar/actualizar en recibositems:", error);
+      throw error;
     }
   }
 }
 
 // Función para actualizar documentos de crédito
-async function actualizarDocumentosCredito(documentosCredito, transaction) {
+async function actualizarDocumentosCredito(documentosCredito, {DocumentoTipo, DocumentoSucursal, DocumentoNumero}, transaction) {
   if (!documentosCredito || documentosCredito.length === 0) {
     return;
   }
 
   for (const doc of documentosCredito) {
-    const { Documento, Importe } = doc;
-    
+    const { DocCreditoDocumentoTipo, DocCreditoDocumentoSucursal, DocCreditoDocumentoNumero, DocCreditoImporte } = doc;
+    console.log("_________________doc", doc);
     // Obtener el documento de crédito
     const documentoCredito = await NotaCreditoCabeza.findOne({
-      //Documento = NCF-0006-00000080
-
       where: {
-        DocumentoTipo: doc.Documento.split('-')[0],
-        DocumentoSucursal: doc.Documento.split('-')[1],
-        DocumentoNumero: doc.Documento.split('-')[2]
+        DocumentoTipo: DocCreditoDocumentoTipo,
+        DocumentoSucursal: DocCreditoDocumentoSucursal,
+        DocumentoNumero: DocCreditoDocumentoNumero
       },
       transaction
     });
-    console.log("documentoCredito", documentoCredito.toJSON());
+    console.log("______________documentoCredito", documentoCredito);
     
     if (!documentoCredito) {
-      throw new Error(`Nota de crédito no encontrada: ${Documento}`);
+      throw new Error(`Nota de crédito no encontrada: ${DocCreditoDocumentoTipo}-${DocCreditoDocumentoSucursal}-${DocCreditoDocumentoNumero}`);
     }
     
     // Verificar que el importe no exceda el saldo disponible
     const saldoDisponible = documentoCredito.ImporteTotal - (documentoCredito.ImporteUtilizado || 0);
-    if (Importe > saldoDisponible) {
-      throw new Error(`El importe a usar (${Importe}) excede el saldo disponible (${saldoDisponible}) de la nota de crédito ${Documento}`);
+    if (DocCreditoImporte > saldoDisponible) {
+      throw new Error(`El importe a usar (${DocCreditoImporte}) excede el saldo disponible (${saldoDisponible}) de la nota de crédito ${DocCreditoDocumentoTipo}-${DocCreditoDocumentoSucursal}-${DocCreditoDocumentoNumero}`);
     }
     
     // Actualizar el importe utilizado
     await documentoCredito.update(
       { 
-        ImporteUtilizado: (documentoCredito.ImporteUtilizado || 0) + Importe 
+        ImporteUtilizado: (documentoCredito.ImporteUtilizado || 0) + DocCreditoImporte 
       },
       { transaction }
     );
+    
+    // Grabar en la tabla recibosvalores
+    try {
+      console.log("Verificando si existe registro en recibosvalores", documentoCredito.toJSON());
+      
+      // Verificar si el registro ya existe
+      const existingValor = await ReciboValor.findOne({
+        where: {
+          DocumentoTipo: DocumentoTipo,
+          DocumentoSucursal: DocumentoSucursal,
+          DocumentoNumero: DocumentoNumero,
+          ValorCodigo: DocCreditoDocumentoTipo,
+          ValorSucursal: DocCreditoDocumentoSucursal,
+          ValorNumero: DocCreditoDocumentoNumero
+        },
+        transaction
+      });
+      
+      if (existingValor) {
+        console.log("Registro ya existe, actualizando importe");
+        // Si existe, actualizar el importe
+        await existingValor.update({
+          ValorImporte: existingValor.ValorImporte + DocCreditoImporte
+        }, { transaction });
+      } else {
+        console.log("Insertando nuevo registro en recibosvalores");
+        // Si no existe, crear uno nuevo
+        await ReciboValor.create({
+          DocumentoTipo: DocumentoTipo,
+          DocumentoSucursal: DocumentoSucursal,
+          DocumentoNumero: DocumentoNumero,
+          ValorCodigo: DocCreditoDocumentoTipo,
+          ValorSucursal: DocCreditoDocumentoSucursal,
+          ValorNumero: DocCreditoDocumentoNumero,
+          ValorFecha: new Date(),
+          ValorImporte: DocCreditoImporte
+        }, { transaction });
+      }
+    } catch (error) {
+      console.error("Error al insertar/actualizar en recibosvalores:", error);
+      throw error;
+    }
   }
 }
 
@@ -632,7 +731,7 @@ exports.getDocumentosCredito = async (req, res) => {
     // Consulta para obtener notas de crédito con saldo disponible
     const query = `
       SELECT 
-        'NCF' as documento,
+        nc.DocumentoTipo as documento,
         nc.DocumentoSucursal as sucursal,
         nc.DocumentoNumero as numero,
         nc.Fecha as fecha,

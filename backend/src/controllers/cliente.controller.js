@@ -398,7 +398,7 @@ exports.getComprobantesCliente = async (req, res) => {
       raw: true
     });
     // Formatear los datos de las notas de credito
-    const notasCreditoFormateadas = notasCredito.map(nota => ('CO' === 'CC' ? {//asumo que todass son CC ya que todavia no existe el tipo de pago en las notas de credito
+    const notasCreditoFormateadas = notasCredito.map(nota => ('CO' !== 'CC' ? {//asumo que todass son CC ya que todavia no existe el tipo de pago en las notas de credito
       Fecha: nota.Fecha,
       Detalle: `${nota.DocumentoTipo} - ${nota.DocumentoSucursal} - ${nota.DocumentoNumero}`,
       Debitos: 0,

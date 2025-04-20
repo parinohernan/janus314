@@ -168,6 +168,34 @@ exports.createNotaDebito = async (req, res) => {
       await NotaDebitoItem.bulkCreate(itemsToCreate, { transaction });
     }
     
+    // Actualizar el importe de deuda del cliente (siempre en cuenta corriente)
+    try {
+      console.log("Actualizando deuda del cliente para nota de débito", cabeza);
+      
+      // Obtener el cliente
+      const cliente = await Cliente.findByPk(cabeza.ClienteCodigo, { transaction });
+      
+      if (!cliente) {
+        throw new Error(`Cliente no encontrado: ${cabeza.ClienteCodigo}`);
+      }
+      
+      // Actualizar la deuda del cliente (sumar el importe de la nota de débito)
+      await cliente.update(
+        { 
+          ImporteDeuda: (cliente.ImporteDeuda || 0) + cabeza.ImporteTotal 
+        },
+        { transaction }
+      );
+    } catch (errorCliente) {
+      // Si hay error en la actualización del cliente, hacemos rollback
+      await transaction.rollback();
+      return res.status(500).json({
+        success: false,
+        message: "Error al actualizar la deuda del cliente",
+        error: errorCliente.message,
+      });
+    }
+    
     await transaction.commit();
     
     return res.status(201).json({
