@@ -1,0 +1,15 @@
+1- crear tipos de pago
+ "no estoy seguro si lo nececito"
+2- agregar inicio de actividades
+
+3- agregar zona horaria
+
+ALTER TABLE datosempresa
+ADD COLUMN Timezone VARCHAR(50) DEFAULT 'America/Argentina/Buenos_Aires' COMMENT 'Zona horaria de la empresa';
+
+4- logo de la empresa
+
+ALTER TABLE datosempresa
+ADD COLUMN LogoURL VARCHAR(1000) COMMENT 'URL del logo de la empresa';
+
+5- 

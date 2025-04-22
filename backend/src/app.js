@@ -30,6 +30,7 @@ const configRoutes = require("./routes/config.routes");
 const notaCreditoRoutes = require("./routes/notaCredito.routes");
 const notaDebitoRoutes = require("./routes/notaDebito.routes");
 const reciboRoutes = require("./routes/recibo.routes");
+const informesRoutes = require("./routes/informes.routes");
 
 // Crear app Express
 const app = express();
@@ -92,6 +93,9 @@ app.use("/api/notasdebito", notaDebitoRoutes);
 
 // Rutas de recibos
 app.use("/api/recibos", reciboRoutes);
+
+// Rutas de informes
+app.use("/api/informes", informesRoutes);
 
 // Ruta de prueba
 app.get("/", (req, res) => {

@@ -45,6 +45,7 @@
 		"vitest": "^3.0.0"
 	},
 	"dependencies": {
+		"chart.js": "^4.4.9",
 		"html2pdf.js": "^0.10.3",
 		"lodash-es": "^4.17.21"
 	}

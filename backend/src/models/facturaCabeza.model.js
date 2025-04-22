@@ -3,6 +3,7 @@ const sequelize = require("../config/database");
 const Cliente = require("./cliente.model");
 const Usuario = require("./usuario.model");
 const Vendedor = require("./vendedor.model");
+const FacturaItem = require("./facturaItem.model");
 
 const FacturaCabeza = sequelize.define(
   "FacturaCabeza",
@@ -188,6 +189,11 @@ FacturaCabeza.belongsTo(Usuario, {
 FacturaCabeza.belongsTo(Vendedor, {
   foreignKey: "VendedorCodigo",
   targetKey: "Codigo",
+});
+
+// Agregar asociación con FacturaItem
+FacturaCabeza.hasMany(FacturaItem, {
+  foreignKey: ["DocumentoTipo", "DocumentoSucursal", "DocumentoNumero"]
 });
 
 module.exports = FacturaCabeza;

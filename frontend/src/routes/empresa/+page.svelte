@@ -14,7 +14,8 @@
     Sucursal: '',
     LogoURL: '',
     IngresosBrutos: '',
-    InicioActividades: ''
+    InicioActividades: '',
+    Timezone: 'America/Argentina/Buenos_Aires'
   };
 
   let loading = true;
@@ -209,13 +210,55 @@
           </div>
 
           <div class="form-group">
-            <label for="logoURL" class="block text-sm font-medium text-gray-700 mb-1">URL del Logo</label>
-            <input
-              type="url"
-              id="logoURL"
-              bind:value={datosEmpresa.LogoURL}
+            <label for="timezone" class="block text-sm font-medium text-gray-700 mb-1">Zona Horaria</label>
+            <select
+              id="timezone"
+              bind:value={datosEmpresa.Timezone}
               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            >
+              <option value="America/Argentina/Buenos_Aires">Argentina (GMT-3)</option>
+              <option value="America/Argentina/Cordoba">Argentina - Córdoba (GMT-3)</option>
+              <option value="America/Argentina/Mendoza">Argentina - Mendoza (GMT-3)</option>
+              <option value="America/Argentina/Salta">Argentina - Salta (GMT-3)</option>
+              <option value="America/Argentina/Tucuman">Argentina - Tucumán (GMT-3)</option>
+              <option value="America/Argentina/Ushuaia">Argentina - Ushuaia (GMT-3)</option>
+              <option value="America/Asuncion">Paraguay (GMT-3)</option>
+              <option value="America/Montevideo">Uruguay (GMT-3)</option>
+              <option value="America/Santiago">Chile (GMT-3)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="logoURL" class="block text-sm font-medium text-gray-700 mb-1">URL del Logo</label>
+            <div class="flex items-start space-x-4">
+              <div class="flex-grow">
+                <input
+                  type="url"
+                  id="logoURL"
+                  bind:value={datosEmpresa.LogoURL}
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="https://ejemplo.com/logo.png"
+                />
+              </div>
+              {#if datosEmpresa.LogoURL}
+                <div class="flex-shrink-0">
+                  <div class="border border-gray-300 rounded-md p-2 bg-gray-50">
+                    <img 
+                      src={datosEmpresa.LogoURL} 
+                      alt="Logo de la empresa" 
+                      class="max-h-16 max-w-32 object-contain"
+                      on:error={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextElementSibling.style.display = 'block';
+                      }}
+                    />
+                    <div class="hidden text-xs text-red-500 text-center">
+                      Error al cargar la imagen
+                    </div>
+                  </div>
+                </div>
+              {/if}
+            </div>
           </div>
         </div>
 

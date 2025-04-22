@@ -74,6 +74,17 @@ const DatosEmpresa = sequelize.define(
       type: DataTypes.STRING(40),
       allowNull: true,
     },
+    Timezone: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      defaultValue: "America/Argentina/Buenos_Aires",
+      comment: "Zona horaria de la empresa",
+    },
+    LogoURL: {
+      type: DataTypes.STRING(1000),
+      allowNull: true,
+      comment: "URL del logo de la empresa",
+    },
   },
   {
     tableName: "datosempresa",

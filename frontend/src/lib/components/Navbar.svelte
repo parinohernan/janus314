@@ -1,5 +1,6 @@
 <script lang="ts">
   let activeMenu: string | null = null;
+  let activeSubmenu: string | null = null;
 
   // Estructura del menú
   const menuItems = [
@@ -32,7 +33,15 @@
         { label: 'Facturas', url: '/ventas/facturas' },
         { label: 'Notas de Crédito', url: '/ventas/notascredito' },
         { label: 'Recibos', url: '/ventas/recibos' },
-        { label: 'Informes', url: '/ventas/informes' },
+        { 
+          label: 'Informes', 
+          url: '/ventas/informes',
+          submenus: [
+            { label: 'Ventas por Productos', url: '/ventas/informes/productos' },
+            { label: 'Ventas por Vendedor', url: '/ventas/informes/vendedores' },
+            { label: 'Ventas por Clientes', url: '/ventas/informes/clientes' }
+          ]
+        },
         { label: 'Clientes', url: '/ventas/clientes' },
         { label: 'Vendedores', url: '/ventas/vendedores' }
       ]
@@ -81,14 +90,26 @@
   const toggleMenu = (menuId: string) => {
     if (activeMenu === menuId) {
       activeMenu = null;
+      activeSubmenu = null;
     } else {
       activeMenu = menuId;
+      activeSubmenu = null;
+    }
+  };
+
+  const toggleSubmenu = (menuId: string, event: MouseEvent) => {
+    event.stopPropagation();
+    if (activeSubmenu === menuId) {
+      activeSubmenu = null;
+    } else {
+      activeSubmenu = menuId;
     }
   };
 
   // Cerrar el menú al hacer clic fuera de él
   const handleClickOutside = () => {
     activeMenu = null;
+    activeSubmenu = null;
   };
 </script>
 
@@ -112,13 +133,43 @@
               class="absolute left-0 mt-0 w-48 bg-gray-800 shadow-lg z-10 py-1 rounded-b-md border border-gray-200"
             >
               {#each item.submenus as submenu}
-                <a 
-                  href={submenu.url} 
-                  class="block px-4 py-2 text-white hover:bg-gray-600"
-                  on:click|stopPropagation={() => activeMenu = null}
-                >
-                  {submenu.label}
-                </a>
+                {#if submenu.submenus}
+                  <div class="relative">
+                    <button
+                      class="w-full text-left px-4 py-2 text-white hover:bg-gray-600 flex items-center justify-between"
+                      on:click|stopPropagation={(e) => toggleSubmenu(submenu.label, e)}
+                    >
+                      <span>{submenu.label}</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                    {#if activeSubmenu === submenu.label}
+                      <div class="absolute left-full top-0 w-48 bg-gray-800 shadow-lg z-20 py-1 rounded-b-md border border-gray-200">
+                        {#each submenu.submenus as subsubmenu}
+                          <a 
+                            href={subsubmenu.url} 
+                            class="block px-4 py-2 text-white hover:bg-gray-600"
+                            on:click|stopPropagation={() => {
+                              activeMenu = null;
+                              activeSubmenu = null;
+                            }}
+                          >
+                            {subsubmenu.label}
+                          </a>
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+                {:else}
+                  <a 
+                    href={submenu.url} 
+                    class="block px-4 py-2 text-white hover:bg-gray-600"
+                    on:click|stopPropagation={() => activeMenu = null}
+                  >
+                    {submenu.label}
+                  </a>
+                {/if}
               {/each}
             </div>
           {/if}

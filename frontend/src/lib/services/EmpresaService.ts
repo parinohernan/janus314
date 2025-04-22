@@ -14,6 +14,7 @@ export interface DatosEmpresa {
 	LogoURL?: string;
 	IngresosBrutos?: string;
 	InicioActividades?: string;
+	Timezone?: string;
 }
 
 export class EmpresaService {
