@@ -1,4 +1,5 @@
 const Configuracion = require("../models/configuracion.model");
+const db = require('../config/database');
 
 // Obtener una configuración por su código
 exports.getConfiguracionPorCodigo = async (req, res) => {
@@ -107,5 +108,97 @@ exports.actualizarConfiguracion = async (req, res) => {
       message: "Error al actualizar la configuración",
       error: error.message,
     });
+  }
+};
+
+// Obtener toda la configuración de sincronización móvil
+exports.getConfiguracion = async (req, res) => {
+  try {
+    const configuraciones = await Configuracion.findAll({
+      where: {
+        Codigo: [
+          'PreventasServidor',
+          'PreventasBaseDeDatos',
+          'PreventaUsuario',
+          'PreventaContraseña',
+          'PreventaUltimaDescarga',
+          'PreventaUltimaActualizacion'
+        ]
+      }
+    });
+
+    // Transformar los resultados en un objeto más manejable
+    const config = configuraciones.reduce((acc, curr) => {
+      acc[curr.Codigo] = curr.ValorConfig;
+      return acc;
+    }, {});
+
+    res.json({
+      data: {
+        servidor: config.PreventasServidor || '',
+        baseDatos: config.PreventasBaseDeDatos || '',
+        usuario: config.PreventaUsuario || '',
+        password: config.PreventaContraseña || '',
+        ultimaDescarga: config.PreventaUltimaDescarga || null,
+        ultimaActualizacion: config.PreventaUltimaActualizacion || null
+      }
+    });
+  } catch (error) {
+    console.error('Error al obtener la configuración:', error);
+    res.status(500).json({ error: 'Error al obtener la configuración' });
+  }
+};
+
+// Actualizar la configuración
+exports.updateConfiguracion = async (req, res) => {
+  const { servidor, baseDatos, usuario, password } = req.body;
+
+  try {
+    // Actualizar cada configuración individualmente
+    await Promise.all([
+      Configuracion.actualizar('PreventasServidor', servidor || ''),
+      Configuracion.actualizar('PreventasBaseDeDatos', baseDatos || ''),
+      Configuracion.actualizar('PreventaUsuario', usuario || ''),
+      Configuracion.actualizar('PreventaContraseña', password || '')
+    ]);
+
+    res.json({ message: 'Configuración actualizada correctamente' });
+  } catch (error) {
+    console.error('Error al actualizar la configuración:', error);
+    res.status(500).json({ error: 'Error al actualizar la configuración' });
+  }
+};
+
+// Actualizar la última fecha de descarga
+exports.updateUltimaDescarga = async (req, res) => {
+  try {
+    const fechaActual = new Date().toISOString();
+    await Configuracion.actualizar('PreventaUltimaDescarga', fechaActual);
+
+    res.json({ 
+      data: {
+        ultimaDescarga: fechaActual
+      }
+    });
+  } catch (error) {
+    console.error('Error al actualizar la última descarga:', error);
+    res.status(500).json({ error: 'Error al actualizar la última descarga' });
+  }
+};
+
+// Actualizar la última fecha de actualización
+exports.updateUltimaActualizacion = async (req, res) => {
+  try {
+    const fechaActual = new Date().toISOString();
+    await Configuracion.actualizar('PreventaUltimaActualizacion', fechaActual);
+
+    res.json({ 
+      data: {
+        ultimaActualizacion: fechaActual
+      }
+    });
+  } catch (error) {
+    console.error('Error al actualizar la última actualización:', error);
+    res.status(500).json({ error: 'Error al actualizar la última actualización' });
   }
 };

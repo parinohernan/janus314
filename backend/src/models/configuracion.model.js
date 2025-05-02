@@ -1,62 +1,68 @@
-const db = require("../config/database");
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
-/**
- * Modelo para la tabla t_configuracion
- */
-class Configuracion {
-  /**
-   * Obtiene una configuración por su código
-   * @param {string} codigo - El código de la configuración
-   * @returns {Promise<Object|null>} - La configuración encontrada o null
-   */
-  static async buscarPorCodigo(codigo) {
-    try {
-      return await db.query(
-        "SELECT * FROM t_configuracion WHERE Codigo = :codigo",
-        {
-          replacements: { codigo: codigo },
-          type: db.QueryTypes.SELECT,
-          plain: true,
-        }
-      );
-    } catch (error) {
-      console.error("Error en el modelo Configuracion.buscarPorCodigo:", error);
-      throw error;
+const Configuracion = sequelize.define('Configuracion', {
+  Codigo: {
+    type: DataTypes.STRING(200),
+    primaryKey: true,
+    allowNull: false
+  },
+  Descripcion: {
+    type: DataTypes.STRING(200),
+    allowNull: true
+  },
+  ValorConfig: {
+    type: DataTypes.TEXT,
+    allowNull: false
+  },
+  pasar_a_ipaqs: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false
+  }
+}, {
+  timestamps: false,
+  freezeTableName: true,
+  tableName: 't_configuracion'
+});
+
+// Métodos estáticos
+Configuracion.buscarPorCodigo = async function(codigo) {
+  return await this.findOne({
+    where: { Codigo: codigo }
+  });
+};
+
+Configuracion.actualizar = async function(codigo, valor) {
+  const [config, created] = await this.findOrCreate({
+    where: { Codigo: codigo },
+    defaults: {
+      Descripcion: this.getDescripcionPorCodigo(codigo),
+      ValorConfig: valor,
+      pasar_a_ipaqs: true
     }
+  });
+
+  if (!created) {
+    await config.update({
+      ValorConfig: valor
+    });
   }
 
-  /**
-   * Obtiene todas las configuraciones
-   * @returns {Promise<Array>} - Lista de configuraciones
-   */
-  static async obtenerTodos() {
-    try {
-      const [rows] = await db.query("SELECT * FROM t_configuracion");
-      return rows;
-    } catch (error) {
-      console.error("Error en el modelo Configuracion.obtenerTodos:", error);
-      throw error;
-    }
-  }
+  return config;
+};
 
-  /**
-   * Actualiza el valor de una configuración
-   * @param {string} codigo - El código de la configuración
-   * @param {string} valor - El nuevo valor
-   * @returns {Promise<boolean>} - True si se actualizó correctamente
-   */
-  static async actualizar(codigo, valor) {
-    try {
-      const [result] = await db.query(
-        "UPDATE t_configuracion SET ValorConfig = ? WHERE Codigo = ?",
-        [valor, codigo]
-      );
-      return result.affectedRows > 0;
-    } catch (error) {
-      console.error("Error en el modelo Configuracion.actualizar:", error);
-      throw error;
-    }
-  }
-}
+// Método auxiliar para obtener la descripción según el código
+Configuracion.getDescripcionPorCodigo = function(codigo) {
+  const descripciones = {
+    'PreventasServidor': 'Servidor de Preventas',
+    'PreventasBaseDeDatos': 'Base de Datos de Preventas',
+    'PreventaUsuario': 'Usuario de Preventas',
+    'PreventaContraseña': 'Contraseña de Preventas',
+    'PreventaUltimaDescarga': 'Última fecha de descarga',
+    'PreventaUltimaActualizacion': 'Última fecha de actualización'
+  };
+  return descripciones[codigo] || '';
+};
 
 module.exports = Configuracion;

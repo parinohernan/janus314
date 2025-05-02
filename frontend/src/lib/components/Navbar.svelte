@@ -2,8 +2,21 @@
   let activeMenu: string | null = null;
   let activeSubmenu: string | null = null;
 
+  interface SubmenuItem {
+    label: string;
+    url: string;
+    submenus?: SubmenuItem[];
+  }
+
+  interface MenuItem {
+    id: string;
+    label: string;
+    submenus?: SubmenuItem[];
+    items?: SubmenuItem[];
+  }
+
   // Estructura del menú
-  const menuItems = [
+  const menuItems: MenuItem[] = [
     {
       id: 'general',
       label: 'General',
@@ -28,33 +41,16 @@
     {
       id: 'ventas',
       label: 'Ventas',
-      submenus: [
-        { label: 'Pedidos | Preventas', url: '/ventas/preventas' },
+      items: [
         { label: 'Facturas', url: '/ventas/facturas' },
         { label: 'Notas de Crédito', url: '/ventas/notascredito' },
-        { label: 'Recibos', url: '/ventas/recibos' },
-        { 
-          label: 'Informes', 
-          url: '/ventas/informes',
-          submenus: [
-            { label: 'Ventas por Productos', url: '/ventas/informes/productos' },
-            { label: 'Ventas por Vendedor', url: '/ventas/informes/vendedores' },
-            { label: 'Ventas por Clientes', url: '/ventas/informes/clientes' }
-          ]
-        },
-        { label: 'Clientes', url: '/ventas/clientes' },
-        { label: 'Vendedores', url: '/ventas/vendedores' }
+        { label: 'Presupuestos', url: '/ventas/presupuestos' }
       ]
     },
     {
       id: 'compras',
       label: 'Compras',
       submenus: [
-        //{ label: 'Órdenes', url: '/compras/ordenes' },
-        //{ label: 'Facturas', url: '/compras/facturas' },
-        //{ label: 'Notas de Crédito', url: '/compras/notascredito' },
-        //{ label: 'Pagos', url: '/compras/pagos' },
-        //{ label: 'Informes', url: '/compras/informes' },
         { label: 'Proveedores', url: '/compras/proveedores' }
       ]
     },
@@ -71,10 +67,18 @@
     {
       id: 'clientes',
       label: 'Clientes',
-      submenus: [
-        { label: 'Clientes', url: '/clientes' },
-        { label: 'Cuentas', url: '/clientes/cuentascorrientes' },
-        { label: 'Reportes', url: '/clientes/reportes/ver' },
+      items: [
+        { label: 'Listado', url: '/clientes' },
+        { label: 'Cuentas Corrientes', url: '/clientes/cuentascorrientes' }
+      ]
+    },
+    {
+      id: 'sincronizacion',
+      label: 'Sincronizar Móviles',
+      items: [
+        { label: 'Descargar Preventas', url: '/sincronizacion/preventas' },
+        { label: 'Actualizar Datos', url: '/sincronizacion/actualizar' },
+        { label: 'Configuración', url: '/sincronizacion/configuracion' }
       ]
     }
   ];
@@ -113,7 +117,7 @@
   };
 </script>
 
-<nav class="navbar bg-gray-800  text-white shadow-md">  
+<nav class="navbar bg-gray-800 text-white shadow-md">  
   <div class="container mx-auto px-4">
     <div class="flex">
       {#each menuItems as item}
@@ -132,7 +136,7 @@
             <div 
               class="absolute left-0 mt-0 w-48 bg-gray-800 shadow-lg z-10 py-1 rounded-b-md border border-gray-200"
             >
-              {#each item.submenus as submenu}
+              {#each (item.submenus || item.items || []) as submenu}
                 {#if submenu.submenus}
                   <div class="relative">
                     <button
