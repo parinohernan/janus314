@@ -5,7 +5,7 @@ export interface Usuario {
 	id: string;
 	nombre: string;
 	apellido: string;
-	email: string;
+	usuario: string;
 	rol: string;
 	activo: boolean;
 	fechaCreacion: string;
@@ -16,8 +16,9 @@ export interface Usuario {
  * Interfaz para credenciales de inicio de sesión
  */
 export interface Credenciales {
-	email: string;
+	usuario: string;
 	password: string;
+	empresa?: string;
 }
 
 /**
@@ -25,7 +26,7 @@ export interface Credenciales {
  */
 export interface UsuarioFiltros {
 	nombre?: string;
-	email?: string;
+	usuario?: string;
 	rol?: string;
 	activo?: boolean;
 }

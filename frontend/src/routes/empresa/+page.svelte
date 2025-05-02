@@ -248,8 +248,12 @@
                       alt="Logo de la empresa" 
                       class="max-h-16 max-w-32 object-contain"
                       on:error={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextElementSibling.style.display = 'block';
+                        const target = e.target as HTMLImageElement;
+                        const errorDiv = target.nextElementSibling as HTMLDivElement;
+                        if (target && errorDiv) {
+                          target.style.display = 'none';
+                          errorDiv.style.display = 'block';
+                        }
                       }}
                     />
                     <div class="hidden text-xs text-red-500 text-center">

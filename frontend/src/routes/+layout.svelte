@@ -4,8 +4,21 @@
 	import Navbar from '$lib/components/Navbar.svelte';
 	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { navigationState } from '$lib/stores/navigationState';
+	import { auth } from '$lib/stores/authStore';
+	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
 	
 	let { children } = $props();
+	let isLoading = $state(true);
+	
+	onMount(async () => {
+		const isAuthenticated = await auth.verifySession();
+		if (!isAuthenticated && $page.url.pathname !== '/login') {
+			goto('/login');
+		}
+		isLoading = false;
+	});
 	
 	beforeNavigate(({ from, to, cancel }) => {
 		if (from) {
@@ -35,19 +48,25 @@
 	});
 </script>
 
-<div class="min-h-screen flex flex-col">
-	<MainBar />
-	<Navbar />
-	
-	<main class="flex-grow container mx-auto px-4 py-6">
-		{@render children()}
-	</main>
-	
-	<footer class="bg-gray-800 text-white text-center py-4 text-sm">
-		<div class="flex items-center justify-center">
-			<img src="/janus314.png" alt="janus314" class="w-10 h-10 rotate-180">
-			<span>janus314 - sistema de gestión comercial &copy; 2025</span>
-			<img src="/janus314.png" alt="janus314" class="w-10 h-10">
-		</div>
-	</footer>
-</div>
+{#if isLoading}
+	<div class="flex items-center justify-center h-screen">
+		<div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+	</div>
+{:else}
+	<div class="min-h-screen flex flex-col">
+		<MainBar />
+		<Navbar />
+		
+		<main class="flex-grow container mx-auto px-4 py-6">
+			{@render children()}
+		</main>
+		
+		<footer class="bg-gray-800 text-white text-center py-4 text-sm">
+			<div class="flex items-center justify-center">
+				<img src="/janus314.png" alt="janus314" class="w-10 h-10 rotate-180">
+				<span>janus314 - sistema de gestión comercial &copy; 2025</span>
+				<img src="/janus314.png" alt="janus314" class="w-10 h-10">
+			</div>
+		</footer>
+	</div>
+{/if}
