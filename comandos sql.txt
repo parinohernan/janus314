@@ -4,12 +4,9 @@
 
 3- agregar zona horaria
 
-ALTER TABLE datosempresa
-ADD COLUMN Timezone VARCHAR(50) DEFAULT 'America/Argentina/Buenos_Aires' COMMENT 'Zona horaria de la empresa';
-
 4- logo de la empresa
 
 ALTER TABLE datosempresa
-ADD COLUMN LogoURL VARCHAR(1000) COMMENT 'URL del logo de la empresa';
-
-5- 
+ADD COLUMN Timezone VARCHAR(50) DEFAULT 'America/Argentina/Buenos_Aires' COMMENT 'Zona horaria de la empresa',
+ADD COLUMN LogoURL VARCHAR(1000) COMMENT 'URL del logo de la empresa',
+ADD COLUMN InicioActividades DATE;

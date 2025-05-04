@@ -32,13 +32,14 @@ const notaDebitoRoutes = require("./routes/notaDebito.routes");
 const reciboRoutes = require("./routes/recibo.routes");
 const informesRoutes = require("./routes/informes.routes");
 const configuracionRoutes = require('./routes/configuracion.routes');
+const sincronizacionRoutes = require('./routes/sincronizacion.routes');
 
 // Crear app Express
 const app = express();
 
 // Configuración de CORS
 const corsOptions = {
-  origin: ['http://localhost:5173', 'https://*.serveo.net'],
+  origin: ['http://localhost:5173', 'https://janus314.osvi.lat'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -83,23 +84,14 @@ app.use("/api/pedidos", pedidoRoutes);
 // Rutas de preventas
 app.use("/api/preventas", preventaRoutes);
 
-// Rutas de configuraciones
-app.use("/api/configuraciones", configRoutes);
+// Rutas de configuración
+app.use('/api', configuracionRoutes);
 
-// Rutas de notas de crédito
-app.use("/api/notascredito", notaCreditoRoutes);
-
-// Rutas de notas de débito
-app.use("/api/notasdebito", notaDebitoRoutes);
-
-// Rutas de recibos
-app.use("/api/recibos", reciboRoutes);
+// Rutas de sincronización
+app.use('/api/sincronizacion', sincronizacionRoutes);
 
 // Rutas de informes
 app.use("/api/informes", informesRoutes);
-
-// Rutas de configuración
-app.use('/api', configuracionRoutes);
 
 // Ruta de prueba
 app.get("/", (req, res) => {
