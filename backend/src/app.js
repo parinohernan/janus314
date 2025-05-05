@@ -37,6 +37,12 @@ const sincronizacionRoutes = require('./routes/sincronizacion.routes');
 // Crear app Express
 const app = express();
 
+// Log MUY temprano para todas las solicitudes
+app.use((req, res, next) => {
+  console.log(`>>> [${new Date().toISOString()}] App.js recibió ${req.method} para ${req.originalUrl}`);
+  next(); // Continuar al siguiente middleware
+});
+
 // Configuración de CORS
 const corsOptions = {
   origin: ['http://localhost:5173', 'https://janus314.osvi.lat'],
@@ -84,11 +90,11 @@ app.use("/api/pedidos", pedidoRoutes);
 // Rutas de preventas
 app.use("/api/preventas", preventaRoutes);
 
-// Rutas de configuración
-app.use('/api', configuracionRoutes);
-
-// Rutas de sincronización
+// Rutas de sincronización (MOVIDA ANTES DE /api)
 app.use('/api/sincronizacion', sincronizacionRoutes);
+
+// Rutas de configuración 
+app.use('/api', configuracionRoutes);
 
 // Rutas de informes
 app.use("/api/informes", informesRoutes);

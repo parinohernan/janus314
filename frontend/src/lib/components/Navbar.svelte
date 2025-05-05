@@ -22,29 +22,30 @@
       label: 'General',
       submenus: [
         { label: 'Mi Empresa', url: '/empresa' },
-        { label: 'Usuarios', url: '/usuarios' },
+        // { label: 'Usuarios', url: '/usuarios' },
         { label: 'Localidades', url: '/localidades' },
         { label: 'Provincias', url: '/provincias' },
-        { label: 'Rutas', url: '/rutas' },
-        { label: 'Tipos de Pago', url: '/tablas/tipos-de-pago' }
+        // { label: 'Rutas', url: '/rutas' },
+        // { label: 'Tipos de Pago', url: '/tablas/tipos-de-pago' }
       ]
     },
     {
       id: 'caja',
       label: 'Caja',
-      submenus: [
-        { label: 'Apertura', url: '/caja/apertura' },
-        { label: 'Cierre', url: '/caja/cierre' },
-        { label: 'Movimientos', url: '/caja/movimientos' }
-      ]
+      // submenus: [
+      //   { label: 'Apertura', url: '/caja/apertura' },
+      //   { label: 'Cierre', url: '/caja/cierre' },
+      //   { label: 'Movimientos', url: '/caja/movimientos' }
+      // ]
     },
     {
       id: 'ventas',
       label: 'Ventas',
       items: [
+        { label: 'Preventas', url: '/ventas/preventas' },
         { label: 'Facturas', url: '/ventas/facturas' },
         { label: 'Notas de Crédito', url: '/ventas/notascredito' },
-        { label: 'Presupuestos', url: '/ventas/presupuestos' }
+        // { label: 'Presupuestos', url: '/ventas/presupuestos' }
       ]
     },
     {
@@ -77,14 +78,14 @@
       label: 'Sincronizar Móviles',
       items: [
         { label: 'Descargar Preventas', url: '/sincronizacion/preventas' },
-        { label: 'Actualizar Datos', url: '/sincronizacion/actualizar' },
+        { label: 'Actualizar Datos', url: '/sincronizacion/actualizar-datos' },
         { label: 'Configuración', url: '/sincronizacion/configuracion' }
       ]
     }
   ];
 
   // Al inicio del script
-  console.log('Renderizando Navbar con submenús:');
+  // console.log('Renderizando Navbar con submenús:');
   menuItems.forEach(item => {
     if (item.id === 'productos') {
       console.log('Submenús de productos:', item.submenus);

@@ -34,7 +34,7 @@
   async function iniciarDescarga() {
     estado.estado = 'procesando';
     estado.mensaje = null;
-
+    console.log('Iniciando descarga de preventas...');
     try {
       const response = await fetch(`${PUBLIC_API_URL}/sincronizacion/descargar-preventas`, {
         method: 'POST'

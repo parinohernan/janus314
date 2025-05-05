@@ -2,8 +2,9 @@ const Configuracion = require('../models/configuracion.model');
 const ArticuloPreventa = require('../models/preventa/articulo.model');
 const ClientePreventa = require('../models/preventa/cliente.model');
 const VendedorPreventa = require('../models/preventa/vendedor.model');
-const { Op } = require('sequelize');
+const { Op, QueryTypes } = require('sequelize');
 const sequelize = require('../config/database');
+const NumerosControlController = require('./numerosControl.controller');
 
 // Obtener el estado de actualización
 exports.getEstadoActualizacion = async (req, res) => {
@@ -459,5 +460,242 @@ exports.finalizarActualizacion = async (req, res) => {
   } catch (error) {
     console.error('Error al finalizar actualización:', error);
     res.status(500).json({ error: 'Error al finalizar actualización' });
+  }
+};
+
+// --- Lógica de Descarga de Preventas ---
+
+/**
+ * Procesa una única preventa: la lee del origen, la escribe en el destino 
+ * con un nuevo número y la elimina del origen.
+ * @param {string} baseDatosPreventa Nombre de la base de datos de preventa (origen).
+ * @returns {Promise<boolean>} True si se procesó una preventa, False si no quedaban preventas.
+ */
+const procesarUnaPreventa = async (baseDatosPreventa) => {
+  let cabezaOriginal = null;
+  let itemsOriginales = [];
+
+  try {
+    // 1. Leer una preventa del origen (la más antigua)
+    const [cabezaResult] = await sequelize.query(
+      `SELECT * FROM ${baseDatosPreventa}.preventa_cabeza 
+       ORDER BY Fecha ASC, DocumentoSucursal ASC, DocumentoNumero ASC 
+       LIMIT 1`,
+      { type: QueryTypes.SELECT, replacements: [baseDatosPreventa] }
+    );
+
+    if (!cabezaResult) {
+      console.log('No se encontraron más preventas para procesar.');
+      return false; // No hay más preventas
+    }
+    cabezaOriginal = cabezaResult;
+
+    itemsOriginales = await sequelize.query(
+      `SELECT * FROM ${baseDatosPreventa}.preventa_items 
+       WHERE DocumentoTipo = ? AND DocumentoSucursal = ? AND DocumentoNumero = ?`,
+      {
+        replacements: [
+          cabezaOriginal.DocumentoTipo,
+          cabezaOriginal.DocumentoSucursal,
+          cabezaOriginal.DocumentoNumero,
+          baseDatosPreventa
+        ],
+        type: QueryTypes.SELECT,
+      }
+    );
+
+    // 2. Iniciar transacción en la base de datos destino (db_sis_fac)
+    const tDestino = await sequelize.transaction();
+    let nuevoNumeroDoc = null;
+
+    try {
+      // 3. Obtener y actualizar número de control 'PRV'
+      const numeroInfo = await NumerosControlController.actualizarNumeroDirecto(
+        'PRV', 
+        cabezaOriginal.DocumentoSucursal, 
+        { transaction: tDestino } // Pasar la transacción
+      );
+      nuevoNumeroDoc = numeroInfo.numeroUtilizado.toString().padStart(8, '0');
+
+      // 4. Insertar Cabeza en Destino (preventa_cabeza en db_sis_fac)
+      // Usa la estructura de preventas.preventa_cabeza
+      await sequelize.query(
+        `INSERT INTO preventa_cabeza (
+          DocumentoTipo, DocumentoSucursal, DocumentoNumero, Fecha, FechaHoraEnvio, 
+          ClienteCodigo, VendedorCodigo, PagoTipo, ImporteBruto, PorcentajeBonificacion, 
+          ImporteBonificado, ImporteNeto, ImporteAdicional, ImporteIva1, ImporteIva2, 
+          ImporteTotal, ImportePagado, PorcentajeIva1, PorcentajeIva2, ListaNumero, 
+          Observacion
+        ) VALUES (
+          'PRV', /* Nuevo tipo */
+          '${cabezaOriginal.DocumentoSucursal}', 
+          '${nuevoNumeroDoc}', /* Nuevo número */
+          '${cabezaOriginal.Fecha ? new Date(cabezaOriginal.Fecha).toISOString().slice(0, 19).replace('T', ' ') : null}', 
+          '${cabezaOriginal.FechaHoraEnvio ? new Date(cabezaOriginal.FechaHoraEnvio).toISOString().slice(0, 19).replace('T', ' ') : null}', 
+          '${cabezaOriginal.ClienteCodigo || ''}', 
+          '${cabezaOriginal.VendedorCodigo || ''}', 
+          '${cabezaOriginal.PagoTipo || 'CC'}', 
+          ${cabezaOriginal.ImporteBruto || 0}, 
+          ${cabezaOriginal.PorcentajeBonificacion || 0}, 
+          ${cabezaOriginal.ImporteBonificado || 0}, 
+          ${cabezaOriginal.ImporteNeto || 0}, 
+          ${cabezaOriginal.ImporteAdicional || 0}, 
+          ${cabezaOriginal.ImporteIva1 || 0}, 
+          ${cabezaOriginal.ImporteIva2 || 0}, 
+          ${cabezaOriginal.ImporteTotal || 0}, 
+          ${cabezaOriginal.ImportePagado || 0}, 
+          ${cabezaOriginal.PorcentajeIva1 || 0}, 
+          ${cabezaOriginal.PorcentajeIva2 || 0}, 
+          ${cabezaOriginal.ListaNumero || 1}, 
+          '${(cabezaOriginal.Observacion || '').replace(/'/g, "''")}'
+        )`,
+        { transaction: tDestino }
+      );
+      
+      // 5. Insertar Items en Destino (preventa_items en db_sis_fac)
+      // Usa la estructura de preventas.preventa_items
+      const itemsValues = itemsOriginales.map(item => `(
+        'PRV', /* Nuevo tipo de documento */
+        '${cabezaOriginal.DocumentoSucursal}', 
+        '${nuevoNumeroDoc}', /* Nuevo número de documento */
+        '${item.CodigoArticulo}', 
+        ${item.Cantidad || 0}, 
+        ${item.PrecioUnitario || 0}, 
+        ${item.PrecioLista || 0}, 
+        ${item.PorcentajeBonificacion || 0}
+      )`).join(',');
+
+      if (itemsValues) {
+          await sequelize.query(
+            `INSERT INTO preventa_items (
+              DocumentoTipo, DocumentoSucursal, DocumentoNumero, CodigoArticulo, Cantidad, 
+              PrecioUnitario, PrecioLista, PorcentajeBonificacion
+            ) VALUES ${itemsValues}`,
+            { transaction: tDestino }
+          );
+      }
+
+      // 6. Commit transacción destino
+      await tDestino.commit();
+      console.log(`Preventa ${cabezaOriginal.DocumentoSucursal}-${cabezaOriginal.DocumentoNumero} procesada como PRV-${nuevoNumeroDoc}`);
+
+    } catch (error) {
+      // Error durante la inserción/obtención de número -> Rollback destino
+      await tDestino.rollback();
+      console.error(`Error procesando preventa ${cabezaOriginal?.DocumentoSucursal}-${cabezaOriginal?.DocumentoNumero}:`, error);
+      throw new Error(`Error al procesar preventa en destino: ${error.message}`); // Propagar para detener el bucle
+    }
+
+    // 7. Eliminar del origen (SOLO si la transacción destino fue exitosa)
+    try {
+      await sequelize.query(
+        `DELETE FROM ${baseDatosPreventa}.preventa_items 
+         WHERE DocumentoTipo = ? AND DocumentoSucursal = ? AND DocumentoNumero = ?`,
+        { 
+          replacements: [
+            cabezaOriginal.DocumentoTipo,
+            cabezaOriginal.DocumentoSucursal,
+            cabezaOriginal.DocumentoNumero,
+            baseDatosPreventa
+          ],
+          type: QueryTypes.DELETE
+        }
+      );
+      await sequelize.query(
+        `DELETE FROM ${baseDatosPreventa}.preventa_cabeza 
+         WHERE DocumentoTipo = ? AND DocumentoSucursal = ? AND DocumentoNumero = ?`,
+        { 
+          replacements: [
+            cabezaOriginal.DocumentoTipo,
+            cabezaOriginal.DocumentoSucursal,
+            cabezaOriginal.DocumentoNumero,
+            baseDatosPreventa
+          ],
+          type: QueryTypes.DELETE
+        }
+      );
+      console.log(`Preventa ${cabezaOriginal.DocumentoSucursal}-${cabezaOriginal.DocumentoNumero} eliminada del origen.`);
+    } catch (error) {
+      // Registrar error de eliminación pero no detener el proceso general
+      console.error(
+        `Error al ELIMINAR la preventa ${cabezaOriginal.DocumentoSucursal}-${cabezaOriginal.DocumentoNumero} del origen (ya fue copiada al destino):`,
+        error
+      );
+      // Considerar marcar la preventa en origen como "procesada con error de borrado" si es necesario
+    }
+
+    return true; // Se procesó una preventa
+
+  } catch (error) {
+    // Error general (lectura origen, conexión, etc.)
+    console.error("Error general en procesarUnaPreventa:", error);
+    // Si cabezaOriginal tiene datos, el error probablemente fue en la lectura de items o posterior
+    if (cabezaOriginal) {
+      throw new Error(`Error procesando preventa ${cabezaOriginal.DocumentoSucursal}-${cabezaOriginal.DocumentoNumero}: ${error.message}`);
+    } else {
+      throw new Error(`Error al leer preventas del origen: ${error.message}`);
+    }
+  }
+};
+
+// Descargar Preventas
+exports.descargarPreventas = async (req, res) => {
+  console.log('Iniciando descarga de preventas...');
+  let procesadasCount = 0;
+
+  try {
+    // Obtener configuración de la BD de preventa
+    const configuraciones = await Configuracion.findAll({
+      where: { Codigo: ['PreventasBaseDeDatos'] }
+    });
+    const config = configuraciones.reduce((acc, curr) => {
+      acc[curr.Codigo] = curr.ValorConfig;
+      return acc;
+    }, {});
+
+    if (!config.PreventasBaseDeDatos) {
+      throw new Error('Configuración incompleta: Falta PreventasBaseDeDatos');
+    }
+
+    // Bucle para procesar preventas una por una
+    while (true) {
+      const seProcesoUna = await procesarUnaPreventa(config.PreventasBaseDeDatos);
+      if (seProcesoUna) {
+        procesadasCount++;
+      } else {
+        break; // No hay más preventas
+      }
+      // Opcional: Pausa breve para no sobrecargar la BD
+      // await new Promise(resolve => setTimeout(resolve, 50)); 
+    }
+
+    // Actualizar fecha de última descarga
+    const fechaActual = new Date().toISOString();
+    await Configuracion.update(
+        { ValorConfig: fechaActual },
+        { where: { Codigo: 'PreventaUltimaDescarga' } }
+    );
+     // Si no existe, crearla
+     const existe = await Configuracion.findOne({ where: { Codigo: 'PreventaUltimaDescarga' } });
+     if (!existe) {
+         await Configuracion.create({ Codigo: 'PreventaUltimaDescarga', ValorConfig: fechaActual, Descripcion: 'Fecha de última descarga de preventas' });
+     }
+
+    console.log(`Descarga de preventas completada. ${procesadasCount} preventas procesadas.`);
+    res.json({
+      message: `Descarga completada. ${procesadasCount} preventas procesadas.`, 
+      data: { 
+        descargado: true, 
+        cantidad: procesadasCount,
+        ultimaDescarga: fechaActual
+      }
+    });
+
+  } catch (error) {
+    console.error('Error durante la descarga de preventas:', error);
+    res.status(500).json({ 
+      error: 'Error en la descarga de preventas: ' + error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+     });
   }
 }; 
