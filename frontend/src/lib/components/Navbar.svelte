@@ -45,6 +45,7 @@
         { label: 'Preventas', url: '/ventas/preventas' },
         { label: 'Facturas', url: '/ventas/facturas' },
         { label: 'Notas de Crédito', url: '/ventas/notascredito' },
+        { label: 'Recibos', url: '/ventas/recibos' },
         // { label: 'Presupuestos', url: '/ventas/presupuestos' }
       ]
     },

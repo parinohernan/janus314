@@ -6,6 +6,7 @@
 
   let appName = "janus314";
   let logo = "/janus314.png";
+  let logoEmpresa = "";
   let companyName = "";
   let userName = "";
   let isLoggedIn = false;
@@ -16,6 +17,7 @@
     EmpresaService.obtenerDatos()
       .then(datosEmpresa => {
         companyName = datosEmpresa.RazonSocial || "Empresa no configurada";
+        logoEmpresa = datosEmpresa.LogoURL || "";
       })
       .catch(error => {
         console.error('Error al cargar datos de la empresa:', error);
@@ -59,9 +61,16 @@
           <h1 class="text-xl font-bold pl-6 pr-6 scale-150">{appName}</h1>
         </a>
       </div>
-      <div class="text-gray-300 hidden md:block">|</div>
-      <div class="text-gray-300 hidden md:block">{companyName}</div>
-    </div>
+      <div class="text-xl font-bold flex ">
+        <a href="/" class="cursor-pointer">
+          <h1 class="text-x font-bold pl-6 pr-6 scale-100 text-center">{companyName}</h1>
+        </a>
+      </div>
+      <a href="/" class="relative w-30 h-30 pl-2 pr-2 pt-2 pb-2 group cursor-pointer">
+        <img src={logoEmpresa} alt={companyName} class="w-full h-full rounded-full transition-all duration-300 transform group-hover:scale-110 group-hover:rotate-6" style="mask-image: radial-gradient(circle, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 90%);">
+        <div class="absolute inset-0 bg-blue-500 rounded-full opacity-0 group-hover:opacity-25 transition-opacity duration-300" style="mask-image: radial-gradient(circle, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 90%);"></div>
+      </a>
+    </div> 
     
     <div class="flex items-center space-x-4">
       {#if isLoggedIn}
