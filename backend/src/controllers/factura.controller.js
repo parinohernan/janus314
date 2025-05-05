@@ -77,6 +77,7 @@ exports.listarFacturas = async (req, res) => {
 
 // Obtener detalle de una factura
 exports.obtenerFactura = async (req, res) => {
+  console.log("obtenerFactura");
   try {
     const { tipo, sucursal, numero } = req.params;
 
@@ -100,6 +101,8 @@ exports.obtenerFactura = async (req, res) => {
         success: false,
         message: "Factura no encontrada",
       });
+    } else {
+      console.log("factura", factura);
     }
 
     // Obtener items sin usar la asociación
@@ -109,6 +112,13 @@ exports.obtenerFactura = async (req, res) => {
         DocumentoSucursal: sucursal,
         DocumentoNumero: numero,
       },
+      attributes: [
+        'DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 
+        'CodigoArticulo', 'Cantidad', 'ImporteCosto', 'PrecioLista', 
+        'PorcentajeBonificado', 'ImporteBonificado', 'PrecioUnitario', 
+        'DocumentoLiqTipo', 'DocumentoLiqSucursal', 'DocumentoLiqNumero', 
+        'LiqFecha', 'es_merma'
+      ],
       raw: true,
     });
 

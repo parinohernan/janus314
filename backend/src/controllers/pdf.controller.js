@@ -48,6 +48,13 @@ exports.generarFacturaPDF = async (req, res) => {
         DocumentoSucursal: sucursal,
         DocumentoNumero: numero,
       },
+      attributes: [
+        'DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 
+        'CodigoArticulo', 'Cantidad', 'ImporteCosto', 'PrecioLista', 
+        'PorcentajeBonificado', 'ImporteBonificado', 'PrecioUnitario', 
+        'DocumentoLiqTipo', 'DocumentoLiqSucursal', 'DocumentoLiqNumero', 
+        'LiqFecha', 'es_merma'
+      ],
       raw: true,
     });
 
@@ -332,6 +339,13 @@ exports.generarNotaCreditoPDF = async (req, res) => {
         DocumentoSucursal: sucursal,
         DocumentoNumero: numero,
       },
+      attributes: [
+        'DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 
+        'CodigoArticulo', 'Cantidad', 'ImporteCosto', 'PrecioLista', 
+        'PorcentajeBonificado', 'ImporteBonificado', 'PrecioUnitario', 
+        'DocumentoLiqTipo', 'DocumentoLiqSucursal', 'DocumentoLiqNumero', 
+        'LiqFecha', 'es_merma', 'Descripcion'
+      ],
       raw: true,
     });
 
