@@ -34,6 +34,8 @@ const informesRoutes = require("./routes/informes.routes");
 const configuracionRoutes = require('./routes/configuracion.routes');
 const sincronizacionRoutes = require('./routes/sincronizacion.routes');
 const reciboController = require('./controllers/recibo.controller');
+const telegramRoutes = require('./routes/telegram.routes');
+const telegramController = require('./controllers/telegram.controller');
 
 // Crear app Express
 const app = express();
@@ -46,7 +48,11 @@ app.use((req, res, next) => {
 
 // Configuración de CORS
 const corsOptions = {
-  origin: ['http://localhost:5173', 'https://janus314.osvi.lat'],
+  origin: [
+    'http://localhost:5173', 
+    'https://janus314.osvi.lat', 
+    'https://web.telegram.org'
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -103,6 +109,9 @@ app.use("/api/informes", informesRoutes);
 // Rutas de recibos
 app.use("/api/recibos", reciboRoutes);
 
+// Rutas de Telegram
+app.use('/api/telegram', telegramRoutes);
+
 // Ruta de prueba
 app.get("/", (req, res) => {
   res.json({ message: "API de Gestión Comercial funcionando correctamente" });
@@ -124,5 +133,8 @@ app.use((err, req, res, next) => {
     error: process.env.NODE_ENV === "development" ? err.message : {},
   });
 });
+
+// Iniciar el bot de Telegram después de iniciar el servidor
+telegramController.initBot();
 
 module.exports = app;
