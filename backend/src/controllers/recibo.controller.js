@@ -904,4 +904,45 @@ exports.getDocumentosCredito = async (req, res) => {
       error: error.message 
     });
   }
+};
+
+exports.listarRecibos = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+    const fechaDesde = req.query.fechaDesde || null;
+    const fechaHasta = req.query.fechaHasta || null;
+    
+    // Construir condiciones de filtrado
+    const whereClause = {};
+    
+    if (fechaDesde && fechaHasta) {
+      whereClause.Fecha = {
+        [Op.between]: [fechaDesde, fechaHasta],
+      };
+    }
+    
+    const recibos = await ReciboCabeza.findAndCountAll({
+      where: whereClause,
+      limit,
+      offset,
+    });
+    
+    res.json({
+      items: recibos.rows,
+      meta: {
+        totalItems: recibos.count,
+        itemsPerPage: limit,
+        currentPage: page,
+        totalPages: Math.ceil(recibos.count / limit),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener recibos",
+      error: error.message,
+    });
+  }
 }; 

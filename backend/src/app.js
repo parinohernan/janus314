@@ -33,6 +33,7 @@ const reciboRoutes = require("./routes/recibo.routes");
 const informesRoutes = require("./routes/informes.routes");
 const configuracionRoutes = require('./routes/configuracion.routes');
 const sincronizacionRoutes = require('./routes/sincronizacion.routes');
+const reciboController = require('./controllers/recibo.controller');
 
 // Crear app Express
 const app = express();
@@ -98,6 +99,9 @@ app.use('/api', configuracionRoutes);
 
 // Rutas de informes
 app.use("/api/informes", informesRoutes);
+
+// Rutas de recibos
+app.use("/api/recibos", reciboRoutes);
 
 // Ruta de prueba
 app.get("/", (req, res) => {
