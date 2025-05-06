@@ -46,7 +46,16 @@
         { label: 'Facturas', url: '/ventas/facturas' },
         { label: 'Notas de Crédito', url: '/ventas/notascredito' },
         { label: 'Recibos', url: '/ventas/recibos' },
-        // { label: 'Presupuestos', url: '/ventas/presupuestos' }
+        { label: 'Informes', url: '/ventas/informes' ,submenus: [
+        { label: 'Productos', url: '/ventas/informes/productos' },
+        { label: 'Clientes', url: '/ventas/informes/clientes' },
+        { label: 'Vendedores', url: '/ventas/informes/vendedores' },
+        { label: 'Rubros', url: '/ventas/informes/rubros' },
+        { label: 'Marcas', url: '/ventas/informes/marcas' },
+        { label: 'Proveedores', url: '/ventas/informes/proveedores' },
+        { label: 'Fechas', url: '/ventas/informes/fechas' }
+      ]},
+        { label: 'Presupuestos', url: '/ventas/presupuestos' }
       ]
     },
     {
