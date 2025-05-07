@@ -39,6 +39,13 @@
       // ]
     },
     {
+      id: 'miniweb',
+      label: 'Miniweb',
+      items: [
+        { label: 'Nueva Venta', url: '/ventas/bot/nueva' }
+      ]
+    },
+    {
       id: 'ventas',
       label: 'Ventas',
       items: [

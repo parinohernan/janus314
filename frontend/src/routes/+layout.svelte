@@ -16,9 +16,11 @@
 	let esMiniWebTelegram = $derived($page.url.pathname.includes('/ventas/bot/'));
 	
 	onMount(async () => {
-		const isAuthenticated = await auth.verifySession();
-		if (!isAuthenticated && $page.url.pathname !== '/login') {
-			goto('/login');
+		if (!$page.url.pathname.includes('/bot/')) {
+			const isAuthenticated = await auth.verifySession();
+			if (!isAuthenticated && $page.url.pathname !== '/login') {
+				goto('/login');
+			}
 		}
 		isLoading = false;
 	});
