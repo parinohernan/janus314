@@ -1,5 +1,12 @@
 const { Telegraf } = require('telegraf');
 const config = require('../telegram/config');
+const sequelize = require("../config/database");
+const FacturaCabeza = require("../models/facturaCabeza.model");
+const FacturaItem = require("../models/facturaItem.model");
+const Articulo = require("../models/articulo.model");
+const Cliente = require("../models/cliente.model");
+const numerosControlController = require("./numerosControl.controller");
+const { Op } = require("sequelize");
 
 // Crear instancia del bot de Telegram
 const bot = new Telegraf(config.botToken);
@@ -95,5 +102,194 @@ exports.sendNotification = async (userId, message) => {
   } catch (error) {
     console.error('Error al enviar notificación:', error);
     return false;
+  }
+};
+
+// Endpoint para crear factura desde Telegram
+exports.crearFactura = async (req, res) => {
+  const t = await sequelize.transaction();
+  
+  try {
+    const facturaData = req.body;
+    console.log("Datos recibidos de Telegram:", facturaData);
+    
+    // Validar datos mínimos requeridos
+    if (!facturaData.ClienteCodigo) {
+      await t.rollback();
+      return res.status(400).json({ 
+        success: false, 
+        message: "El código de cliente es obligatorio" 
+      });
+    }
+    
+    if (!facturaData.Items || !Array.isArray(facturaData.Items) || facturaData.Items.length === 0) {
+      await t.rollback();
+      return res.status(400).json({ 
+        success: false, 
+        message: "Debe incluir al menos un artículo" 
+      });
+    }
+    
+    // Obtener próximo número de comprobante si no viene
+    if (!facturaData.DocumentoNumero || facturaData.DocumentoNumero === "00000000") {
+      try {
+        const numeroControl = await sequelize.query(
+          "SELECT NumeroProximo FROM t_numeroscontrol WHERE Codigo = ? AND Sucursal = ?",
+          {
+            replacements: [facturaData.DocumentoTipo, facturaData.DocumentoSucursal],
+            type: sequelize.QueryTypes.SELECT,
+            transaction: t
+          }
+        );
+        console.log("===========Telegram en el try:", numeroControl);
+        if (numeroControl && numeroControl.length > 0) {
+          facturaData.DocumentoNumero = numeroControl[0].NumeroProximo.toString().padStart(8, "0");
+        }
+      } catch (error) {
+        console.error("Error al obtener próximo número:", error);
+      }
+    }
+    console.log("===========Telegram desp del try:", facturaData.DocumentoNumero);
+    // Preparar datos para creación de factura
+    const facturaCabeza = {
+      DocumentoTipo: facturaData.DocumentoTipo,
+      DocumentoSucursal: facturaData.DocumentoSucursal,
+      DocumentoNumero: facturaData.DocumentoNumero,
+      Fecha: facturaData.Fecha,
+      ClienteCodigo: facturaData.ClienteCodigo,
+      VendedorCodigo: facturaData.Vendedor || '1',
+      PagoTipo: facturaData.FormaPagoCodigo || 'CO',
+      ImporteBruto: facturaData.ImporteBruto,
+      PorcentajeBonificacion: facturaData.PorcentajeBonificacion || 0,
+      ImporteBonificado: facturaData.ImporteBonificado || 0,
+      ImporteNeto: facturaData.ImporteNeto,
+      ImporteAdicional: facturaData.ImporteAdicional || 0,
+      ImporteIva1: facturaData.ImporteIva1,
+      ImporteIva2: facturaData.ImporteIva2 || 0,
+      BaseImponible1: facturaData.BaseImponible1,
+      BaseImponible2: facturaData.BaseImponible2 || 0,
+      ImporteTotal: facturaData.ImporteTotal,
+      ImportePagado: facturaData.ImportePagado || 0,
+      PorcentajeIva1: 21,
+      PorcentajeIva2: 10.5,
+      ListaNumero: facturaData.ListaPrecio || 1,
+      Observacion: facturaData.Observacion || '',
+      CodigoUsuario: 'admin',
+      CajaNumero: facturaData.CajaNumero
+    };
+    
+    // Crear factura cabeza
+    const nuevaFactura = await FacturaCabeza.create(facturaCabeza, { transaction: t });
+    
+    // Crear items de factura
+    for (const item of facturaData.Items) {
+      // Buscar el artículo en la base de datos
+      const articulo = await Articulo.findOne({
+        where: { Codigo: item.CodigoArticulo },
+        transaction: t
+      });
+      
+      if (!articulo) {
+        console.warn(`Artículo no encontrado: ${item.CodigoArticulo}`);
+      }
+      
+      // Crear item de factura
+      await FacturaItem.create({
+        DocumentoTipo: facturaData.DocumentoTipo,
+        DocumentoSucursal: facturaData.DocumentoSucursal,
+        DocumentoNumero: facturaData.DocumentoNumero,
+        CodigoArticulo: item.CodigoArticulo,
+        Cantidad: item.Cantidad,
+        PrecioLista: item.PrecioLista || item.PrecioUnitario,
+        PorcentajeBonificado: item.PorcentajeBonificado || 0,
+        ImporteBonificado: item.ImporteBonificado || 0,
+        PrecioUnitario: item.PrecioUnitario,
+        ImporteCosto: articulo ? (articulo.PrecioCosto * item.Cantidad) : 0
+      }, { transaction: t });
+      
+      // Actualizar stock si es necesario
+      if (articulo) {
+        const nuevoStock = Math.max(0, articulo.Existencia - item.Cantidad);
+        await articulo.update({ Existencia: nuevoStock }, { transaction: t });
+      }
+    }
+    
+    // Actualizar número de control
+    try {
+      await numerosControlController.actualizarNumeroDirecto(
+        facturaData.DocumentoTipo,
+        facturaData.DocumentoSucursal,
+        t
+      );
+    } catch (errorNumero) {
+      console.error("Error al actualizar número de control:", errorNumero);
+      await t.rollback();
+      return res.status(500).json({
+        success: false,
+        message: "Error al actualizar el número de control",
+        error: errorNumero.message
+      });
+    }
+    
+    // Confirmar transacción
+    await t.commit();
+    
+    res.status(201).json({
+      success: true,
+      message: "Factura creada correctamente desde Telegram",
+      data: {
+        DocumentoTipo: nuevaFactura.DocumentoTipo,
+        DocumentoSucursal: nuevaFactura.DocumentoSucursal,
+        DocumentoNumero: nuevaFactura.DocumentoNumero,
+        ImporteTotal: nuevaFactura.ImporteTotal
+      }
+    });
+    
+  } catch (error) {
+    await t.rollback();
+    console.error("Error al crear factura desde Telegram:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al crear factura desde Telegram",
+      error: error.message
+    });
+  }
+};
+
+// Endpoint para obtener datos básicos
+exports.obtenerDatos = async (req, res) => {
+  try {
+    // Obtener la sucursal actual
+    const sucursal = await sequelize.query(
+      "SELECT ValorConfig FROM configuracion WHERE NombreConfig = 'SUCURSAL'",
+      {
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+    
+    // Obtener las listas de precios
+    const listasPrecio = [];
+    for (let i = 1; i <= 5; i++) {
+      listasPrecio.push({
+        id: i.toString(),
+        nombre: `Lista ${i}`
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        sucursal: (sucursal && sucursal.length > 0) ? sucursal[0].ValorConfig : '0001',
+        listasPrecio: listasPrecio
+      }
+    });
+    
+  } catch (error) {
+    console.error("Error al obtener datos básicos:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener datos básicos",
+      error: error.message
+    });
   }
 }; 

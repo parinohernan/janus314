@@ -12,6 +12,9 @@
 	let { children } = $props();
 	let isLoading = $state(true);
 	
+	// Detectar si estamos en la miniweb de Telegram
+	let esMiniWebTelegram = $derived($page.url.pathname.includes('/ventas/bot/'));
+	
 	onMount(async () => {
 		const isAuthenticated = await auth.verifySession();
 		if (!isAuthenticated && $page.url.pathname !== '/login') {
@@ -54,19 +57,21 @@
 	</div>
 {:else}
 	<div class="min-h-screen flex flex-col">
-		<MainBar />
-		<Navbar />
-		
+		{#if !$page.url.pathname.includes('/ventas/bot/')}
+			<MainBar />
+			<Navbar />
+		{/if}
 		<main class="flex-grow container mx-auto px-4 py-6">
 			{@render children()}
 		</main>
-		
-		<footer class="bg-gray-800 text-white text-center py-4 text-sm">
-			<div class="flex items-center justify-center">
-				<img src="/janus314.png" alt="janus314" class="w-10 h-10 rotate-180">
-				<span>janus314 - sistema de gestión comercial &copy; 2025</span>
-				<img src="/janus314.png" alt="janus314" class="w-10 h-10">
-			</div>
-		</footer>
+		{#if !$page.url.pathname.includes('/ventas/bot/')}
+			<footer class="bg-gray-800 text-white text-center py-4 text-sm">
+				<div class="flex items-center justify-center">
+					<img src="/janus314.png" alt="janus314" class="w-10 h-10 rotate-180">
+					<span>janus314 - sistema de gestión comercial &copy; 2025</span>
+					<img src="/janus314.png" alt="janus314" class="w-10 h-10">
+				</div>
+			</footer>
+		{/if}
 	</div>
 {/if}

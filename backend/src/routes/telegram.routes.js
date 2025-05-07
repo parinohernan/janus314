@@ -27,4 +27,10 @@ router.post('/notify/:userId', async (req, res) => {
   }
 });
 
+// Endpoint para crear factura desde Telegram
+router.post("/facturas", telegramController.crearFactura);
+
+// Endpoint para obtener datos básicos
+router.get("/datos", telegramController.obtenerDatos);
+
 module.exports = router; 
