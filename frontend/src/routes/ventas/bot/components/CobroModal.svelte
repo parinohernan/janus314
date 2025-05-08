@@ -8,6 +8,10 @@
   export let calcularCambio: () => void;
   export let cancelar: () => void;
   export let terminar: () => void;
+
+  function cantidadTotal(articulo: { cantidadEntera?: number; cantidadDecimal?: number }) {
+    return (articulo.cantidadEntera || 0) + (articulo.cantidadDecimal || 0) / 1000;
+  }
 </script>
 
 {#if mostrarModalCobro}
@@ -23,7 +27,7 @@
         {:else}
           <div class="cobro-item">
             <span class="cobro-label">Total:</span>
-            <span class="cobro-value">${selectedArticulos.reduce((sum, a) => sum + ((a.PrecioVenta || 0) * a.cantidad), 0).toFixed(2)}</span>
+            <span class="cobro-value">${Math.round(selectedArticulos.reduce((sum, a) => sum + ((a.PrecioVenta || 0) * cantidadTotal(a)), 0))}</span>
           </div>
           <div class="cobro-item">
             <label class="cobro-label" for="monto-pagado">Pagado:</label>
@@ -34,15 +38,16 @@
                 type="number" 
                 step="0.01" 
                 min="0"
-                bind:value={montoPagado} 
+                value={Math.round(montoPagado).toString()}
                 class="cobro-input"
-                on:input={() => { setMontoPagado(montoPagado); calcularCambio(); }}
+                on:input={(e) => { setMontoPagado(Number((e.target as HTMLInputElement).value)); calcularCambio(); }}
+                on:focus={(e) => { (e.target as HTMLInputElement).select(); }}
               />
             </div>
           </div>
           <div class="cobro-item cambio-item">
             <span class="cobro-label">Cambio:</span>
-            <span class="cobro-value cambio-value">${cambio.toFixed(2)}</span>
+            <span class="cobro-value cambio-value">{Math.round(cambio)}</span>
           </div>
           <div class="cobro-actions">
             <button type="button" class="btn-secondary" on:click={cancelar}>Cancelar</button>
