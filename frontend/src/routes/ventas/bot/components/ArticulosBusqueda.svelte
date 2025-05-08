@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Articulo } from './types';
   import { fetchProductos } from './utils';
+  import { onDestroy } from 'svelte';
 
   export let agregarArticulo: (a: Articulo) => void;
   export let handleArticuloKeyDown: (e: KeyboardEvent, a: Articulo) => void;
@@ -11,6 +12,25 @@
   let isLoading = false;
   let error: string | null = null;
   let timeoutId: number | null = null;
+
+  // Escaneo
+  let tabActiva: 'buscar' | 'escanear' = 'buscar';
+
+  // Códigos de barras simulados para pruebas
+  const codigosSimulados = [
+    '7501234567890',
+    '7509876543210',
+    '7501112223334',
+    '7504445556667',
+    '7507778889990',
+    '7501237894560',
+    '7504561237890',
+    '7507894561230',
+    '7503216549870',
+    '7506549873210'
+  ];
+
+  let codigoActual = 0;
 
   async function buscarProductos() {
     if (busquedaProducto.length < 3) {
@@ -40,20 +60,94 @@
       productosFiltrados = [];
     }
   }
+
+  function simularEscaner(event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    const codigo = codigosSimulados[codigoActual];
+    codigoActual = (codigoActual + 1) % codigosSimulados.length;
+    busquedaProducto = codigo;
+    buscarProductosPorCodigo(codigo);
+  }
+
+  async function buscarProductosPorCodigo(codigo: string) {
+    isLoading = true;
+    try {
+      const resultados = await fetchProductos(codigo, listaPrecios);
+      if (resultados.length > 0) {
+        // Si encontramos el producto, lo agregamos directamente
+        agregarArticulo(resultados[0]);
+        // Limpiamos la búsqueda
+        busquedaProducto = '';
+        productosFiltrados = [];
+      } else {
+        alert(`Código ${codigo} no está asociado a ningún artículo`);
+      }
+      error = null;
+    } catch (err) {
+      error = 'Error al buscar productos';
+      productosFiltrados = [];
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  // Manejar cambio de pestaña
+  function cambiarTab(event: MouseEvent, nuevaTab: 'buscar' | 'escanear') {
+    event.preventDefault();
+    event.stopPropagation();
+    tabActiva = nuevaTab;
+  }
 </script>
 
 <div class="form-group">
-  <h3>Buscar Artículos</h3>
-  <div class="busqueda-container">
-    <input 
-      type="text" 
-      id="busqueda-producto"
-      value={busquedaProducto}
-      placeholder="Buscar por código o descripción..."
-      on:input={handleBusquedaProductoChange}
-    />
-    <button type="button" on:click={buscarProductos} class="btn-buscar">Buscar</button>
+  <div class="tabs">
+    <button 
+      class="tab-btn {tabActiva === 'buscar' ? 'activa' : ''}" 
+      on:click={(e) => cambiarTab(e, 'buscar')}
+      type="button"
+      on:keydown|stopPropagation
+    >
+      Buscar
+    </button>
+    <button 
+      class="tab-btn {tabActiva === 'escanear' ? 'activa' : ''}" 
+      on:click={(e) => cambiarTab(e, 'escanear')}
+      type="button"
+      on:keydown|stopPropagation
+    >
+      Escanear
+    </button>
   </div>
+
+  {#if tabActiva === 'buscar'}
+    <div class="busqueda-container">
+      <input 
+        type="text" 
+        id="busqueda-producto"
+        value={busquedaProducto}
+        placeholder="Buscar por código o descripción..."
+        on:input={handleBusquedaProductoChange}
+      />
+      <button type="button" on:click={buscarProductos} class="btn-buscar">Buscar</button>
+    </div>
+  {:else}
+    <div class="escaner-container">
+      <div class="simulador-escaner">
+        <p>Simulador de escáner</p>
+        <p class="codigo-actual">Código actual: {codigosSimulados[codigoActual]}</p>
+        <button 
+          class="btn-primary" 
+          on:click={simularEscaner}
+          type="button"
+          on:keydown|stopPropagation
+        >
+          Simular escaneo
+        </button>
+      </div>
+    </div>
+  {/if}
+
   <div class="articulos-lista">
     {#if isLoading}
       <div class="loading">Buscando...</div>
@@ -90,9 +184,46 @@
 </div>
 
 <style>
+  .tabs {
+    display: flex;
+    gap: 1px;
+    background: #ddd;
+    padding: 1px;
+    border-radius: 4px 4px 0 0;
+    margin-bottom: 0;
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    background: #f5f5f5;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.2s;
+  }
+
+  .tab-btn:first-child {
+    border-radius: 4px 0 0 0;
+  }
+
+  .tab-btn:last-child {
+    border-radius: 0 4px 0 0;
+  }
+
+  .tab-btn.activa {
+    background: #fff;
+    font-weight: bold;
+  }
+
   .busqueda-container {
     display: flex;
     margin-bottom: 10px;
+    padding: 10px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
   }
   
   .busqueda-container input {
@@ -175,6 +306,37 @@
     padding: 15px;
     text-align: center;
     color: #666;
+  }
+
+  .simulador-escaner {
+    text-align: center;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin: 10px;
+  }
+
+  .codigo-actual {
+    font-family: monospace;
+    font-size: 1.2em;
+    margin: 10px 0;
+    padding: 10px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+
+  .btn-primary {
+    background: var(--tg-theme-button-color, #2481cc);
+    color: var(--tg-theme-button-text-color, #fff);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.9;
   }
 
   .sr-only {

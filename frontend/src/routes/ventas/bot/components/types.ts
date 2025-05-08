@@ -10,6 +10,7 @@ export interface Articulo {
   Lista5?: number;
   Existencia?: number;
   PorcentajeIVA1?: number;
+  CodigoBarras?: string;
 }
 
 export interface Cliente {
