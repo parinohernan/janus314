@@ -15,10 +15,16 @@
 
   // Escaneo
   let tabActiva: 'buscar' | 'escanear' = 'buscar';
+  let codigoEscaneado = '';
+  let codigoParcial = '';
+  let ultimoTiempoEscaneo = 0;
+  let videoElement: HTMLVideoElement;
+  let stream: MediaStream | null = null;
+  let barcodeDetector: BarcodeDetector | null = null;
+  let scanning = false;
 
   // Variables para el modal de asociación
   let mostrarAsociarModal = false;
-  let codigoEscaneado = '';
   let busquedaAsociar = '';
   let articulosAsociar: Articulo[] = [];
   let articuloSeleccionado: Articulo | null = null;
@@ -184,6 +190,111 @@
     event.stopPropagation();
     tabActiva = nuevaTab;
   }
+
+  // Función para manejar la entrada del escáner
+  function handleKeyDown(event: KeyboardEvent) {
+    if (tabActiva !== 'escanear') return;
+
+    const tiempoActual = Date.now();
+    
+    // Si han pasado más de 100ms desde la última tecla, reiniciamos el código parcial
+    if (tiempoActual - ultimoTiempoEscaneo > 100) {
+      codigoParcial = '';
+    }
+    
+    ultimoTiempoEscaneo = tiempoActual;
+
+    // Si es Enter, procesamos el código escaneado
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (codigoParcial) {
+        buscarProductosPorCodigo(codigoParcial);
+        codigoParcial = '';
+      }
+    } else if (event.key.length === 1) {
+      // Solo agregamos caracteres válidos
+      codigoParcial += event.key;
+    }
+  }
+
+  // Agregar y remover el event listener cuando cambia la pestaña
+  $: {
+    if (tabActiva === 'escanear') {
+      window.addEventListener('keydown', handleKeyDown);
+    } else {
+      window.removeEventListener('keydown', handleKeyDown);
+    }
+  }
+
+  // Función para iniciar el escáner
+  async function iniciarEscanner() {
+    try {
+      // Verificar si el navegador soporta BarcodeDetector
+      if (!('BarcodeDetector' in window)) {
+        alert('Tu navegador no soporta el escaneo de códigos de barras');
+        return;
+      }
+
+      // Crear el detector de códigos
+      barcodeDetector = new BarcodeDetector({
+        formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e']
+      });
+
+      // Obtener acceso a la cámara
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+
+      // Configurar el video
+      videoElement.srcObject = stream;
+      await videoElement.play();
+
+      // Iniciar el escaneo
+      scanning = true;
+      detectarCodigo();
+    } catch (error) {
+      console.error('Error al iniciar el escáner:', error);
+      alert('Error al acceder a la cámara');
+    }
+  }
+
+  // Función para detener el escáner
+  function detenerEscanner() {
+    scanning = false;
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      stream = null;
+    }
+    if (videoElement) {
+      videoElement.srcObject = null;
+    }
+  }
+
+  // Función para detectar códigos
+  async function detectarCodigo() {
+    if (!scanning || !barcodeDetector || !videoElement) return;
+
+    try {
+      const codigos = await barcodeDetector.detect(videoElement);
+      if (codigos.length > 0) {
+        const codigo = codigos[0].rawValue;
+        buscarProductosPorCodigo(codigo);
+        detenerEscanner();
+      }
+    } catch (error) {
+      console.error('Error al detectar código:', error);
+    }
+
+    // Continuar escaneando
+    if (scanning) {
+      requestAnimationFrame(detectarCodigo);
+    }
+  }
+
+  // Limpiar recursos cuando se destruye el componente
+  onDestroy(() => {
+    detenerEscanner();
+  });
 </script>
 
 <div class="form-group">
@@ -219,17 +330,32 @@
     </div>
   {:else}
     <div class="escaner-container">
-      <div class="simulador-escaner">
-        <p>Simulador de escáner</p>
-        <p class="codigo-actual">Código actual: {codigosSimulados[codigoActual]}</p>
-        <button 
-          class="btn-primary" 
-          on:click={simularEscaner}
-          type="button"
-          on:keydown|stopPropagation
+      <div class="camera-container">
+        <video 
+          bind:this={videoElement}
+          class="camera-preview"
+          playsinline
+          aria-label="Escáner de códigos de barras"
         >
-          Simular escaneo
-        </button>
+          <track kind="captions" label="Español" src="" default />
+        </video>
+        {#if !stream}
+          <button 
+            class="btn-primary" 
+            on:click={iniciarEscanner}
+            type="button"
+          >
+            Iniciar cámara
+          </button>
+        {:else}
+          <button 
+            class="btn-secondary" 
+            on:click={detenerEscanner}
+            type="button"
+          >
+            Detener cámara
+          </button>
+        {/if}
       </div>
     </div>
   {/if}
@@ -452,13 +578,13 @@
     color: #666;
   }
 
-  .simulador-escaner {
+  /* .simulador-escaner {
     text-align: center;
     padding: 20px;
     background: #f8f9fa;
     border-radius: 8px;
     margin: 10px;
-  }
+  } */
 
   .codigo-actual {
     font-family: monospace;
@@ -571,5 +697,34 @@
 
   .btn-secondary:hover {
     background: #eee;
+  }
+
+  .camera-container {
+    position: relative;
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .camera-preview {
+    width: 100%;
+    height: 150px;
+    background: #000;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    object-fit: cover;
+  }
+
+  .camera-container::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.5);
+    pointer-events: none;
   }
 </style> 
