@@ -273,3 +273,55 @@ exports.deleteArticulo = async (req, res) => {
     return res.status(500).json({ message: "Error al eliminar el artículo" });
   }
 };
+
+// Asociar código de barras a un artículo
+exports.asociarCodigoBarras = async (req, res) => {
+  try {
+    const { codigoArticulo, codigoBarras } = req.body;
+
+    if (!codigoArticulo || !codigoBarras) {
+      return res.status(400).json({
+        message: "Se requieren el código del artículo y el código de barras"
+      });
+    }
+
+    // Buscar el artículo
+    const articulo = await Articulo.findByPk(codigoArticulo);
+    if (!articulo) {
+      return res.status(404).json({
+        message: "Artículo no encontrado"
+      });
+    }
+
+    // Verificar si el código de barras ya está asociado a otro artículo
+    const articuloExistente = await Articulo.findOne({
+      where: {
+        CodigoBarras: codigoBarras,
+        Codigo: { [Op.ne]: codigoArticulo }
+      }
+    });
+
+    if (articuloExistente) {
+      return res.status(400).json({
+        message: `El código de barras ${codigoBarras} ya está asociado al artículo ${articuloExistente.Codigo} - ${articuloExistente.Descripcion}`
+      });
+    }
+
+    // Actualizar el artículo con el nuevo código de barras
+    await articulo.update({ CodigoBarras: codigoBarras });
+
+    return res.status(200).json({
+      message: "Código de barras asociado correctamente",
+      articulo: {
+        Codigo: articulo.Codigo,
+        Descripcion: articulo.Descripcion,
+        CodigoBarras: codigoBarras
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "Error al asociar el código de barras"
+    });
+  }
+};

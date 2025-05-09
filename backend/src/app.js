@@ -43,6 +43,8 @@ const app = express();
 // Log MUY temprano para todas las solicitudes
 app.use((req, res, next) => {
   console.log(`>>> [${new Date().toISOString()}] App.js recibió ${req.method} para ${req.originalUrl}`);
+  console.log('Headers:', req.headers);
+  console.log('Body:', req.body);
   next(); // Continuar al siguiente middleware
 });
 

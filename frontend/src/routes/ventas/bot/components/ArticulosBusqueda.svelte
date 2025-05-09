@@ -16,6 +16,15 @@
   // Escaneo
   let tabActiva: 'buscar' | 'escanear' = 'buscar';
 
+  // Variables para el modal de asociación
+  let mostrarAsociarModal = false;
+  let codigoEscaneado = '';
+  let busquedaAsociar = '';
+  let articulosAsociar: Articulo[] = [];
+  let articuloSeleccionado: Articulo | null = null;
+  let mostrarConfirmacionReemplazo = false;
+  let timeoutIdAsociar: number | null = null;
+
   // Códigos de barras simulados para pruebas
   const codigosSimulados = [
     '7501234567890',
@@ -81,7 +90,11 @@
         busquedaProducto = '';
         productosFiltrados = [];
       } else {
-        alert(`Código ${codigo} no está asociado a ningún artículo`);
+        // Si no encontramos el producto, abrimos el modal de asociación
+        codigoEscaneado = codigo;
+        mostrarAsociarModal = true;
+        // Buscamos todos los productos para asociar
+        articulosAsociar = await fetchProductos('', listaPrecios);
       }
       error = null;
     } catch (err) {
@@ -89,6 +102,79 @@
       productosFiltrados = [];
     } finally {
       isLoading = false;
+    }
+  }
+
+  async function asociarCodigoAArticulo(articulo: Articulo) {
+    if (articulo.CodigoBarras) {
+      articuloSeleccionado = articulo;
+      mostrarConfirmacionReemplazo = true;
+    } else {
+      await confirmarAsociacion(articulo);
+    }
+  }
+
+  async function confirmarAsociacion(articulo: Articulo) {
+    try {
+      // Aquí deberías hacer la llamada a tu API para asociar el código
+      const response = await fetch('https://janus314-api.osvi.lat/api/articulos/asociar-codigo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          codigoArticulo: articulo.Codigo,
+          codigoBarras: codigoEscaneado
+        })
+      });
+
+      if (!response.ok) throw new Error('Error al asociar código');
+
+      // Actualizar el artículo localmente
+      articulo.CodigoBarras = codigoEscaneado;
+      mostrarAsociarModal = false;
+      mostrarConfirmacionReemplazo = false;
+      articuloSeleccionado = null;
+      busquedaProducto = '';
+      productosFiltrados = [];
+    } catch (error) {
+      alert('Error al asociar el código de barras');
+    }
+  }
+
+  function cancelarAsociacion() {
+    mostrarAsociarModal = false;
+    mostrarConfirmacionReemplazo = false;
+    articuloSeleccionado = null;
+    busquedaProducto = '';
+    productosFiltrados = [];
+  }
+
+  function handleArticuloAsociarKeyDown(e: KeyboardEvent, articulo: Articulo) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      asociarCodigoAArticulo(articulo);
+    }
+  }
+
+  function handleBusquedaAsociarChange(event: Event) {
+    busquedaAsociar = (event.target as HTMLInputElement).value;
+    if (timeoutIdAsociar) clearTimeout(timeoutIdAsociar);
+    if (busquedaAsociar.length >= 3) {
+      timeoutIdAsociar = setTimeout(async () => {
+        try {
+          articulosAsociar = await fetchProductos(busquedaAsociar, listaPrecios);
+        } catch (err) {
+          console.error('Error al buscar productos:', err);
+        }
+      }, 300);
+    } else if (busquedaAsociar.length === 0) {
+      // Si el campo está vacío, mostrar todos los productos
+      fetchProductos('', listaPrecios).then(resultados => {
+        articulosAsociar = resultados;
+      }).catch(err => {
+        console.error('Error al cargar productos:', err);
+      });
     }
   }
 
@@ -181,6 +267,64 @@
       <div class="instrucciones">Escriba al menos 3 caracteres para buscar</div>
     {/if}
   </div>
+
+  {#if mostrarAsociarModal}
+    <div class="modal modal-asociar">
+      <div class="modal-content modal-asociar-content">
+        <button class="modal-close" on:click={cancelarAsociacion}>×</button>
+        <h4>No se encontró ningún artículo con el código "{codigoEscaneado}"</h4>
+        <p>¿Deseas asociarlo a un artículo existente?</p>
+        <input 
+          type="text" 
+          placeholder="Buscar artículo por nombre o código..." 
+          value={busquedaAsociar}
+          on:input={handleBusquedaAsociarChange}
+          class="input-busqueda"
+        />
+        <div class="lista-articulos">
+          {#each articulosAsociar as articulo}
+            <div 
+              class="articulo-item" 
+              on:click={() => asociarCodigoAArticulo(articulo)}
+              on:keydown={(e) => handleArticuloAsociarKeyDown(e, articulo)}
+              role="button"
+              tabindex="0"
+            >
+              <div class="articulo-info">
+                <strong>{articulo.Codigo}</strong> - {articulo.Descripcion}
+                {#if articulo.CodigoBarras}
+                  <div class="codigo-barras-existente">
+                    Código actual: {articulo.CodigoBarras}
+                  </div>
+                {/if}
+              </div>
+            </div>
+          {/each}
+        </div>
+        <div class="modal-actions">
+          <button class="btn-secondary" on:click={cancelarAsociacion}>Cancelar</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if mostrarConfirmacionReemplazo && articuloSeleccionado}
+    <div class="modal modal-confirmacion">
+      <div class="modal-content modal-confirmacion-content">
+        <button class="modal-close" on:click={cancelarAsociacion}>×</button>
+        <h4>Confirmar reemplazo de código de barras</h4>
+        <p>El artículo "{articuloSeleccionado.Descripcion}" ya tiene un código de barras asociado:</p>
+        <p class="codigo-actual">Código actual: {articuloSeleccionado.CodigoBarras}</p>
+        <p>¿Deseas reemplazarlo por el nuevo código "{codigoEscaneado}"?</p>
+        <div class="modal-actions">
+          <button class="btn-secondary" on:click={cancelarAsociacion}>Cancelar</button>
+          <button class="btn-primary" on:click={() => confirmarAsociacion(articuloSeleccionado!)}>
+            Confirmar reemplazo
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -349,5 +493,83 @@
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border-width: 0;
+  }
+
+  .modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal-content {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    max-width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    color: #666;
+  }
+
+  .modal-asociar-content {
+    width: 500px;
+  }
+
+  .input-busqueda {
+    width: 100%;
+    padding: 8px;
+    margin: 10px 0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+
+  .lista-articulos {
+    max-height: 300px;
+    overflow-y: auto;
+    margin: 10px 0;
+  }
+
+  .codigo-barras-existente {
+    font-size: 0.8em;
+    color: #666;
+    margin-top: 4px;
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  .btn-secondary {
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .btn-secondary:hover {
+    background: #eee;
   }
 </style> 
