@@ -11,6 +11,37 @@ export function formatDate(dateString: string): string {
 }
 
 /**
+ * Formatea una fecha en formato legible sin hora
+ * @param dateString Fecha en formato ISO o string de fecha
+ * @returns Fecha formateada en formato local (DD/MM/YYYY)
+ */
+export function formatDateOnly(dateString: string): string {
+	if (!dateString) return '';
+	try {
+		const date = new Date(dateString);
+		return date.toLocaleDateString('es-AR', {
+			day: '2-digit',
+			month: '2-digit',
+			year: 'numeric'
+		});
+	} catch (error) {
+		console.error('Error al formatear fecha:', error);
+		return '';
+	}
+}
+
+/**
+ * Obtiene la fecha actual en formato ISO para Argentina (GMT-3)
+ * @returns Fecha en formato YYYY-MM-DD
+ */
+export function getTodayISOArgentina(): string {
+	const now = new Date();
+	// Ajustar a la zona horaria de Argentina (GMT-3)
+	const argentinaTime = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
+	return argentinaTime.toISOString().split('T')[0];
+}
+
+/**
  * Formatea una fecha para mostrarse en un input date
  * @param dateString Fecha en formato ISO o string de fecha
  * @returns Fecha en formato YYYY-MM-DD

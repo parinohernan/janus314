@@ -2,6 +2,7 @@ const Articulo = require("../models/articulo.model");
 const Proveedor = require("../models/proveedor.model");
 const Rubro = require("../models/rubro.model");
 const { Op } = require("sequelize");
+const sequelize = require("../config/database");
 
 // Obtener todos los artículos (con filtros y paginación)
 exports.getAllArticulos = async (req, res) => {
@@ -14,7 +15,9 @@ exports.getAllArticulos = async (req, res) => {
       order = "ASC",
       activo = 1,
       proveedor = "",
-      rubro = ""
+      rubro = "",
+      proveedores = "",
+      rubros = ""
     } = req.query;
 
     // Calcular offset para paginación
@@ -36,6 +39,20 @@ exports.getAllArticulos = async (req, res) => {
     // Filtrar por rubro
     if (rubro) {
       whereClause.RubroCodigo = rubro;
+    }
+
+    // Filtrar por múltiples proveedores
+    if (proveedores) {
+      whereClause.ProveedorCodigo = {
+        [Op.in]: proveedores.split(',')
+      };
+    }
+
+    // Filtrar por múltiples rubros
+    if (rubros) {
+      whereClause.RubroCodigo = {
+        [Op.in]: rubros.split(',')
+      };
     }
     
     if (search) {
@@ -323,5 +340,55 @@ exports.asociarCodigoBarras = async (req, res) => {
     return res.status(500).json({
       message: "Error al asociar el código de barras"
     });
+  }
+};
+
+// Actualizar precios de artículos
+exports.actualizarPrecios = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { articulos, porcentaje } = req.body;
+
+    if (!articulos || !Array.isArray(articulos) || articulos.length === 0) {
+      return res.status(400).json({ message: "Debe proporcionar una lista de artículos" });
+    }
+
+    if (!porcentaje || isNaN(porcentaje)) {
+      return res.status(400).json({ message: "Debe proporcionar un porcentaje válido" });
+    }
+
+    // Obtener los artículos a actualizar
+    const articulosToUpdate = await Articulo.findAll({
+      where: {
+        Codigo: {
+          [Op.in]: articulos
+        }
+      },
+      transaction
+    });
+
+    // Actualizar cada artículo
+    for (const articulo of articulosToUpdate) {
+      const precioCosto = articulo.PrecioCosto || 0;
+      const nuevoPrecioCosto = precioCosto * (1 + (porcentaje / 100));
+      
+      await articulo.update({
+        PrecioCosto: nuevoPrecioCosto,
+        PrecioCostoMasImp: nuevoPrecioCosto * (1 + (articulo.PorcentajeIVA1 || 0) / 100)
+      }, { transaction });
+    }
+
+    await transaction.commit();
+
+    return res.status(200).json({
+      message: "Precios actualizados correctamente",
+      articulosActualizados: articulosToUpdate.length
+    });
+
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Error al actualizar precios:", error);
+    return res.status(500).json({ message: "Error al actualizar los precios" });
   }
 };

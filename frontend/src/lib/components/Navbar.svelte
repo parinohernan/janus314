@@ -38,13 +38,13 @@
       //   { label: 'Movimientos', url: '/caja/movimientos' }
       // ]
     },
-    {
-      id: 'miniweb',
-      label: 'Miniweb',
-      items: [
-        { label: 'Nueva Venta', url: '/ventas/bot/nueva' }
-      ]
-    },
+    // {
+    //   id: 'miniweb',
+    //   label: 'Miniweb',
+    //   items: [
+    //     { label: 'Nueva Venta', url: '/ventas/bot/nueva' }
+    //   ]
+    // },
     {
       id: 'ventas',
       label: 'Ventas',
