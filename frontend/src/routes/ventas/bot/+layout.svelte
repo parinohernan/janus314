@@ -7,8 +7,6 @@
 	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { navigationState } from '$lib/stores/navigationState';
 	
-	let { children } = $props();
-	
 	beforeNavigate(({ from, to, cancel }) => {
 		if (from) {
 			// Guardar posición de scroll antes de navegar
@@ -38,7 +36,7 @@
 
 <div class="telegram-app min-h-screen">
 	<main>
-		{@render children()}
+		<slot />
 	</main>
 </div>
 
