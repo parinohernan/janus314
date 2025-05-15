@@ -18,6 +18,7 @@ exports.listarFacturas = async (req, res) => {
     const clienteCodigo = req.query.cliente || null;
     const fechaDesde = req.query.fechaDesde || null;
     const fechaHasta = req.query.fechaHasta || null;
+    const fecha = req.query.fecha || null;
     const vendedor = req.query.vendedor || null;
 
     // Construir condiciones de filtrado
@@ -26,7 +27,12 @@ exports.listarFacturas = async (req, res) => {
     if (clienteCodigo) whereClause.ClienteCodigo = clienteCodigo;
     if (vendedor) whereClause.VendedorCodigo = vendedor;
 
-    if (fechaDesde && fechaHasta) {
+    // Manejo de fechas
+    if (fecha) {
+      // Si se proporciona una fecha específica
+      whereClause.Fecha = fecha;
+    } else if (fechaDesde && fechaHasta) {
+      // Si se proporciona un rango de fechas
       whereClause.Fecha = {
         [Op.between]: [fechaDesde, fechaHasta],
       };

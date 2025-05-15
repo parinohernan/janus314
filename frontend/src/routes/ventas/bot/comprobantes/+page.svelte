@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { goto as navigate } from '$app/navigation';
   import '../components/bot.css';
 
   interface Comprobante {
@@ -302,6 +303,8 @@
 </svelte:head>
 
 <div class="telegram-webapp">
+  <button class="btn-volver" on:click={() => navigate('/ventas/bot/home')}>← Volver</button>
+
   {#if error}
     <div class="error">{error}</div>
   {/if}

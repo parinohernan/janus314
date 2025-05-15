@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { goto as navigate } from '$app/navigation';
   import ClienteSelector from '../components/ClienteSelector.svelte';
   import ArticulosBusqueda from '../components/ArticulosBusqueda.svelte';
   import ArticulosSeleccionados from '../components/ArticulosSeleccionados.svelte';
@@ -442,6 +443,8 @@
 <svelte:window on:keydown={handleKeydown} />
 
 <div class="telegram-webapp">
+  <button class="btn-volver" on:click={() => navigate('/ventas/bot/home')}>← Volver</button>
+
   {#if isLoading}
     <div class="loading">Cargando...</div>
   {/if}
@@ -584,5 +587,15 @@
     border-radius: 4px;
     cursor: pointer;
     font-size: 16px;
+  }
+
+  .btn-volver {
+    background: none;
+    border: none;
+    color: var(--tg-theme-link-color, #2481cc);
+    padding: 8px 0;
+    cursor: pointer;
+    font-size: 1em;
+    margin-bottom: 16px;
   }
 </style> 
