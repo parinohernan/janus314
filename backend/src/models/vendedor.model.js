@@ -22,6 +22,10 @@ const Vendedor = sequelize.define(
       allowNull: true,
       defaultValue: 1,
     },
+    Permisos: {
+      type: DataTypes.STRING(8),
+      allowNull: true,
+    },
   },
   {
     tableName: "t_vendedores",

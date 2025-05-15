@@ -1,31 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { goto as navigate } from '$app/navigation';
-  import '../../../../app.css';
-  import QuickStats from '../components/QuickStats.svelte';
-
-  // Interfaz para el objeto Telegram WebApp
-  interface TelegramWebApp {
-    initData: string;
-    initDataUnsafe: {
-      user?: {
-        id: number;
-        first_name: string;
-        last_name?: string;
-        username?: string;
-      };
-    };
-    expand: () => void;
-    close: () => void;
-    enableClosingConfirmation: () => void;
-    sendData: (data: string) => void;
-  }
-
-  // Referencia al objeto de Telegram WebApp
-  let tg: TelegramWebApp | null = null;
-  let userName: string = '';
-  // Por ahora usamos vendedor fijo = 1 hasta implementar login
-  const VENDEDOR_DEFAULT = '1';
 
   // Interface para las estadísticas
   interface Stat {
@@ -36,30 +10,8 @@
     targetValue: number;
   }
 
-  // Funciones principales de la aplicación
-  const mainFeatures = [
-    {
-      icon: '🛒',
-      title: 'Nueva Venta',
-      description: 'Registra ventas rápidamente',
-      route: '/ventas/bot/nueva'
-    },
-    {
-      icon: '📄',
-      title: 'Comprobantes',
-      description: 'Consulta y comparte facturas',
-      route: '/ventas/bot/comprobantes'
-    },
-    {
-      icon: 'ℹ️',
-      title: 'Sobre Nosotros',
-      description: 'Conoce más sobre MiniMonster',
-      route: '/ventas/bot/minimonster'
-    }
-  ];
-
   // Estadísticas rápidas con valores de animación
-  let quickStats: Stat[] = [
+  export let quickStats: Stat[] = [
     {
       label: 'Ventas Hoy',
       value: '0',
@@ -82,6 +34,9 @@
       targetValue: 0
     }
   ];
+
+  // Por ahora usamos vendedor fijo = 1 hasta implementar login
+  const VENDEDOR_DEFAULT = '1';
 
   function obtenerFechaHoy(): string {
     const fecha = new Date();
@@ -156,137 +111,69 @@
   }
 
   onMount(async () => {
-    if (typeof window !== 'undefined' && 'Telegram' in window) {
-      const telegram = (window as any).Telegram;
-      if (telegram?.WebApp) {
-        const webApp = telegram.WebApp as TelegramWebApp;
-        tg = webApp;
-        
-        if (tg) {
-          tg.expand();
-          
-          const user = tg.initDataUnsafe?.user;
-          if (user) {
-            userName = user.first_name + (user.last_name ? ` ${user.last_name}` : '');
-          }
-        }
-      }
-    }
-
-    // Cargar estadísticas al montar el componente
     await cargarEstadisticas();
   });
-
-  function navigateTo(route: string) {
-    navigate(route);
-  }
 </script>
 
-<svelte:head>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-</svelte:head>
-
-<div class="home-container">
-  <!-- Header con saludo personalizado -->
-  <header class="header">
-    <div class="app-title">
-      <h1>Janus MiniMonster</h1>
-      {#if userName}
-        <p class="welcome-text">¡Hola, {userName}! 👋</p>
-      {:else}
-        <p class="welcome-text">¡Bienvenido! 👋</p>
-      {/if}
+<div class="quick-stats">
+  {#each quickStats as stat (stat.label)}
+    <div class="stat-card">
+      <span class="stat-icon">{stat.icon}</span>
+      <span class="stat-value">{stat.value}</span>
+      <span class="stat-label">{stat.label}</span>
     </div>
-  </header>
-
-  <!-- Estadísticas Rápidas -->
-  <QuickStats />
-
-  <!-- Funciones Principales -->
-  <div class="features-grid">
-    {#each mainFeatures as feature}
-      <button 
-        class="feature-card"
-        on:click={() => navigateTo(feature.route)}
-      >
-        <span class="feature-icon">{feature.icon}</span>
-        <h3>{feature.title}</h3>
-        <p>{feature.description}</p>
-      </button>
-    {/each}
-  </div>
+  {/each}
 </div>
 
 <style>
-  .home-container {
-    padding: 16px;
-    max-width: 100%;
-    min-height: 100vh;
-    color: var(--tg-theme-text-color, #000);
-    background: var(--tg-theme-bg-color, #fff);
-  }
-
-  .header {
+  .quick-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
     margin-bottom: 24px;
   }
 
-  .app-title h1 {
-    font-size: 1.8rem;
-    margin: 0;
-    color: var(--tg-theme-text-color, #000);
-    font-weight: bold;
-  }
-
-  .welcome-text {
-    margin: 8px 0 0 0;
-    color: var(--tg-theme-hint-color, #999);
-    font-size: 1.1rem;
-  }
-
-  .features-grid {
-    display: grid;
-    gap: 16px;
-  }
-
-  .feature-card {
+  .stat-card {
     background: var(--tg-theme-secondary-bg-color, #f5f5f5);
-    padding: 20px;
+    padding: 16px;
     border-radius: 12px;
-    border: none;
-    text-align: left;
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 16px;
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    cursor: pointer;
-    transition: transform 0.2s ease;
-    width: 100%;
+    text-align: center;
+    transition: transform 0.3s ease;
   }
 
-  .feature-card:active {
-    transform: scale(0.98);
+  .stat-card:hover {
+    transform: translateY(-2px);
   }
 
-  .feature-icon {
-    font-size: 2rem;
-    grid-row: span 2;
+  .stat-icon {
+    font-size: 1.5rem;
+    margin-bottom: 8px;
   }
 
-  .feature-card h3 {
-    margin: 0;
-    font-size: 1.1rem;
-    color: var(--tg-theme-text-color, #000);
+  .stat-value {
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: var(--tg-theme-button-color, #2481cc);
+    transition: color 0.3s ease;
+    min-height: 1.4em; /* Evitar saltos en el layout durante la animación */
   }
 
-  .feature-card p {
-    margin: 4px 0 0 0;
+  .stat-label {
     font-size: 0.9rem;
     color: var(--tg-theme-hint-color, #999);
+    margin-top: 4px;
   }
 
   @media (max-width: 360px) {
-    .feature-card {
-      padding: 16px;
+    .quick-stats {
+      grid-template-columns: 1fr;
+    }
+
+    .stat-card {
+      padding: 12px;
     }
   }
 </style> 

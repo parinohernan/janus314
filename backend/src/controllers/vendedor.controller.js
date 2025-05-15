@@ -14,7 +14,7 @@ exports.getVendedores = async (req, res) => {
 
     const vendedores = await Vendedor.findAll({
       where: whereClause,
-      attributes: ["Codigo", "Descripcion", "Activo"], // Excluimos la clave por seguridad
+      attributes: ["Codigo", "Descripcion", "Activo", "Permisos"], // Incluimos Permisos
       order: [["Descripcion", "ASC"]],
     });
 
@@ -38,7 +38,7 @@ exports.getVendedorById = async (req, res) => {
     const { codigo } = req.params;
 
     const vendedor = await Vendedor.findByPk(codigo, {
-      attributes: ["Codigo", "Descripcion", "Activo"], // Excluimos la clave por seguridad
+      attributes: ["Codigo", "Descripcion", "Activo", "Permisos"], // Incluimos Permisos
     });
 
     if (!vendedor) {
@@ -65,12 +65,20 @@ exports.getVendedorById = async (req, res) => {
 // Crear un nuevo vendedor
 exports.createVendedor = async (req, res) => {
   try {
-    const { Codigo, Descripcion, Clave, Activo } = req.body;
+    const { Codigo, Descripcion, Clave, Activo, Permisos } = req.body;
 
     if (!Codigo || !Descripcion) {
       return res.status(400).json({
         success: false,
         message: "El código y descripción son obligatorios",
+      });
+    }
+
+    // Validar formato de Permisos (8 caracteres)
+    if (Permisos && Permisos.length !== 8) {
+      return res.status(400).json({
+        success: false,
+        message: "El campo Permisos debe tener exactamente 8 caracteres",
       });
     }
 
@@ -90,6 +98,7 @@ exports.createVendedor = async (req, res) => {
       Descripcion,
       Clave,
       Activo: Activo !== undefined ? Activo : 1,
+      Permisos,
     });
 
     res.status(201).json({
@@ -99,6 +108,7 @@ exports.createVendedor = async (req, res) => {
         Codigo: nuevoVendedor.Codigo,
         Descripcion: nuevoVendedor.Descripcion,
         Activo: nuevoVendedor.Activo,
+        Permisos: nuevoVendedor.Permisos,
       },
     });
   } catch (error) {
@@ -115,7 +125,7 @@ exports.createVendedor = async (req, res) => {
 exports.updateVendedor = async (req, res) => {
   try {
     const { codigo } = req.params;
-    const { Descripcion, Clave, Activo } = req.body;
+    const { Descripcion, Clave, Activo, Permisos } = req.body;
 
     const vendedor = await Vendedor.findByPk(codigo);
 
@@ -126,11 +136,20 @@ exports.updateVendedor = async (req, res) => {
       });
     }
 
+    // Validar formato de Permisos si se proporciona
+    if (Permisos !== undefined && Permisos.length !== 8) {
+      return res.status(400).json({
+        success: false,
+        message: "El campo Permisos debe tener exactamente 8 caracteres",
+      });
+    }
+
     // Actualizar solo los campos proporcionados
     const datosActualizar = {};
     if (Descripcion !== undefined) datosActualizar.Descripcion = Descripcion;
     if (Clave !== undefined) datosActualizar.Clave = Clave;
     if (Activo !== undefined) datosActualizar.Activo = Activo;
+    if (Permisos !== undefined) datosActualizar.Permisos = Permisos;
 
     await vendedor.update(datosActualizar);
 
@@ -141,6 +160,7 @@ exports.updateVendedor = async (req, res) => {
         Codigo: vendedor.Codigo,
         Descripcion: vendedor.Descripcion,
         Activo: vendedor.Activo,
+        Permisos: vendedor.Permisos,
       },
     });
   } catch (error) {

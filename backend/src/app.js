@@ -36,6 +36,7 @@ const sincronizacionRoutes = require('./routes/sincronizacion.routes');
 const reciboController = require('./controllers/recibo.controller');
 const telegramRoutes = require('./routes/telegram.routes');
 const telegramController = require('./controllers/telegram.controller');
+const solicitudRoutes = require('./routes/solicitud.routes');
 
 // Crear app Express
 const app = express();
@@ -113,6 +114,9 @@ app.use("/api/recibos", reciboRoutes);
 
 // Rutas de Telegram
 app.use('/api/telegram', telegramRoutes);
+
+// Rutas de solicitudes
+app.use('/api/solicitudes', solicitudRoutes);
 
 // Ruta de prueba
 app.get("/", (req, res) => {
