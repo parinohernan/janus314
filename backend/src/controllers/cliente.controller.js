@@ -16,6 +16,7 @@ exports.getAllClientes = async (req, res) => {
       search = "",
       field = "Descripcion",
       order = "ASC",
+      Activo,
     } = req.query;
 
     // Calcular offset para paginación
@@ -32,6 +33,11 @@ exports.getAllClientes = async (req, res) => {
         { NombreFantasia: { [Op.like]: `%${search}%` } },
         // { Localidad: { [Op.like]: `%${search}%` } },
       ];
+    }
+
+    // Agregar filtro de Activo si se proporciona
+    if (Activo !== undefined) {
+      whereClause.Activo = Activo;
     }
 
     // Validar campo de ordenamiento para evitar inyección SQL

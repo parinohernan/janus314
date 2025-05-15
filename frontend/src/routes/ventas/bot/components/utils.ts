@@ -22,7 +22,7 @@ export function obtenerPrecioSegunLista(articulo: Articulo, listaId: string): nu
 
 // Buscar productos en la API
 export async function fetchProductos(busqueda: string, listaPrecios: string) {
-  if (busqueda.length < 3) return [];
+  if (busqueda.length < 2) return [];
   const response = await fetch(`https://janus314-api.osvi.lat/api/articulos?page=1&limit=10&search=${encodeURIComponent(busqueda)}&field=Descripcion&order=ASC&activo=1`, {
     credentials: 'include',
     mode: 'cors',

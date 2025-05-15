@@ -48,7 +48,7 @@
   let codigoActual = 0;
 
   async function buscarProductos() {
-    if (busquedaProducto.length < 3) {
+    if (busquedaProducto.length < 2) {
       productosFiltrados = [];
       return;
     }
@@ -67,7 +67,7 @@
   function handleBusquedaProductoChange(event: Event) {
     busquedaProducto = (event.target as HTMLInputElement).value;
     if (timeoutId) clearTimeout(timeoutId);
-    if (busquedaProducto.length >= 3) {
+    if (busquedaProducto.length >= 2) {
       timeoutId = setTimeout(() => {
         buscarProductos();
       }, 300);
@@ -184,11 +184,22 @@
     }
   }
 
+  // Función para limpiar los datos de búsqueda
+  export function limpiarBusqueda() {
+    busquedaProducto = '';
+    productosFiltrados = [];
+    if (timeoutId) clearTimeout(timeoutId);
+    if (timeoutIdAsociar) clearTimeout(timeoutIdAsociar);
+  }
+
   // Manejar cambio de pestaña
   function cambiarTab(event: MouseEvent, nuevaTab: 'buscar' | 'escanear') {
     event.preventDefault();
     event.stopPropagation();
     tabActiva = nuevaTab;
+    if (nuevaTab === 'escanear') {
+      limpiarBusqueda();
+    }
   }
 
   // Función para manejar la entrada del escáner
@@ -365,7 +376,7 @@
       <div class="loading">Buscando...</div>
     {:else if error}
       <div class="no-resultados">{error}</div>
-    {:else if productosFiltrados.length === 0 && busquedaProducto.length >= 3}
+    {:else if productosFiltrados.length === 0 && busquedaProducto.length >= 2}
       <div class="no-resultados">No se encontraron productos con "{busquedaProducto}"</div>
     {:else if productosFiltrados.length > 0}
       {#each productosFiltrados as articulo}
@@ -390,7 +401,7 @@
         </div>
       {/each}
     {:else}
-      <div class="instrucciones">Escriba al menos 3 caracteres para buscar</div>
+      <div class="instrucciones">Escriba al menos 2 caracteres para buscar</div>
     {/if}
   </div>
 

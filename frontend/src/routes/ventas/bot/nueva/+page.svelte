@@ -8,6 +8,8 @@
   import type { Articulo, Cliente, ArticuloSeleccionado } from '../components/types';
   import '../components/bot.css';
   
+  let articulosBusquedaComponent: ArticulosBusqueda;
+  
   // Definición de tipos para Telegram WebApp
   interface TelegramWebApp {
     initData: string;
@@ -73,7 +75,7 @@
       isLoading = true;
       
       // Cargar lista de clientes
-      const clientesResponse = await fetch('https://janus314-api.osvi.lat/api/clientes?page=1&limit=10&search=&field=Descripcion&order=ASC', {
+      const clientesResponse = await fetch('https://janus314-api.osvi.lat/api/clientes?page=1&limit=10&search=&field=Descripcion&order=ASC&Activo=1', {
         credentials: 'include',
         mode: 'cors',
         headers: {
@@ -116,7 +118,7 @@
     
     isLoading = true;
     try {
-      const response = await fetch(`https://janus314-api.osvi.lat/api/clientes?page=1&limit=10&search=${encodeURIComponent(busqueda)}&field=Descripcion&order=ASC`, {
+      const response = await fetch(`https://janus314-api.osvi.lat/api/clientes?page=1&limit=10&search=${encodeURIComponent(busqueda)}&field=Descripcion&order=ASC&Activo=1`, {
         credentials: 'include',
         mode: 'cors',
         headers: {
@@ -250,6 +252,12 @@
     // Inicializar el monto pagado con el total y mostrar el modal de cobro
     montoPagado = importeTotal;
     cambio = 0;
+    
+    // Limpiar la búsqueda antes de mostrar el modal de cobro
+    if (articulosBusquedaComponent) {
+      articulosBusquedaComponent.limpiarBusqueda();
+    }
+    
     mostrarModalCobro = true;
   }
   
@@ -414,6 +422,14 @@
     }
   }
 
+  // Función para abrir modal de cobro
+  function abrirModalCobro() {
+    mostrarModalCobro = true;
+    if (articulosBusquedaComponent) {
+      articulosBusquedaComponent.limpiarBusqueda();
+    }
+  }
+
   onDestroy(() => {
     if (debounceTimeout) clearTimeout(debounceTimeout);
   });
@@ -455,6 +471,7 @@
       </div>
     </div>
     <ArticulosBusqueda
+      bind:this={articulosBusquedaComponent}
       agregarArticulo={agregarArticulo}
       handleArticuloKeyDown={handleArticuloKeyDown}
       listaPrecios={listaPrecios}

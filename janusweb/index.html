@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Janus314 Software</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'], // Usar Inter como fuente principal
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Estilos personalizados si son necesarios, aunque Tailwind cubre la mayoría */
+        /* Asegurar que el body use la fuente Inter por defecto */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <header class="bg-white shadow-md py-4">
+        <div class="container mx-auto flex justify-between items-center px-4">
+            <div class="flex items-center">
+                <img src="/files/image_b49e6d.jpg" alt="Logo Janus314 Software" class="h-10 mr-3 rounded">
+                <span class="text-2xl font-bold text-gray-900">Janus314 Software</span>
+            </div>
+            <nav class="hidden md:flex space-x-6">
+                <a href="#soluciones" class="text-gray-600 hover:text-blue-600 transition duration-300">Soluciones</a>
+                <a href="#nosotros" class="text-gray-600 hover:text-blue-600 transition duration-300">Sobre Nosotros</a>
+                <a href="#contacto" class="text-gray-600 hover:text-blue-600 transition duration-300">Contacto</a>
+            </nav>
+            <div class="md:hidden">
+                <button class="text-gray-600 hover:text-blue-600 focus:outline-none">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                </button>
+                </div>
+        </div>
+    </header>
+
+    <section class="bg-blue-600 text-white py-20 text-center">
+        <div class="container mx-auto px-4">
+            <h1 class="text-4xl md:text-5xl font-bold mb-4">La Gestión Inteligente para tu Negocio.</h1>
+            <p class="text-xl mb-8">Simplificamos la gestión de tu comercio y optimizamos tus ventas con tecnología innovadora y fácil de usar.</p>
+            <a href="#soluciones" class="bg-white text-blue-600 font-bold py-3 px-8 rounded-full hover:bg-gray-200 transition duration-300">Descubre Nuestras Soluciones</a>
+        </div>
+    </section>
+
+    <section id="nosotros" class="py-16 bg-white">
+        <div class="container mx-auto px-4 text-center">
+            <h2 class="text-3xl font-bold mb-8">Sobre Nosotros</h2>
+            <p class="text-lg max-w-2xl mx-auto">
+                En Janus314 Software, nos apasiona ayudar a los pequeños negocios a alcanzar su máximo potencial.
+                Desarrollamos soluciones de software intuitivas y potentes que simplifican las operaciones diarias,
+                permitiendo a los emprendedores enfocarse en lo que realmente importa: hacer crecer su negocio.
+                Nuestra misión es ser tu socio tecnológico de confianza.
+            </p>
+        </div>
+    </section>
+
+    <section id="soluciones" class="py-16 bg-gray-100">
+        <div class="container mx-auto px-4 text-center">
+            <h2 class="text-3xl font-bold mb-12">Nuestras Soluciones</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="text-4xl text-blue-600 mb-4">
+                        <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2m14 0V9a2 2 0 00-2-2H7a2 2 0 00-2 2v2m7 5h2m-2 3h2"></path></svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Janus314 ERP</h3>
+                    <p class="text-gray-600 mb-4">El corazón de tu negocio. Control total de ventas, inventario y clientes.</p>
+                    <a href="#" class="text-blue-600 hover:underline font-semibold">Más Información &rarr;</a>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                     <div class="text-4xl text-blue-600 mb-4">
+                        <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-.55.55c-.1.1-.22.15-.35.15H9.85c-.13 0-.25-.05-.35-.15L9 16z"></path></svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Janus Delivery Manager Bot</h3>
+                    <p class="text-gray-600 mb-4">Gestiona tus pedidos a domicilio de forma rápida y eficiente con nuestro chatbot.</p>
+                    <a href="#" class="text-blue-600 hover:underline font-semibold">Más Información &rarr;</a>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                     <div class="text-4xl text-blue-600 mb-4">
+                        <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1l-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Janus MM (Mini Monster)</h3>
+                    <p class="text-gray-600 mb-4">La mini webapp para la gestión esencial de tu pequeño negocio.</p>
+                    <a href="#" class="text-blue-600 hover:underline font-semibold">Más Información &rarr;</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-16 bg-white">
+        <div class="container mx-auto px-4 text-center">
+            <h2 class="text-3xl font-bold mb-12">Beneficios Clave</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 text-left">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 text-blue-600 mr-4">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <div>
+                        <h4 class="text-xl font-semibold mb-2">Simplifica tus operaciones diarias</h4>
+                        <p class="text-gray-600">Automatiza tareas repetitivas y reduce la carga administrativa.</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 text-blue-600 mr-4">
+                         <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2m14 0V9a2 2 0 00-2-2H7a2 2 0 00-2 2v2m7 5h2m-2 3h2"></path></svg>
+                    </div>
+                    <div>
+                        <h4 class="text-xl font-semibold mb-2">Mantén tu negocio organizado</h4>
+                        <p class="text-gray-600">Controla inventario, ventas y clientes desde una plataforma centralizada.</p>
+                    </div>
+                </div>
+                 <div class="flex items-start">
+                    <div class="flex-shrink-0 text-blue-600 mr-4">
+                         <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <div>
+                        <h4 class="text-xl font-semibold mb-2">Ahorra tiempo y reduce errores</h4>
+                        <p class="text-gray-600">Procesos más rápidos y menor probabilidad de errores manuales.</p>
+                    </div>
+                </div>
+                 <div class="flex items-start">
+                    <div class="flex-shrink-0 text-blue-600 mr-4">
+                         <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.332 13.917l1.581-1.581m0 0L10.5 5m2.25 4.5l4.5-4.5m-1.581 1.581A8.096 8.096 0 0118 10.5a8.096 8.096 0 01-1.581 4.332m-4.332-1.581l-1.581 1.581m0 0L5 18m4.5-2.25l-4.5 4.5M10.5 18a8.096 8.096 0 01-4.332-1.581m1.581-1.581A8.096 8.096 0 0113.5 18a8.096 8.096 0 011.581-4.332m-4.332-1.581l1.581-1.581M18 7.5l-1.581 1.581m0 0L13.5 13.5m0 0l1.581 1.581m0 0A8.096 8.096 0 0110.5 18a8.096 8.096 0 01-1.581-4.332m4.332-1.581l-1.581-1.581M7.5 6l1.581 1.581m0 0L13.5 12l-1.581 1.581"></path></svg>
+                    </div>
+                    <div>
+                        <h4 class="text-xl font-semibold mb-2">Mejora la experiencia del cliente</h4>
+                        <p class="text-gray-600">Atención más rápida y eficiente, especialmente con el chatbot.</p>
+                    </div>
+                </div>
+                 <div class="flex items-start">
+                    <div class="flex-shrink-0 text-blue-600 mr-4">
+                         <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    </div>
+                    <div>
+                        <h4 class="text-xl font-semibold mb-2">Toma decisiones informadas</h4>
+                        <p class="text-gray-600">Accede a datos clave para entender el rendimiento de tu negocio.</p>
+                    </div>
+                </div>
+                 <div class="flex items-start">
+                    <div class="flex-shrink-0 text-blue-600 mr-4">
+                         <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.426 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    </div>
+                    <div>
+                        <h4 class="text-xl font-semibold mb-2">Soluciones adaptadas a tu medida</h4>
+                        <p class="text-gray-600">Productos diseñados pensando en las necesidades específicas de los pequeños negocios.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+    <section id="contacto" class="py-16 bg-gray-100">
+        <div class="container mx-auto px-4 text-center">
+            <h2 class="text-3xl font-bold mb-8">Contáctanos</h2>
+            <p class="text-lg mb-8 max-w-2xl mx-auto">¿Tienes preguntas o quieres saber más sobre cómo Janus314 puede ayudar a tu negocio? Escríbenos.</p>
+            <div class="max-w-lg mx-auto bg-white p-8 rounded-lg shadow-md">
+                <form action="#" method="POST">
+                    <div class="mb-4">
+                        <label for="name" class="block text-gray-700 text-sm font-bold mb-2 text-left">Nombre:</label>
+                        <input type="text" id="name" name="name" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="email" class="block text-gray-700 text-sm font-bold mb-2 text-left">Email:</label>
+                        <input type="email" id="email" name="email" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                    </div>
+                     <div class="mb-4">
+                        <label for="business" class="block text-gray-700 text-sm font-bold mb-2 text-left">Nombre del Negocio (Opcional):</label>
+                        <input type="text" id="business" name="business" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    </div>
+                    <div class="mb-6">
+                        <label for="message" class="block text-gray-700 text-sm font-bold mb-2 text-left">Mensaje:</label>
+                        <textarea id="message" name="message" rows="4" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required></textarea>
+                    </div>
+                    <div class="flex items-center justify-center">
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-300">
+                            Enviar Mensaje
+                        </button>
+                    </div>
+                </form>
+            </div>
+             <div class="mt-8 text-gray-600">
+                <p>También puedes contactarnos directamente:</p>
+                <p>Email: <a href="mailto:info@janus314.com" class="text-blue-600 hover:underline">info@janus314.com</a></p>
+                </div>
+        </div>
+    </section>
+
+
+    <footer class="bg-gray-800 text-white py-8">
+        <div class="container mx-auto px-4 text-center text-gray-400">
+            <p>&copy; 2023 Janus314 Software. Todos los derechos reservados.</p>
+            </div>
+    </footer>
+
+</body>
+</html>
