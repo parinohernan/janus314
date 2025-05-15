@@ -128,7 +128,7 @@
     try {
       isLoading = true;
       error = null;
-      let url = `https://janus314-api.osvi.lat/api/facturas?page=${currentPage}&limit=10`;
+      let url = `https://janus314-api.osvi.lat/api/facturas?page=${currentPage}&limit=10&tipo=PRF`;
       
       if (vendedorFiltro) {
         url += `&vendedor=${encodeURIComponent(vendedorFiltro)}`;
