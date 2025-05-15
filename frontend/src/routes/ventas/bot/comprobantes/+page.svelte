@@ -82,6 +82,11 @@
   // Telegram WebApp
   let tg: any = null;
 
+  let mostrarModalWhatsApp = false;
+  let numeroTelefono = '';
+  let comprobanteParaCompartir: Comprobante | null = null;
+  let detallesParaCompartir: ComprobanteDetalle[] = [];
+
   onMount(async () => {
     if (typeof window !== 'undefined' && 'Telegram' in window) {
       const telegram = (window as any).Telegram;
@@ -231,6 +236,65 @@
     currentPage = 1; // Resetear a la primera página
     await cargarComprobantes();
   }
+
+  function prepararMensajeComprobante(comprobante: Comprobante, detalles: ComprobanteDetalle[]): string {
+    const fecha = formatearFecha(comprobante.Fecha);
+    const numeroCompleto = `${comprobante.DocumentoTipo}-${comprobante.DocumentoSucursal}-${comprobante.DocumentoNumero}`;
+    
+    let mensaje = `*Detalle de su compra*\n`;
+    mensaje += `ID: ${numeroCompleto}\n`;
+    mensaje += `Fecha: ${fecha}\n`;
+    mensaje += `Cliente: ${comprobante.ClienteDescripcion}\n`;
+    mensaje += `Vendedor: ${obtenerNombreVendedor(comprobante.VendedorCodigo)}\n\n`;
+    
+    mensaje += `*Productos:*\n`;
+    detalles.forEach(item => {
+      mensaje += `• ${item.Descripcion}\n`;
+      mensaje += `  ${item.Cantidad} x ${formatearImporte(item.PrecioUnitario)} = ${formatearImporte(item.ImporteTotal)}\n`;
+    });
+    
+    mensaje += `\n*Total: ${formatearImporte(comprobante.ImporteTotal)}*\n\n`;
+    mensaje += `Muchas gracias por su compra.`;
+    
+    return mensaje;
+  }
+
+  function abrirModalWhatsApp(comprobante: Comprobante | null, detalles: ComprobanteDetalle[]) {
+    if (!comprobante) return;
+    comprobanteParaCompartir = comprobante;
+    detallesParaCompartir = detalles;
+    numeroTelefono = '';
+    mostrarModalWhatsApp = true;
+  }
+
+  function compartirPorWhatsApp() {
+    if (!comprobanteParaCompartir || !numeroTelefono) return;
+    
+    // Limpiar el número de teléfono (quitar espacios y guiones)
+    const numeroLimpio = numeroTelefono.replace(/[\s-]/g, '');
+    
+    // Validar que sea un número válido
+    if (!/^\d{10,}$/.test(numeroLimpio)) {
+      error = 'Por favor ingrese un número válido (mínimo 10 dígitos)';
+      return;
+    }
+
+    const mensaje = prepararMensajeComprobante(comprobanteParaCompartir, detallesParaCompartir);
+    // Agregar el prefijo del país (54 para Argentina) si no lo tiene
+    const numeroCompleto = numeroLimpio.startsWith('54') ? numeroLimpio : `54${numeroLimpio}`;
+    const url = `https://wa.me/${numeroCompleto}?text=${encodeURIComponent(mensaje)}`;
+    
+    mostrarModalWhatsApp = false;
+    window.location.href = url;
+  }
+
+  function compartirPorEmail(comprobante: Comprobante | null, detalles: ComprobanteDetalle[]) {
+    if (!comprobante) return;
+    const mensaje = prepararMensajeComprobante(comprobante, detalles);
+    const asunto = `Detalle de compra ${comprobante.DocumentoTipo}-${comprobante.DocumentoSucursal}-${comprobante.DocumentoNumero}`;
+    const url = `mailto:?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(mensaje)}`;
+    window.location.href = url;
+  }
 </script>
 
 <svelte:head>
@@ -333,7 +397,49 @@
           <span>Total:</span>
           <span>{formatearImporte(comprobanteSeleccionado.ImporteTotal)}</span>
         </div>
+
+        <div class="acciones-comprobante">
+          <button 
+            class="btn-compartir whatsapp"
+            on:click={() => abrirModalWhatsApp(comprobanteSeleccionado, detallesComprobante)}
+          >
+            Compartir por WhatsApp
+          </button>
+          <button 
+            class="btn-compartir email"
+            on:click={() => compartirPorEmail(comprobanteSeleccionado, detallesComprobante)}
+          >
+            Compartir por Email
+          </button>
+        </div>
       {/if}
+    </div>
+  {/if}
+
+  {#if mostrarModalWhatsApp}
+    <div class="modal-overlay">
+      <div class="modal-content">
+        <h3>Enviar por WhatsApp</h3>
+        <div class="form-group">
+          <label for="telefono">Número de teléfono:</label>
+          <input
+            type="tel"
+            id="telefono"
+            bind:value={numeroTelefono}
+            placeholder="Ej: 3492123456"
+            class="input-telefono"
+          />
+          <small class="ayuda-texto">Ingrese el número sin 0 ni 15. Ej: 3492123456</small>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-cancelar" on:click={() => mostrarModalWhatsApp = false}>
+            Cancelar
+          </button>
+          <button class="btn-compartir whatsapp" on:click={compartirPorWhatsApp}>
+            Enviar
+          </button>
+        </div>
+      </div>
     </div>
   {/if}
 </div>
@@ -533,5 +639,105 @@
   .select-vendedor option {
     background-color: var(--tg-theme-bg-color, #fff);
     color: var(--tg-theme-text-color, #000);
+  }
+
+  .acciones-comprobante {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--tg-theme-hint-color, #eee);
+  }
+
+  .btn-compartir {
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .btn-compartir.whatsapp {
+    background-color: #25D366;
+    color: white;
+  }
+
+  .btn-compartir.email {
+    background-color: var(--tg-theme-button-color, #2481cc);
+    color: var(--tg-theme-button-text-color, #fff);
+  }
+
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+
+  .modal-content {
+    background-color: var(--tg-theme-bg-color, #fff);
+    padding: 20px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+  }
+
+  .modal-content h3 {
+    margin: 0 0 16px 0;
+    color: var(--tg-theme-text-color, #000);
+  }
+
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--tg-theme-text-color, #000);
+  }
+
+  .input-telefono {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--tg-theme-hint-color, #ccc);
+    border-radius: 4px;
+    font-size: 1em;
+    background-color: var(--tg-theme-secondary-bg-color, #f5f5f5);
+    color: var(--tg-theme-text-color, #000);
+  }
+
+  .ayuda-texto {
+    display: block;
+    font-size: 0.8em;
+    color: var(--tg-theme-hint-color, #999);
+    margin-top: 4px;
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 20px;
+  }
+
+  .btn-cancelar {
+    padding: 8px 16px;
+    border: 1px solid var(--tg-theme-hint-color, #ccc);
+    background: none;
+    border-radius: 4px;
+    color: var(--tg-theme-text-color, #000);
+    cursor: pointer;
   }
 </style> 
