@@ -14,15 +14,15 @@
 
   onMount(() => {
     // Obtener datos de la empresa
-    EmpresaService.obtenerDatos()
-      .then(datosEmpresa => {
-        companyName = datosEmpresa.RazonSocial || "Empresa no configurada";
-        logoEmpresa = datosEmpresa.LogoURL || "";
-      })
-      .catch(error => {
-        console.error('Error al cargar datos de la empresa:', error);
-        companyName = "Error al cargar datos";
-      });
+    // EmpresaService.obtenerDatos()
+    //   .then(datosEmpresa => {
+    //     companyName = datosEmpresa.RazonSocial || "Empresa no configurada";
+    //     logoEmpresa = datosEmpresa.LogoURL || "";
+    //   })
+    //   .catch(error => {
+    //     console.error('Error al cargar datos de la empresa:', error);
+    //     companyName = "Error al cargar datos";
+    //   });
 
     // Suscribirse a cambios en el estado de autenticación
     unsubscribe = auth.subscribe(state => {

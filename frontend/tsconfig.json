@@ -10,11 +10,6 @@
 		"sourceMap": true,
 		"strict": true,
 		"moduleResolution": "bundler",
-		"baseUrl": ".",
-		"paths": {
-			"$lib/*": ["src/lib/*"],
-			"$types/*": ["src/lib/types/*"]
-		},
 		"types": ["svelte"]
 	},
 	"include": ["src/**/*.d.ts", "src/**/*.ts", "src/**/*.svelte"],

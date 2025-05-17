@@ -1,5 +1,5 @@
 // Definir el modo de autenticación por defecto
-const DEFAULT_AUTH_MODE = 'local';
+const DEFAULT_AUTH_MODE = 'online';
 
 export const authConfig = {
   mode: DEFAULT_AUTH_MODE as 'local' | 'online',

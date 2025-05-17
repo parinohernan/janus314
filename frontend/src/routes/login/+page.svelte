@@ -47,6 +47,18 @@
 			
 			<div class="rounded-md shadow-sm -space-y-px">
 				<div>
+					<label for="empresa1" class="sr-only">Empresa</label>
+					<input
+						id="empresa1"
+						name="empresa"
+						type="text"
+						required
+						bind:value={empresa}
+						class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+						placeholder="Codigo de Empresa"
+					>
+				</div>
+				<div>
 					<label for="usuario" class="sr-only">Usuario</label>
 					<input
 						id="usuario"
@@ -73,9 +85,9 @@
 				
 				{#if authConfig.mode === 'online'}
 					<div>
-						<label for="empresa" class="sr-only">Empresa</label>
+						<label for="empresa2" class="sr-only">Empresa</label>
 						<input
-							id="empresa"
+							id="empresa2"
 							name="empresa"
 							type="text"
 							required
@@ -101,6 +113,20 @@
 					{/if}
 					Iniciar Sesión
 				</Button>
+			</div>
+			<div class="mt-4 text-center text-sm text-gray-500">
+				<br>
+				Puedes usar la empresa de prueba: <strong>Test S.A.</strong>
+				<br>
+				usa el codigo de empresa: <strong>1</strong>
+				<br>
+				usa el usuario: <strong>1</strong>
+				<br>
+				usa la contraseña: <strong>1234</strong>
+				<br>
+				<a href="/register" class="font-medium text-blue-500 hover:text-blue-700">
+					No tienes una cuenta? Regístrate
+				</a>
 			</div>
 		</form>
 	</div>

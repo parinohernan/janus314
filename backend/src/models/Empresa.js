@@ -13,10 +13,6 @@ Empresa.init({
     type: DataTypes.STRING,
     allowNull: false
   },
-  db_host: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
   db_name: {
     type: DataTypes.STRING,
     allowNull: false
@@ -29,6 +25,15 @@ Empresa.init({
     type: DataTypes.STRING,
     allowNull: false
   },
+  db_host: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  db_port: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 3306
+  },
   estado: {
     type: DataTypes.ENUM('activo', 'inactivo'),
     defaultValue: 'activo',
@@ -38,7 +43,11 @@ Empresa.init({
   sequelize: masterDB.getConnection(),
   modelName: 'Empresa',
   tableName: 'empresas',
-  timestamps: true
+  timestamps: true,
+  define: {
+    charset: 'utf8',
+    collate: 'utf8_general_ci'
+  }
 });
 
 module.exports = Empresa; 
