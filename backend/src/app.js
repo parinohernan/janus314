@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const dotenv = require("dotenv");
+const { requestLogger, logError } = require('./utils/logger');
 require("./config/timezone");
 
 // Cargar variables de entorno
@@ -37,17 +38,14 @@ const reciboController = require('./controllers/recibo.controller');
 const telegramRoutes = require('./routes/telegram.routes');
 const telegramController = require('./controllers/telegram.controller');
 const solicitudRoutes = require('./routes/solicitud.routes');
+const adminRoutes = require('./routes/admin.routes');
+const healthRoutes = require('./routes/health.routes');
 
 // Crear app Express
 const app = express();
 
-// Log MUY temprano para todas las solicitudes
-app.use((req, res, next) => {
-  console.log(`>>> [${new Date().toISOString()}] App.js recibió ${req.method} para ${req.originalUrl}`);
-  console.log('Headers:', req.headers);
-  console.log('Body:', req.body);
-  next(); // Continuar al siguiente middleware
-});
+// Middleware de logging
+app.use(requestLogger);
 
 // Configuración de CORS
 const corsOptions = {
@@ -118,6 +116,10 @@ app.use('/api/telegram', telegramRoutes);
 // Rutas de solicitudes
 app.use('/api/solicitudes', solicitudRoutes);
 
+// Rutas de administración y monitoreo
+app.use('/api/admin', adminRoutes);
+app.use('/health', healthRoutes);
+
 // Ruta de prueba
 app.get("/", (req, res) => {
   res.json({ message: "API de Gestión Comercial funcionando correctamente" });
@@ -133,7 +135,14 @@ app.use((req, res) => {
 
 // Middleware de errores
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  logError(err, {
+    url: req.originalUrl,
+    method: req.method,
+    body: req.body,
+    query: req.query,
+    params: req.params
+  });
+  
   res.status(500).json({
     message: "Error del servidor",
     error: process.env.NODE_ENV === "development" ? err.message : {},

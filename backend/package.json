@@ -21,7 +21,10 @@
     "pdfkit": "^0.16.0",
     "qrcode": "^1.5.4",
     "sequelize": "^6.37.6",
-    "telegraf": "^4.16.3"
+    "telegraf": "^4.16.3",
+    "winston": "^3.17.0",
+    "ioredis": "^5.x",
+    "@faker-js/faker": "^8.x"
   },
   "devDependencies": {
     "jest": "^29.7.0",

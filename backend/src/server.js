@@ -1,20 +1,53 @@
 const app = require("./app");
-const db = require("./config/database");
+const DBManager = require("./utils/DBManager");
+const masterDB = require("./config/masterDB");
 // Importar el archivo de asociaciones para definir las relaciones entre modelos
 require("./models/associations");
 
 // Puerto
-const PORT = process.env.PORT || 3330;
+const PORT = process.env.PORT || 3000;
 
-// Iniciar servidor
-app.listen(PORT, '0.0.0.0', async () => {
-  console.log(`Servidor corriendo en http://0.0.0.0:${PORT}`);
-
+const server = app.listen(PORT, async () => {
   try {
-    // Verificar conexión a la base de datos
-    await db.authenticate();
-    console.log("Conexión a la base de datos establecida correctamente");
+    // Probar conexión a la base de datos maestra
+    await masterDB.testConnection();
+    console.log(`Servidor escuchando en el puerto ${PORT}`);
   } catch (error) {
-    console.error("Error al conectar a la base de datos:", error);
+    console.error('Error al iniciar el servidor:', error);
+    process.exit(1);
   }
 });
+
+// Manejo de señales para cierre elegante
+const gracefulShutdown = async () => {
+  console.log('Iniciando cierre elegante del servidor...');
+  
+  // Cerrar servidor HTTP
+  server.close(async () => {
+    console.log('Servidor HTTP cerrado.');
+    
+    try {
+      // Cerrar todas las conexiones de base de datos
+      await DBManager.shutdown();
+      
+      // Cerrar conexión maestra
+      await masterDB.getConnection().close();
+      
+      console.log('Todas las conexiones cerradas correctamente.');
+      process.exit(0);
+    } catch (error) {
+      console.error('Error durante el cierre:', error);
+      process.exit(1);
+    }
+  });
+
+  // Si después de 10 segundos no se ha cerrado, forzar cierre
+  setTimeout(() => {
+    console.error('No se pudo cerrar elegantemente, forzando cierre...');
+    process.exit(1);
+  }, 10000);
+};
+
+// Manejar señales de terminación
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
