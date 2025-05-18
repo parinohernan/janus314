@@ -1,20 +1,11 @@
-const ReciboCabeza = require('../models/reciboCabeza.model');
-const ReciboItem = require('../models/reciboItem.model');
-const ReciboValor = require('../models/reciboValor.model');
-const Cliente = require('../models/cliente.model');
-const Usuario = require('../models/usuario.model');
-const Vendedor = require('../models/vendedor.model');
-const NotaCreditoCabeza = require('../models/notaCreditoCabeza.model');
-const NotaDebitoCabeza = require('../models/notaDebitoCabeza.model');
-const FacturaCabeza = require('../models/facturaCabeza.model');
 const NumerosControlController = require('../controllers/numerosControl.controller');
-
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
 
 // Obtener todos los recibos (con filtros y paginación)
 exports.getAllRecibos = async (req, res) => {
   try {
+    const { ReciboCabeza, Cliente, Usuario, Vendedor } = req.models;
     const {
       page = 1,
       limit = 10,
@@ -97,6 +88,7 @@ exports.getAllRecibos = async (req, res) => {
 // Obtener un recibo por ID
 exports.getReciboById = async (req, res) => {
   try {
+    const { ReciboCabeza, Cliente, Usuario, Vendedor, ReciboItem, ReciboValor } = req.models;
     const { tipo, sucursal, numero } = req.params;
     console.log("___________tipo, sucursal, numero", tipo, sucursal, numero);
     
@@ -178,6 +170,7 @@ exports.createRecibo = async (req, res) => {
   
   console.log("___________req.body", req.body);
   try {
+    const { ReciboCabeza, ReciboItem, ReciboValor, NotaCreditoCabeza, NotaDebitoCabeza, FacturaCabeza } = req.models;
     const {
       DocumentoTipo,
       DocumentoSucursal,

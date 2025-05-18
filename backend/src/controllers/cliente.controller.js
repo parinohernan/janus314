@@ -1,15 +1,10 @@
-const Cliente = require("../models/cliente.model");
-const CategoriaIva = require("../models/categoriaIva.model");
-const Factura = require("../models/facturaCabeza.model");
-const NotaCredito = require("../models/notaCreditoCabeza.model");
-const NotaDebito = require("../models/notaDebitoCabeza.model");
-const Recibo = require("../models/reciboCabeza.model");
 const { Op } = require("sequelize");
 const sequelize = require("sequelize");
 
 // Obtener todos los clientes (con filtros y paginación)
 exports.getAllClientes = async (req, res) => {
   try {
+    const { Cliente, CategoriaIva } = req.models;
     const {
       page = 1,
       limit = 10,
@@ -103,6 +98,7 @@ exports.getAllClientes = async (req, res) => {
 // Obtener un cliente por Código
 exports.getClienteById = async (req, res) => {
   try {
+    const { Cliente, CategoriaIva } = req.models;
     const cliente = await Cliente.findByPk(req.params.id, {
       include: [
         {
@@ -127,6 +123,7 @@ exports.getClienteById = async (req, res) => {
 // Crear nuevo cliente
 exports.createCliente = async (req, res) => {
   try {
+    const { Cliente } = req.models;
     // Validar campos obligatorios
     if (!req.body.Codigo || !req.body.Descripcion) {
       return res.status(400).json({
@@ -198,17 +195,14 @@ exports.createCliente = async (req, res) => {
 // Actualizar cliente
 exports.updateCliente = async (req, res) => {
   try {
+    const { Cliente } = req.models;
+    const cliente = await Cliente.findByPk(req.params.id);
+
     // Validar campos obligatorios
     if (!req.body.Descripcion) {
       return res.status(400).json({
         message: "El campo Descripción es obligatorio",
       });
-    }
-
-    // Buscar el cliente a actualizar
-    const cliente = await Cliente.findByPk(req.params.id);
-    if (!cliente) {
-      return res.status(404).json({ message: "Cliente no encontrado" });
     }
 
     // Procesar los datos para manejar correctamente campos vacíos que son claves foráneas
@@ -267,6 +261,7 @@ exports.updateCliente = async (req, res) => {
 // Eliminar cliente
 exports.toggleActivoCliente = async (req, res) => {
   try {
+    const { Cliente } = req.models;
     const cliente = await Cliente.findByPk(req.params.id);
 
     if (!cliente) {
@@ -296,6 +291,7 @@ exports.toggleActivoCliente = async (req, res) => {
 // Obtener cuentas corrientes de clientes
 exports.getCuentasCorrientes = async (req, res) => {
   try {
+    const { Cliente } = req.models;
     const {
       page = 1,
       limit = 10,
@@ -356,6 +352,7 @@ exports.getCuentasCorrientes = async (req, res) => {
 // Obtener comprobantes de un cliente
 exports.getComprobantesCliente = async (req, res) => {
   try {
+    const { Cliente, Factura, NotaCredito, NotaDebito, Recibo } = req.models;
     const { id } = req.params;
     const { page = 1, limit = 10 } = req.query;
     

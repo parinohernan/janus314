@@ -1,6 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const articuloController = require("../controllers/articulo.controller");
+const getEmpresaConnection = require("../middleware/dbConnection");
+
+// Aplicar el middleware de conexión a todas las rutas
+router.use(getEmpresaConnection);
 
 // Rutas para artículos
 router.get("/", articuloController.getAllArticulos);

@@ -1,6 +1,24 @@
 import type { Articulo, ItemFactura } from '$lib/types';
 import { PUBLIC_API_URL } from '$env/static/public';
 import { FacturaCalculator } from './FacturaCalculator';
+import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+
+export interface ArticulosResponse {
+	items: Articulo[];
+	total: number;
+	page: number;
+	limit: number;
+	totalPages: number;
+}
+
+interface ListarArticulosParams {
+	page?: number;
+	limit?: number;
+	search?: string;
+	field?: string;
+	order?: 'ASC' | 'DESC';
+	activo?: boolean;
+}
 
 export class ArticuloService {
 	/**
@@ -12,13 +30,12 @@ export class ArticuloService {
 				return [];
 			}
 
-			const response = await fetch(
-				`${PUBLIC_API_URL}/articulos?search=${encodeURIComponent(busqueda)}&limit=10`
-			);
-
-			if (!response.ok) {
-				throw new Error('Error al buscar artículos');
-			}
+			const response = await fetchWithAuth('/articulos', {
+				params: {
+					search: busqueda,
+					limit: 10
+				}
+			});
 
 			const data = await response.json();
 			return data.items || [];
@@ -37,13 +54,10 @@ export class ArticuloService {
 				return null;
 			}
 
-			const response = await fetch(`${PUBLIC_API_URL}/articulos/${codigo}`);
+			const response = await fetchWithAuth(`/articulos/${codigo}`);
 
-			if (!response.ok) {
-				throw new Error('Error al obtener artículo');
-			}
-
-			return await response.json();
+			const data = await response.json();
+			return data;
 		} catch (error) {
 			console.error(`Error al obtener artículo ${codigo}:`, error);
 			return null;
@@ -67,11 +81,12 @@ export class ArticuloService {
 			Descripcion: articulo.Descripcion,
 			Cantidad: cantidad,
 			PrecioLista: precioLista,
-			PorcentajeDescuento: 0,
+			PorcentajeBonificacion: 0,
 			PrecioUnitario: precioLista,
 			PorcentajeIva: articulo.PorcentajeIva1 || 21, // Valor por defecto 21% si no hay
 			PrecioUnitarioConIva: 0,
-			Total: 0
+			Total: 0,
+			enEdicion: false
 		};
 
 		// Calcular precio con IVA
@@ -103,6 +118,34 @@ export class ArticuloService {
 				return articulo.Lista5 || 0;
 			default:
 				return articulo.Lista1 || 0;
+		}
+	}
+
+	/**
+	 * Obtiene la lista de artículos con paginación y filtros
+	 */
+	public static async listarArticulos(params: ListarArticulosParams = {}): Promise<ArticulosResponse> {
+		try {
+			const defaultParams = {
+				page: 1,
+				limit: 10,
+				search: '',
+				field: 'Descripcion',
+				order: 'ASC' as const,
+				activo: true
+			};
+
+			const queryParams = { ...defaultParams, ...params };
+
+			const response = await fetchWithAuth('/articulos', {
+				params: queryParams
+			});
+			
+			const data = await response.json();
+			return data;
+		} catch (error) {
+			console.error('Error al obtener artículos:', error);
+			throw new Error('Error al cargar los artículos');
 		}
 	}
 }

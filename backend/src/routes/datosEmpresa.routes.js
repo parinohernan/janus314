@@ -1,11 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const datosEmpresaController = require("../controllers/datosEmpresa.controller");
+const getEmpresaConnection = require("../middleware/dbConnection");
 
-// Obtener datos de la empresa
-router.get("/", datosEmpresaController.getDatosEmpresa);
-
-// Actualizar datos de la empresa
-router.put("/", datosEmpresaController.updateDatosEmpresa);
+// Rutas para datos de empresa - todas protegidas con el middleware de conexión
+router.get("/", getEmpresaConnection, datosEmpresaController.getDatosEmpresa);
+router.put("/", getEmpresaConnection, datosEmpresaController.updateDatosEmpresa);
 
 module.exports = router;

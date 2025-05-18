@@ -1,9 +1,9 @@
 const { Op } = require("sequelize");
 
 // Obtener todas las localidades (con filtros y paginación)
-exports.getAllCodigosPostales = async (req, res) => {
+exports.getAllLocalidades = async (req, res) => {
   try {
-    const { CodigoPostal, Provincia } = req.models;
+    const { Localidad, Provincia } = req.models;
     const {
       page = 1,
       limit,
@@ -11,9 +11,6 @@ exports.getAllCodigosPostales = async (req, res) => {
       field = "Descripcion",
       order = "ASC",
     } = req.query;
-
-    // // Calcular offset para paginación
-    // const offset = (page - 1) * limit;
 
     // Configurar opciones de búsqueda
     const whereClause = {};
@@ -31,7 +28,7 @@ exports.getAllCodigosPostales = async (req, res) => {
     const sortOrder = order === "DESC" ? "DESC" : "ASC";
 
     // Obtener total de registros para metadata de paginación
-    const count = await CodigoPostal.count({ where: whereClause });
+    const count = await Localidad.count({ where: whereClause });
 
     // Configurar opciones de consulta
     const queryOptions = {
@@ -53,14 +50,14 @@ exports.getAllCodigosPostales = async (req, res) => {
     }
 
     // Obtener registros
-    const codigosPostales = await CodigoPostal.findAll(queryOptions);
+    const localidades = await Localidad.findAll(queryOptions);
 
     // Enviar respuesta con metadata de paginación
     return res.status(200).json({
       totalItems: count,
       totalPages: limit ? Math.ceil(count / parseInt(limit)) : 1,
       currentPage: parseInt(page),
-      items: codigosPostales,
+      items: localidades,
     });
   } catch (error) {
     console.error(error);
@@ -71,10 +68,10 @@ exports.getAllCodigosPostales = async (req, res) => {
 };
 
 // Obtener una localidad por Código
-exports.getCodigoPostalById = async (req, res) => {
+exports.getLocalidadById = async (req, res) => {
   try {
-    const { CodigoPostal, Provincia } = req.models;
-    const codigoPostal = await CodigoPostal.findByPk(req.params.id, {
+    const { Localidad, Provincia } = req.models;
+    const localidad = await Localidad.findByPk(req.params.id, {
       include: [
         {
           model: Provincia,
@@ -84,11 +81,11 @@ exports.getCodigoPostalById = async (req, res) => {
       ],
     });
 
-    if (!codigoPostal) {
+    if (!localidad) {
       return res.status(404).json({ message: "Localidad no encontrada" });
     }
 
-    return res.status(200).json(codigoPostal);
+    return res.status(200).json(localidad);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Error al obtener la localidad" });
@@ -96,9 +93,9 @@ exports.getCodigoPostalById = async (req, res) => {
 };
 
 // Crear nueva localidad
-exports.createCodigoPostal = async (req, res) => {
+exports.createLocalidad = async (req, res) => {
   try {
-    const { CodigoPostal } = req.models;
+    const { Localidad } = req.models;
     const { Codigo, Descripcion, Provincia } = req.body;
 
     if (!Codigo) {
@@ -109,16 +106,13 @@ exports.createCodigoPostal = async (req, res) => {
       return res.status(400).json({ message: "La provincia es obligatoria" });
     }
 
-    // Ya no verificamos si existe la provincia aquí, dejamos que la constraint
-    // de la base de datos se encargue de esto
-
-    const nuevoCodigoPostal = await CodigoPostal.create({
+    const nuevaLocalidad = await Localidad.create({
       Codigo,
       Descripcion,
       Provincia,
     });
 
-    return res.status(201).json(nuevoCodigoPostal);
+    return res.status(201).json(nuevaLocalidad);
   } catch (error) {
     console.error(error);
 
@@ -128,7 +122,6 @@ exports.createCodigoPostal = async (req, res) => {
         .json({ message: "Ya existe una localidad con ese código" });
     }
 
-    // Capturar error de clave foránea para dar un mensaje adecuado
     if (error.name === "SequelizeForeignKeyConstraintError") {
       return res
         .status(400)
@@ -140,25 +133,22 @@ exports.createCodigoPostal = async (req, res) => {
 };
 
 // Actualizar localidad
-exports.updateCodigoPostal = async (req, res) => {
+exports.updateLocalidad = async (req, res) => {
   try {
-    const { CodigoPostal } = req.models;
+    const { Localidad } = req.models;
     const { Descripcion, Provincia } = req.body;
-    const codigoPostal = await CodigoPostal.findByPk(req.params.id);
+    const localidad = await Localidad.findByPk(req.params.id);
 
-    if (!codigoPostal) {
+    if (!localidad) {
       return res.status(404).json({ message: "Localidad no encontrada" });
     }
 
-    // Actualizamos confiando en que la constraint de clave foránea
-    // en la base de datos prevendrá asociaciones incorrectas
-    await codigoPostal.update({ Descripcion, Provincia });
+    await localidad.update({ Descripcion, Provincia });
 
-    return res.status(200).json(codigoPostal);
+    return res.status(200).json(localidad);
   } catch (error) {
     console.error(error);
 
-    // Si hay un error de clave foránea, lo manejamos específicamente
     if (error.name === "SequelizeForeignKeyConstraintError") {
       return res
         .status(400)
@@ -172,16 +162,16 @@ exports.updateCodigoPostal = async (req, res) => {
 };
 
 // Eliminar localidad
-exports.deleteCodigoPostal = async (req, res) => {
+exports.deleteLocalidad = async (req, res) => {
   try {
-    const { CodigoPostal } = req.models;
-    const codigoPostal = await CodigoPostal.findByPk(req.params.id);
+    const { Localidad } = req.models;
+    const localidad = await Localidad.findByPk(req.params.id);
 
-    if (!codigoPostal) {
+    if (!localidad) {
       return res.status(404).json({ message: "Localidad no encontrada" });
     }
 
-    await codigoPostal.destroy();
+    await localidad.destroy();
 
     return res
       .status(200)
@@ -190,4 +180,4 @@ exports.deleteCodigoPostal = async (req, res) => {
     console.error(error);
     return res.status(500).json({ message: "Error al eliminar la localidad" });
   }
-};
+}; 

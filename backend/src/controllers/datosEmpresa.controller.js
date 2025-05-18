@@ -1,8 +1,8 @@
-const DatosEmpresa = require("../models/datosEmpresa.model");
-
 // Obtener datos de la empresa (hay solo un registro)
 exports.getDatosEmpresa = async (req, res) => {
   try {
+    const { DatosEmpresa } = req.models;
+    
     // Como solo hay un registro, siempre tomamos el primero
     const datosEmpresa = await DatosEmpresa.findOne();
 
@@ -30,6 +30,7 @@ exports.getDatosEmpresa = async (req, res) => {
 // Actualizar datos de la empresa
 exports.updateDatosEmpresa = async (req, res) => {
   try {
+    const { DatosEmpresa } = req.models;
     const datos = req.body;
 
     // Verificar que se proporcionó un registro

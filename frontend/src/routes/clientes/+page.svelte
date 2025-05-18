@@ -6,22 +6,9 @@
   import { debounce } from 'lodash-es';
   import { page } from '$app/stores';
   import { navigationState } from '$lib/stores/navigationState';
-  
-  // Definir interfaces para los tipos
-  // interface Cliente {
-  //   Codigo: string;
-  //   Descripcion: string;
-  //   NombreFantasia: string;
-  //   Cuit: string;
-  //   Telefono: string;
-  //   ImporteDeuda: number;
-  //   Activo: number;
-  //   CategoriaIvaRelacion?: {
-  //     Descripcion: string;
-  //   };
-  // }
+  import { ClienteService } from '$lib/services/ClienteService';
   import type { Cliente } from '$lib/types/cliente';
-  
+   
   interface Pagination {
     currentPage: number;
     totalPages: number;
@@ -59,32 +46,21 @@
       loading = true;
       error = null;
       
-      // Construir URL con parámetros
-      const params = new URLSearchParams({
-        page: pagination.currentPage.toString(),
-        limit: pagination.limit.toString(),
+      const data = await ClienteService.obtenerClientes({
+        page: pagination.currentPage,
+        limit: pagination.limit,
         search: filters.search,
         field: filters.field,
         order: filters.order
       });
       
-      console.log("Enviando solicitud:", `${PUBLIC_API_URL}/clientes?${params}`);
-      const response = await fetch(`${PUBLIC_API_URL}/clientes?${params}`);
-      
-      if (!response.ok) throw new Error('Error al cargar los clientes');
-      
-      const data = await response.json();
-      console.log("Datos recibidos:", data);
-      
-      // Actualizar lista de clientes
-      clientes = data.items || [];
-      
-      // Actualizar paginación - corregido para manejar diferentes estructuras
+      // Actualizar lista de clientes y paginación
+      clientes = data.items;
       pagination = {
-        currentPage: parseInt(data.currentPage || data.meta?.currentPage || pagination.currentPage, 10),
-        totalPages: parseInt(data.totalPages || data.meta?.totalPages || 1, 10),
-        totalItems: parseInt(data.totalItems || data.meta?.totalItems || 0, 10),
-        limit: parseInt(data.limit || data.meta?.itemsPerPage || pagination.limit, 10)
+        currentPage: data.currentPage,
+        totalPages: data.totalPages,
+        totalItems: data.totalItems,
+        limit: data.limit
       };
       
     } catch (err: unknown) {
@@ -184,20 +160,9 @@
   const handleToggleActivo = async (codigo: string, estadoActual: number) => {
     if (confirm(`¿Está seguro que desea ${estadoActual ? 'desactivar' : 'activar'} este cliente?`)) {
       try {
-        const response = await fetch(`${PUBLIC_API_URL}/clientes/${codigo}/toggleActivo`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error('Error al cambiar el estado del cliente');
-        }
-        
+        await ClienteService.toggleActivo(codigo);
         // Recargar la lista de clientes
         await loadClientes();
-        
       } catch (error) {
         console.error('Error:', error);
         alert('Ha ocurrido un error al cambiar el estado del cliente.');

@@ -1,12 +1,9 @@
-const Articulo = require("../models/articulo.model");
-const Proveedor = require("../models/proveedor.model");
-const Rubro = require("../models/rubro.model");
 const { Op } = require("sequelize");
-const sequelize = require("../config/database");
 
 // Obtener todos los artículos (con filtros y paginación)
 exports.getAllArticulos = async (req, res) => {
   try {
+    const { Articulo, Proveedor, Rubro } = req.models;
     const {
       page = 1,
       limit = 10,
@@ -56,26 +53,24 @@ exports.getAllArticulos = async (req, res) => {
     }
     
     if (search) {
-      // Permitir búsqueda en múltiples campos
       whereClause[Op.or] = [
         { Codigo: { [Op.like]: `%${search}%` } },
         { Descripcion: { [Op.like]: `%${search}%` } },
-        { CodigoBarras: { [Op.like]: `%${search}%` } },
+        { CodigoBarras: { [Op.like]: `%${search}%` } }
       ];
     }
 
-    // Validar campo de ordenamiento para evitar inyección SQL
+    // Validar campo de ordenamiento
     const validFields = ["Codigo", "Descripcion", "PrecioCosto", "Existencia"];
     const sortField = validFields.includes(field) ? field : "Descripcion";
-    const sortOrder = order === "DESC" ? "DESC" : "ASC";
 
-    // Obtener total de registros para metadata de paginación
+    // Obtener total de registros
     const count = await Articulo.count({ where: whereClause });
 
     // Obtener registros paginados
     const articulos = await Articulo.findAll({
       where: whereClause,
-      order: [[sortField, sortOrder]],
+      order: [[sortField, order]],
       limit: parseInt(limit),
       offset: parseInt(offset),
       include: [
@@ -83,34 +78,18 @@ exports.getAllArticulos = async (req, res) => {
           model: Proveedor,
           as: "Proveedor",
           attributes: ["Codigo", "Descripcion"],
-          required: false,
+          required: false
         },
         {
           model: Rubro,
           as: "Rubro",
           attributes: ["Codigo", "Descripcion"],
-          required: false,
-        },
-      ],
-      attributes: [
-        "Codigo",
-        "Descripcion",
-        "PrecioCosto",
-        "Existencia",
-        "Activo",
-        "PorcentajeIVA1",
-        "Lista1",
-        "Lista2",
-        "Lista3",
-        "Lista4",
-        "Lista5",
-        "ProveedorCodigo",
-        "RubroCodigo",
-      ],
-      raw: false,
+          required: false
+        }
+      ]
     });
 
-    // Calcular páginas totales y devolver con metadatos de paginación
+    // Calcular páginas totales
     const totalPages = Math.ceil(count / limit);
 
     return res.status(200).json({
@@ -119,8 +98,8 @@ exports.getAllArticulos = async (req, res) => {
         totalItems: count,
         itemsPerPage: parseInt(limit),
         currentPage: parseInt(page),
-        totalPages: totalPages,
-      },
+        totalPages: totalPages
+      }
     });
   } catch (error) {
     console.error(error);
@@ -131,6 +110,7 @@ exports.getAllArticulos = async (req, res) => {
 // Obtener un artículo por Código
 exports.getArticuloById = async (req, res) => {
   try {
+    const { Articulo, Proveedor, Rubro } = req.models;
     const articulo = await Articulo.findByPk(req.params.id, {
       include: [
         {
@@ -160,6 +140,7 @@ exports.getArticuloById = async (req, res) => {
 // Crear nuevo artículo
 exports.createArticulo = async (req, res) => {
   try {
+    const { Articulo } = req.models;
     // Validar campos obligatorios
     if (!req.body.Codigo || !req.body.Descripcion) {
       return res.status(400).json({
@@ -218,6 +199,7 @@ exports.createArticulo = async (req, res) => {
 // Actualizar artículo
 exports.updateArticulo = async (req, res) => {
   try {
+    const { Articulo } = req.models;
     // Validar campos obligatorios
     if (!req.body.Descripcion) {
       return res.status(400).json({
@@ -274,7 +256,7 @@ exports.updateArticulo = async (req, res) => {
 // Eliminar artículo
 exports.deleteArticulo = async (req, res) => {
   try {
-    const articulo = await Articulo.findByPk(req.params.id);
+    const articulo = await req.models.Articulo.findByPk(req.params.id);
 
     if (!articulo) {
       return res.status(404).json({ message: "Artículo no encontrado" });
@@ -303,7 +285,7 @@ exports.asociarCodigoBarras = async (req, res) => {
     }
 
     // Buscar el artículo
-    const articulo = await Articulo.findByPk(codigoArticulo);
+    const articulo = await req.models.Articulo.findByPk(codigoArticulo);
     if (!articulo) {
       return res.status(404).json({
         message: "Artículo no encontrado"
@@ -311,7 +293,7 @@ exports.asociarCodigoBarras = async (req, res) => {
     }
 
     // Verificar si el código de barras ya está asociado a otro artículo
-    const articuloExistente = await Articulo.findOne({
+    const articuloExistente = await req.models.Articulo.findOne({
       where: {
         CodigoBarras: codigoBarras,
         Codigo: { [Op.ne]: codigoArticulo }
@@ -359,7 +341,7 @@ exports.actualizarPrecios = async (req, res) => {
     }
 
     // Obtener los artículos a actualizar
-    const articulosToUpdate = await Articulo.findAll({
+    const articulosToUpdate = await req.models.Articulo.findAll({
       where: {
         Codigo: {
           [Op.in]: articulos

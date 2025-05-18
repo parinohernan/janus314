@@ -3,26 +3,15 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import Button from '$lib/components/ui/Button.svelte';
-  import { PUBLIC_API_URL } from '$env/static/public';
   import EntitySelector from '$lib/components/ui/EntitySelector.svelte';
   import type { Cliente } from '$lib/types/cliente';
+  import { ClienteService } from '$lib/services/ClienteService';
+  import { CategoriaIvaService, type CategoriaIva } from '$lib/services/CategoriaIvaService';
+  import { ProvinciaService, type Provincia } from '$lib/services/ProvinciaService';
+  import { LocalidadService, type Localidad } from '$lib/services/LocalidadService';
+  import { VendedorService, type VendedorOption } from '$lib/services/VendedorService';
   
   let isEditing = $page.params.id !== 'nuevo';
-  
-  interface CategoriaIva {
-    Codigo: string;
-    Descripcion: string;
-  }
-  
-  interface Provincia {
-    Codigo: string;
-    Descripcion: string;
-  }
-  
-  interface CodigoPostal {
-    Codigo: string;
-    Descripcion: string;
-  }
   
   // Inicializar cliente vacío
   let cliente: Cliente = {
@@ -76,9 +65,8 @@
   // Listas para selects
   let categoriasIva: CategoriaIva[] = [];
   let provincias: Provincia[] = [];
-  let codigosPostales: CodigoPostal[] = [];
-  let vendedoresOptions: { value: string, label: string }[] = [];
-  let vendedoresLoading = false;
+  let codigosPostales: Localidad[] = [];
+  let vendedoresOptions: VendedorOption[] = [];
   
   let loading = true;
   let error: string | null = null;
@@ -94,56 +82,52 @@
       
       // Si estamos en modo edición, cargar los datos del cliente
       if (isEditing) {
-        const response = await fetch(`${PUBLIC_API_URL}/clientes/${$page.params.id}`);
-        if (!response.ok) throw new Error('Error al cargar los datos del cliente');
-        cliente = await response.json();
+        const clienteData = await ClienteService.obtenerClientePorCodigo($page.params.id);
+        if (clienteData) {
+          cliente = clienteData;
+        } else {
+          throw new Error('Error al cargar los datos del cliente');
+        }
       } else {
         // Si es un nuevo cliente, establecer la fecha de alta al día actual
         cliente.FechaDeAlta = new Date().toISOString().split('T')[0];
       }
       
-      // Cargar categorías IVA
-      const responseCategorias = await fetch(`${PUBLIC_API_URL}/categoriasiva`);
-      if (responseCategorias.ok) {
-        const data = await responseCategorias.json();
-        categoriasIva = data.items || [];
-      }
-      
-      // Cargar provincias
-      const responseProvincias = await fetch(`${PUBLIC_API_URL}/provincias`);
-      if (responseProvincias.ok) {
-        const data = await responseProvincias.json();
-        provincias = data.items || [];
-      }
-      
-      // Cargar códigos postales
-      const responseCP = await fetch(`${PUBLIC_API_URL}/localidades`);
-      if (responseCP.ok) {
-        const data = await responseCP.json();
-        codigosPostales = data.items || [];
-      }
-
-      // Cargar vendedores
+      // Cargar datos de los selectores con manejo de errores individual
       try {
-        const responseVendedores = await fetch(`${PUBLIC_API_URL}/vendedores`);
-        if (responseVendedores.ok) {
-          const {data} = await responseVendedores.json();
-          if (data && Array.isArray(data)) {
-            vendedoresOptions = data
-              .filter((item: { Codigo: string, Descripcion: string, Activo: number }) => item.Activo == 1)
-              .map((item: { Codigo: string, Descripcion: string }) => ({
-                value: item.Codigo || '',
-                label: item.Descripcion || 'Sin nombre'
-              }));
-          }
-        }
-      } catch (error) {
-        console.error('Error cargando vendedores:', error);
-        vendedoresOptions = [];
+        const categoriasIvaData = await CategoriaIvaService.obtenerCategorias();
+        categoriasIva = categoriasIvaData;
+      } catch (err) {
+        console.error('Error cargando categorías IVA:', err);
+        // No bloquear la carga del formulario por este error
+      }
+      
+      try {
+        const provinciasData = await ProvinciaService.obtenerProvincias();
+        provincias = provinciasData;
+      } catch (err) {
+        console.error('Error cargando provincias:', err);
+        // No bloquear la carga del formulario por este error
+      }
+      
+      try {
+        const localidadesData = await LocalidadService.obtenerLocalidades();
+        codigosPostales = localidadesData;
+      } catch (err) {
+        console.error('Error cargando localidades:', err);
+        // No bloquear la carga del formulario por este error
+      }
+      
+      try {
+        const vendedoresData = await VendedorService.obtenerVendedoresActivos();
+        vendedoresOptions = vendedoresData;
+      } catch (err) {
+        console.error('Error cargando vendedores:', err);
+        // No bloquear la carga del formulario por este error
       }
       
     } catch (err: unknown) {
-      console.error('Error cargando datos:', err);
+      console.error('Error cargando datos del cliente:', err);
       if (err instanceof Error) {
         error = err.message;
       } else {
@@ -186,29 +170,10 @@
       error = null;
       successMessage = null;
       
-      const url = isEditing 
-        ? `${PUBLIC_API_URL}/clientes/${$page.params.id}` 
-        : `${PUBLIC_API_URL}/clientes`;
-      
-      const method = isEditing ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method: method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(cliente)
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error en la operación');
-      }
-      
-      const data = await response.json();
+      const savedCliente = await ClienteService.guardarCliente(cliente, isEditing);
       
       // Actualizar el cliente con los datos del servidor
-      cliente = data;
+      cliente = savedCliente;
       
       successMessage = isEditing 
         ? `Cliente "${cliente.Codigo}" actualizado correctamente` 

@@ -3,6 +3,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const dotenv = require("dotenv");
 const { requestLogger, logError } = require('./utils/logger');
+const getEmpresaConnection = require('./middleware/dbConnection');
 require("./config/timezone");
 
 // Cargar variables de entorno
@@ -15,7 +16,7 @@ const productoRoutes = require("./routes/articulo.routes");
 const proveedorRoutes = require("./routes/proveedor.routes");
 const rubroRoutes = require("./routes/rubro.routes");
 const provinciaRoutes = require("./routes/provincia.routes");
-const localidadRoutes = require("./routes/codigoPostal.routes");
+const localidadRoutes = require("./routes/localidad.routes");
 const clienteRoutes = require("./routes/cliente.routes");
 const categoriaIvaRoutes = require("./routes/categoriaIva.routes");
 const movimientoStockRoutes = require("./routes/movimientoStock.routes");
@@ -52,7 +53,7 @@ app.use(requestLogger);
 const corsOptions = {
   origin: [
     'http://localhost:5173', 
-    'https://janus314.osvi.lat',
+    'https://janus314.osvi.lat', 
     'https://janus314-api.osvi.lat',
     'https://web.telegram.org'
   ],
@@ -72,46 +73,46 @@ app.use(express.urlencoded({ extended: true }));
 // Rutas
 app.use('/api/auth', authRoutes);
 // app.use("/api/productos", productoRoutes);
-app.use("/api/articulos", productoRoutes);
-app.use("/api/proveedores", proveedorRoutes);
-app.use("/api/rubros", rubroRoutes);
-app.use("/api/provincias", provinciaRoutes);
-app.use("/api/localidades", localidadRoutes);
-app.use("/api/clientes", clienteRoutes);
-app.use("/api/categorias-iva", categoriaIvaRoutes);
-app.use("/api/movimientos-stock", movimientoStockRoutes);
-app.use("/api/numeros-control", numerosControlRoutes);
-app.use("/api/datos-empresa", datosEmpresaRoutes);
+app.use("/api/articulos", getEmpresaConnection, productoRoutes);
+app.use("/api/proveedores", getEmpresaConnection, proveedorRoutes);
+app.use("/api/rubros", getEmpresaConnection, rubroRoutes);
+app.use("/api/provincias", getEmpresaConnection, provinciaRoutes);
+app.use("/api/localidades", getEmpresaConnection, localidadRoutes);
+app.use("/api/clientes", getEmpresaConnection, clienteRoutes);
+app.use("/api/categorias-iva", getEmpresaConnection, categoriaIvaRoutes);
+app.use("/api/movimientos-stock", getEmpresaConnection, movimientoStockRoutes);
+app.use("/api/numeros-control", getEmpresaConnection, numerosControlRoutes);
+app.use("/api/datos-empresa", getEmpresaConnection, datosEmpresaRoutes);
 app.use("/api/stockmovimientos", (req, res) => {
   res.json({ message: "API de Gestión Comercial funcionando correctamente" });
 });
-app.use("/api/facturas", facturaRoutes);
-app.use("/api/vendedores", vendedorRoutes);
-app.use("/api/usuarios", usuarioRoutes);
+app.use("/api/facturas", getEmpresaConnection, facturaRoutes);
+app.use("/api/vendedores", getEmpresaConnection, vendedorRoutes);
+app.use("/api/usuarios", getEmpresaConnection, usuarioRoutes);
 
 // Rutas de tipo de pago
-app.use("/api/tipos-pago", tipoDePagoRoutes);
+app.use("/api/tipos-pago", getEmpresaConnection, tipoDePagoRoutes);
 
 // Rutas de AFIP ARCA
-app.use("/api/afip", afipRoutes);
+app.use("/api/afip", getEmpresaConnection, afipRoutes);
 
 // Rutas de pedidos
-app.use("/api/pedidos", pedidoRoutes);
+app.use("/api/pedidos", getEmpresaConnection, pedidoRoutes);
 
 // Rutas de preventas
-app.use("/api/preventas", preventaRoutes);
+app.use("/api/preventas", getEmpresaConnection, preventaRoutes);
 
 // Rutas de sincronización (MOVIDA ANTES DE /api)
-app.use('/api/sincronizacion', sincronizacionRoutes);
+app.use('/api/sincronizacion', getEmpresaConnection, sincronizacionRoutes);
 
 // Rutas de configuración 
-app.use('/api/config', configRoutes);
+app.use('/api/config', getEmpresaConnection, configRoutes);
 
 // Rutas de informes
-app.use("/api/informes", informesRoutes);
+app.use("/api/informes", getEmpresaConnection, informesRoutes);
 
 // Rutas de recibos
-app.use("/api/recibos", reciboRoutes);
+app.use("/api/recibos", getEmpresaConnection, reciboRoutes);
 
 // Rutas de Telegram
 app.use('/api/telegram', telegramRoutes);

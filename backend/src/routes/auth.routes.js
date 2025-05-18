@@ -2,8 +2,8 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { logAuthEvent } = require('../utils/logger');
-const { Empresa } = require('../models/Empresa');
-const Usuario = require('../models/Usuario');
+const Empresa = require('../models/Empresa');
+const DBManager = require('../utils/DBManager');
 const bcrypt = require('bcrypt');
 
 // Login para modo online
@@ -19,7 +19,7 @@ router.post('/online/login', async (req, res) => {
       });
     }
 
-    // Buscar la empresa
+    // Buscar la empresa y obtener sus credenciales de BD
     const empresaData = await Empresa.findByPk(empresa);
     if (!empresaData) {
       logAuthEvent(usuario, 'login', false, { error: 'Empresa no encontrada' });
@@ -38,32 +38,22 @@ router.post('/online/login', async (req, res) => {
       });
     }
 
-    // Buscar el usuario
-    const usuarioData = await Usuario.findOne({
-      where: { usuario }
-    });
+    console.log('****** Obtuvimos credenciales de la empresa:', empresaData.nombre);
 
-    if (!usuarioData) {
-      logAuthEvent(usuario, 'login', false, { error: 'Usuario no encontrado' });
-      return res.status(401).json({
-        success: false,
-        error: 'Credenciales inválidas'
-      });
-    }
+    // Conectar a la base de datos de la empresa
+    const empresaDB = await DBManager.getConnectionWithConfig(empresaData);
+    
+    // Buscar el vendedor en la base de datos de la empresa
+    const [vendedor] = await empresaDB.query(
+      'SELECT * FROM t_vendedores WHERE codigo = ? AND clave = ? LIMIT 1',
+      {
+        replacements: [usuario, password],
+        type: empresaDB.QueryTypes.SELECT
+      }
+    );
 
-    // Verificar que el usuario esté activo
-    if (!usuarioData.activo) {
-      logAuthEvent(usuario, 'login', false, { error: 'Usuario inactivo' });
-      return res.status(401).json({
-        success: false,
-        error: 'Usuario inactivo'
-      });
-    }
-
-    // Verificar la contraseña
-    const passwordValida = await usuarioData.comparePassword(password);
-    if (!passwordValida) {
-      logAuthEvent(usuario, 'login', false, { error: 'Contraseña inválida' });
+    if (!vendedor) {
+      logAuthEvent(usuario, 'login', false, { error: 'Credenciales inválidas' });
       return res.status(401).json({
         success: false,
         error: 'Credenciales inválidas'
@@ -73,18 +63,13 @@ router.post('/online/login', async (req, res) => {
     // Generar token JWT
     const token = jwt.sign(
       {
-        userId: usuarioData.id,
+        userId: vendedor.Codigo,
         empresaId: empresaData.id,
-        isAdmin: usuarioData.rol === 'admin'
+        nombre: vendedor.Descripcion
       },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
-
-    // Actualizar último acceso
-    await usuarioData.update({
-      ultimoAcceso: new Date()
-    });
 
     // Registrar evento de login exitoso
     logAuthEvent(usuario, 'login', true, { empresaId: empresaData.id });
@@ -93,14 +78,11 @@ router.post('/online/login', async (req, res) => {
     res.json({
       success: true,
       user: {
-        id: usuarioData.id,
-        nombre: usuarioData.nombre,
-        apellido: usuarioData.apellido,
-        usuario: usuarioData.usuario,
-        rol: usuarioData.rol,
-        activo: usuarioData.activo,
-        fechaCreacion: usuarioData.fechaCreacion,
-        ultimoAcceso: usuarioData.ultimoAcceso
+        id: vendedor.Codigo,
+        nombre: vendedor.Descripcion,
+        usuario: vendedor.Codigo,
+        activo: vendedor.Activo === 1,
+        permisos: vendedor.Permisos
       },
       empresa: {
         id: empresaData.id,
@@ -145,26 +127,9 @@ router.get('/online/verify', async (req, res) => {
     // Verificar y decodificar el token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Buscar el usuario
-    const usuario = await Usuario.findByPk(decoded.userId);
-    if (!usuario) {
-      return res.status(401).json({
-        success: false,
-        error: 'Usuario no encontrado'
-      });
-    }
-
-    // Verificar que el usuario esté activo
-    if (!usuario.activo) {
-      return res.status(401).json({
-        success: false,
-        error: 'Usuario inactivo'
-      });
-    }
-
     // Buscar la empresa
-    const empresa = await Empresa.findByPk(decoded.empresaId);
-    if (!empresa) {
+    const empresaData = await Empresa.findByPk(decoded.empresaId);
+    if (!empresaData) {
       return res.status(401).json({
         success: false,
         error: 'Empresa no encontrada'
@@ -172,19 +137,46 @@ router.get('/online/verify', async (req, res) => {
     }
 
     // Verificar que la empresa esté activa
-    if (empresa.estado !== 'activo') {
+    if (empresaData.estado !== 'activo') {
       return res.status(401).json({
         success: false,
         error: 'Empresa inactiva'
       });
     }
 
+    // Conectar a la base de datos de la empresa
+    const empresaDB = await DBManager.getConnectionWithConfig(empresaData);
+    
+    // Buscar el vendedor
+    const [vendedor] = await empresaDB.query(
+      'SELECT * FROM t_vendedores WHERE codigo = ? LIMIT 1',
+      {
+        replacements: [decoded.userId],
+        type: empresaDB.QueryTypes.SELECT
+      }
+    );
+
+    if (!vendedor) {
+      return res.status(401).json({
+        success: false,
+        error: 'Usuario no encontrado'
+      });
+    }
+
+    // Verificar que el vendedor esté activo
+    if (vendedor.Activo !== 1) {
+      return res.status(401).json({
+        success: false,
+        error: 'Usuario inactivo'
+      });
+    }
+
     // Generar nuevo token
     const newToken = jwt.sign(
       {
-        userId: usuario.id,
-        empresaId: empresa.id,
-        isAdmin: usuario.rol === 'admin'
+        userId: vendedor.Codigo,
+        empresaId: empresaData.id,
+        nombre: vendedor.Descripcion
       },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
@@ -194,19 +186,16 @@ router.get('/online/verify', async (req, res) => {
     res.json({
       success: true,
       user: {
-        id: usuario.id,
-        nombre: usuario.nombre,
-        apellido: usuario.apellido,
-        usuario: usuario.usuario,
-        rol: usuario.rol,
-        activo: usuario.activo,
-        fechaCreacion: usuario.fechaCreacion,
-        ultimoAcceso: usuario.ultimoAcceso
+        id: vendedor.Codigo,
+        nombre: vendedor.Descripcion,
+        usuario: vendedor.Codigo,
+        activo: vendedor.Activo === 1,
+        permisos: vendedor.Permisos
       },
       empresa: {
-        id: empresa.id,
-        nombre: empresa.nombre,
-        baseDatos: empresa.db_name
+        id: empresaData.id,
+        nombre: empresaData.nombre,
+        baseDatos: empresaData.db_name
       },
       token: newToken
     });

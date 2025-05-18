@@ -7,6 +7,12 @@ class MasterDBConnection {
       return MasterDBConnection.instance;
     }
 
+    console.log('=== Datos de conexión base de datos maestra ===');
+    console.log('Host:', process.env.EMPRESAS_DB_HOST);
+    console.log('Base de datos:', process.env.EMPRESAS_DB_NAME);
+    console.log('Usuario:', process.env.EMPRESAS_DB_USER);
+    console.log('==========================================');
+
     this.sequelize = new Sequelize(
       process.env.EMPRESAS_DB_NAME,
       process.env.EMPRESAS_DB_USER,
@@ -34,10 +40,10 @@ class MasterDBConnection {
   async testConnection() {
     try {
       await this.sequelize.authenticate();
-      console.log('Conexión a base de datos maestra establecida correctamente.');
+      console.log('✅ Conexión a base de datos maestra establecida correctamente.');
       return true;
     } catch (error) {
-      console.error('Error al conectar a la base de datos maestra:', error);
+      console.error('❌ Error al conectar a la base de datos maestra:', error);
       return false;
     }
   }

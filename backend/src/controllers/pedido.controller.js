@@ -1,14 +1,10 @@
-const PedidoCabeza = require("../models/pedidoCabeza.model");
-const PedidoItem = require("../models/pedidoItem.model");
-const Articulo = require("../models/articulo.model");
-const Cliente = require("../models/cliente.model");
-const UnidadMovil = require("../models/unidadMovil.model");
 const sequelize = require("../config/database");
 const { Op } = require("sequelize");
 
 // Obtener listado de pedidos con paginación y filtros
 exports.listarPedidos = async (req, res) => {
   try {
+    const { PedidoCabeza, Cliente, UnidadMovil } = req.models;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
@@ -93,6 +89,7 @@ exports.listarPedidos = async (req, res) => {
 // Obtener detalle de un pedido
 exports.obtenerPedido = async (req, res) => {
   try {
+    const { PedidoCabeza, Cliente, UnidadMovil, PedidoItem, Articulo } = req.models;
     const { tipo, sucursal, numero } = req.params;
 
     // Buscar cabecera del pedido
@@ -170,6 +167,7 @@ exports.crearPedido = async (req, res) => {
   const t = await sequelize.transaction();
 
   try {
+    const { PedidoCabeza, PedidoItem } = req.models;
     const pedidoData = req.body;
 
     // Validar datos mínimos
@@ -226,6 +224,7 @@ exports.crearPedido = async (req, res) => {
 // Actualizar estado de pedido
 exports.actualizarEstado = async (req, res) => {
   try {
+    const { PedidoCabeza, Cliente, UnidadMovil } = req.models;
     const { tipo, sucursal, numero } = req.params;
     const { estado, fecha } = req.body;
 

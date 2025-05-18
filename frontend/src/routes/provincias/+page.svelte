@@ -57,7 +57,17 @@
         order: filters.order
       });
       
-      const response = await fetch(`${PUBLIC_API_URL}/provincias?${params}`);
+      // Obtener el token del localStorage
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No hay token de autenticación');
+      }
+      
+      const response = await fetch(`${PUBLIC_API_URL}/provincias?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       
       if (!response.ok) throw new Error('Error al cargar las provincias');
       

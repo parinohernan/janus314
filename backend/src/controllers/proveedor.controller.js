@@ -1,5 +1,3 @@
-const Proveedor = require("../models/proveedor.model");
-const CodigoPostal = require("../models/codigoPostal.model");
 const { Op } = require("sequelize");
 
 // Obtener todos los proveedores (con filtros y paginación)
@@ -12,6 +10,8 @@ exports.getAllProveedores = async (req, res) => {
       field = "Descripcion",
       order = "ASC",
     } = req.query;
+
+    const { Proveedor } = req.models;
 
     // Calcular offset para paginación
     const offset = (page - 1) * limit;
@@ -41,13 +41,6 @@ exports.getAllProveedores = async (req, res) => {
       order: [[sortField, sortOrder]],
       limit: parseInt(limit),
       offset: parseInt(offset),
-      include: [
-        {
-          model: CodigoPostal,
-          as: "CodigoPostalRelacion",
-          attributes: ["Descripcion"],
-        },
-      ],
       attributes: ["Codigo", "Descripcion"], // Solo retornamos estos campos para el listado
     });
 
@@ -65,15 +58,15 @@ exports.getAllProveedores = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    return res
-      .status(500)
-      .json({ message: "Error al obtener los proveedores" });
+    return res.status(500).json({ message: "Error al obtener los proveedores" });
   }
 };
 
 // Obtener un proveedor por Código
 exports.getProveedorById = async (req, res) => {
   try {
+    const { Proveedor, CodigoPostal } = req.models;
+    
     const proveedor = await Proveedor.findByPk(req.params.id, {
       include: [
         {
@@ -98,6 +91,8 @@ exports.getProveedorById = async (req, res) => {
 // Crear nuevo proveedor
 exports.createProveedor = async (req, res) => {
   try {
+    const { Proveedor } = req.models;
+    
     // Validar campos obligatorios
     if (!req.body.Codigo || !req.body.Descripcion) {
       return res.status(400).json({
@@ -156,6 +151,8 @@ exports.createProveedor = async (req, res) => {
 // Actualizar proveedor
 exports.updateProveedor = async (req, res) => {
   try {
+    const { Proveedor } = req.models;
+    
     // Validar campos obligatorios
     if (!req.body.Descripcion) {
       return res.status(400).json({
@@ -205,15 +202,15 @@ exports.updateProveedor = async (req, res) => {
       });
     }
 
-    return res
-      .status(500)
-      .json({ message: "Error al actualizar el proveedor" });
+    return res.status(500).json({ message: "Error al actualizar el proveedor" });
   }
 };
 
 // Eliminar proveedor
 exports.deleteProveedor = async (req, res) => {
   try {
+    const { Proveedor } = req.models;
+    
     const proveedor = await Proveedor.findByPk(req.params.id);
 
     if (!proveedor) {

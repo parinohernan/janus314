@@ -1,9 +1,9 @@
-const Usuario = require("../models/usuario.model");
 const { Op } = require("sequelize");
 
 // Obtener todos los usuarios
 exports.getUsuarios = async (req, res) => {
   try {
+    const { Usuario } = req.models;
     const usuarios = await Usuario.findAll({
       attributes: ["Codigo", "Descripcion"], // Excluimos la clave por seguridad
     });
@@ -25,6 +25,7 @@ exports.getUsuarios = async (req, res) => {
 // Obtener un usuario por código
 exports.getUsuarioById = async (req, res) => {
   try {
+    const { Usuario } = req.models;
     const { codigo } = req.params;
 
     const usuario = await Usuario.findByPk(codigo, {
@@ -55,6 +56,7 @@ exports.getUsuarioById = async (req, res) => {
 // Crear un nuevo usuario
 exports.createUsuario = async (req, res) => {
   try {
+    const { Usuario } = req.models;
     const { Codigo, Descripcion, Clave } = req.body;
 
     if (!Codigo || !Descripcion || !Clave) {
@@ -102,6 +104,7 @@ exports.createUsuario = async (req, res) => {
 // Actualizar un usuario existente
 exports.updateUsuario = async (req, res) => {
   try {
+    const { Usuario } = req.models;
     const { codigo } = req.params;
     const { Descripcion, Clave } = req.body;
 
@@ -142,6 +145,7 @@ exports.updateUsuario = async (req, res) => {
 // Eliminar un usuario
 exports.deleteUsuario = async (req, res) => {
   try {
+    const { Usuario } = req.models;
     const { codigo } = req.params;
 
     const usuario = await Usuario.findByPk(codigo);

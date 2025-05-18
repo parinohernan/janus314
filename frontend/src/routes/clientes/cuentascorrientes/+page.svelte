@@ -2,24 +2,14 @@
   import { onMount } from 'svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { goto } from '$app/navigation';
-  import { PUBLIC_API_URL } from '$env/static/public';
   import { debounce } from 'lodash-es';
   import { page } from '$app/stores';
   import { navigationState } from '$lib/stores/navigationState';
-  
-  interface ClienteCuentaCorriente {
-    Codigo: string;
-    Descripcion: string;
-    Saldo: number;
-  }
-  
-  interface Comprobante {
-    Fecha: string;
-    Detalle: string;
-    Debitos: number;
-    Creditos: number;
-    Saldo: number;
-  }
+  import { 
+    ClienteService, 
+    type ClienteCuentaCorriente, 
+    type Comprobante 
+  } from '$lib/services/ClienteService';
   
   interface Pagination {
     currentPage: number;
@@ -59,27 +49,20 @@
       loading = true;
       error = null;
       
-      const params = new URLSearchParams({
-        page: pagination.currentPage.toString(),
-        limit: pagination.limit.toString(),
+      const result = await ClienteService.obtenerCuentasCorrientes({
+        page: pagination.currentPage,
+        limit: pagination.limit,
         search: filters.search,
         field: filters.field,
         order: filters.order
       });
       
-      const response = await fetch(`${PUBLIC_API_URL}/clientes/cuentascorrientes?${params}`);
-      
-      if (!response.ok) throw new Error('Error al cargar las cuentas corrientes');
-      
-      const data = await response.json();
-      
-      clientes = data.items || [];
-      
+      clientes = result.items;
       pagination = {
-        currentPage: parseInt(data.currentPage || data.meta?.currentPage || pagination.currentPage, 10),
-        totalPages: parseInt(data.totalPages || data.meta?.totalPages || 1, 10),
-        totalItems: parseInt(data.totalItems || data.meta?.totalItems || 0, 10),
-        limit: parseInt(data.limit || data.meta?.itemsPerPage || pagination.limit, 10)
+        currentPage: result.currentPage,
+        totalPages: result.totalPages,
+        totalItems: result.totalItems,
+        limit: result.limit
       };
       
     } catch (err: unknown) {
@@ -95,12 +78,7 @@
       loading = true;
       error = null;
       
-      const response = await fetch(`${PUBLIC_API_URL}/clientes/${codigoCliente}/comprobantes`);
-      
-      if (!response.ok) throw new Error('Error al cargar los comprobantes');
-      
-      const data = await response.json();
-      comprobantes = data.items || [];
+      comprobantes = await ClienteService.obtenerComprobantes(codigoCliente);
       
     } catch (err: unknown) {
       console.error('Error cargando comprobantes:', err);

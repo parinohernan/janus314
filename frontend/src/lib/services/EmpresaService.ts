@@ -1,4 +1,6 @@
 import { PUBLIC_API_URL } from '$env/static/public';
+import { auth } from '$lib/stores/authStore';
+import { get } from 'svelte/store';
 
 // Interfaz para los datos de la empresa que coincide con tu API
 export interface DatosEmpresa {
@@ -26,34 +28,51 @@ export class EmpresaService {
 	 */
 	public static async obtenerDatos(): Promise<DatosEmpresa> {
 		try {
-			// Si ya tenemos los datos en cache, los devolvemos
+			console.log('Iniciando obtenerDatos...');
+			
 			if (this.datosCache) {
+				console.log('Retornando datos desde caché:', this.datosCache);
 				return this.datosCache;
 			}
 
-			// Hacemos la petición al servidor usando el mismo endpoint que en factura/nueva
-			const response = await fetch(`${PUBLIC_API_URL}/datos-empresa`);
+			const authState = get(auth);
+			if (!authState.token) {
+				console.error('No hay token de autenticación disponible');
+				throw new Error('No hay token de autenticación');
+			}
+
+			console.log('Realizando petición a:', `${PUBLIC_API_URL}/datos-empresa`);
+			
+			const response = await fetch(`${PUBLIC_API_URL}/datos-empresa`, {
+				headers: {
+					'Authorization': `Bearer ${authState.token}`
+				}
+			});
 
 			if (!response.ok) {
-				throw new Error('Error al obtener datos de empresa');
+				const errorText = await response.text();
+				console.error('Error en la respuesta:', {
+					status: response.status,
+					statusText: response.statusText,
+					body: errorText
+				});
+				throw new Error(`Error al obtener datos de empresa: ${response.status} ${response.statusText}`);
 			}
 
 			const responseData = await response.json();
+			console.log('Datos recibidos:', responseData);
 
-			// Guardamos en cache - Nota que la API devuelve { data: { ... } }
-			this.datosCache = responseData.data;
+			this.datosCache = responseData.data || responseData;
 
-			// Verificamos que los datos sean válidos
 			if (!this.datosCache || !this.datosCache.Sucursal) {
-				// Si no lo son, devolvemos datos predeterminados
+				console.warn('Datos inválidos recibidos, usando predeterminados');
 				return this.getDatosPredeterminados();
 			}
 
+			console.log('Datos válidos obtenidos:', this.datosCache);
 			return this.datosCache;
 		} catch (error) {
 			console.error('Error en obtenerDatos:', error);
-
-			// En caso de error, devolvemos datos predeterminados
 			return this.getDatosPredeterminados();
 		}
 	}
@@ -63,15 +82,22 @@ export class EmpresaService {
 	 * cuando no se pueden obtener del servidor
 	 */
 	private static getDatosPredeterminados(): DatosEmpresa {
-		return {
+		const datosPredeterminados = {
 			Nombre: 'Mi Empresa',
 			Direccion: 'Dirección no disponible',
 			Telefono: 'Teléfono no disponible',
 			EMail: 'email@empresa.com',
 			Cuit: '00-00000000-0',
 			Localidad: 'Ciudad no disponible',
-			Sucursal: '0001'
+			Sucursal: '0001',
+			RazonSocial: 'Mi Empresa S.A.',
+			IngresosBrutos: 'No disponible',
+			InicioActividades: '',
+			Timezone: 'America/Argentina/Buenos_Aires'
 		};
+		
+		console.log('Retornando datos predeterminados:', datosPredeterminados);
+		return datosPredeterminados;
 	}
 
 	/**
@@ -80,7 +106,6 @@ export class EmpresaService {
 	public static async obtenerSucursal(): Promise<string> {
 		try {
 			const datos = await this.obtenerDatos();
-			console.log('datos', datos);
 			return datos.Sucursal;
 		} catch (error) {
 			console.error('Error al obtener sucursal:', error);
@@ -92,6 +117,7 @@ export class EmpresaService {
 	 * Limpia la caché de datos
 	 */
 	public static limpiarCache(): void {
+		console.log('Limpiando caché de datos de empresa');
 		this.datosCache = null;
 	}
 }

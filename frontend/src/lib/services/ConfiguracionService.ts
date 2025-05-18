@@ -1,6 +1,6 @@
 import type { Configuracion, ApiResponse } from '$lib/types';
 import { PUBLIC_API_URL } from '$env/static/public';
-
+import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 /**
  * Servicio para gestionar operaciones con configuraciones del sistema
  */
@@ -10,7 +10,7 @@ export class ConfiguracionService {
 	 */
 	public static async obtenerConfiguraciones(): Promise<Configuracion[]> {
 		try {
-			const response = await fetch(`${PUBLIC_API_URL}/configuraciones`);
+			const response = await fetchWithAuth('/configuraciones');
 
 			if (!response.ok) {
 				throw new Error('Error al obtener configuraciones');
@@ -29,7 +29,7 @@ export class ConfiguracionService {
 	 */
 	public static async obtenerConfiguracion(codigo: string): Promise<Configuracion | null> {
 		try {
-			const response = await fetch(`${PUBLIC_API_URL}/configuraciones/${codigo}`);
+			const response = await fetchWithAuth(`/configuraciones/${codigo}`);
 
 			if (!response.ok) {
 				throw new Error(`Error al obtener configuración: ${codigo}`);
@@ -48,7 +48,7 @@ export class ConfiguracionService {
 	 */
 	public static async actualizarConfiguracion(codigo: string, valor: string): Promise<boolean> {
 		try {
-			const response = await fetch(`${PUBLIC_API_URL}/configuraciones/${codigo}`, {
+			const response = await fetchWithAuth(`/configuraciones/${codigo}`, {
 				method: 'PUT',
 				headers: {
 					'Content-Type': 'application/json'

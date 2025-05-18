@@ -1,9 +1,9 @@
-const CategoriaIva = require("../models/categoriaIva.model");
 const { Op } = require("sequelize");
 
 // Obtener todas las categorías de IVA
 exports.getAllCategoriasIva = async (req, res) => {
   try {
+    const { CategoriaIva } = req.models;
     const { search = "", field = "Descripcion", order = "ASC" } = req.query;
 
     // Configurar opciones de búsqueda
@@ -45,6 +45,7 @@ exports.getAllCategoriasIva = async (req, res) => {
 // Obtener una categoría de IVA por código
 exports.getCategoriaIvaById = async (req, res) => {
   try {
+    const { CategoriaIva } = req.models;
     const categoriaIva = await CategoriaIva.findByPk(req.params.id);
 
     if (!categoriaIva) {
@@ -65,6 +66,7 @@ exports.getCategoriaIvaById = async (req, res) => {
 // Crear categoría de IVA
 exports.createCategoriaIva = async (req, res) => {
   try {
+    const { CategoriaIva } = req.models;
     const { Codigo, Descripcion, Porcentaje1, Porcentaje2, Documento } =
       req.body;
 
@@ -104,6 +106,7 @@ exports.createCategoriaIva = async (req, res) => {
 // Actualizar categoría de IVA
 exports.updateCategoriaIva = async (req, res) => {
   try {
+    const { CategoriaIva } = req.models;
     const { Descripcion, Porcentaje1, Porcentaje2, Documento } = req.body;
 
     // Validar campos obligatorios
@@ -141,6 +144,7 @@ exports.updateCategoriaIva = async (req, res) => {
 // Eliminar categoría de IVA
 exports.deleteCategoriaIva = async (req, res) => {
   try {
+    const { CategoriaIva } = req.models;
     const categoriaIva = await CategoriaIva.findByPk(req.params.id);
 
     if (!categoriaIva) {

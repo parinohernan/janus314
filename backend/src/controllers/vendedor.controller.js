@@ -1,9 +1,9 @@
-const Vendedor = require("../models/vendedor.model");
 const { Op } = require("sequelize");
 
 // Obtener todos los vendedores
 exports.getVendedores = async (req, res) => {
   try {
+    const { Vendedor } = req.models;
     // Filtro opcional para mostrar solo activos
     const activo = req.query.activo;
     const whereClause = {};
@@ -35,6 +35,7 @@ exports.getVendedores = async (req, res) => {
 // Obtener un vendedor por código
 exports.getVendedorById = async (req, res) => {
   try {
+    const { Vendedor } = req.models;
     const { codigo } = req.params;
 
     const vendedor = await Vendedor.findByPk(codigo, {
@@ -65,6 +66,7 @@ exports.getVendedorById = async (req, res) => {
 // Crear un nuevo vendedor
 exports.createVendedor = async (req, res) => {
   try {
+    const { Vendedor } = req.models;
     const { Codigo, Descripcion, Clave, Activo, Permisos } = req.body;
 
     if (!Codigo || !Descripcion) {
@@ -124,6 +126,7 @@ exports.createVendedor = async (req, res) => {
 // Actualizar un vendedor existente
 exports.updateVendedor = async (req, res) => {
   try {
+    const { Vendedor } = req.models;
     const { codigo } = req.params;
     const { Descripcion, Clave, Activo, Permisos } = req.body;
 
@@ -176,6 +179,7 @@ exports.updateVendedor = async (req, res) => {
 // Eliminar un vendedor
 exports.deleteVendedor = async (req, res) => {
   try {
+    const { Vendedor } = req.models;
     const { codigo } = req.params;
 
     const vendedor = await Vendedor.findByPk(codigo);

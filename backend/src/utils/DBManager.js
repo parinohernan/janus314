@@ -11,6 +11,56 @@ class DBManager {
     DBManager.instance = this;
   }
 
+  async getConnectionWithConfig(empresaConfig) {
+    // Si ya existe una conexión, la retornamos
+    if (this.pools.has(empresaConfig.id)) {
+      return this.pools.get(empresaConfig.id);
+    }
+
+    try {
+      // Mostrar información de conexión
+      console.log('=== Datos de conexión para empresa ===');
+      console.log('ID Empresa:', empresaConfig.id);
+      console.log('Nombre Empresa:', empresaConfig.nombre);
+      console.log('Host:', empresaConfig.db_host);
+      console.log('Puerto:', empresaConfig.db_port || 3306);
+      console.log('Base de datos:', empresaConfig.db_name);
+      console.log('Usuario:', empresaConfig.db_user);
+      console.log('===================================');
+
+      // Crear nueva conexión
+      const sequelize = new Sequelize(
+        empresaConfig.db_name,
+        empresaConfig.db_user,
+        empresaConfig.db_password,
+        {
+          host: empresaConfig.db_host,
+          port: empresaConfig.db_port || 3306,
+          dialect: 'mysql',
+          pool: {
+            max: parseInt(process.env.DB_POOL_MAX || '5'),
+            min: parseInt(process.env.DB_POOL_MIN || '0'),
+            acquire: parseInt(process.env.DB_POOL_ACQUIRE || '30000'),
+            idle: parseInt(process.env.DB_POOL_IDLE || '10000')
+          },
+          logging: process.env.NODE_ENV === 'development'
+        }
+      );
+
+      // Probar la conexión
+      await sequelize.authenticate();
+      console.log('✅ Conexión establecida exitosamente para empresa:', empresaConfig.nombre);
+      
+      // Guardar en el pool
+      this.pools.set(empresaConfig.id, sequelize);
+      
+      return sequelize;
+    } catch (error) {
+      console.error(`❌ Error al obtener conexión para empresa ${empresaConfig.id}:`, error);
+      throw error;
+    }
+  }
+
   async getConnection(empresaId) {
     // Si ya existe una conexión, la retornamos
     if (this.pools.has(empresaId)) {
@@ -38,31 +88,7 @@ class DBManager {
         await cache.set(cacheKey, empresaConfig);
       }
 
-      // Crear nueva conexión
-      const sequelize = new Sequelize(
-        empresaConfig.db_name,
-        empresaConfig.db_user,
-        empresaConfig.db_password,
-        {
-          host: empresaConfig.db_host,
-          dialect: 'mysql',
-          pool: {
-            max: parseInt(process.env.DB_POOL_MAX || '5'),
-            min: parseInt(process.env.DB_POOL_MIN || '0'),
-            acquire: parseInt(process.env.DB_POOL_ACQUIRE || '30000'),
-            idle: parseInt(process.env.DB_POOL_IDLE || '10000')
-          },
-          logging: process.env.NODE_ENV === 'development'
-        }
-      );
-
-      // Probar la conexión
-      await sequelize.authenticate();
-      
-      // Guardar en el pool
-      this.pools.set(empresaId, sequelize);
-      
-      return sequelize;
+      return this.getConnectionWithConfig(empresaConfig);
     } catch (error) {
       // Si hay error, invalidar el caché
       const cacheKey = cache.getKeyForEmpresa(empresaId);

@@ -1,0 +1,415 @@
+const { DataTypes } = require('sequelize');
+
+const initializeModels = (sequelize) => {
+  // Definir modelo Provincia
+  const Provincia = sequelize.define('Provincia', {
+    Codigo: {
+      type: DataTypes.STRING(20),
+      primaryKey: true,
+      allowNull: false
+    },
+    Descripcion: {
+      type: DataTypes.STRING(50),
+      allowNull: true
+    }
+  }, {
+    tableName: 't_provincias',
+    timestamps: false
+  });
+
+  // Definir modelo Localidad
+  const Localidad = sequelize.define('Localidad', {
+    Codigo: {
+      type: DataTypes.STRING(20),
+      primaryKey: true,
+      allowNull: false
+    },
+    Descripcion: {
+      type: DataTypes.STRING(50),
+      allowNull: true
+    },
+    Provincia: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      references: {
+        model: 'Provincia',
+        key: 'Codigo'
+      }
+    }
+  }, {
+    tableName: 't_codigospostales',
+    timestamps: false
+  });
+
+  // Definir modelo Articulo
+  const Articulo = sequelize.define('Articulo', {
+    Codigo: {
+      type: DataTypes.STRING(20),
+      primaryKey: true,
+      allowNull: false
+    },
+    Descripcion: {
+      type: DataTypes.STRING(100),
+      allowNull: false
+    },
+    PrecioCosto: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: true
+    },
+    Existencia: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: true
+    },
+    Activo: {
+      type: DataTypes.TINYINT,
+      defaultValue: 1
+    },
+    PorcentajeIVA1: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true
+    },
+    Lista1: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: true
+    },
+    Lista2: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: true
+    },
+    Lista3: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: true
+    },
+    Lista4: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: true
+    },
+    Lista5: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: true
+    },
+    ProveedorCodigo: {
+      type: DataTypes.STRING(20),
+      allowNull: true
+    },
+    RubroCodigo: {
+      type: DataTypes.STRING(20),
+      allowNull: true
+    }
+  }, {
+    tableName: 't_articulos',
+    timestamps: false
+  });
+
+  // Definir modelo Proveedor
+  const Proveedor = sequelize.define('Proveedor', {
+    Codigo: {
+      type: DataTypes.STRING(20),
+      primaryKey: true,
+      allowNull: false
+    },
+    Descripcion: {
+      type: DataTypes.STRING(50),
+      allowNull: true
+    }
+  }, {
+    tableName: 't_proveedores',
+    timestamps: false
+  });
+
+  // Definir modelo Rubro
+  const Rubro = sequelize.define('Rubro', {
+    Codigo: {
+      type: DataTypes.STRING(20),
+      primaryKey: true,
+      allowNull: false
+    },
+    Descripcion: {
+      type: DataTypes.STRING(50),
+      allowNull: true
+    }
+  }, {
+    tableName: 't_rubros',
+    timestamps: false
+  });
+
+  // Definir modelo DatosEmpresa
+  const DatosEmpresa = sequelize.define('DatosEmpresa', {
+    RazonSocial: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+      primaryKey: true
+    },
+    Domicilio: {
+      type: DataTypes.STRING(70),
+      allowNull: true
+    },
+    Localidad: {
+      type: DataTypes.STRING(50),
+      allowNull: true
+    },
+    Telefono: {
+      type: DataTypes.STRING(50),
+      allowNull: true
+    },
+    EMail: {
+      type: DataTypes.STRING(100),
+      allowNull: true
+    },
+    Sucursal: {
+      type: DataTypes.STRING(4),
+      allowNull: true,
+      comment: "Código de sucursal predeterminado"
+    },
+    Cuit: {
+      type: DataTypes.STRING(13),
+      allowNull: true
+    },
+    PuertoFiscal: {
+      type: DataTypes.TINYINT.UNSIGNED,
+      allowNull: true
+    },
+    CategoriaIva: {
+      type: DataTypes.CHAR(1),
+      allowNull: true
+    },
+    IngresosBrutos: {
+      type: DataTypes.STRING(40),
+      allowNull: true
+    },
+    InicioActividades: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    DomicilioComercial: {
+      type: DataTypes.STRING(80),
+      allowNull: true
+    },
+    DomicilioFiscal: {
+      type: DataTypes.STRING(80),
+      allowNull: true
+    },
+    PieCero: {
+      type: DataTypes.STRING(40),
+      allowNull: true
+    },
+    PieUno: {
+      type: DataTypes.STRING(40),
+      allowNull: true
+    },
+    PieDos: {
+      type: DataTypes.STRING(40),
+      allowNull: true
+    },
+    PieTres: {
+      type: DataTypes.STRING(40),
+      allowNull: true
+    },
+    Timezone: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      defaultValue: "America/Argentina/Buenos_Aires",
+      comment: "Zona horaria de la empresa"
+    },
+    LogoURL: {
+      type: DataTypes.STRING(1000),
+      allowNull: true,
+      comment: "URL del logo de la empresa"
+    }
+  }, {
+    tableName: 'datosempresa',
+    timestamps: false
+  });
+
+  // Definir modelo CategoriaIva
+  const CategoriaIva = sequelize.define('CategoriaIva', {
+    Codigo: {
+      type: DataTypes.CHAR(1),
+      primaryKey: true,
+      allowNull: false,
+    },
+    Descripcion: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    }
+  }, {
+    tableName: 't_categoriasiva',
+    timestamps: false
+  });
+
+  // Definir modelo Cliente
+  const Cliente = sequelize.define('Cliente', {
+    Codigo: {
+      type: DataTypes.STRING(8),
+      primaryKey: true,
+      allowNull: false,
+    },
+    Descripcion: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    NombreFantasia: {
+      type: DataTypes.STRING(80),
+      allowNull: true,
+    },
+    Cuit: {
+      type: DataTypes.STRING(11),
+      allowNull: true,
+    },
+    Calle: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    Numero: {
+      type: DataTypes.STRING(15),
+      allowNull: true,
+    },
+    Piso: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+    },
+    Departamento: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+    },
+    ProvinciaCodigo: {
+      type: DataTypes.STRING(3),
+      allowNull: true,
+    },
+    CodigoPostal: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+    },
+    Localidad: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    ContactoNombre: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    Mail: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    Telefono: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    TelefonoMovil: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    ContactoComercial: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    CategoriaIva: {
+      type: DataTypes.CHAR(1),
+      allowNull: true,
+      references: {
+        model: CategoriaIva,
+        key: 'Codigo',
+      },
+    },
+    ListaPrecio: {
+      type: DataTypes.CHAR(1),
+      allowNull: true,
+    },
+    ImporteDeuda: {
+      type: DataTypes.DOUBLE(15, 2),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    CodigoVendedor: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+    },
+    Actualizado: {
+      type: DataTypes.TINYINT,
+      allowNull: true,
+    },
+    SaldoNTCNoAplicado: {
+      type: DataTypes.DOUBLE(15, 2),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    Activo: {
+      type: DataTypes.TINYINT(1),
+      allowNull: true,
+      defaultValue: 0,
+    },
+    LimiteCredito: {
+      type: DataTypes.DOUBLE(15, 2),
+      allowNull: true,
+      defaultValue: 0.0,
+    }
+  }, {
+    tableName: 't_clientes',
+    timestamps: false
+  });
+
+  // Establecer relaciones
+  Localidad.belongsTo(Provincia, {
+    foreignKey: 'Provincia',
+    as: 'ProvinciaRelacion'
+  });
+
+  Articulo.belongsTo(Proveedor, {
+    foreignKey: 'ProveedorCodigo',
+    as: 'Proveedor'
+  });
+
+  Articulo.belongsTo(Rubro, {
+    foreignKey: 'RubroCodigo',
+    as: 'Rubro'
+  });
+
+  Cliente.belongsTo(CategoriaIva, {
+    foreignKey: 'CategoriaIva',
+    as: 'CategoriaIvaRelacion'
+  });
+
+  // Definir modelo Vendedor
+  const Vendedor = sequelize.define('Vendedor', {
+    Codigo: {
+      type: DataTypes.STRING(20),
+      primaryKey: true,
+      allowNull: false,
+    },
+    Descripcion: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    Clave: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    Activo: {
+      type: DataTypes.TINYINT(1),
+      allowNull: true,
+      defaultValue: 1,
+    },
+    Permisos: {
+      type: DataTypes.STRING(8),
+      allowNull: true,
+    }
+  }, {
+    tableName: 't_vendedores',
+    timestamps: false
+  });
+
+  return {
+    Articulo,
+    Proveedor,
+    Rubro,
+    DatosEmpresa,
+    Provincia,
+    Localidad,
+    CategoriaIva,
+    Cliente,
+    Vendedor
+  };
+};
+
+module.exports = initializeModels; 

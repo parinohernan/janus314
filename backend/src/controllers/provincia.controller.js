@@ -1,9 +1,9 @@
-const Provincia = require("../models/provincia.model");
 const { Op } = require("sequelize");
 
 // Obtener todas las provincias (con filtros y paginación)
 exports.getAllProvincias = async (req, res) => {
   try {
+    const { Provincia } = req.models;
     const {
       page = 1,
       limit = 10,
@@ -57,6 +57,7 @@ exports.getAllProvincias = async (req, res) => {
 // Obtener una provincia por Código
 exports.getProvinciaById = async (req, res) => {
   try {
+    const { Provincia } = req.models;
     const provincia = await Provincia.findByPk(req.params.id);
     if (!provincia) {
       return res.status(404).json({ message: "Provincia no encontrada" });
@@ -71,6 +72,7 @@ exports.getProvinciaById = async (req, res) => {
 // Crear nueva provincia
 exports.createProvincia = async (req, res) => {
   try {
+    const { Provincia } = req.models;
     const { Codigo, Descripcion } = req.body;
 
     if (!Codigo) {
@@ -99,6 +101,7 @@ exports.createProvincia = async (req, res) => {
 // Actualizar provincia
 exports.updateProvincia = async (req, res) => {
   try {
+    const { Provincia } = req.models;
     const { Descripcion } = req.body;
     const provincia = await Provincia.findByPk(req.params.id);
 
@@ -119,6 +122,7 @@ exports.updateProvincia = async (req, res) => {
 // Eliminar provincia
 exports.deleteProvincia = async (req, res) => {
   try {
+    const { Provincia } = req.models;
     const provincia = await Provincia.findByPk(req.params.id);
 
     if (!provincia) {

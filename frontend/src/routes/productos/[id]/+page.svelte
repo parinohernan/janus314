@@ -1,11 +1,38 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
-  import { goto } from '$app/navigation';
+  import { goto, invalidate } from '$app/navigation';
   import Button from '$lib/components/ui/Button.svelte';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { PUBLIC_API_URL } from '$env/static/public';
   
   let isEditing = $page.params.id !== 'nuevo';
+  
+  // Recargar datos cuando cambia el ID
+  $: if ($page.params.id) {
+    isEditing = $page.params.id !== 'nuevo';
+    if (isEditing) {
+      (async () => {
+        try {
+          loading = true;
+          const response = await fetchWithAuth(`/articulos/${$page.params.id}`);
+          if (!response.ok) {
+            throw new Error('Error al cargar el artículo');
+          }
+          articulo = await response.json();
+        } catch (err: unknown) {
+          console.error('Error cargando artículo:', err);
+          if (err instanceof Error) {
+            error = err.message;
+          } else {
+            error = 'Error desconocido';
+          }
+        } finally {
+          loading = false;
+        }
+      })();
+    }
+  }
   
   interface Articulo {
     Codigo: string;
@@ -104,7 +131,7 @@
   // Cargar datos de proveedores y rubros para los selectores
   const loadProveedores = async (): Promise<void> => {
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/proveedores?limit=500`);
+      const response = await fetchWithAuth('/proveedores?limit=500');
       if (!response.ok) throw new Error('Error al cargar los proveedores');
       
       const data = await response.json();
@@ -121,7 +148,7 @@
   
   const loadRubros = async (): Promise<void> => {
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/rubros?limit=500`);
+      const response = await fetchWithAuth('/rubros?limit=500');
       if (!response.ok) throw new Error('Error al cargar los rubros');
       
       const data = await response.json();
@@ -145,12 +172,13 @@
       
       // Si estamos editando, cargar datos del artículo
       if (isEditing) {
-        const response = await fetch(`${PUBLIC_API_URL}/articulos/${$page.params.id}`);
+        const response = await fetchWithAuth(`/articulos/${$page.params.id}`);
         if (!response.ok) {
           throw new Error('Error al cargar el artículo');
         }
         
         articulo = await response.json();
+        await invalidate(`/articulos/${$page.params.id}`);
       }
     } catch (err: unknown) {
       console.error('Error en carga inicial:', err);
@@ -202,22 +230,21 @@
       successMessage = null;
       
       const url = isEditing 
-        ? `${PUBLIC_API_URL}/articulos/${$page.params.id}` 
-        : `${PUBLIC_API_URL}/articulos`;
+        ? `/articulos/${$page.params.id}` 
+        : `/articulos`;
       
       const method = isEditing ? 'PUT' : 'POST';
       
-      const response = await fetch(url, {
-        method: method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
+      console.log('Enviando datos:', articulo);
+      
+      const response = await fetchWithAuth(url, {
+        method,
         body: JSON.stringify(articulo)
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error en la operación');
+        const data = await response.json();
+        throw new Error(data.message || 'Error al guardar el producto');
       }
       
       const data = await response.json();
@@ -235,7 +262,7 @@
       
       // Si es nuevo, redirigir y actualizar estado
       if (!isEditing) {
-        goto(`/productos/${articulo.Codigo}`, { replaceState: true });
+        goto('/productos', { replaceState: true });
         isEditing = true;
       }
       

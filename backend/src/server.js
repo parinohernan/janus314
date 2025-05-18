@@ -1,6 +1,7 @@
 const app = require("./app");
 const DBManager = require("./utils/DBManager");
 const masterDB = require("./config/masterDB");
+const { initializeDatabase } = require("./config/init");
 // Importar el archivo de asociaciones para definir las relaciones entre modelos
 require("./models/associations");
 
@@ -9,8 +10,8 @@ const PORT = process.env.PORT || 3000;
 
 const server = app.listen(PORT, async () => {
   try {
-    // Probar conexión a la base de datos maestra
-    await masterDB.testConnection();
+    // Inicializar la base de datos maestra
+    await initializeDatabase();
     console.log(`Servidor escuchando en el puerto ${PORT}`);
   } catch (error) {
     console.error('Error al iniciar el servidor:', error);

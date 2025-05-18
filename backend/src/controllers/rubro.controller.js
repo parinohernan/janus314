@@ -1,4 +1,3 @@
-const Rubro = require("../models/rubro.model");
 const { Op } = require("sequelize");
 
 // Obtener todos los rubros (con filtros y paginación)
@@ -11,6 +10,8 @@ exports.getAllRubros = async (req, res) => {
       field = "Descripcion",
       order = "ASC",
     } = req.query;
+
+    const { Rubro } = req.models;
 
     // Calcular offset para paginación
     const offset = (page - 1) * limit;
@@ -43,10 +44,13 @@ exports.getAllRubros = async (req, res) => {
 
     // Enviar respuesta con metadata de paginación
     return res.status(200).json({
-      totalItems: count,
-      totalPages: Math.ceil(count / parseInt(limit)),
-      currentPage: parseInt(page),
       items: rubros,
+      meta: {
+        totalItems: count,
+        itemsPerPage: parseInt(limit),
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(count / parseInt(limit))
+      }
     });
   } catch (error) {
     console.error(error);
@@ -57,6 +61,8 @@ exports.getAllRubros = async (req, res) => {
 // Obtener un rubro por Código
 exports.getRubroById = async (req, res) => {
   try {
+    const { Rubro } = req.models;
+    
     const rubro = await Rubro.findByPk(req.params.id);
     if (!rubro) {
       return res.status(404).json({ message: "Rubro no encontrado" });
@@ -71,6 +77,8 @@ exports.getRubroById = async (req, res) => {
 // Crear nuevo rubro
 exports.createRubro = async (req, res) => {
   try {
+    const { Rubro } = req.models;
+    
     const { Codigo, Descripcion, RubroGrupoCodigo } = req.body;
 
     if (!Codigo) {
@@ -100,6 +108,8 @@ exports.createRubro = async (req, res) => {
 // Actualizar rubro
 exports.updateRubro = async (req, res) => {
   try {
+    const { Rubro } = req.models;
+    
     const { Descripcion, RubroGrupoCodigo } = req.body;
     const rubro = await Rubro.findByPk(req.params.id);
 
@@ -118,6 +128,8 @@ exports.updateRubro = async (req, res) => {
 // Eliminar rubro
 exports.deleteRubro = async (req, res) => {
   try {
+    const { Rubro } = req.models;
+    
     const rubro = await Rubro.findByPk(req.params.id);
 
     if (!rubro) {

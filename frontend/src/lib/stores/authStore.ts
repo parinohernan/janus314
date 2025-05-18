@@ -2,6 +2,7 @@ import { writable } from 'svelte/store';
 import type { Usuario } from '$lib/types/usuario.types';
 import { authConfig } from '$lib/config/auth.config';
 import { PUBLIC_API_URL } from '$env/static/public';
+import { browser } from '$app/environment';
 
 interface AuthState {
   user: Usuario | null;
@@ -54,7 +55,9 @@ function createAuthStore() {
               empresa: null
             }));
 
-            localStorage.setItem('authToken', 'mock-token-local');
+            if (browser) {
+              localStorage.setItem('authToken', 'mock-token-local');
+            }
             return { user: mockUser, token: 'mock-token-local' };
           }
           throw new Error('Credenciales inválidas');
@@ -80,7 +83,7 @@ function createAuthStore() {
           empresa: data.empresa || null
         }));
 
-        if (data.token) {
+        if (browser && data.token) {
           localStorage.setItem('authToken', data.token);
         }
 
@@ -91,7 +94,9 @@ function createAuthStore() {
     },
     logout: async () => {
       if (authConfig.mode === 'local') {
-        localStorage.removeItem('authToken');
+        if (browser) {
+          localStorage.removeItem('authToken');
+        }
         set({
           user: null,
           isAuthenticated: false,
@@ -103,14 +108,18 @@ function createAuthStore() {
 
       const endpoint = `${PUBLIC_API_URL}${authConfig.endpoints.online.logout}`;
       try {
-        await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-          }
-        });
+        if (browser) {
+          await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            }
+          });
+        }
       } finally {
-        localStorage.removeItem('authToken');
+        if (browser) {
+          localStorage.removeItem('authToken');
+        }
         set({
           user: null,
           isAuthenticated: false,
@@ -120,6 +129,10 @@ function createAuthStore() {
       }
     },
     verifySession: async () => {
+      if (!browser) {
+        return false;
+      }
+
       if (authConfig.mode === 'local') {
         const token = localStorage.getItem('authToken');
         if (token === 'mock-token-local') {
@@ -174,7 +187,9 @@ function createAuthStore() {
 
         return true;
       } catch {
-        localStorage.removeItem('authToken');
+        if (browser) {
+          localStorage.removeItem('authToken');
+        }
         return false;
       }
     }

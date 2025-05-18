@@ -7,6 +7,8 @@
   import { navigationState } from '$lib/stores/navigationState';
   import { page } from '$app/stores';
   import { beforeNavigate } from '$app/navigation';
+  import { RubroService } from '$lib/services/RubroService';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   
   // Definir interfaces para los tipos
   interface Articulo {
@@ -72,25 +74,37 @@
       loading = true;
       error = null;
       
-      // Construir URL con parámetros de búsqueda y paginación
-      const params = new URLSearchParams({
+      // Definir tipo para los parámetros
+      type QueryParams = Record<string, string | number | boolean> & {
+        page: string;
+        limit: string;
+        search: string;
+        field: string;
+        order: 'ASC' | 'DESC';
+        activo: string;
+        proveedor?: string;
+        rubro?: string;
+      };
+      
+      // Construir parámetros de búsqueda y paginación
+      const params: QueryParams = {
         page: pagination.currentPage.toString(),
         limit: pagination.limit.toString(),
         search: filters.search,
         field: filters.field,
         order: filters.order,
         activo: filters.activo.toString()
-      });
+      };
       
       // Agregar filtros opcionales solo si tienen valor
       if (filters.proveedor) {
-        params.append('proveedor', filters.proveedor);
+        params.proveedor = filters.proveedor;
       }
       if (filters.rubro) {
-        params.append('rubro', filters.rubro);
+        params.rubro = filters.rubro;
       }
       
-      const response = await fetch(`${PUBLIC_API_URL}/articulos?${params}`);
+      const response = await fetchWithAuth('/articulos', { params });
       if (!response.ok) throw new Error('Error al cargar los artículos');
       console.log(response);
       const data = await response.json();
@@ -121,7 +135,9 @@
   // Cargar datos de proveedores y rubros
   const loadProveedores = async (): Promise<void> => {
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/proveedores?limit=500`);
+      const response = await fetchWithAuth('/proveedores', {
+        params: { limit: '500' }
+      });
       if (!response.ok) throw new Error('Error al cargar los proveedores');
       const data = await response.json();
       proveedores = data.items;
@@ -132,10 +148,7 @@
   
   const loadRubros = async (): Promise<void> => {
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/rubros?limit=500`);
-      if (!response.ok) throw new Error('Error al cargar los rubros');
-      const data = await response.json();
-      rubros = data.items;
+      rubros = await RubroService.obtenerRubros();
     } catch (err) {
       console.error('Error cargando rubros:', err);
     }
@@ -232,7 +245,7 @@
     if (!confirm('¿Está seguro que desea eliminar este artículo?')) return;
     
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/articulos/${id}`, {
+      const response = await fetchWithAuth(`/articulos/${id}`, {
         method: 'DELETE'
       });
       

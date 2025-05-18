@@ -4,25 +4,31 @@
   import { goto } from '$app/navigation';
   import Button from '$lib/components/ui/Button.svelte';
   import { PUBLIC_API_URL } from '$env/static/public';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   
-  let provincia = {
+  interface Provincia {
+    Codigo: string;
+    Descripcion: string;
+  }
+  
+  let provincia: Provincia = {
     Codigo: '',
     Descripcion: ''
   };
   
   let loading = false;
-  let error = null;
+  let error: string | null = null;
   let isEditing = $page.params.id !== 'nuevo';
   
   onMount(async () => {
     if (isEditing) {
       try {
         loading = true;
-        const response = await fetch(`${PUBLIC_API_URL}/provincias/${$page.params.id}`);
+        const response = await fetchWithAuth(`/provincias/${$page.params.id}`);
         if (!response.ok) throw new Error('Error al cargar la provincia');
         provincia = await response.json();
-      } catch (err) {
-        error = err.message;
+      } catch (err: unknown) {
+        error = err instanceof Error ? err.message : 'Error desconocido';
       } finally {
         loading = false;
       }
@@ -34,8 +40,8 @@
       loading = true;
       
       const url = isEditing 
-        ? `${PUBLIC_API_URL}/provincias/${$page.params.id}`
-        : `${PUBLIC_API_URL}/provincias`;
+        ? `/provincias/${$page.params.id}`
+        : `/provincias`;
         
       const method = isEditing ? 'PUT' : 'POST';
       
@@ -43,11 +49,8 @@
       console.log('Método:', method);
       console.log('URL:', url);
       
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(provincia)
       });
       
@@ -61,8 +64,8 @@
       console.log('Respuesta exitosa:', resultado);
       
       goto('/provincias');
-    } catch (err) {
-      error = err.message;
+    } catch (err: unknown) {
+      error = err instanceof Error ? err.message : 'Error desconocido';
       console.error('Error completo:', err);
     } finally {
       loading = false;

@@ -11,6 +11,7 @@
   import { ConfiguracionService } from '$lib/services/ConfiguracionService';
   import type { Preventa } from '$lib/types';
   import { EmpresaService } from '$lib/services/EmpresaService';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   // import { formatDateOnly } from '$lib/utils/dateUtils';
   // Modelo de factura
   let sucursalActual = '0001';
@@ -838,41 +839,38 @@
           for (const item of preventaCargada.items) {
             // Si el artículo existe, agregarlo a la factura
             if (item.Articulo) {
-              // Obtener datos actualizados del artículo para tener la existencia correcta
               try {
-                const response = await fetch(`${PUBLIC_API_URL}/articulos/${item.CodigoArticulo}`);
-                if (response.ok) {
-                  const articuloActualizado = await response.json();
-                  console.log("Artículo actualizado:", articuloActualizado);
-                  
-                  // Crear nuevo item para la factura con la existencia actualizada
-                  const facturaItem: ItemFactura = {
-                    ArticuloCodigo: item.CodigoArticulo,
-                    Descripcion: item.Articulo.Descripcion,
-                    Cantidad: item.Cantidad || 0,
-                    PrecioLista: item.PrecioLista || 0,
-                    PorcentajeBonificacion: item.PorcentajeBonificacion || 0,
-                    PrecioUnitario: (item.PrecioLista || 0) * (1 - (item.PorcentajeBonificacion || 0) / 100),
-                    PorcentajeIva: item.Articulo.PorcentajeIva1 || 21,
-                    PrecioUnitarioConIva: 0,
-                    Total: 0,
-                    enEdicion: false,
-                    Existencia: articuloActualizado.Existencia ?? 0 // Usar el operador de coalescencia nula
-                  };
-                  
-                  // Calcular precio con IVA y total
-                  facturaItem.PrecioUnitarioConIva = Number(facturaItem.PrecioUnitario) * (1 + Number(facturaItem.PorcentajeIva) / 100);
-                  facturaItem.Total = Number(facturaItem.PrecioUnitarioConIva) * Number(facturaItem.Cantidad);
-                  
-                  // Verificar si hay stock insuficiente
-                  const existencia = facturaItem.Existencia ?? 0;
-                  if (facturaItem.Cantidad > existencia) {
-                    error = `Advertencia: No hay suficiente stock del artículo "${facturaItem.Descripcion}". Disponible: ${existencia}`;
-                  }
-                  
-                  // Agregar a la lista de items
-                  factura.Items = [...factura.Items, facturaItem];
+                const response = await fetchWithAuth(`/articulos/${item.CodigoArticulo}`);
+                const articuloActualizado = await response.json();
+                console.log("Artículo actualizado:", articuloActualizado);
+                
+                // Crear nuevo item para la factura con la existencia actualizada
+                const facturaItem: ItemFactura = {
+                  ArticuloCodigo: item.CodigoArticulo,
+                  Descripcion: item.Articulo.Descripcion,
+                  Cantidad: item.Cantidad || 0,
+                  PrecioLista: item.PrecioLista || 0,
+                  PorcentajeBonificacion: item.PorcentajeBonificacion || 0,
+                  PrecioUnitario: (item.PrecioLista || 0) * (1 - (item.PorcentajeBonificacion || 0) / 100),
+                  PorcentajeIva: item.Articulo.PorcentajeIva1 || 21,
+                  PrecioUnitarioConIva: 0,
+                  Total: 0,
+                  enEdicion: false,
+                  Existencia: articuloActualizado.Existencia ?? 0
+                };
+                
+                // Calcular precio con IVA y total
+                facturaItem.PrecioUnitarioConIva = Number(facturaItem.PrecioUnitario) * (1 + Number(facturaItem.PorcentajeIva) / 100);
+                facturaItem.Total = Number(facturaItem.PrecioUnitarioConIva) * Number(facturaItem.Cantidad);
+                
+                // Verificar si hay stock insuficiente
+                const existencia = facturaItem.Existencia ?? 0;
+                if (facturaItem.Cantidad > existencia) {
+                  error = `Advertencia: No hay suficiente stock del artículo "${facturaItem.Descripcion}". Disponible: ${existencia}`;
                 }
+                
+                // Agregar a la lista de items
+                factura.Items = [...factura.Items, facturaItem];
               } catch (error) {
                 console.error('Error al obtener datos actualizados del artículo:', error);
                 // Si falla la obtención del artículo actualizado, usar los datos de la preventa

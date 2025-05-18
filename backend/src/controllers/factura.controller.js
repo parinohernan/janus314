@@ -1,7 +1,3 @@
-const FacturaCabeza = require("../models/facturaCabeza.model");
-const FacturaItem = require("../models/facturaItem.model");
-const Articulo = require("../models/articulo.model");
-const Cliente = require("../models/cliente.model");
 const sequelize = require("../config/database");
 const { Op } = require("sequelize");
 const fetch = require("node-fetch");
@@ -11,6 +7,7 @@ const FacturaService = require("../services/factura.service");
 // Obtener listado de facturas (con paginación y filtros)
 exports.listarFacturas = async (req, res) => {
   try {
+    const { FacturaCabeza, Cliente } = req.models;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
@@ -87,6 +84,7 @@ exports.listarFacturas = async (req, res) => {
 exports.obtenerFactura = async (req, res) => {
   console.log("obtenerFactura");
   try {
+    const { FacturaCabeza, Cliente, FacturaItem, Articulo } = req.models;
     const { tipo, sucursal, numero } = req.params;
 
     // Obtener encabezado
@@ -182,6 +180,7 @@ exports.crearFactura = async (req, res) => {
   const t = await sequelize.transaction();
 
   try {
+    const { FacturaCabeza, FacturaItem } = req.models;
     const facturaData = req.body;
     // completo los campos necesarios con los nombres adecuados
     facturaData.DocumentoNumero =
@@ -255,6 +254,7 @@ exports.anularFactura = async (req, res) => {
   const t = await sequelize.transaction();
 
   try {
+    const { FacturaCabeza, FacturaItem, Articulo } = req.models;
     const { tipo, sucursal, numero } = req.params;
 
     // Verificar si la factura existe
@@ -344,6 +344,7 @@ exports.anularFactura = async (req, res) => {
 
 // Obtener últimas facturas de un cliente
 exports.obtenerUltimasFacturasCliente = async (req, res) => {
+  const { FacturaCabeza, Cliente } = req.models;
   const { codigoCliente } = req.params;
   const { limit = 5 } = req.query;
 

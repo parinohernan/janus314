@@ -1,4 +1,5 @@
 import { PUBLIC_API_URL } from '$env/static/public';
+import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
 export class DocumentService {
 	/**
@@ -7,12 +8,15 @@ export class DocumentService {
 	static async generarPDF(tipo: string, sucursal: string, numero: string): Promise<string> {
 		try {
 			console.log('URL', `${PUBLIC_API_URL}/facturas/pdf/${tipo}/${sucursal}/${numero}`);
-			const response = await fetch(`${PUBLIC_API_URL}/facturas/pdf/${tipo}/${sucursal}/${numero}`, {
-				method: 'GET',
-				headers: {
-					Accept: 'application/pdf'
+			const response = await fetchWithAuth(
+				`/facturas/pdf/${tipo}/${sucursal}/${numero}`,
+				{
+					method: 'GET',
+					headers: {
+						Accept: 'application/pdf'
+					}
 				}
-			});
+			);
 
 			if (!response.ok) {
 				throw new Error('Error al generar el PDF', { cause: response.statusText });
@@ -64,7 +68,7 @@ export class DocumentService {
 		}
 
 		try {
-			const response = await fetch(pdfUrl);
+			const response = await fetchWithAuth(pdfUrl);
 			const blob = await response.blob();
 			const file = new File([blob], nombreArchivo, { type: 'application/pdf' });
 

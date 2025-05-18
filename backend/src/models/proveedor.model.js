@@ -1,6 +1,5 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/database");
-const CodigoPostal = require("./codigoPostal.model");
 
 const Proveedor = sequelize.define(
   "Proveedor",
@@ -40,10 +39,6 @@ const Proveedor = sequelize.define(
     CodigoPostal: {
       type: DataTypes.STRING(10),
       allowNull: true,
-      references: {
-        model: CodigoPostal,
-        key: "Codigo",
-      },
     },
     Telefono: {
       type: DataTypes.STRING(50),
@@ -94,11 +89,5 @@ const Proveedor = sequelize.define(
     timestamps: false,
   }
 );
-
-// Definir la relación con CodigoPostal
-Proveedor.belongsTo(CodigoPostal, {
-  foreignKey: "CodigoPostal",
-  as: "CodigoPostalRelacion",
-});
 
 module.exports = Proveedor;

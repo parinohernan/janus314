@@ -61,7 +61,17 @@
         order: filters.order
       });
       
-      const response = await fetch(`${PUBLIC_API_URL}/localidades?${params}`);
+      // Obtener el token del localStorage
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No hay token de autenticación');
+      }
+      
+      const response = await fetch(`${PUBLIC_API_URL}/localidades?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (!response.ok) throw new Error('Error al cargar las localidades');
       
       const data = await response.json();
@@ -132,8 +142,16 @@
     if (!confirm('¿Está seguro que desea eliminar esta localidad?')) return;
     
     try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No hay token de autenticación');
+      }
+
       const response = await fetch(`${PUBLIC_API_URL}/localidades/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       
       if (!response.ok) {

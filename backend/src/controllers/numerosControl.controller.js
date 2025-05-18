@@ -1,7 +1,5 @@
-const NumerosControl = require("../models/numerosControl.model");
 const sequelize = require("../config/database");
 const { QueryTypes } = require("sequelize");
-const NumeroControl = require("../models/numerosControl.model");
 const NumeroControlService = require("../services/numeroControl.service");
 
 // Exportar el servicio para uso directo
@@ -10,6 +8,7 @@ exports.servicio = NumeroControlService;
 // Obtener el próximo número disponible para un tipo de comprobante y sucursal
 exports.obtenerProximoNumero = async (req, res) => {
   try {
+    const { NumerosControl } = req.models;
     const { codigo, sucursal } = req.params;
 
     // Validar parámetros
@@ -61,6 +60,7 @@ exports.actualizarProximoNumero = async (req, res) => {
   const t = await sequelize.transaction();
   console.log("actualizarProximoNumero", req.params);
   try {
+    const { NumerosControl } = req.models;
     const { codigo, sucursal } = req.params;
 
     // Validar parámetros
@@ -135,6 +135,7 @@ exports.actualizarProximoNumero = async (req, res) => {
 // Listar todos los tipos de comprobantes configurados
 exports.listarNumerosControl = async (req, res) => {
   try {
+    const { NumerosControl } = req.models;
     const numerosControl = await NumerosControl.findAll({
       order: [
         ["Codigo", "ASC"],
@@ -160,6 +161,7 @@ exports.listarNumerosControl = async (req, res) => {
 exports.incrementNumber = async (req, res) => {
   const { tipo, sucursal } = req.params;
   const { numeroActual } = req.body;
+  const { NumerosControl } = req.models;
 
   try {
     console.log(
@@ -167,7 +169,7 @@ exports.incrementNumber = async (req, res) => {
     );
 
     // Buscar el registro de control
-    let numeroControl = await NumeroControl.findOne({
+    let numeroControl = await NumerosControl.findOne({
       where: {
         Codigo: tipo,
         Sucursal: sucursal,
@@ -176,7 +178,7 @@ exports.incrementNumber = async (req, res) => {
 
     if (!numeroControl) {
       // Si no existe, crear uno nuevo
-      numeroControl = await NumeroControl.create({
+      numeroControl = await NumerosControl.create({
         Codigo: tipo,
         Sucursal: sucursal,
         NumeroProximo: parseInt(numeroActual) + 1 || 1,
@@ -289,6 +291,7 @@ exports.obtenerYActualizarNumero = async (req, res) => {
   const t = await sequelize.transaction();
 
   try {
+    const { NumerosControl } = req.models;
     const { codigo, sucursal } = req.params;
 
     // Validar parámetros
