@@ -47,6 +47,7 @@ const getEmpresaConnection = async (req, res, next) => {
 
     console.log('🔄 Inicializando conexión para ruta:', req.path);
     console.log('📦 Empresa:', empresaData.nombre);
+    console.log('📦 vendedor:', req.body.Vendedor);
     
     // Obtener la conexión
     const empresaDB = await DBManager.getConnectionWithConfig(empresaData);

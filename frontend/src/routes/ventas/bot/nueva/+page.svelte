@@ -9,6 +9,8 @@
   import type { Articulo, Cliente, ArticuloSeleccionado } from '../components/types';
   import '../components/bot.css';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { auth } from '$lib/stores/authStore';
+  import { get } from 'svelte/store';
   
   // Asegurar que haya un token para el bot de Telegram
   if (typeof localStorage !== 'undefined' && !localStorage.getItem('authToken')) {
@@ -17,6 +19,24 @@
   }
   
   let articulosBusquedaComponent: ArticulosBusqueda;
+  
+  // Variable para código del vendedor
+  let codigoVendedor: string = '1'; // Valor por defecto por si fallan las demás opciones
+  
+  // Función para guardar datos del vendedor en localStorage
+  function guardarDatosVendedor(usuario: any) {
+    if (usuario) {
+      localStorage.setItem('botVendedorNombre', usuario.nombre || 'Vendedor');
+      localStorage.setItem('botVendedorApellido', usuario.apellido || '');
+      localStorage.setItem('botVendedorCodigo', usuario.usuario || '1');
+      console.log("Datos de vendedor guardados en localStorage:", usuario.usuario);
+    }
+  }
+  
+  
+  codigoVendedor = localStorage.getItem('botVendedorCodigo') || '1';
+  
+  console.log("codigoVendedor:", codigoVendedor);
   
   // Definición de tipos para Telegram WebApp
   interface TelegramWebApp {
@@ -66,6 +86,25 @@
   let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
   
   onMount(async () => {
+    // Verificar estado actual de autenticación
+    const authState = get(auth);
+    console.log("Estado inicial de autenticación:", authState);
+    
+    // Si no hay usuario autenticado, verificar la sesión
+    if (!authState.isAuthenticated) {
+      await auth.verifySession();
+      
+      // Verificar de nuevo después de verificar la sesión
+      const nuevoAuthState = get(auth);
+      if (nuevoAuthState.user) {
+        codigoVendedor = nuevoAuthState.user.usuario || '1';
+        guardarDatosVendedor(nuevoAuthState.user);
+      }
+    } else if (authState.user) {
+      // Guardar datos del usuario en localStorage si está autenticado
+      guardarDatosVendedor(authState.user);
+    }
+
     try {
       // Inicializar el objeto de Telegram WebApp
       if (typeof window !== 'undefined' && 'Telegram' in window) {
@@ -306,7 +345,7 @@
         Fecha: new Date().toISOString().split('T')[0], // Fecha actual en formato YYYY-MM-DD
         ClienteCodigo: cliente,
         // Usar el nombre que espera el controlador (cambiará a VendedorCodigo internamente)
-        Vendedor: '1',
+        Vendedor: codigoVendedor,
         // Usar el nombre que espera el controlador (cambiará a PagoTipo internamente)
         FormaPagoCodigo: 'CO',
         ImporteBruto: Number(importeBruto.toFixed(2)),
@@ -449,9 +488,9 @@
   });
 </script>
 
-<svelte:head>
+<!-- <svelte:head>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-</svelte:head>
+</svelte:head> -->
 
 <svelte:window on:keydown={handleKeydown} />
 

@@ -5,6 +5,7 @@ const FacturaCabeza = require("../models/facturaCabeza.model");
 const FacturaItem = require("../models/facturaItem.model");
 const Articulo = require("../models/articulo.model");
 const Cliente = require("../models/cliente.model");
+const Vendedor = require("../models/vendedor.model");
 const numerosControlController = require("./numerosControl.controller");
 const { Op } = require("sequelize");
 
@@ -107,9 +108,10 @@ exports.sendNotification = async (userId, message) => {
 
 // Endpoint para crear factura desde Telegram
 exports.crearFactura = async (req, res) => {
+  console.log("===========Telegram en crearFactura:", req.body);
   try {
     const facturaData = req.body;
-    console.log("Datos recibidos de Telegram:", facturaData);
+    console.log("Datos recibidos de Telegram:", facturaData.Vendedor);
     
     // Validar datos mínimos requeridos
     if (!facturaData.ClienteCodigo) {
@@ -151,7 +153,7 @@ exports.crearFactura = async (req, res) => {
                 transaction: t
               }
             );
-            console.log("===========Telegram en el try:", numeroControl);
+            // console.log("===========Telegram en el try:", numeroControl);
             if (numeroControl && numeroControl.length > 0) {
               facturaData.DocumentoNumero = numeroControl[0].NumeroProximo.toString().padStart(8, "0");
 
@@ -172,19 +174,26 @@ exports.crearFactura = async (req, res) => {
         }
       }
       
-      console.log("===========Telegram desp del try:", facturaData.DocumentoNumero);
+      console.log("===========Telegram desp del try:", facturaData.Vendedor);
       
       // Obtener modelos desde req.models usando los nombres correctos según modelInitializer.js
       const { FacturaCabeza, FacturaItem, Articulo } = req.models;
+      let fechaBsAs = new Date();
+      // Ajustar a GMT-3 (Argentina)
+      fechaBsAs.setHours(fechaBsAs.getHours() - 3);
+      // Establecer al mediodía para evitar problemas con cambios de día
+      fechaBsAs.setHours(12, 0, 0, 0);
+      fechaBsAs = fechaBsAs.toISOString().split('T')[0];
+      
       
       // Preparar datos para creación de factura
       const facturaCabeza = {
         DocumentoTipo: facturaData.DocumentoTipo,
         DocumentoSucursal: facturaData.DocumentoSucursal,
         DocumentoNumero: facturaData.DocumentoNumero,
-        Fecha: facturaData.Fecha,
+        Fecha: fechaBsAs,
         ClienteCodigo: facturaData.ClienteCodigo,
-        VendedorCodigo: facturaData.Vendedor || '1',
+        VendedorCodigo: facturaData.Vendedor,
         PagoTipo: facturaData.FormaPagoCodigo || 'CO',
         ImporteBruto: facturaData.ImporteBruto,
         PorcentajeBonificacion: facturaData.PorcentajeBonificacion || 0,

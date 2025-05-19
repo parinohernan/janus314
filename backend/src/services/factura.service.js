@@ -77,7 +77,7 @@ const FacturaService = {
    * @returns {Object} - Cabecera de factura creada
    */
   async crearCabeceraFactura(facturaData, transaction) {
-    console.log("facturaData", facturaData);
+    console.log("______facturaData", facturaData);
     try {
       return await FacturaCabeza.create(facturaData, { transaction });
     } catch (error) {

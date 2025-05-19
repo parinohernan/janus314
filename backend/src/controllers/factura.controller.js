@@ -24,23 +24,28 @@ exports.listarFacturas = async (req, res) => {
     if (clienteCodigo) whereClause.ClienteCodigo = clienteCodigo;
     if (vendedor) whereClause.VendedorCodigo = vendedor;
 
-    // Manejo de fechas
+    // Manejo de fechas con ajuste de zona horaria GMT-3
     if (fecha) {
       // Si se proporciona una fecha específica
+      // Para asegurar que obtengamos todo el día en GMT-3, usamos el mismo día sin ajuste
       whereClause.Fecha = fecha;
+      console.log('Filtrando por fecha específica (GMT-3):', fecha);
     } else if (fechaDesde && fechaHasta) {
       // Si se proporciona un rango de fechas
       whereClause.Fecha = {
         [Op.between]: [fechaDesde, fechaHasta],
       };
+      console.log('Filtrando por rango de fechas (GMT-3):', fechaDesde, 'hasta', fechaHasta);
     } else if (fechaDesde) {
       whereClause.Fecha = {
         [Op.gte]: fechaDesde,
       };
+      console.log('Filtrando desde fecha (GMT-3):', fechaDesde);
     } else if (fechaHasta) {
       whereClause.Fecha = {
         [Op.lte]: fechaHasta,
       };
+      console.log('Filtrando hasta fecha (GMT-3):', fechaHasta);
     }
 
     // Consulta con join a cliente
@@ -61,8 +66,21 @@ exports.listarFacturas = async (req, res) => {
       offset,
     });
 
+    // Mapear resultados para asegurar formato de fecha consistente
+    const itemsMapeados = facturas.rows.map(factura => {
+      const item = factura.toJSON();
+      
+      // Aseguramos que la fecha se muestre en formato YYYY-MM-DD sin ajustes de zona horaria
+      if (item.Fecha) {
+        const fechaObj = new Date(item.Fecha);
+        item.FechaFormateada = fechaObj.toISOString().split('T')[0];
+      }
+      
+      return item;
+    });
+
     res.json({
-      items: facturas.rows,
+      items: itemsMapeados,
       meta: {
         totalItems: facturas.count,
         itemsPerPage: limit,
@@ -109,6 +127,17 @@ exports.obtenerFactura = async (req, res) => {
       });
     } else {
       console.log("factura", factura);
+    }
+
+    // Convertir factura a un objeto plano para poder modificarlo
+    const facturaPlana = factura.toJSON();
+    
+    // Ajustar la fecha para que sea consistente (formato YYYY-MM-DD)
+    if (facturaPlana.Fecha) {
+      const fechaObj = new Date(facturaPlana.Fecha);
+      facturaPlana.FechaFormateada = fechaObj.toISOString().split('T')[0];
+      console.log('Fecha original:', facturaPlana.Fecha);
+      console.log('Fecha formateada:', facturaPlana.FechaFormateada);
     }
 
     // Obtener items sin usar la asociación
@@ -160,7 +189,7 @@ exports.obtenerFactura = async (req, res) => {
     res.json({
       success: true,
       data: {
-        encabezado: factura,
+        encabezado: facturaPlana,
         items: itemsConArticulos,
         // articulos: articulos,
       },
@@ -180,8 +209,31 @@ exports.crearFactura = async (req, res) => {
   const t = await sequelize.transaction();
 
   try {
-    const { FacturaCabeza, FacturaItem } = req.models;
+    const { FacturaCabeza, FacturaItem, Cliente } = req.models;
     const facturaData = req.body;
+    
+    // Ajuste de zona horaria: si viene una fecha en facturaData, la ajustamos a GMT-3
+    if (facturaData.Fecha) {
+      // Parseamos la fecha que llega
+      const fechaOriginal = new Date(facturaData.Fecha);
+      
+      // Creamos una fecha en formato ISO pero ajustada al huso horario GMT-3
+      // Esto garantiza que la fecha se guarde correctamente en la zona horaria local
+      const fechaLocal = new Date(fechaOriginal.getTime());
+      // Establecemos la hora a las 12 del mediodía para evitar problemas con cambios de día
+      fechaLocal.setHours(12, 0, 0, 0);
+      
+      // Actualizamos la fecha en facturaData con el formato YYYY-MM-DD
+      facturaData.Fecha = fechaLocal.toISOString().split('T')[0];
+      console.log('Fecha ajustada para zona horaria GMT-3:', facturaData.Fecha);
+    } else {
+      // Si no viene fecha, creamos una fecha actual en GMT-3
+      const ahora = new Date();
+      ahora.setHours(12, 0, 0, 0); // Mediodía para evitar problemas con cambios de día
+      facturaData.Fecha = ahora.toISOString().split('T')[0];
+      console.log('Fecha actual ajustada para zona horaria GMT-3:', facturaData.Fecha);
+    }
+    
     // completo los campos necesarios con los nombres adecuados
     facturaData.DocumentoNumero =
       facturaData.DocumentoNumero.toString().padStart(8, "0");

@@ -135,8 +135,10 @@
       // Obtener el código del vendedor si existe
       if (state.user.codigoVendedor) {
         codigoVendedor = state.user.usuario;
-        
       }
+      
+      // Guardar los datos del vendedor en localStorage
+      guardarDatosVendedor(state.user);
       
       // Si el usuario está autenticado, cerrar el modal de login si estaba abierto
       mostrarModalLogin = false;
@@ -181,6 +183,16 @@
     }
   }
   
+  // Función para guardar datos del vendedor en localStorage
+  function guardarDatosVendedor(usuario: any) {
+    if (usuario) {
+      localStorage.setItem('botVendedorNombre', usuario.nombre || 'Vendedor');
+      localStorage.setItem('botVendedorApellido', usuario.apellido || '');
+      localStorage.setItem('botVendedorCodigo', usuario.usuario || '1');
+      console.log("Datos de vendedor guardados en localStorage:", usuario.usuario);
+    }
+  }
+
   // Función para iniciar sesión desde el modal
   async function iniciarSesion() {
     try {
@@ -211,6 +223,9 @@
       if (authState.user && !authState.user.activo) {
         errorLogin = 'Su cuenta no está activa. Contacte al administrador.';
         await auth.logout();
+      } else if (authState.user) {
+        // Guardar datos del usuario en localStorage
+        guardarDatosVendedor(authState.user);
       }
       
     } catch (error) {

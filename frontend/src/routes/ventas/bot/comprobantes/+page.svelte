@@ -1,11 +1,15 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { goto as navigate } from '$app/navigation';
   import '../components/bot.css';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { auth } from '$lib/stores/authStore';
+  import { get } from 'svelte/store';
+
 
   interface Comprobante {
     Fecha: string;
+    FechaFormateada?: string;
     DocumentoTipo: string;
     DocumentoSucursal: string;
     DocumentoNumero: string;
@@ -33,6 +37,7 @@
     DocumentoSucursal: string;
     DocumentoNumero: string;
     Fecha: string;
+    FechaFormateada?: string;
     ImporteTotal: number;
     ClienteCodigo: string;
     VendedorCodigo: string;
@@ -80,6 +85,51 @@
   let vendedorFiltro: string = '';
   let vendedores: Vendedor[] = [];
   let vendedoresMap: Map<string, string> = new Map();
+  
+  // Variable para código del vendedor
+  let codigoVendedor: string = '1'; // Valor por defecto por si fallan las demás opciones
+  
+  // Función para guardar datos del vendedor en localStorage
+  function guardarDatosVendedor(usuario: any) {
+    if (usuario) {
+      localStorage.setItem('botVendedorNombre', usuario.nombre || 'Vendedor');
+      localStorage.setItem('botVendedorApellido', usuario.apellido || '');
+      localStorage.setItem('botVendedorCodigo', usuario.usuario || '1');
+      console.log("Datos de vendedor guardados en localStorage:", usuario.usuario);
+    }
+  }
+  
+  // Suscripción al store de autenticación
+  let unsubscribe = auth.subscribe((state) => {
+    console.log("Estado de autenticación:", state);
+    if (state.user) {
+      // Si el usuario está autenticado, usar su código de vendedor
+      codigoVendedor = state.user.usuario || '1';
+      guardarDatosVendedor(state.user);
+      
+      // Establecer el filtro de vendedor automáticamente al del usuario logueado
+      if (vendedorFiltro === '') {
+        vendedorFiltro = codigoVendedor;
+      }
+    } else {
+      // Intentar recuperar datos del vendedor de localStorage si existen
+      const codigoGuardado = localStorage.getItem('botVendedorCodigo');
+      if (codigoGuardado) {
+        codigoVendedor = codigoGuardado;
+        // Establecer el filtro de vendedor automáticamente al del usuario
+        if (vendedorFiltro === '') {
+          vendedorFiltro = codigoGuardado;
+        }
+      }
+    }
+  });
+  
+  // Limpiar suscripción cuando el componente se destruye
+  onDestroy(() => {
+    if (unsubscribe) {
+      unsubscribe();
+    }
+  });
 
   // Telegram WebApp
   /* 
@@ -101,6 +151,34 @@
       }
     }
     */
+    
+    // Verificar estado actual de autenticación
+    const authState = get(auth);
+    console.log("Estado inicial de autenticación:", authState);
+    
+    // Si no hay usuario autenticado, verificar la sesión
+    if (!authState.isAuthenticated) {
+      await auth.verifySession();
+      
+      // Verificar de nuevo después de verificar la sesión
+      const nuevoAuthState = get(auth);
+      if (nuevoAuthState.user) {
+        codigoVendedor = nuevoAuthState.user.usuario || '1';
+        guardarDatosVendedor(nuevoAuthState.user);
+        // Establecer filtro vendedor automaticamente si no hay uno seleccionado
+        if (vendedorFiltro === '') {
+          vendedorFiltro = codigoVendedor;
+        }
+      }
+    } else if (authState.user) {
+      // Guardar datos del usuario en localStorage si está autenticado
+      guardarDatosVendedor(authState.user);
+      // Establecer filtro vendedor automaticamente si no hay uno seleccionado
+      if (vendedorFiltro === '') {
+        vendedorFiltro = authState.user.usuario;
+      }
+    }
+    
     await cargarVendedores();
     await cargarComprobantes();
   });
@@ -158,6 +236,7 @@
       }
 
       const data = await response.json();
+      
       comprobantes = data.items.map((item: ApiFactura) => ({
         ...item,
         ClienteDescripcion: item.Cliente?.Descripcion || 'Sin cliente'
@@ -180,7 +259,6 @@
       if (!response.ok) {
         throw new Error('Error al cargar los detalles');
       }
-
       const data = await response.json() as ApiDetalleResponse;
       if (data.success && data.data) {
         detallesComprobante = data.data.items.map((item: ApiFacturaDetalle) => ({
@@ -204,15 +282,6 @@
     } finally {
       isLoading = false;
     }
-  }
-
-  function formatearFecha(fecha: string): string {
-    const f = new Date(fecha);
-    return f.toLocaleDateString('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: '2-digit'
-    });
   }
 
   function formatearImporte(importe: number): string {
@@ -241,7 +310,7 @@
   }
 
   function prepararMensajeComprobante(comprobante: Comprobante, detalles: ComprobanteDetalle[]): string {
-    const fecha = formatearFecha(comprobante.Fecha);
+    const fecha = comprobante.Fecha;
     const numeroCompleto = `${comprobante.DocumentoTipo}-${comprobante.DocumentoSucursal}-${comprobante.DocumentoNumero}`;
     
     let mensaje = `*Detalle de su compra*\n`;
@@ -342,7 +411,8 @@
         >
           <div class="comprobante-header">
             <div class="comprobante-fecha">
-              {formatearFecha(comprobante.Fecha)}
+              {comprobante.Fecha}
+              <!-- {formatearFecha(comprobante.FechaFormateada || comprobante.Fecha, comprobante)} -->
             </div>
             <div class="comprobante-vendedor">
               {obtenerNombreVendedor(comprobante.VendedorCodigo)}
@@ -385,7 +455,7 @@
       {#if comprobanteSeleccionado}
         <div class="detalles-header">
           <h2>{comprobanteSeleccionado.DocumentoTipo}-{comprobanteSeleccionado.DocumentoSucursal}-{comprobanteSeleccionado.DocumentoNumero}</h2>
-          <div class="detalles-fecha">{formatearFecha(comprobanteSeleccionado.Fecha)}</div>
+          <div class="detalles-fecha">{comprobanteSeleccionado.Fecha}</div>
           <div class="detalles-cliente">{comprobanteSeleccionado.ClienteDescripcion}</div>
         </div>
 
