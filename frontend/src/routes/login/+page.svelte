@@ -6,7 +6,7 @@
 	
 	let usuario = '';
 	let password = '';
-	let empresa = '';
+	let empresa = '1'; // Valor predeterminado para facilitar el inicio de sesión
 	let error = '';
 	let loading = false;
 	
@@ -23,6 +23,7 @@
 			goto('/');
 		} catch (e) {
 			error = 'Credenciales inválidas';
+			console.error('Error de login:', e);
 		} finally {
 			loading = false;
 		}
@@ -46,19 +47,23 @@
 			{/if}
 			
 			<div class="rounded-md shadow-sm -space-y-px">
+				{#if authConfig.mode === 'online'}
+					<div>
+						<p>Empresa</p>
+						<label for="empresa" class="sr-only">Empresa</label>
+						<input
+							id="empresa"
+							name="empresa"
+							type="text"
+							required
+							bind:value={empresa}
+							class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+							placeholder="Código de Empresa"
+						>
+					</div>
+				{/if}
 				<div>
-					<label for="empresa1" class="sr-only">Empresa</label>
-					<input
-						id="empresa1"
-						name="empresa"
-						type="text"
-						required
-						bind:value={empresa}
-						class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-						placeholder="Codigo de Empresa"
-					>
-				</div>
-				<div>
+					<p>Usuario</p>
 					<label for="usuario" class="sr-only">Usuario</label>
 					<input
 						id="usuario"
@@ -66,11 +71,12 @@
 						type="text"
 						required
 						bind:value={usuario}
-						class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+						class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 {authConfig.mode === 'online' ? '' : 'rounded-t-md'} focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
 						placeholder="Usuario"
 					>
 				</div>
 				<div>
+					<p>Contraseña</p>
 					<label for="password" class="sr-only">Contraseña</label>
 					<input
 						id="password"
@@ -78,25 +84,10 @@
 						type="password"
 						required
 						bind:value={password}
-						class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+						class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
 						placeholder="Contraseña"
 					>
 				</div>
-				
-				{#if authConfig.mode === 'online'}
-					<div>
-						<label for="empresa2" class="sr-only">Empresa</label>
-						<input
-							id="empresa2"
-							name="empresa"
-							type="text"
-							required
-							bind:value={empresa}
-							class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-							placeholder="ID de Empresa"
-						>
-					</div>
-				{/if}
 			</div>
 			
 			<div>
@@ -118,14 +109,14 @@
 				<br>
 				Puedes usar la empresa de prueba: <strong>Test S.A.</strong>
 				<br>
-				usa el codigo de empresa: <strong>1</strong>
+				usa el código de empresa: <strong>1</strong>
 				<br>
 				usa el usuario: <strong>1</strong>
 				<br>
 				usa la contraseña: <strong>1234</strong>
 				<br>
 				<a href="/register" class="font-medium text-blue-500 hover:text-blue-700">
-					No tienes una cuenta? Regístrate
+					¿No tienes una cuenta? Regístrate
 				</a>
 			</div>
 		</form>

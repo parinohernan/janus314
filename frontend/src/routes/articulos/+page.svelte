@@ -1,7 +1,8 @@
 <!-- Importar los servicios -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { ArticuloService, type Articulo } from '$lib/services/ArticuloService';
+  import { ArticuloService } from '$lib/services/ArticuloService';
+  import type { Articulo } from '../ventas/bot/components/types';
   import { RubroService, type Rubro } from '$lib/services/RubroService';
   import { ProveedorService, type Proveedor } from '$lib/services/ProveedorService';
 

@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { goto as navigate } from '$app/navigation';
   import '../components/bot.css';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
   interface Comprobante {
     Fecha: string;
@@ -81,7 +82,9 @@
   let vendedoresMap: Map<string, string> = new Map();
 
   // Telegram WebApp
+  /* 
   let tg: any = null;
+  */
 
   let mostrarModalWhatsApp = false;
   let numeroTelefono = '';
@@ -89,6 +92,7 @@
   let detallesParaCompartir: ComprobanteDetalle[] = [];
 
   onMount(async () => {
+    /* 
     if (typeof window !== 'undefined' && 'Telegram' in window) {
       const telegram = (window as any).Telegram;
       if (telegram && telegram.WebApp) {
@@ -96,15 +100,17 @@
         tg.expand();
       }
     }
+    */
     await cargarVendedores();
     await cargarComprobantes();
   });
 
   async function cargarVendedores() {
     try {
-      const response = await fetch('https://janus314-api.osvi.lat/api/vendedores?activo=true', {
-        credentials: 'include',
-        mode: 'cors'
+      const response = await fetchWithAuth('/vendedores', {
+        params: {
+          activo: true
+        }
       });
 
       if (!response.ok) {
@@ -134,16 +140,18 @@
     try {
       isLoading = true;
       error = null;
-      let url = `https://janus314-api.osvi.lat/api/facturas?page=${currentPage}&limit=10&tipo=PRF`;
+      
+      const params: Record<string, string> = {
+        page: currentPage.toString(),
+        limit: '10',
+        tipo: 'PRF'
+      };
       
       if (vendedorFiltro) {
-        url += `&vendedor=${encodeURIComponent(vendedorFiltro)}`;
+        params.vendedor = vendedorFiltro;
       }
 
-      const response = await fetch(url, {
-        credentials: 'include',
-        mode: 'cors'
-      });
+      const response = await fetchWithAuth('/facturas', { params });
       
       if (!response.ok) {
         throw new Error('Error al cargar los comprobantes');
@@ -167,13 +175,7 @@
     try {
       isLoading = true;
       error = null;
-      const response = await fetch(
-        `https://janus314-api.osvi.lat/api/facturas/${comprobante.DocumentoTipo}/${comprobante.DocumentoSucursal}/${comprobante.DocumentoNumero}`,
-        {
-          credentials: 'include',
-          mode: 'cors'
-        }
-      );
+      const response = await fetchWithAuth(`/facturas/${comprobante.DocumentoTipo}/${comprobante.DocumentoSucursal}/${comprobante.DocumentoNumero}`);
 
       if (!response.ok) {
         throw new Error('Error al cargar los detalles');
@@ -298,9 +300,11 @@
   }
 </script>
 
+<!-- Comentado para desvincular el bot de Telegram
 <svelte:head>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </svelte:head>
+-->
 
 <div class="telegram-webapp">
   <button class="btn-volver" on:click={() => navigate('/ventas/bot/home')}>← Volver</button>

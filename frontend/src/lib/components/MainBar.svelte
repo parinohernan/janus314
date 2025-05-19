@@ -28,7 +28,8 @@
     unsubscribe = auth.subscribe(state => {
       isLoggedIn = state.isAuthenticated;
       if (state.user) {
-        userName = `${state.user.nombre} ${state.user.apellido}`;
+        userName = `${state.user.nombre}`;
+        console.log("state.user", state.user);
       }
     });
 

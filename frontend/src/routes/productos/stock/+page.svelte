@@ -7,6 +7,7 @@
   import { page } from '$app/stores';
   import { navigationState } from '$lib/stores/navigationState';
   import { beforeNavigate } from '$app/navigation';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   
   // Definir interfaces para los tipos
   interface MovimientoStock {
@@ -59,18 +60,16 @@
       loading = true;
       error = null;
       
-      // Construir URL con parámetros
-      const params = new URLSearchParams({
-        page: pagination.currentPage.toString(),
-        limit: pagination.limit.toString(),
-        search: filters.search,
-        field: filters.field,
-        order: filters.order
+      // Usar fetchWithAuth con parámetros
+      const response = await fetchWithAuth('/movimientos-stock', {
+        params: {
+          page: pagination.currentPage,
+          limit: pagination.limit,
+          search: filters.search,
+          field: filters.field,
+          order: filters.order
+        }
       });
-      
-      const response = await fetch(`${PUBLIC_API_URL}/movimientos-stock?${params}`);
-      
-      if (!response.ok) throw new Error('Error al cargar los movimientos de stock');
       
       const data = await response.json();
       
@@ -185,14 +184,9 @@
     if (!confirm('¿Está seguro que desea eliminar este movimiento?')) return;
     
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/movimientos-stock/${tipo}/${sucursal}/${numero}`, {
+      const response = await fetchWithAuth(`/movimientos-stock/${tipo}/${sucursal}/${numero}`, {
         method: 'DELETE'
       });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al eliminar el movimiento');
-      }
       
       alert('Movimiento eliminado correctamente');
       loadMovimientos();

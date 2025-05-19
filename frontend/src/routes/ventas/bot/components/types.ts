@@ -11,6 +11,8 @@ export interface Articulo {
   Existencia?: number;
   PorcentajeIVA1?: number;
   CodigoBarras?: string;
+  RubroCodigo?: string;
+  ProveedorCodigo?: string;
 }
 
 export interface Cliente {

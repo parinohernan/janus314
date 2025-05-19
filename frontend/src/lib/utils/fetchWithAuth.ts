@@ -1,6 +1,7 @@
 import { get } from 'svelte/store';
 import { auth } from '$lib/stores/authStore';
 import { PUBLIC_API_URL } from '$env/static/public';
+import { browser } from '$app/environment';
 
 interface FetchOptions extends RequestInit {
   params?: Record<string, string | number | boolean>;
@@ -14,8 +15,17 @@ interface FetchOptions extends RequestInit {
  */
 export async function fetchWithAuth(endpoint: string, options: FetchOptions = {}) {
   try {
+    // Intentar obtener el token del store
     const authState = get(auth);
-    if (!authState.token) {
+    let token = authState.token;
+    
+    // Si no hay token en el store, intentar obtenerlo del localStorage
+    if (!token && browser) {
+      token = localStorage.getItem('authToken');
+    }
+    
+    // Si aún no hay token, lanzar error
+    if (!token) {
       throw new Error('No hay token de autenticación');
     }
 
@@ -31,7 +41,7 @@ export async function fetchWithAuth(endpoint: string, options: FetchOptions = {}
 
     // Agregar el token a los headers
     const headers = {
-      'Authorization': `Bearer ${authState.token}`,
+      'Authorization': `Bearer ${token}`,
       ...options.headers
     };
 

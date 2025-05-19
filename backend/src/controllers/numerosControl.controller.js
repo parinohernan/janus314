@@ -1,4 +1,3 @@
-const sequelize = require("../config/database");
 const { QueryTypes } = require("sequelize");
 const NumeroControlService = require("../services/numeroControl.service");
 
@@ -57,6 +56,7 @@ exports.obtenerProximoNumero = async (req, res) => {
 
 // Actualizar (incrementar) el próximo número para un tipo de comprobante
 exports.actualizarProximoNumero = async (req, res) => {
+  const sequelize = req.db;
   const t = await sequelize.transaction();
   console.log("actualizarProximoNumero", req.params);
   try {
@@ -116,6 +116,7 @@ exports.actualizarProximoNumero = async (req, res) => {
         sucursal: sucursal,
         numeroUtilizado: numeroActual,
         nuevoProximoNumero: numeroActual + 1,
+        numeroFormateado: String(numeroActual).padStart(8, "0"),
       },
     });
   } catch (error) {
@@ -229,7 +230,9 @@ exports.incrementNumber = async (req, res) => {
 };
 
 // Método para actualizar directamente (no como middleware de Express)
-exports.actualizarNumeroDirecto = async (tipo, sucursal) => {
+exports.actualizarNumeroDirecto = async (tipo, sucursal, db, models) => {
+  const sequelize = db;
+  const { NumerosControl } = models;
   const t = await sequelize.transaction();
 
   try {
@@ -288,6 +291,7 @@ exports.actualizarNumeroDirecto = async (tipo, sucursal) => {
 
 // Añadir el método que fue eliminado para mantener la compatibilidad con las rutas
 exports.obtenerYActualizarNumero = async (req, res) => {
+  const sequelize = req.db;
   const t = await sequelize.transaction();
 
   try {

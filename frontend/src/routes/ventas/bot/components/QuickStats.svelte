@@ -1,6 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
+  // Recibir el código de vendedor como prop
+  export let codigoVendedor: string = '1';
+  console.log("codigoVendedor", codigoVendedor);
   // Interface para las estadísticas
   interface Stat {
     label: string;
@@ -35,27 +39,28 @@
     }
   ];
 
-  // Por ahora usamos vendedor fijo = 1 hasta implementar login
-  const VENDEDOR_DEFAULT = '1';
-
   function obtenerFechaHoy(): string {
     const fecha = new Date();
     const año = fecha.getFullYear();
     const mes = String(fecha.getMonth() + 1).padStart(2, '0');
     const dia = String(fecha.getDate()).padStart(2, '0');
     const fechaFormateada = `${año}-${mes}-${dia}`;
-    console.log('Fecha actual formateada:', fechaFormateada);
+    // console.log('Fecha actual formateada:', fechaFormateada);
     return fechaFormateada;
   }
 
   async function cargarEstadisticas() {
     try {
       const fechaHoy = obtenerFechaHoy();
+      console.log("Cargando estadísticas para vendedor:", codigoVendedor);
 
       // Cargar cantidad de clientes activos
-      const responseClientes = await fetch('https://janus314-api.osvi.lat/api/clientes?page=1&limit=1&Activo=1', {
-        credentials: 'include',
-        mode: 'cors'
+      const responseClientes = await fetchWithAuth('/clientes', {
+        params: {
+          page: 1,
+          limit: 1,
+          Activo: 1
+        }
       });
       
       if (responseClientes.ok) {
@@ -67,11 +72,13 @@
       }
 
       // Cargar ventas totales del día
-      const urlVentasHoy = `https://janus314-api.osvi.lat/api/facturas?page=1&limit=1&tipo=PRF&fecha=${fechaHoy}`;
-      console.log('URL ventas hoy:', urlVentasHoy);
-      const responseVentasHoy = await fetch(urlVentasHoy, {
-        credentials: 'include',
-        mode: 'cors'
+      const responseVentasHoy = await fetchWithAuth('/facturas', {
+        params: {
+          page: 1,
+          limit: 1,
+          tipo: 'PRF',
+          fecha: fechaHoy
+        }
       });
 
       if (responseVentasHoy.ok) {
@@ -84,17 +91,20 @@
         console.error('Error en respuesta ventas hoy:', await responseVentasHoy.text());
       }
 
-      // Cargar ventas del vendedor por defecto
-      const urlVentasVendedor = `https://janus314-api.osvi.lat/api/facturas?page=1&limit=1&tipo=PRF&fecha=${fechaHoy}&vendedor=${VENDEDOR_DEFAULT}`;
-      console.log('URL ventas vendedor:', urlVentasVendedor);
-      const responseVentasVendedor = await fetch(urlVentasVendedor, {
-        credentials: 'include',
-        mode: 'cors'
+      // Cargar ventas del vendedor
+      const responseVentasVendedor = await fetchWithAuth('/facturas', {
+        params: {
+          page: 1,
+          limit: 1,
+          tipo: 'PRF',
+          fecha: fechaHoy,
+          vendedor: codigoVendedor
+        }
       });
 
       if (responseVentasVendedor.ok) {
         const dataVentasVendedor = await responseVentasVendedor.json();
-        console.log('Respuesta ventas vendedor - totalItems:', dataVentasVendedor.meta?.totalItems);
+        console.log('Respuesta ventas vendedor ' + codigoVendedor + ' - totalItems:', dataVentasVendedor.meta?.totalItems);
         if (dataVentasVendedor.meta?.totalItems !== undefined) {
           quickStats[1].value = dataVentasVendedor.meta.totalItems.toString();
         }

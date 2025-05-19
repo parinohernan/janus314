@@ -349,6 +349,389 @@ const initializeModels = (sequelize) => {
     timestamps: false
   });
 
+  // Definir modelo FacturaCabeza
+  const FacturaCabeza = sequelize.define('FacturaCabeza', {
+    DocumentoTipo: {
+      type: DataTypes.CHAR(3),
+      primaryKey: true,
+      allowNull: false,
+      comment: "Tipo de comprobante (FAC, NCA, NCB, etc)",
+    },
+    DocumentoSucursal: {
+      type: DataTypes.STRING(4),
+      primaryKey: true,
+      allowNull: false,
+    },
+    DocumentoNumero: {
+      type: DataTypes.STRING(8),
+      primaryKey: true,
+      allowNull: false,
+    },
+    Fecha: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+    },
+    ClienteCodigo: {
+      type: DataTypes.STRING(8),
+      allowNull: true,
+    },
+    VendedorCodigo: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+    },
+    PagoTipo: {
+      type: DataTypes.CHAR(2),
+      allowNull: true,
+      comment: "CT: Contado, CC: Cuenta Corriente",
+    },
+    ImporteBruto: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    PorcentajeBonificacion: {
+      type: DataTypes.DOUBLE(15, 2),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    ImporteBonificado: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    ImporteNeto: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    ImporteAdicional: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    ImporteIva1: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    ImporteIva2: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    BaseImponible1: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    BaseImponible2: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    ImporteTotal: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    ImportePagado: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    PorcentajeIva1: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    PorcentajeIva2: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    ListaNumero: {
+      type: DataTypes.TINYINT.UNSIGNED,
+      allowNull: true,
+      defaultValue: 0,
+    },
+    FechaAnulacion: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    Observacion: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+    },
+    CodigoUsuario: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+    },
+    CajaNumero: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+    }
+  }, {
+    tableName: "facturacabeza",
+    timestamps: false
+  });
+
+  // Definir modelo FacturaItem
+  const FacturaItem = sequelize.define('FacturaItem', {
+    DocumentoTipo: {
+      type: DataTypes.CHAR(3),
+      primaryKey: true,
+      allowNull: false,
+    },
+    DocumentoSucursal: {
+      type: DataTypes.STRING(4),
+      primaryKey: true,
+      allowNull: false,
+    },
+    DocumentoNumero: {
+      type: DataTypes.STRING(8),
+      primaryKey: true,
+      allowNull: false,
+    },
+    CodigoArticulo: {
+      type: DataTypes.STRING(20),
+      primaryKey: true,
+      allowNull: false,
+    },
+    Cantidad: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: false,
+    },
+    PrecioLista: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+    },
+    PorcentajeBonificado: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+    },
+    ImporteBonificado: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+    },
+    PrecioUnitario: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+    },
+    ImporteCosto: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+    }
+  }, {
+    tableName: 'facturaitems',
+    timestamps: false
+  });
+
+  // Definir modelo NotaCreditoCabeza
+  const NotaCreditoCabeza = sequelize.define('NotaCreditoCabeza', {
+    DocumentoTipo: {
+      type: DataTypes.CHAR(3),
+      primaryKey: true,
+      allowNull: false,
+    },
+    DocumentoSucursal: {
+      type: DataTypes.STRING(4),
+      primaryKey: true,
+      allowNull: false,
+    },
+    DocumentoNumero: {
+      type: DataTypes.STRING(8),
+      primaryKey: true,
+      allowNull: false,
+    },
+    Fecha: {
+      type: DataTypes.DATEONLY,
+      allowNull: false,
+    },
+    CodigoCliente: {
+      type: DataTypes.STRING(8),
+      allowNull: false,
+    },
+    ImporteTotal: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    ImporteUtilizado: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    FechaAnulacion: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+    }
+  }, {
+    tableName: "notacreditocabeza",
+    timestamps: false
+  });
+
+  // Definir modelo NotaDebitoCabeza
+  const NotaDebitoCabeza = sequelize.define('NotaDebitoCabeza', {
+    DocumentoTipo: {
+      type: DataTypes.STRING(3),
+      primaryKey: true,
+      allowNull: false,
+    },
+    DocumentoSucursal: {
+      type: DataTypes.STRING(4),
+      primaryKey: true,
+      allowNull: false,
+    },
+    DocumentoNumero: {
+      type: DataTypes.STRING(8),
+      primaryKey: true,
+      allowNull: false,
+    },
+    Fecha: {
+      type: DataTypes.DATEONLY,
+      allowNull: false,
+    },
+    ClienteCodigo: {
+      type: DataTypes.STRING(8),
+      allowNull: false,
+    },
+    ImporteTotal: {
+      type: DataTypes.DOUBLE,
+      allowNull: true,
+    },
+    ImportePagado: {
+      type: DataTypes.DOUBLE,
+      allowNull: true,
+    },
+    FechaAnulacion: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    }
+  }, {
+    tableName: "notadebitocabeza",
+    timestamps: false
+  });
+
+  // Definir modelo ReciboCabeza
+  const ReciboCabeza = sequelize.define('ReciboCabeza', {
+    DocumentoTipo: {
+      type: DataTypes.STRING(3),
+      primaryKey: true,
+      allowNull: false,
+    },
+    DocumentoSucursal: {
+      type: DataTypes.STRING(4),
+      primaryKey: true,
+      allowNull: false,
+    },
+    DocumentoNumero: {
+      type: DataTypes.STRING(8),
+      primaryKey: true,
+      allowNull: false,
+    },
+    Fecha: {
+      type: DataTypes.DATEONLY,
+      allowNull: false,
+    },
+    ClienteCodigo: {
+      type: DataTypes.STRING(10),
+      allowNull: false,
+    },
+    ImporteTotal: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    FechaAnulacion: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+    }
+  }, {
+    tableName: "reciboscabeza",
+    timestamps: false
+  });
+
+  // Definir modelo MovimientoStock
+  const MovimientoStock = sequelize.define('MovimientoStock', {
+    DocumentoTipo: {
+      type: DataTypes.CHAR(3),
+      allowNull: false,
+      primaryKey: true,
+    },
+    DocumentoSucursal: {
+      type: DataTypes.STRING(4),
+      allowNull: false,
+      primaryKey: true,
+    },
+    DocumentoNumero: {
+      type: DataTypes.STRING(8),
+      allowNull: false,
+      primaryKey: true,
+    },
+    Fecha: {
+      type: DataTypes.DATEONLY,
+      allowNull: false,
+    },
+    CodigoArticulo: {
+      type: DataTypes.STRING(13),
+      allowNull: false,
+      primaryKey: true,
+    },
+    Cantidad: {
+      type: DataTypes.DECIMAL(15, 2),
+      allowNull: false,
+      defaultValue: 0.0,
+    },
+    MovimientoTipo: {
+      type: DataTypes.CHAR(3),
+      allowNull: true,
+      comment: "ING para ingreso, EGR para egreso",
+    },
+    Observacion: {
+      type: DataTypes.STRING(200),
+      allowNull: true,
+    },
+  }, {
+    tableName: "movimientosstock",
+    timestamps: false
+  });
+
+  // Definir modelo NumerosControl
+  const NumerosControl = sequelize.define('NumerosControl', {
+    Codigo: {
+      type: DataTypes.CHAR(3),
+      allowNull: false,
+      primaryKey: true,
+      comment: "Tipo de comprobante (STK, FAC, REC, etc.)",
+    },
+    Sucursal: {
+      type: DataTypes.STRING(4),
+      allowNull: false,
+      primaryKey: true,
+      comment: "Código de sucursal",
+    },
+    Descripcion: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      comment: "Descripción del tipo de comprobante",
+    },
+    NumeroProximo: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 1,
+      comment: "Próximo número a utilizar",
+    },
+    Copias: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 1,
+      comment: "Cantidad de copias a imprimir",
+    },
+  }, {
+    tableName: "t_numeroscontrol",
+    timestamps: false,
+  });
+
   // Establecer relaciones
   Localidad.belongsTo(Provincia, {
     foreignKey: 'Provincia',
@@ -368,6 +751,28 @@ const initializeModels = (sequelize) => {
   Cliente.belongsTo(CategoriaIva, {
     foreignKey: 'CategoriaIva',
     as: 'CategoriaIvaRelacion'
+  });
+
+  MovimientoStock.belongsTo(Articulo, {
+    foreignKey: "CodigoArticulo",
+    targetKey: "Codigo",
+  });
+
+  // Establecer relaciones de FacturaCabeza
+  FacturaCabeza.belongsTo(Cliente, {
+    foreignKey: "ClienteCodigo",
+    targetKey: "Codigo",
+  });
+
+  // Establecer relaciones de FacturaItem
+  FacturaItem.belongsTo(Articulo, {
+    foreignKey: "CodigoArticulo",
+    targetKey: "Codigo",
+  });
+
+  // Relación entre FacturaCabeza y FacturaItem
+  FacturaCabeza.hasMany(FacturaItem, {
+    foreignKey: ["DocumentoTipo", "DocumentoSucursal", "DocumentoNumero"]
   });
 
   // Definir modelo Vendedor
@@ -408,7 +813,14 @@ const initializeModels = (sequelize) => {
     Localidad,
     CategoriaIva,
     Cliente,
-    Vendedor
+    Vendedor,
+    FacturaCabeza,
+    FacturaItem,
+    NotaCredito: NotaCreditoCabeza,
+    NotaDebito: NotaDebitoCabeza,
+    Recibo: ReciboCabeza,
+    MovimientoStock,
+    NumerosControl
   };
 };
 

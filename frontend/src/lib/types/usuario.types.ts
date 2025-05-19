@@ -10,6 +10,7 @@ export interface Usuario {
 	activo: boolean;
 	fechaCreacion: string;
 	ultimoAcceso?: string | null;
+	codigoVendedor?: string;
 }
 
 /**

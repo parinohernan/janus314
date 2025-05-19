@@ -1,12 +1,12 @@
-const MovimientoStock = require("../models/movimientoStock");
-const Articulo = require("../models/articulo.model");
-const sequelize = require("../config/database");
 const { QueryTypes } = require("sequelize");
 const fetch = require("node-fetch");
 
 // Obtener todos los encabezados de movimientos (agrupados)
 exports.getMovimientos = async (req, res) => {
   try {
+    // Obtener sequelize directamente del request (no destructuring)
+    const sequelize = req.db;
+    
     // Query para obtener encabezados agrupados por documento
     const movimientos = await sequelize.query(
       `
@@ -65,6 +65,7 @@ exports.getMovimientos = async (req, res) => {
 exports.getMovimientoDetalle = async (req, res) => {
   try {
     const { tipo, sucursal, numero } = req.params;
+    const { MovimientoStock, Articulo } = req.models;
 
     // Obtener encabezado (datos del primer registro)
     const encabezado = await MovimientoStock.findOne({
@@ -129,6 +130,8 @@ exports.getMovimientoDetalle = async (req, res) => {
 
 // Crear un nuevo movimiento con sus items
 exports.crearMovimiento = async (req, res) => {
+  const sequelize = req.db;
+  const { MovimientoStock } = req.models;
   const t = await sequelize.transaction();
 
   try {
@@ -140,6 +143,9 @@ exports.crearMovimiento = async (req, res) => {
       encabezado.DocumentoNumero.trim() === ""
     ) {
       try {
+        // Obtener el token de autorización del request original
+        const authHeader = req.headers.authorization;
+        
         // Llamar internamente a nuestro propio servicio para obtener el número
         const response = await fetch(
           `${req.protocol}://${req.get("host")}/api/numeros-control/STK/${
@@ -149,6 +155,7 @@ exports.crearMovimiento = async (req, res) => {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              "Authorization": authHeader // Pasar el token de autorización
             },
           }
         );
@@ -193,16 +200,18 @@ exports.crearMovimiento = async (req, res) => {
         DocumentoSucursal: encabezado.DocumentoSucursal,
         DocumentoNumero: encabezado.DocumentoNumero,
       },
+      transaction: t
     });
 
     if (movimientoExistente) {
+      await t.rollback();
       return res.status(400).json({
         message: "Ya existe un movimiento con ese número de documento",
       });
     }
 
-    // Crear los registros para cada item
-    const movimientosData = items.map((item) => ({
+    // Crear los items del movimiento
+    const itemsParaCrear = items.map((item) => ({
       DocumentoTipo: encabezado.DocumentoTipo,
       DocumentoSucursal: encabezado.DocumentoSucursal,
       DocumentoNumero: encabezado.DocumentoNumero,
@@ -210,48 +219,45 @@ exports.crearMovimiento = async (req, res) => {
       CodigoArticulo: item.CodigoArticulo,
       Cantidad: item.Cantidad,
       MovimientoTipo: encabezado.MovimientoTipo,
-      Observacion: encabezado.Observacion || null,
+      Observacion: encabezado.Observacion || "",
     }));
 
-    // Guardar todos los registros
-    await MovimientoStock.bulkCreate(movimientosData, { transaction: t });
-
-    // Actualizar stock de artículos (en una implementación real, esto podría hacerse con triggers)
-    for (const item of items) {
-      const articulo = await Articulo.findByPk(item.CodigoArticulo, {
-        transaction: t,
-      });
-      if (articulo) {
-        const cantidadActualizada =
-          encabezado.MovimientoTipo === "ING"
-            ? parseFloat(articulo.Existencia) + parseFloat(item.Cantidad)
-            : parseFloat(articulo.Existencia) - parseFloat(item.Cantidad);
-
-        await articulo.update(
-          { Existencia: cantidadActualizada },
-          { transaction: t }
-        );
-      }
-    }
+    await MovimientoStock.bulkCreate(itemsParaCrear, { transaction: t });
 
     await t.commit();
+
     res.status(201).json({
-      message: "Movimiento creado correctamente",
+      success: true,
+      message: "Movimiento de stock creado correctamente",
       documento: {
         tipo: encabezado.DocumentoTipo,
         sucursal: encabezado.DocumentoSucursal,
-        numero: encabezado.DocumentoNumero,
+        numero: encabezado.DocumentoNumero
       },
+      // Mantener backward compatibility
+      data: {
+        tipo: encabezado.DocumentoTipo,
+        sucursal: encabezado.DocumentoSucursal,
+        numero: encabezado.DocumentoNumero,
+        DocumentoTipo: encabezado.DocumentoTipo,
+        DocumentoSucursal: encabezado.DocumentoSucursal,
+        DocumentoNumero: encabezado.DocumentoNumero
+      }
     });
   } catch (error) {
     await t.rollback();
     console.error(error);
-    res.status(500).json({ message: "Error al crear el movimiento de stock" });
+    res.status(500).json({
+      message: "Error al crear el movimiento de stock",
+      error: error.message,
+    });
   }
 };
 
 // Eliminar un movimiento completo
 exports.eliminarMovimiento = async (req, res) => {
+  const sequelize = req.db;
+  const { MovimientoStock, Articulo } = req.models;
   const t = await sequelize.transaction();
 
   try {

@@ -16,10 +16,16 @@
 	let esMiniWebTelegram = $derived($page.url.pathname.includes('/ventas/bot/'));
 	
 	onMount(async () => {
-		if (!$page.url.pathname.includes('/bot/')) {
+		// Solo verificar autenticación si no estamos en una ruta del bot
+		if (!esMiniWebTelegram) {
 			const isAuthenticated = await auth.verifySession();
 			if (!isAuthenticated && $page.url.pathname !== '/login') {
 				goto('/login');
+			}
+		} else {
+			// Si es una ruta del bot y no hay token, configurar uno temporal
+			if (typeof localStorage !== 'undefined' && !localStorage.getItem('authToken')) {
+				localStorage.setItem('authToken', 'bot-telegram-token-temporal');
 			}
 		}
 		isLoading = false;

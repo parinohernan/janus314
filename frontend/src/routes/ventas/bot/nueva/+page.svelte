@@ -8,6 +8,13 @@
   import { obtenerPrecioSegunLista, fetchProductos } from '../components/utils';
   import type { Articulo, Cliente, ArticuloSeleccionado } from '../components/types';
   import '../components/bot.css';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  
+  // Asegurar que haya un token para el bot de Telegram
+  if (typeof localStorage !== 'undefined' && !localStorage.getItem('authToken')) {
+    // Si no hay token, establece uno temporal para el bot
+    localStorage.setItem('authToken', 'bot-telegram-token-temporal');
+  }
   
   let articulosBusquedaComponent: ArticulosBusqueda;
   
@@ -56,7 +63,7 @@
   // Referencia al objeto de Telegram WebApp
   let tg: any = null;
   
-  let debounceTimeout: number | null = null;
+  let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
   
   onMount(async () => {
     try {
@@ -76,9 +83,15 @@
       isLoading = true;
       
       // Cargar lista de clientes
-      const clientesResponse = await fetch('https://janus314-api.osvi.lat/api/clientes?page=1&limit=10&search=&field=Descripcion&order=ASC&Activo=1', {
-        credentials: 'include',
-        mode: 'cors',
+      const clientesResponse = await fetchWithAuth('/clientes', {
+        params: {
+          page: 1,
+          limit: 10,
+          search: '',
+          field: 'Descripcion',
+          order: 'ASC',
+          Activo: 1
+        },
         headers: {
           'Accept': 'application/json'
         }
@@ -119,9 +132,15 @@
     
     isLoading = true;
     try {
-      const response = await fetch(`https://janus314-api.osvi.lat/api/clientes?page=1&limit=10&search=${encodeURIComponent(busqueda)}&field=Descripcion&order=ASC&Activo=1`, {
-        credentials: 'include',
-        mode: 'cors',
+      const response = await fetchWithAuth('/clientes', {
+        params: {
+          page: 1,
+          limit: 10,
+          search: busqueda,
+          field: 'Descripcion',
+          order: 'ASC',
+          Activo: 1
+        },
         headers: {
           'Accept': 'application/json'
         }
@@ -304,10 +323,6 @@
         // Usar el nombre que espera el controlador (cambiará a ListaNumero internamente)
         ListaPrecio: parseInt(listaPrecios),
         Observacion: '',
-        // No es necesario enviar estos campos, el controlador los establecerá
-        // CodigoUsuario: 'admin', 
-        // PorcentajeIva1: 21,
-        // PorcentajeIva2: 10.5,
         CajaNumero: null,
         // Datos adicionales del cobro
         MontoPagado: Number(montoPagado.toFixed(2)),
@@ -338,14 +353,12 @@
       console.log("Enviando factura:", JSON.stringify(factura));
       
       // Usar el nuevo endpoint específico para Telegram
-      const response = await fetch('https://janus314-api.osvi.lat/api/telegram/facturas', {
+      const response = await fetchWithAuth('/telegram/facturas', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        credentials: 'include',
-        mode: 'cors',
         body: JSON.stringify(factura)
       });
       

@@ -6,6 +6,7 @@
   import { PUBLIC_API_URL } from '$env/static/public';
   import { debounce } from 'lodash-es';
   import { getTodayISOArgentina } from '$lib/utils/dateUtils';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   
   // Tipo de movimiento (ingreso o egreso)
   const tipoMovimiento = $page.params.tipo === 'ingreso' ? 'ING' : 'EGR';
@@ -67,8 +68,8 @@
         return;
       }
       
-      // Obtener datos de la empresa para la sucursal
-      const response = await fetch(`${PUBLIC_API_URL}/datos-empresa`);
+      // Obtener datos de la empresa para la sucursal usando fetchWithAuth
+      const response = await fetchWithAuth('/datos-empresa');
       
       if (!response.ok) {
         throw new Error('Error al cargar datos de la empresa');
@@ -100,7 +101,7 @@
       searchLoading = true;
       searchError = null;
       
-      const response = await fetch(`${PUBLIC_API_URL}/articulos?search=${encodeURIComponent(searchText)}&limit=10`);
+      const response = await fetchWithAuth(`/articulos?search=${encodeURIComponent(searchText)}&limit=10`);
       
       if (!response.ok) throw new Error('Error al buscar artículos');
       
@@ -165,7 +166,7 @@
       error = null;
       
       // Buscar el artículo por código
-      const response = await fetch(`${PUBLIC_API_URL}/articulos/${nuevoArticulo.codigo}`);
+      const response = await fetchWithAuth(`/articulos/${nuevoArticulo.codigo}`);
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -256,7 +257,7 @@
       // No es necesario enviar el número de documento, el servidor lo generará
       // automáticamente desde la tabla t_numeroscontrol
       
-      const response = await fetch(`${PUBLIC_API_URL}/movimientos-stock`, {
+      const response = await fetchWithAuth('/movimientos-stock', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

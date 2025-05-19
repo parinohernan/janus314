@@ -45,7 +45,7 @@ router.post('/online/login', async (req, res) => {
     
     // Buscar el vendedor en la base de datos de la empresa
     const [vendedor] = await empresaDB.query(
-      'SELECT * FROM t_vendedores WHERE codigo = ? AND clave = ? LIMIT 1',
+      'SELECT * FROM t_vendedores WHERE codigo = ? AND activo = 1 AND clave = ? LIMIT 1',
       {
         replacements: [usuario, password],
         type: empresaDB.QueryTypes.SELECT

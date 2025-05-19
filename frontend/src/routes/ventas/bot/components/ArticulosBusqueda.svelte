@@ -2,6 +2,7 @@
   import type { Articulo } from './types';
   import { fetchProductos } from './utils';
   import { onDestroy } from 'svelte';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
   export let agregarArticulo: (a: Articulo) => void;
   export let handleArticuloKeyDown: (e: KeyboardEvent, a: Articulo) => void;
@@ -11,7 +12,7 @@
   let busquedaProducto: string = '';
   let isLoading = false;
   let error: string | null = null;
-  let timeoutId: number | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
   // Escaneo
   let tabActiva: 'buscar' | 'escanear' = 'buscar';
@@ -29,7 +30,7 @@
   let articulosAsociar: Articulo[] = [];
   let articuloSeleccionado: Articulo | null = null;
   let mostrarConfirmacionReemplazo = false;
-  let timeoutIdAsociar: number | null = null;
+  let timeoutIdAsociar: ReturnType<typeof setTimeout> | null = null;
 
   // Códigos de barras simulados para pruebas
   const codigosSimulados = [
@@ -123,7 +124,7 @@
   async function confirmarAsociacion(articulo: Articulo) {
     try {
       // Aquí deberías hacer la llamada a tu API para asociar el código
-      const response = await fetch('https://janus314-api.osvi.lat/api/articulos/asociar-codigo', {
+      const response = await fetchWithAuth('/articulos/asociar-codigo', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

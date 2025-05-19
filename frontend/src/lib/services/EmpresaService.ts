@@ -1,6 +1,7 @@
 import { PUBLIC_API_URL } from '$env/static/public';
 import { auth } from '$lib/stores/authStore';
 import { get } from 'svelte/store';
+import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
 // Interfaz para los datos de la empresa que coincide con tu API
 export interface DatosEmpresa {
@@ -35,19 +36,10 @@ export class EmpresaService {
 				return this.datosCache;
 			}
 
-			const authState = get(auth);
-			if (!authState.token) {
-				console.error('No hay token de autenticación disponible');
-				throw new Error('No hay token de autenticación');
-			}
-
-			console.log('Realizando petición a:', `${PUBLIC_API_URL}/datos-empresa`);
+			console.log('Realizando petición a:', `/datos-empresa`);
 			
-			const response = await fetch(`${PUBLIC_API_URL}/datos-empresa`, {
-				headers: {
-					'Authorization': `Bearer ${authState.token}`
-				}
-			});
+			// Usar fetchWithAuth en lugar de fetch directo
+			const response = await fetchWithAuth('/datos-empresa');
 
 			if (!response.ok) {
 				const errorText = await response.text();
