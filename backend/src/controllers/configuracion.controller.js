@@ -4,8 +4,9 @@ const db = require('../config/database');
 // Obtener una configuración por su código
 exports.getConfiguracionPorCodigo = async (req, res) => {
   try {
+    const { Configuracion } = req.models;
     const { codigo } = req.params;
-    // console.log("CCCCCCCCCCCCCCCCCCODIGO", codigo);
+    
     if (!codigo) {
       return res.status(400).json({
         success: false,
@@ -14,7 +15,9 @@ exports.getConfiguracionPorCodigo = async (req, res) => {
     }
 
     // Consultar la configuración
-    const config = await Configuracion.buscarPorCodigo(codigo);
+    const config = await Configuracion.findOne({
+      where: { Codigo: codigo }
+    });
 
     if (!config) {
       return res.status(404).json({
@@ -40,7 +43,9 @@ exports.getConfiguracionPorCodigo = async (req, res) => {
 // Obtener todas las configuraciones
 exports.getAllConfiguraciones = async (req, res) => {
   try {
-    const configs = await Configuracion.obtenerTodos();
+    const { Configuracion } = req.models;
+    
+    const configs = await Configuracion.findAll();
 
     return res.status(200).json({
       success: true,

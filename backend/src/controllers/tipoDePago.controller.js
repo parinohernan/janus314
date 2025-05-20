@@ -1,9 +1,18 @@
-const TipoDePago = require("../models/tipoDePago.model");
 const { Op } = require("sequelize");
 
 // Obtener todos los tipos de pago (con filtros y paginación)
 exports.getAllTiposDePago = async (req, res) => {
   try {
+    // Usar el modelo dinámico de la base de datos de la empresa
+    const TipoDePago = req.models.TipoDePago;
+    
+    if (!TipoDePago) {
+      return res.status(500).json({ 
+        mensaje: "Error en el modelo TipoDePago", 
+        error: "No se pudo obtener el modelo TipoDePago para esta empresa" 
+      });
+    }
+    
     const {
       page = 1,
       limit = 10,
@@ -66,6 +75,16 @@ exports.getAllTiposDePago = async (req, res) => {
 // Obtener un tipo de pago por Código
 exports.getTipoDePagoById = async (req, res) => {
   try {
+    // Usar el modelo dinámico de la base de datos de la empresa
+    const TipoDePago = req.models.TipoDePago;
+    
+    if (!TipoDePago) {
+      return res.status(500).json({ 
+        mensaje: "Error en el modelo TipoDePago", 
+        error: "No se pudo obtener el modelo TipoDePago para esta empresa" 
+      });
+    }
+    
     const tipoDePago = await TipoDePago.findByPk(req.params.id);
     if (!tipoDePago) {
       return res.status(404).json({ message: "Tipo de pago no encontrado" });
@@ -82,6 +101,16 @@ exports.getTipoDePagoById = async (req, res) => {
 // Crear nuevo tipo de pago
 exports.createTipoDePago = async (req, res) => {
   try {
+    // Usar el modelo dinámico de la base de datos de la empresa
+    const TipoDePago = req.models.TipoDePago;
+    
+    if (!TipoDePago) {
+      return res.status(500).json({ 
+        mensaje: "Error en el modelo TipoDePago", 
+        error: "No se pudo obtener el modelo TipoDePago para esta empresa" 
+      });
+    }
+    
     const { Codigo, Descripcion, Activo, aplicaSaldo, recargoPorcentaje } =
       req.body;
 
@@ -114,6 +143,16 @@ exports.createTipoDePago = async (req, res) => {
 // Actualizar tipo de pago
 exports.updateTipoDePago = async (req, res) => {
   try {
+    // Usar el modelo dinámico de la base de datos de la empresa
+    const TipoDePago = req.models.TipoDePago;
+    
+    if (!TipoDePago) {
+      return res.status(500).json({ 
+        mensaje: "Error en el modelo TipoDePago", 
+        error: "No se pudo obtener el modelo TipoDePago para esta empresa" 
+      });
+    }
+    
     const { Descripcion, Activo, aplicaSaldo, recargoPorcentaje } = req.body;
     const tipoDePago = await TipoDePago.findByPk(req.params.id);
 
@@ -139,6 +178,16 @@ exports.updateTipoDePago = async (req, res) => {
 // Eliminar tipo de pago
 exports.deleteTipoDePago = async (req, res) => {
   try {
+    // Usar el modelo dinámico de la base de datos de la empresa
+    const TipoDePago = req.models.TipoDePago;
+    
+    if (!TipoDePago) {
+      return res.status(500).json({ 
+        mensaje: "Error en el modelo TipoDePago", 
+        error: "No se pudo obtener el modelo TipoDePago para esta empresa" 
+      });
+    }
+    
     const tipoDePago = await TipoDePago.findByPk(req.params.id);
 
     if (!tipoDePago) {

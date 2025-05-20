@@ -1098,6 +1098,63 @@ const initializeModels = (sequelize) => {
     targetKey: "Codigo",
   });
 
+  // Definir modelo Configuracion
+  const Configuracion = sequelize.define('Configuracion', {
+    Codigo: {
+      type: DataTypes.STRING(200),
+      primaryKey: true,
+      allowNull: false
+    },
+    Descripcion: {
+      type: DataTypes.STRING(200),
+      allowNull: true
+    },
+    ValorConfig: {
+      type: DataTypes.TEXT,
+      allowNull: false
+    },
+    pasar_a_ipaqs: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false
+    }
+  }, {
+    timestamps: false,
+    freezeTableName: true,
+    tableName: 't_configuracion'
+  });
+  
+  // Definir modelo TipoDePago
+  const TipoDePago = sequelize.define('TipoDePago', {
+    Codigo: {
+      type: DataTypes.STRING(3),
+      primaryKey: true,
+      allowNull: false,
+    },
+    Descripcion: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    Activo: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: true,
+    },
+    aplicaSaldo: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false,
+    },
+    recargoPorcentaje: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      defaultValue: 0,
+    },
+  }, {
+    tableName: 't_tiposdepago',
+    timestamps: false,
+  });
+
   return {
     Articulo,
     Proveedor,
@@ -1116,7 +1173,9 @@ const initializeModels = (sequelize) => {
     MovimientoStock,
     NumerosControl,
     PreventaCabeza,
-    PreventaItem
+    PreventaItem,
+    Configuracion,
+    TipoDePago
   };
 };
 

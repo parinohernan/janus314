@@ -6,10 +6,13 @@ const sequelize = require("../config/database");
 const TransactionService = {
   /**
    * Inicia una nueva transacción
+   * @param {Object} connection - Conexión de base de datos (opcional)
    * @returns {Object} - Objeto de transacción de Sequelize
    */
-  async iniciarTransaccion() {
-    return await sequelize.transaction();
+  async iniciarTransaccion(connection = null) {
+    // Usar la conexión proporcionada o la conexión por defecto
+    const db = connection || sequelize;
+    return await db.transaction();
   },
 
   /**
@@ -35,10 +38,11 @@ const TransactionService = {
   /**
    * Ejecuta una función dentro de una transacción
    * @param {Function} callback - Función a ejecutar dentro de la transacción
+   * @param {Object} connection - Conexión de base de datos (opcional)
    * @returns {any} - Resultado de la función callback
    */
-  async ejecutarEnTransaccion(callback) {
-    const transaction = await this.iniciarTransaccion();
+  async ejecutarEnTransaccion(callback, connection = null) {
+    const transaction = await this.iniciarTransaccion(connection);
 
     try {
       const resultado = await callback(transaction);

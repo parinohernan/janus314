@@ -8,6 +8,7 @@
   import { formatCurrency } from '$lib/utils/formatters';
   import { PUBLIC_API_URL } from '$env/static/public';
   import { FacturaService } from '$lib/services/FacturaService';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
   // Agregar variable para formas de pago
   let formasPago: { value: string, label: string }[] = [];
@@ -73,7 +74,7 @@
       );
 
       // Obtener formas de pago
-      const response = await fetch(`${PUBLIC_API_URL}/tipos-de-pago`);
+      const response = await fetchWithAuth('/tipos-pago');
       if (response.ok) {
         const data = await response.json();
         formasPago = data.items.map((item: { Codigo: string, Descripcion: string }) => ({

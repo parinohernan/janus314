@@ -110,10 +110,17 @@
 			
 			// Obtener configuración de cantidad máxima de ítems
 			cargandoConfiguracion = true;
-			const configCantItems = await ConfiguracionService.obtenerConfiguracion('CANT_ITEMS');
-			if (configCantItems && configCantItems.ValorConfig) {
-				cantidadMaximaItems = parseInt(configCantItems.ValorConfig, 10);
-				
+			try {
+				const configCantItems = await ConfiguracionService.obtenerConfiguracion('CANT_ITEMS');
+				if (configCantItems && configCantItems.ValorConfig) {
+					cantidadMaximaItems = parseInt(configCantItems.ValorConfig, 10);
+				} else {
+					console.log('Configuración CANT_ITEMS no encontrada, usando valor por defecto');
+					cantidadMaximaItems = 0; // Sin límite por defecto
+				}
+			} catch (error) {
+				console.error('Error al cargar configuración CANT_ITEMS:', error);
+				cantidadMaximaItems = 0; // Sin límite en caso de error
 			}
 			cargandoConfiguracion = false;
 			
@@ -225,12 +232,16 @@
 	async function cargarClientes() {
 		loadingClientes = true;
 		try {
-			const response = await fetch(`/api/clientes?search=${filtroCliente}`);
+			const response = await fetchWithAuth(`/clientes`, {
+				params: {
+					search: filtroCliente
+				}
+			});
 			if (!response.ok) throw new Error('Error al cargar clientes');
 			const data = await response.json();
-			clientes = data.data;
+			clientes = data.items || [];
 		} catch (err) {
-			console.error('Error:', err);
+			console.error('Error al cargar clientes:', err);
 		} finally {
 			loadingClientes = false;
 		}
@@ -240,12 +251,16 @@
 	async function cargarArticulos() {
 		loadingArticulos = true;
 		try {
-			const response = await fetch(`/api/articulos?search=${filtroArticulo}`);
+			const response = await fetchWithAuth(`/articulos`, {
+				params: {
+					search: filtroArticulo
+				}
+			});
 			if (!response.ok) throw new Error('Error al cargar artículos');
 			const data = await response.json();
-			articulos = data.data;
+			articulos = data.items || [];
 		} catch (err) {
-			console.error('Error:', err);
+			console.error('Error al cargar artículos:', err);
 		} finally {
 			loadingArticulos = false;
 		}

@@ -1,5 +1,3 @@
-const NumeroControl = require("../models/numerosControl.model");
-
 /**
  * Servicio para manejar los números de control de documentos
  */
@@ -9,12 +7,16 @@ const NumeroControlService = {
    * @param {string} tipo - Tipo de documento
    * @param {string} sucursal - Código de sucursal
    * @param {Object} transaction - Transacción de Sequelize
+   * @param {Object} NumeroControl - Modelo dinámico (opcional)
    * @returns {string} - Próximo número formateado
    */
-  async obtenerYActualizarNumero(tipo, sucursal, transaction) {
+  async obtenerYActualizarNumero(tipo, sucursal, transaction, NumeroControl = null) {
     try {
+      // Si no se proporciona el modelo, importarlo (fallback)
+      const ModeloNumeroControl = NumeroControl || require("../models/numerosControl.model");
+      
       // Obtener registro actual
-      const numeroControl = await NumeroControl.findOne({
+      const numeroControl = await ModeloNumeroControl.findOne({
         where: {
           tipo,
           sucursal,

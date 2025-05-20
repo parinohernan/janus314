@@ -145,7 +145,7 @@
         sucursalActual = await EmpresaService.obtenerSucursal();
         
         // Obtener formas de pago
-        const response = await fetch(`${PUBLIC_API_URL}/tipos-de-pago`);
+        const response = await fetchWithAuth(`/tipos-pago`);
         if (response.ok) {
           const data = await response.json();
           console.log("data",data);
@@ -159,7 +159,7 @@
       }
       
       // Obtener datos de la empresa para la sucursal
-      const responseEmpresa = await fetch(`${PUBLIC_API_URL}/datos-empresa`);
+      const responseEmpresa = await fetchWithAuth(`/datos-empresa`);
         
       if (!responseEmpresa.ok) {
         throw new Error('Error al cargar datos de la empresa');
@@ -175,7 +175,7 @@
 
       // Cargar vendedores
       try {
-        const responseVendedores = await fetch(`${PUBLIC_API_URL}/vendedores`);
+        const responseVendedores = await fetchWithAuth(`/vendedores`);
         
         if (responseVendedores.ok) {
           const {data} = await responseVendedores.json();
@@ -228,7 +228,7 @@
   const obtenerProximoNumero = async () => {
     console.log('obtenerProximoNumero', factura.DocumentoTipo, sucursalActual);
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/numeros-control/${factura.DocumentoTipo}/${sucursalActual}`);
+      const response = await fetchWithAuth(`/numeros-control/${factura.DocumentoTipo}/${sucursalActual}`);
       if (response.ok) {
         const data = await response.json();
         factura.DocumentoNumero = data.data.proximoNumero;
@@ -253,7 +253,12 @@
     
     timeoutId = setTimeout(async () => {
       try {
-        const response = await fetch(`${PUBLIC_API_URL}/clientes?search=${encodeURIComponent(busqueda)}&limit=10`);
+        const response = await fetchWithAuth(`/clientes`, {
+          params: {
+            search: busqueda,
+            limit: 10
+          }
+        });
         
         if (!response.ok) {
           throw new Error('Error al buscar clientes');
@@ -283,7 +288,12 @@
     
     articuloTimeoutId = setTimeout(async () => {
       try {
-        const response = await fetch(`${PUBLIC_API_URL}/articulos?search=${encodeURIComponent(busqueda)}&limit=10`);
+        const response = await fetchWithAuth(`/articulos`, {
+          params: {
+            search: busqueda,
+            limit: 10
+          }
+        });
         
         if (!response.ok) {
           throw new Error('Error al buscar artículos');
@@ -544,7 +554,7 @@
       items.forEach(async (item) => {
         try {
           // Obtener datos actualizados del artículo
-          const response = await fetch(`${PUBLIC_API_URL}/articulos/${item.ArticuloCodigo}`);
+          const response = await fetchWithAuth(`/articulos/${item.ArticuloCodigo}`);
           if (response.ok) {
             const articulo = await response.json();
             
@@ -625,9 +635,8 @@
     
     try {
       // Realizar las operaciones para guardar la factura...
-      const response = await fetch(`${PUBLIC_API_URL}/facturas`, {
+      const response = await fetchWithAuth(`/facturas`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(factura)
       });
       
@@ -725,7 +734,7 @@
   // Función para buscar datos del vendedor por código
   const buscarDatosVendedor = async (codigoVendedor: string) => {
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/vendedores/${codigoVendedor}`);
+      const response = await fetchWithAuth(`/vendedores/${codigoVendedor}`);
       if (response.ok) {
         const data = await response.json();
         factura.Vendedor = data;
@@ -754,7 +763,12 @@
     
     vendedorTimeoutId = setTimeout(async () => {
       try {
-        const response = await fetch(`${PUBLIC_API_URL}/vendedores?search=${encodeURIComponent(busqueda)}&limit=10`);
+        const response = await fetchWithAuth(`/vendedores`, {
+          params: {
+            search: busqueda,
+            limit: 10
+          }
+        });
         
         if (!response.ok) {
           throw new Error('Error al buscar vendedores');
@@ -775,7 +789,7 @@
     if (!codigoCliente) return null;
     
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/clientes/${codigoCliente}`);
+      const response = await fetchWithAuth(`/clientes/${codigoCliente}`);
       if (!response.ok) {
         throw new Error('Error al cargar datos del cliente');
       }
@@ -842,7 +856,7 @@
               try {
                 const response = await fetchWithAuth(`/articulos/${item.CodigoArticulo}`);
                 const articuloActualizado = await response.json();
-                console.log("Artículo actualizado:", articuloActualizado);
+                console.log("Artículo actualizado:", articuloActualizado.Descripcion);
                 
                 // Crear nuevo item para la factura con la existencia actualizada
                 const facturaItem: ItemFactura = {

@@ -1,5 +1,3 @@
-const MovimientoStock = require("../models/movimientoStock");
-const Articulo = require("../models/articulo.model");
 const sequelize = require("../config/database");
 const { Op } = require("sequelize");
 
@@ -12,8 +10,9 @@ const StockService = {
    * @param {string} codigoArticulo - Código del artículo
    * @param {number} cantidad - Cantidad a modificar (negativo para decrementar)
    * @param {Object} transaction - Transacción de Sequelize
+   * @param {Object} Articulo - Modelo de artículo dinámico
    */
-  async actualizarStock(codigoArticulo, cantidad, transaction) {
+  async actualizarStock(codigoArticulo, cantidad, transaction, Articulo) {
     try {
       // Actualizar stock en la tabla de artículos
       await Articulo.update(
@@ -38,8 +37,9 @@ const StockService = {
    * Registra un movimiento de stock
    * @param {Object} movimiento - Datos del movimiento de stock
    * @param {Object} transaction - Transacción de Sequelize
+   * @param {Object} MovimientoStock - Modelo de movimiento stock dinámico
    */
-  async registrarMovimiento(movimiento, transaction) {
+  async registrarMovimiento(movimiento, transaction, MovimientoStock) {
     try {
       await MovimientoStock.create(movimiento, { transaction });
     } catch (error) {
@@ -56,6 +56,7 @@ const StockService = {
    * @param {string} documentoNumero - Número de documento
    * @param {string} fecha - Fecha del movimiento
    * @param {Object} transaction - Transacción de Sequelize
+   * @param {Object} models - Modelos dinámicos (opcional)
    */
   async procesarStockFactura(
     items,
@@ -63,9 +64,21 @@ const StockService = {
     documentoSucursal,
     documentoNumero,
     fecha,
-    transaction
+    transaction,
+    models = null
   ) {
     try {
+      // Usar modelos dinámicos si están disponibles, de lo contrario importar modelos estáticos
+      let Articulo, MovimientoStock;
+      if (models) {
+        Articulo = models.Articulo;
+        MovimientoStock = models.MovimientoStock;
+      } else {
+        // Importar de forma dinámica solo si es necesario (fallback)
+        Articulo = require("../models/articulo.model");
+        MovimientoStock = require("../models/movimientoStock");
+      }
+      
       // Determinar tipo de movimiento según tipo de documento
       const esVenta = ["FAA", "FAB", "FCA", "FCB"].includes(documentoTipo);
       const esDevolucion = ["NCA", "NCB"].includes(documentoTipo);
@@ -82,7 +95,8 @@ const StockService = {
         await this.actualizarStock(
           item.ArticuloCodigo,
           signo * item.Cantidad,
-          transaction
+          transaction,
+          Articulo
         );
 
         // Registrar movimiento
@@ -96,7 +110,8 @@ const StockService = {
             Cantidad: signo * item.Cantidad,
             Motivo: esVenta ? "VENTA" : "DEVOLUCION",
           },
-          transaction
+          transaction,
+          MovimientoStock
         );
       }
     } catch (error) {
@@ -113,6 +128,7 @@ const StockService = {
    * @param {string} documentoNumero - Número de documento
    * @param {Date} fecha - Fecha del movimiento
    * @param {Object} transaction - Transacción de Sequelize
+   * @param {Object} models - Modelos dinámicos (opcional)
    */
   async procesarStockNotaCredito(
     items,
@@ -120,9 +136,19 @@ const StockService = {
     documentoSucursal,
     documentoNumero,
     fecha,
-    transaction
+    transaction,
+    models = null
   ) {
     try {
+      // Usar modelos dinámicos si están disponibles, de lo contrario importar modelos estáticos
+      let Articulo;
+      if (models) {
+        Articulo = models.Articulo;
+      } else {
+        // Importar de forma dinámica solo si es necesario (fallback)
+        Articulo = require("../models/articulo.model");
+      }
+      
       // Las notas de crédito aumentan el stock (devuelven mercadería)
       for (const item of items) {
         const articulo = await Articulo.findByPk(item.CodigoArticulo, {

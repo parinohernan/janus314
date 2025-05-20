@@ -10,7 +10,7 @@ export class ConfiguracionService {
 	 */
 	public static async obtenerConfiguraciones(): Promise<Configuracion[]> {
 		try {
-			const response = await fetchWithAuth('/configuraciones');
+			const response = await fetchWithAuth('/config');
 
 			if (!response.ok) {
 				throw new Error('Error al obtener configuraciones');
@@ -29,7 +29,7 @@ export class ConfiguracionService {
 	 */
 	public static async obtenerConfiguracion(codigo: string): Promise<Configuracion | null> {
 		try {
-			const response = await fetchWithAuth(`/configuraciones/${codigo}`);
+			const response = await fetchWithAuth(`/config/${codigo}`);
 
 			if (!response.ok) {
 				throw new Error(`Error al obtener configuración: ${codigo}`);
@@ -48,7 +48,7 @@ export class ConfiguracionService {
 	 */
 	public static async actualizarConfiguracion(codigo: string, valor: string): Promise<boolean> {
 		try {
-			const response = await fetchWithAuth(`/configuraciones/${codigo}`, {
+			const response = await fetchWithAuth(`/config/${codigo}`, {
 				method: 'PUT',
 				headers: {
 					'Content-Type': 'application/json'

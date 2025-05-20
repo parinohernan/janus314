@@ -7,6 +7,7 @@
     import { page } from '$app/stores';
     import { navigationState } from '$lib/stores/navigationState';
     import type { TipoDePago } from '$lib/types/tipoDePago';
+    import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   
     interface Pagination {
       currentPage: number;
@@ -45,16 +46,17 @@
         loading = true;
         error = null;
         
-        // Construir URL con parámetros
-        const params = new URLSearchParams({
+        // Construir parámetros con la API correcta
+        const params = {
           page: pagination.currentPage.toString(),
           limit: pagination.limit.toString(),
           search: filters.search,
           field: filters.field,
           order: filters.order
-        });
+        };
         
-        const response = await fetch(`${PUBLIC_API_URL}/tipos-de-pago?${params}`);
+        // Usar fetchWithAuth y corregir la ruta sin guiones
+        const response = await fetchWithAuth('/tipos-pago', { params });
         
         if (!response.ok) throw new Error('Error al cargar los tipos de pago');
         
@@ -173,7 +175,8 @@
   
     const handleToggleActivo = async (codigo: string, activoActual: number): Promise<void> => {
       try {
-        const response = await fetch(`${PUBLIC_API_URL}/tipos-de-pago/${codigo}/toggle-activo`, {
+        // Usar fetchWithAuth y corregir la ruta sin guiones
+        const response = await fetchWithAuth(`/tipos-pago/${codigo}/toggle-activo`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json'

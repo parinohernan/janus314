@@ -209,8 +209,11 @@ exports.crearFactura = async (req, res) => {
   const t = await sequelize.transaction();
 
   try {
-    const { FacturaCabeza, FacturaItem, Cliente } = req.models;
+    const { FacturaCabeza, FacturaItem, Cliente, Articulo, MovimientoStock, NumerosControl } = req.models;
     const facturaData = req.body;
+    
+    // Obtener la conexión de la empresa
+    const connection = req.db;
     
     // Ajuste de zona horaria: si viene una fecha en facturaData, la ajustamos a GMT-3
     if (facturaData.Fecha) {
@@ -260,28 +263,19 @@ exports.crearFactura = async (req, res) => {
       facturaData.ImportePagado = facturaData.ImporteTotal;
     }
 
-    // Crear factura usando el servicio (pasando la transacción)
-    const facturaCreada = await FacturaService.crearFactura(facturaData, t);
+    // No necesitamos usar la transacción creada con sequelize global, cancelarla
+    await t.rollback();
 
-    // Actualizar número de control dentro de la transacción
-    try {
-      await numerosControlController.actualizarNumeroDirecto(
-        facturaData.DocumentoTipo,
-        facturaData.DocumentoSucursal,
-        t
-      );
-    } catch (errorNumero) {
-      // Si hay error en la actualización del número, hacemos rollback
-      await t.rollback();
-      return res.status(500).json({
-        success: false,
-        message: "Error al actualizar el número de control",
-        error: errorNumero.message,
-      });
-    }
+    // Crear factura usando el servicio (pasando la transacción y los modelos dinámicos)
+    const facturaCreada = await FacturaService.crearFactura(
+      facturaData, 
+      null,  // No pasar transacción propia, el servicio creará una con la conexión adecuada
+      { FacturaCabeza, FacturaItem, Articulo, MovimientoStock, NumerosControl },
+      connection  // Pasar la conexión específica de la empresa
+    );
 
-    // Si todo está bien, confirmamos la transacción
-    await t.commit();
+    // No necesitamos manejar la transacción aquí, el servicio lo hace
+    // Tampoco necesitamos actualizar el número de control aquí, se hace dentro del servicio
 
     //aca incluir Comunicacion con ARCA o AFIP
     res.status(201).json({
@@ -291,7 +285,9 @@ exports.crearFactura = async (req, res) => {
     });
   } catch (error) {
     // Aseguramos el rollback en caso de cualquier error
-    await t.rollback();
+    if (!t.finished) {
+      await t.rollback();
+    }
     console.error("Error al crear factura:", error);
     res.status(500).json({
       success: false,

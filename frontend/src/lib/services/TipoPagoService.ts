@@ -1,5 +1,6 @@
 import type { TipoDePago } from '$lib/types';
 import { PUBLIC_API_URL } from '$env/static/public';
+import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
 export class TipoPagoService {
 	/**
@@ -7,7 +8,9 @@ export class TipoPagoService {
 	 */
 	public static async obtenerTiposDePago(): Promise<{ value: string; label: string }[]> {
 		try {
-			const response = await fetch(`${PUBLIC_API_URL}/tipos-de-pago?activo=1`);
+			const response = await fetchWithAuth('/tipos-pago', {
+				params: { activo: 1 }
+			});
 
 			if (!response.ok) {
 				throw new Error('Error al obtener tipos de pago');
