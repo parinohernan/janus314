@@ -7,7 +7,7 @@
 	import { ConfiguracionService } from '$lib/services/ConfiguracionService';
 	import type { Articulo, Cliente, PreventaItem, Vendedor, TipoDePago, PreventaCabeza, PreventaFiltros, Preventa } from '$lib/types';
 	import { goto } from '$app/navigation';
-	import { PUBLIC_API_URL } from '$env/static/public';
+	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 	
 	// Estado del formulario
 	let documentoTipo = 'PPV'; // Preventa por defecto
@@ -119,7 +119,7 @@
 			
 			// Obtener sucursal (solo si no estamos editando)
 			if (!modoEdicion) {
-				const responseSucursal = await fetch(`${PUBLIC_API_URL}/datos-empresa`);
+				const responseSucursal = await fetchWithAuth(`/datos-empresa`);
 				if (!responseSucursal.ok) {
 					throw new Error('Error al cargar datos de la empresa');
 				}
@@ -162,7 +162,12 @@
 		
 		timeoutId = setTimeout(async () => {
 			try {
-				const response = await fetch(`${PUBLIC_API_URL}/clientes?search=${encodeURIComponent(busqueda)}&limit=10`);
+				const response = await fetchWithAuth(`/clientes`, {
+					params: {
+						search: busqueda,
+						limit: 10
+					}
+				});
 				
 				if (!response.ok) {
 					throw new Error('Error al buscar clientes');
@@ -193,7 +198,12 @@
 		
 		articuloTimeoutId = setTimeout(async () => {
 			try {
-				const response = await fetch(`${PUBLIC_API_URL}/articulos?search=${encodeURIComponent(busqueda)}&limit=10`);
+				const response = await fetchWithAuth(`/articulos`, {
+					params: {
+						search: busqueda,
+						limit: 10
+					}
+				});
 				
 				if (!response.ok) {
 					throw new Error('Error al buscar artículos');
@@ -455,7 +465,7 @@
 					clienteSearch = cabecera.Cliente.Descripcion;
 				} else if (cabecera.ClienteCodigo) {
 					// Si la preventa no tiene el cliente cargado, intentar cargarlo
-					const clienteResponse = await fetch(`${PUBLIC_API_URL}/clientes/${cabecera.ClienteCodigo}`);
+					const clienteResponse = await fetchWithAuth(`/clientes/${cabecera.ClienteCodigo}`);
 					if (clienteResponse.ok) {
 						const clienteData = await clienteResponse.json();
 						clienteSeleccionado = clienteData;

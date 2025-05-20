@@ -1,26 +1,15 @@
 import { error } from '@sveltejs/kit';
 import type { PageLoad } from './$types';
-import { PUBLIC_API_URL } from '$env/static/public';
+import { browser } from '$app/environment';
 
-export const load: PageLoad = async ({ params, fetch }) => {
-	try {
-		const { tipo, sucursal, numero } = params;
+// Deshabilitar SSR para esta ruta
+export const ssr = false;
 
-		const response = await fetch(
-			`${PUBLIC_API_URL}/movimientos-stock/${tipo}/${sucursal}/${numero}`
-		);
-
-		if (!response.ok) {
-			throw error(response.status, 'Error al cargar el movimiento');
-		}
-
-		const movimiento = await response.json();
-
-		return {
-			movimiento
-		};
-	} catch (err) {
-		console.error('Error en load:', err);
-		throw error(500, 'Error al cargar el movimiento');
-	}
+export const load: PageLoad = async ({ params }) => {
+	// No hacer fetch de datos en el servidor - se manejará en el componente
+	return {
+		tipo: params.tipo,
+		sucursal: params.sucursal,
+		numero: params.numero
+	};
 };

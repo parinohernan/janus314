@@ -3,13 +3,12 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import Button from '$lib/components/ui/Button.svelte';
-  import { PUBLIC_API_URL } from '$env/static/public';
   import { formatDate, formatDateOnly } from '$lib/utils/dateUtils';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   
-  // Parámetros de la URL
-  const tipo = $page.params.tipo;
-  const sucursal = $page.params.sucursal;
-  const numero = $page.params.numero;
+  // Obtener parámetros pasados por la función load
+  export let data;
+  const { tipo, sucursal, numero } = data;
   
   // Tipos para la respuesta de la API
   interface MovimientoEncabezado {
@@ -43,8 +42,8 @@
   // Cargar datos del movimiento
   onMount(async () => {
     try {
-      const response = await fetch(
-        `${PUBLIC_API_URL}/movimientos-stock/${tipo}/${sucursal}/${numero}`
+      const response = await fetchWithAuth(
+        `/movimientos-stock/${tipo}/${sucursal}/${numero}`
       );
       
       if (!response.ok) {
@@ -84,8 +83,8 @@
     try {
       loading = true;
       
-      const response = await fetch(
-        `${PUBLIC_API_URL}/movimientos-stock/${tipo}/${sucursal}/${numero}`,
+      const response = await fetchWithAuth(
+        `/movimientos-stock/${tipo}/${sucursal}/${numero}`,
         { method: 'DELETE' }
       );
       

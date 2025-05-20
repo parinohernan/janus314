@@ -7,157 +7,81 @@
   import { auth } from '$lib/stores/authStore';
   import { get } from 'svelte/store';
 
-  // Asegurar que haya un token para el bot de Telegram
-  if (typeof localStorage !== 'undefined' && !localStorage.getItem('authToken')) {
-    // Si no hay token, establece uno temporal para el bot
+  // Asegurar que haya un token para el bot de Telegram - Ejecutar solo en cliente
+  if (typeof window !== 'undefined' && !localStorage.getItem('authToken')) {
     localStorage.setItem('authToken', 'bot-telegram-token-temporal');
   }
-
-  // Función para probar el inicio de sesión directamente
-  async function probarInicioSesion() {
-    try {
-      console.log("Intentando inicio de sesión para el bot...");
-      
-      // Usar credenciales de bot para el inicio de sesión
-      // Puedes ajustar estos valores según tu sistema
-      const resultado = await auth.login({
-        usuario: "vendedorbot",
-        password: "botpassword",
-        empresa: "1"  // Ajustar según corresponda
-      });
-      
-      console.log("Resultado de inicio de sesión:", resultado);
-      return resultado.success;
-    } catch (error) {
-      console.error("Error en inicio de sesión para bot:", error);
-      return false;
-    }
-  }
-
-  // Inicializar datos del vendedor para el contexto del bot
-  async function inicializarDatosVendedorBot() {
-    try {
-      // Intentar obtener información del vendedor para el bot
-      const response = await fetchWithAuth('/telegram/datos');
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Datos del bot de Telegram:", data);
-        
-        if (data.success && data.data && data.data.vendedor) {
-          const vendedor = data.data.vendedor;
-          // Almacenar información del vendedor en localStorage para usarla
-          localStorage.setItem('botVendedorNombre', vendedor.nombre || 'Vendedor');
-          localStorage.setItem('botVendedorApellido', vendedor.apellido || '');
-          localStorage.setItem('botVendedorCodigo', vendedor.codigo || '1');
-          
-          // Forzar actualización de variables
-          vendedorNombre = `${vendedor.nombre || 'Vendedor'} ${vendedor.apellido || ''}`.trim();
-          codigoVendedor = vendedor.codigo || '1';
-          
-          // Intentar verificar la sesión para ver si podemos obtener datos de usuario
-          await auth.verifySession();
-          
-          return true;
-        }
-      } else {
-        console.error("Error al obtener datos del bot:", await response.text());
-      }
-      
-      // Si no se pudo obtener datos, usar datos por defecto
-      localStorage.setItem('botVendedorNombre', 'Vendedor');
-      localStorage.setItem('botVendedorApellido', 'Bot');
-      localStorage.setItem('botVendedorCodigo', '1');
-      
-      // Actualizar variables locales
-      vendedorNombre = 'Vendedor Bot';
-      codigoVendedor = '1';
-      
-      return true;
-    } catch (error) {
-      console.error("Error al inicializar datos del vendedor:", error);
-      // Establecer valores por defecto
-      vendedorNombre = 'Vendedor Bot';
-      codigoVendedor = '1';
-      return false;
-    }
-  }
-
-  // Interfaz para el objeto Telegram WebApp
-  /* 
-  interface TelegramWebApp {
-    initData: string;
-    initDataUnsafe: {
-      user?: {
-        id: number;
-        first_name: string;
-        last_name?: string;
-        username?: string;
-      };
-    };
-    expand: () => void;
-    close: () => void;
-    enableClosingConfirmation: () => void;
-    sendData: (data: string) => void;
-  }
-
-  // Referencia al objeto de Telegram WebApp
-  let tg: TelegramWebApp | null = null;
-  */
   
   let userName: string = '';
   let vendedorNombre: string = '';
   let codigoVendedor: string = '2';
   let isAuthenticated: boolean = false;
+  let dataInitialized = false; // Flag para evitar inicializaciones redundantes
   
   // Estado del modal de login
   let mostrarModalLogin = false;
   let usuario = '';
   let password = '';
-  let empresa = ''; // Cambio a cadena vacía para que el usuario introduzca el valor
+  let empresa = '';
   let errorLogin = '';
   let cargandoLogin = false;
   
-  // Suscripción al store de autenticación
+  // Suscripción al store de autenticación con optimización para evitar re-renders innecesarios
   let unsubscribe = auth.subscribe((state) => {
-    console.log("Estado de autenticación:", state);
-    isAuthenticated = state.isAuthenticated;
+    // Solo actualizar si hay cambios reales en isAuthenticated
+    if (isAuthenticated !== state.isAuthenticated) {
+      isAuthenticated = state.isAuthenticated;
+      
+      // Si el usuario acaba de autenticarse, cerrar el modal de login
+      if (isAuthenticated && mostrarModalLogin) {
+        mostrarModalLogin = false;
+      }
+    }
     
     if (state.user) {
       // Verificar si el usuario está activo
       if (!state.user.activo) {
-        // Si el usuario no está activo, mostrar error y cerrar sesión
         mostrarError('Su cuenta no está activa. Contacte al administrador.');
         cerrarSesion();
         return;
       }
       
-      vendedorNombre = `${state.user.nombre} ${state.user.apellido || ''}`.trim();
+      // Actualizar datos del vendedor solo si han cambiado
+      const nuevoNombre = `${state.user.nombre} ${state.user.apellido || ''}`.trim();
+      if (vendedorNombre !== nuevoNombre) {
+        vendedorNombre = nuevoNombre;
+      }
+      
       // Obtener el código del vendedor si existe
-      if (state.user.codigoVendedor) {
+      if (state.user.codigoVendedor && codigoVendedor !== state.user.usuario) {
         codigoVendedor = state.user.usuario;
       }
       
-      // Guardar los datos del vendedor en localStorage
-      guardarDatosVendedor(state.user);
-      
-      // Si el usuario está autenticado, cerrar el modal de login si estaba abierto
-      mostrarModalLogin = false;
-    
-    } else {
-      // Intentar recuperar datos del vendedor de localStorage si existen
-      const nombreGuardado = localStorage.getItem('botVendedorNombre');
-      const apellidoGuardado = localStorage.getItem('botVendedorApellido');
-      const codigoGuardado = localStorage.getItem('botVendedorCodigo');
-      
-      if (nombreGuardado) {
-        vendedorNombre = `${nombreGuardado} ${apellidoGuardado || ''}`.trim();
-        if (codigoGuardado) {
-          codigoVendedor = codigoGuardado;
-        }
-        console.log("Datos del vendedor recuperados de localStorage:", vendedorNombre, codigoVendedor);
+      // Guardar los datos del vendedor en localStorage una sola vez
+      if (!dataInitialized) {
+        guardarDatosVendedor(state.user);
+        dataInitialized = true;
       }
+    } else if (!dataInitialized) {
+      // Recuperar datos de localStorage solo si es necesario
+      recuperarDatosVendedor();
+      dataInitialized = true;
     }
   });
+
+  // Recuperar datos del vendedor desde localStorage, de forma separada para no repetir la lógica
+  function recuperarDatosVendedor() {
+    const nombreGuardado = localStorage.getItem('botVendedorNombre');
+    const apellidoGuardado = localStorage.getItem('botVendedorApellido');
+    const codigoGuardado = localStorage.getItem('botVendedorCodigo');
+    
+    if (nombreGuardado) {
+      vendedorNombre = `${nombreGuardado} ${apellidoGuardado || ''}`.trim();
+      if (codigoGuardado) {
+        codigoVendedor = codigoGuardado;
+      }
+    }
+  }
 
   // Limpiar suscripción cuando el componente se destruye
   onDestroy(() => {
@@ -174,7 +98,6 @@
       // Limpiar los campos del formulario de login
       usuario = '';
       password = '';
-      // Mantenemos empresa para facilidad del usuario
       
       // Mostrar el modal de login después de cerrar sesión
       mostrarModalLogin = true;
@@ -189,7 +112,6 @@
       localStorage.setItem('botVendedorNombre', usuario.nombre || 'Vendedor');
       localStorage.setItem('botVendedorApellido', usuario.apellido || '');
       localStorage.setItem('botVendedorCodigo', usuario.usuario || '1');
-      console.log("Datos de vendedor guardados en localStorage:", usuario.usuario);
     }
   }
 
@@ -216,18 +138,6 @@
         errorLogin = resultado.message || 'Error al iniciar sesión';
         return;
       }
-      
-      // Verificación adicional de usuario activo después del login
-      // (La comprobación principal se realiza en el subscribe)
-      const authState = get(auth);
-      if (authState.user && !authState.user.activo) {
-        errorLogin = 'Su cuenta no está activa. Contacte al administrador.';
-        await auth.logout();
-      } else if (authState.user) {
-        // Guardar datos del usuario en localStorage
-        guardarDatosVendedor(authState.user);
-      }
-      
     } catch (error) {
       console.error('Error al iniciar sesión:', error);
       errorLogin = 'Error al iniciar sesión, por favor intente de nuevo';
@@ -298,133 +208,85 @@
     }
   ];
 
-  function obtenerFechaHoy(): string {
+  // Optimizado para memorizar el valor
+  const fechaHoy = (() => {
     const fecha = new Date();
     const año = fecha.getFullYear();
     const mes = String(fecha.getMonth() + 1).padStart(2, '0');
     const dia = String(fecha.getDate()).padStart(2, '0');
-    const fechaFormateada = `${año}-${mes}-${dia}`;
-    console.log('Fecha actual formateada:', fechaFormateada);
-    return fechaFormateada;
-  }
+    return `${año}-${mes}-${dia}`;
+  })();
 
   async function cargarEstadisticas() {
     try {
-      const fechaHoy = obtenerFechaHoy();
-
-      // Cargar datos básicos desde la API centralizada de Telegram
-      // const responseDatosTelegram = await fetchWithAuth('/telegram/datos');
-      
-      // if (responseDatosTelegram.ok) {
-      //   const telegramData = await responseDatosTelegram.json();
+      // Realizar peticiones en paralelo para mejorar rendimiento
+      const [responseVentasHoy, responseVentasVendedor] = await Promise.all([
+        // Petición 1: Ventas totales del día
+        fetchWithAuth('/facturas', {
+          params: {
+            page: 1,
+            limit: 1,
+            tipo: 'PRF',
+            fecha: fechaHoy
+          }
+        }),
         
-      //   if (telegramData.success && telegramData.data) {
-      //     // Si hay estadísticas disponibles, actualizarlas
-      //     if (telegramData.data.stats) {
-      //       if (telegramData.data.stats.clientesActivos !== undefined) {
-      //         quickStats[2].value = telegramData.data.stats.clientesActivos.toString();
-      //         quickStats[2].targetValue = telegramData.data.stats.clientesActivos;
-      //       }
-      //     }
-          
-      //     // Guardar la sucursal para uso posterior
-      //     if (telegramData.data.sucursal) {
-      //       localStorage.setItem('sucursalActual', telegramData.data.sucursal);
-      //     }
-      //   }
-      // }
+        // Petición 2: Ventas del vendedor
+        fetchWithAuth('/facturas', {
+          params: {
+            page: 1,
+            limit: 1,
+            tipo: 'PRF',
+            fecha: fechaHoy,
+            codigoVendedor: codigoVendedor
+          }
+        })
+      ]);
 
-      // Cargar ventas totales del día
-      const responseVentasHoy = await fetchWithAuth('/facturas', {
-        params: {
-          page: 1,
-          limit: 1,
-          tipo: 'PRF',
-          fecha: fechaHoy
-        }
-      });
+      // Procesar respuestas en paralelo
+      const resultados = await Promise.all([
+        responseVentasHoy.ok ? responseVentasHoy.json() : null,
+        responseVentasVendedor.ok ? responseVentasVendedor.json() : null
+      ]);
 
-      if (responseVentasHoy.ok) {
-        const dataVentasHoy = await responseVentasHoy.json();
-        console.log('Respuesta ventas hoy - totalItems:', dataVentasHoy.meta?.totalItems);
-        if (dataVentasHoy.meta?.totalItems !== undefined) {
-          quickStats[0].value = dataVentasHoy.meta.totalItems.toString();
-          quickStats[0].targetValue = dataVentasHoy.meta.totalItems;
-        }
-      } else {
-        console.error('Error en respuesta ventas hoy:', await responseVentasHoy.text());
+      // Actualizar estadísticas con los resultados
+      if (resultados[0] && resultados[0].meta?.totalItems !== undefined) {
+        quickStats[0].value = resultados[0].meta.totalItems.toString();
+        quickStats[0].targetValue = resultados[0].meta.totalItems;
       }
-
-      // Cargar ventas del vendedor usando el código de vendedor del usuario logueado
-      const responseVentasVendedor = await fetchWithAuth('/facturas', {
-        params: {
-          page: 1,
-          limit: 1,
-          tipo: 'PRF',
-          fecha: fechaHoy,
-          codigoVendedor: "2"
-        }
-      });
-
-      if (responseVentasVendedor.ok) {
-        const dataVentasVendedor = await responseVentasVendedor.json();
-        console.log('Respuesta ventas vendedor ' + codigoVendedor + ' - totalItems:', dataVentasVendedor.meta?.totalItems);
-        if (dataVentasVendedor.meta?.totalItems !== undefined) {
-          quickStats[1].value = dataVentasVendedor.meta.totalItems.toString();
-          quickStats[1].targetValue = dataVentasVendedor.meta.totalItems;
-        }
-      } else {
-        console.error('Error en respuesta ventas vendedor:', await responseVentasVendedor.text());
-      }
-
-      // Forzar actualización de la vista
-      quickStats = [...quickStats];
       
+      if (resultados[1] && resultados[1].meta?.totalItems !== undefined) {
+        quickStats[1].value = resultados[1].meta.totalItems.toString();
+        quickStats[1].targetValue = resultados[1].meta.totalItems;
+      }
+
+      // Actualizar la vista una sola vez
+      quickStats = [...quickStats];
     } catch (error) {
       console.error('Error al cargar estadísticas:', error);
     }
   }
 
   onMount(async () => {
-    // Verificar estado actual de autenticación
+    // Una sola verificación de autenticación al inicio
     const authState = get(auth);
-    console.log("Estado inicial de autenticación:", authState);
     
-    // Verificar si el usuario está autenticado
     if (!authState.isAuthenticated) {
-      // Intentar verificar la sesión
-      await auth.verifySession();
-      
-      // Verificar de nuevo después de verificar la sesión
-      const nuevoAuthState = get(auth);
-      
-      // Si aún no está autenticado, mostrar el modal de login
-      if (!nuevoAuthState.isAuthenticated) {
+      try {
+        await auth.verifySession();
+        const nuevoAuthState = get(auth);
+        
+        if (!nuevoAuthState.isAuthenticated) {
+          mostrarModalLogin = true;
+        }
+      } catch (error) {
+        console.error("Error al verificar sesión:", error);
         mostrarModalLogin = true;
       }
     }
     
-    /* Código de integración con Telegram, comentado para desvincular el bot
-    if (typeof window !== 'undefined' && 'Telegram' in window) {
-      const telegram = (window as any).Telegram;
-      if (telegram?.WebApp) {
-        const webApp = telegram.WebApp as TelegramWebApp;
-        tg = webApp;
-        
-        if (tg) {
-          tg.expand();
-          
-          const user = tg.initDataUnsafe?.user;
-          if (user) {
-            userName = user.first_name + (user.last_name ? ` ${user.last_name}` : '');
-          }
-        }
-      }
-    }
-    */
-
-    // Cargar estadísticas al montar el componente
-    await cargarEstadisticas();
+    // Cargar estadísticas inmediatamente
+    cargarEstadisticas();
   });
 
   function navigateTo(route: string) {

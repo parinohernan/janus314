@@ -65,17 +65,9 @@ exports.getAllProveedores = async (req, res) => {
 // Obtener un proveedor por Código
 exports.getProveedorById = async (req, res) => {
   try {
-    const { Proveedor, CodigoPostal } = req.models;
+    const { Proveedor } = req.models;
     
-    const proveedor = await Proveedor.findByPk(req.params.id, {
-      include: [
-        {
-          model: CodigoPostal,
-          as: "CodigoPostalRelacion",
-          attributes: ["Descripcion", "Provincia"],
-        },
-      ],
-    });
+    const proveedor = await Proveedor.findByPk(req.params.id);
 
     if (!proveedor) {
       return res.status(404).json({ message: "Proveedor no encontrado" });

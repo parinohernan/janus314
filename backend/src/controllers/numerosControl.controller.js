@@ -231,8 +231,9 @@ exports.incrementNumber = async (req, res) => {
 
 // Método para actualizar directamente (no como middleware de Express)
 exports.actualizarNumeroDirecto = async (tipo, sucursal, db, models) => {
+  // Usar la base de datos y modelos proporcionados, o si no son proporcionados, usar req.db y req.models
   const sequelize = db;
-  const { NumerosControl } = models;
+  const { NumerosControl } = models || {};
   const t = await sequelize.transaction();
 
   try {
@@ -276,11 +277,14 @@ exports.actualizarNumeroDirecto = async (tipo, sucursal, db, models) => {
     );
 
     await t.commit();
+
+    // Devolver el número que se utilizó (el que estaba antes de incrementar)
     return {
       tipo: tipo,
       sucursal: sucursal,
       numeroUtilizado: numeroActual,
       nuevoProximoNumero: numeroActual + 1,
+      numeroFormateado: String(numeroActual).padStart(8, "0"),
     };
   } catch (error) {
     await t.rollback();

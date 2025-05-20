@@ -14,7 +14,9 @@ export default defineConfig({
 	server: {
 		allowedHosts: [
 			'078ff12b0f772e359c3c334e37c09b3b.serveo.net',
-			'janus314.osvi.lat'
+			'janus314.osvi.lat',
+			'api.janus314.osvi.lat',
+			'localhost'
 		]
 	},
 	test: {

@@ -1,4 +1,6 @@
 <script lang="ts">
+  // Importar fetchWithAuth y otros componentes necesarios
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   // ... existing imports ...
 
   // Inicializar el tipo de factura como vacío
@@ -19,8 +21,8 @@
     if (!tipoFactura || !sucursal) return;
 
     try {
-      const response = await fetch(
-        `${PUBLIC_API_URL}/numeroscontrol/${tipoFactura}/${sucursal}`
+      const response = await fetchWithAuth(
+        `/numeroscontrol/${tipoFactura}/${sucursal}`
       );
       
       if (!response.ok) throw new Error('Error al obtener número');

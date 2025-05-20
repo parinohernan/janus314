@@ -2,14 +2,9 @@
   import { onMount } from 'svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { goto } from '$app/navigation';
-  import { PUBLIC_API_URL } from '$env/static/public';
   import { debounce } from 'lodash-es';
-  
-  // Definir interfaces para los tipos
-  interface Proveedor {
-    Codigo: string;
-    Descripcion: string;
-  }
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { ProveedorService, type Proveedor } from '$lib/services/ProveedorService';
   
   interface Pagination {
     currentPage: number;
@@ -48,16 +43,17 @@
       loading = true;
       error = null;
       
-      // Construir URL con parámetros de búsqueda y paginación
-      const params = new URLSearchParams({
-        page: pagination.currentPage.toString(),
-        limit: pagination.limit.toString(),
-        search: filters.search,
-        field: filters.field,
-        order: filters.order
+      // Usar fetchWithAuth para mejorar rendimiento con caché de tokens
+      const response = await fetchWithAuth('/proveedores', {
+        params: {
+          page: pagination.currentPage,
+          limit: pagination.limit,
+          search: filters.search,
+          field: filters.field,
+          order: filters.order
+        }
       });
       
-      const response = await fetch(`${PUBLIC_API_URL}/proveedores?${params}`);
       if (!response.ok) throw new Error('Error al cargar los proveedores');
       
       const data = await response.json();
@@ -85,12 +81,27 @@
     }
   };
   
+  // Precarga inicial de todos los proveedores para operaciones rápidas
+  let todosProveedores: Proveedor[] = [];
+  const precargarProveedores = async () => {
+    try {
+      todosProveedores = await ProveedorService.obtenerProveedores();
+      console.log(`Precargados ${todosProveedores.length} proveedores para uso rápido`);
+    } catch (err) {
+      console.error('Error al precargar lista completa de proveedores:', err);
+    }
+  };
+  
   // Cargar datos al inicializar el componente
   onMount(() => {
-    loadProveedores();
+    // Cargar datos paginados y en paralelo precargar toda la lista
+    Promise.all([
+      loadProveedores(),
+      precargarProveedores()
+    ]);
   });
   
-  // Debounce para la búsqueda
+  // Debounce mejorado para la búsqueda
   const debouncedSearch = debounce(() => {
     pagination.currentPage = 1; // Reset a primera página con cada búsqueda
     loadProveedores();
@@ -130,17 +141,17 @@
     if (!confirm('¿Está seguro que desea eliminar este proveedor?')) return;
     
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/proveedores/${id}`, {
-        method: 'DELETE'
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al eliminar el proveedor');
-      }
+      await ProveedorService.eliminarProveedor(id);
       
       alert('Proveedor eliminado correctamente');
       loadProveedores();
+      
+      // Actualizar también la lista precargada
+      const index = todosProveedores.findIndex(p => p.Codigo === id);
+      if (index !== -1) {
+        todosProveedores.splice(index, 1);
+        todosProveedores = [...todosProveedores];
+      }
     } catch (err: unknown) {
       if (err instanceof Error) {
         alert(err.message);

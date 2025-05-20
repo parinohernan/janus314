@@ -1,5 +1,6 @@
 import { PUBLIC_API_URL } from '$env/static/public';
 import type { Preventa, PreventaCabeza, PreventaItem, PreventaFiltros } from '$lib/types';
+import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
 /**
  * Servicio para gestionar operaciones con preventas
@@ -10,19 +11,22 @@ export class PreventaService {
 	 */
 	public static async listarPreventas(page = 1, limit = 10, filtros?: PreventaFiltros) {
 		try {
-			// Construir URL con parámetros de paginación y filtros
-			let url = `${PUBLIC_API_URL}/preventas?page=${page}&limit=${limit}`;
+			// Construir parámetros de consulta
+			const params: Record<string, string | number | boolean> = {
+				page,
+				limit
+			};
 
 			if (filtros) {
-				if (filtros.cliente) url += `&cliente=${filtros.cliente}`;
-				if (filtros.tipo) url += `&tipo=${filtros.tipo}`;
-				if (filtros.vendedor) url += `&vendedor=${filtros.vendedor}`;
-				if (filtros.fechaDesde) url += `&fechaDesde=${filtros.fechaDesde}`;
-				if (filtros.fechaHasta) url += `&fechaHasta=${filtros.fechaHasta}`;
-				if (filtros.pendientes) url += `&pendientes=true`;
+				if (filtros.cliente) params.cliente = filtros.cliente;
+				if (filtros.tipo) params.tipo = filtros.tipo;
+				if (filtros.vendedor) params.vendedor = filtros.vendedor;
+				if (filtros.fechaDesde) params.fechaDesde = filtros.fechaDesde;
+				if (filtros.fechaHasta) params.fechaHasta = filtros.fechaHasta;
+				if (filtros.pendientes) params.pendientes = true;
 			}
 
-			const response = await fetch(url);
+			const response = await fetchWithAuth('/preventas', { params });
 
 			if (!response.ok) {
 				throw new Error(`Error al obtener preventas: ${response.statusText}`);
@@ -44,7 +48,7 @@ export class PreventaService {
 		numero: string
 	): Promise<Preventa> {
 		try {
-			const response = await fetch(`${PUBLIC_API_URL}/preventas/${tipo}/${sucursal}/${numero}`);
+			const response = await fetchWithAuth(`/preventas/${tipo}/${sucursal}/${numero}`);
 
 			if (!response.ok) {
 				throw new Error(`Error al obtener detalle de la preventa: ${response.statusText}`);
@@ -67,12 +71,9 @@ export class PreventaService {
 				...preventa,
 				Items: items
 			};
-			// console.log('preventaData', preventaData);
-			const response = await fetch(`${PUBLIC_API_URL}/preventas`, {
+			
+			const response = await fetchWithAuth('/preventas', {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
 				body: JSON.stringify(preventaData)
 			});
 
@@ -92,13 +93,10 @@ export class PreventaService {
 	 */
 	public static async anularPreventa(tipo: string, sucursal: string, numero: string) {
 		try {
-			const response = await fetch(
-				`${PUBLIC_API_URL}/preventas/anular/${tipo}/${sucursal}/${numero}`,
+			const response = await fetchWithAuth(
+				`/preventas/anular/${tipo}/${sucursal}/${numero}`,
 				{
-					method: 'PUT',
-					headers: {
-						'Content-Type': 'application/json'
-					}
+					method: 'PUT'
 				}
 			);
 
@@ -125,13 +123,10 @@ export class PreventaService {
 		facturaNumero: string
 	) {
 		try {
-			const response = await fetch(
-				`${PUBLIC_API_URL}/preventas/facturar/${tipo}/${sucursal}/${numero}`,
+			const response = await fetchWithAuth(
+				`/preventas/facturar/${tipo}/${sucursal}/${numero}`,
 				{
 					method: 'PUT',
-					headers: {
-						'Content-Type': 'application/json'
-					},
 					body: JSON.stringify({
 						facturaTipo,
 						facturaSucursal,
@@ -161,13 +156,10 @@ export class PreventaService {
 				Items: items
 			};
 
-			const response = await fetch(
-				`${PUBLIC_API_URL}/preventas/${preventa.DocumentoTipo}/${preventa.DocumentoSucursal}/${preventa.DocumentoNumero}`,
+			const response = await fetchWithAuth(
+				`/preventas/${preventa.DocumentoTipo}/${preventa.DocumentoSucursal}/${preventa.DocumentoNumero}`,
 				{
 					method: 'PUT',
-					headers: {
-						'Content-Type': 'application/json'
-					},
 					body: JSON.stringify(preventaData)
 				}
 			);

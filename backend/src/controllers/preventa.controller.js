@@ -10,6 +10,9 @@ const numerosControlController = require("./numerosControl.controller");
 // Obtener listado de preventas con paginación y filtros
 exports.listarPreventas = async (req, res) => {
   try {
+    // Usar los modelos dinámicos inicializados para esta empresa
+    const { PreventaCabeza, Cliente, Vendedor } = req.models;
+    
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
@@ -97,6 +100,9 @@ exports.listarPreventas = async (req, res) => {
 exports.obtenerPreventa = async (req, res) => {
   console.log("obtenerPreventa", req.params);
   try {
+    // Usar los modelos dinámicos inicializados para esta empresa
+    const { PreventaCabeza, PreventaItem, Cliente, Vendedor, Articulo } = req.models;
+    
     const { tipo, sucursal, numero } = req.params;
 
     const preventa = await PreventaCabeza.findOne({
@@ -183,7 +189,8 @@ exports.obtenerPreventa = async (req, res) => {
 exports.crearPreventa = async (req, res) => {
   // Iniciar transacción
   console.log("crearPreventa", req.body);
-  const t = await sequelize.transaction();
+  const { PreventaCabeza, PreventaItem } = req.models;
+  const t = await req.db.transaction();
 
   try {
     const preventaData = req.body;
@@ -208,14 +215,14 @@ exports.crearPreventa = async (req, res) => {
       preventaData.PagoTipo = "CC";
       // preventaData.ListaPrecio = preventaData.PrecioLista;
       try {
-        // Usar el método actualizarNumeroDirecto en lugar de obtenerProximoNumero
-        const resultado =
-          await numerosControlController.actualizarNumeroDirecto(
-            preventaData.DocumentoTipo,
-            preventaData.DocumentoSucursal
-          );
+        // Usar el método actualizarNumeroDirecto con los parámetros correctos
+        const resultado = await numerosControlController.actualizarNumeroDirecto(
+          preventaData.DocumentoTipo,
+          preventaData.DocumentoSucursal,
+          req.db,
+          req.models
+        );
         preventaData.DocumentoNumero = resultado.numeroUtilizado
-
           .toString()
           .padStart(8, "0");
       } catch (error) {
@@ -293,35 +300,48 @@ exports.crearPreventa = async (req, res) => {
 
 // Anular preventa
 exports.anularPreventa = async (req, res) => {
+  // Usar los modelos dinámicos inicializados para esta empresa
+  const { PreventaCabeza } = req.models;
+  
+  // Iniciar transacción
+  const t = await req.db.transaction();
+  
   try {
     const { tipo, sucursal, numero } = req.params;
 
+    // Verificar que la preventa existe
     const preventa = await PreventaCabeza.findOne({
       where: {
         DocumentoTipo: tipo,
         DocumentoSucursal: sucursal,
         DocumentoNumero: numero,
       },
+      transaction: t,
     });
 
     if (!preventa) {
+      await t.rollback();
       return res.status(404).json({
         success: false,
         message: "Preventa no encontrada",
       });
     }
 
-    if (preventa.FacturaNumero) {
-      return res.status(400).json({
-        success: false,
-        message: "No se puede anular una preventa que ya ha sido facturada",
-      });
-    }
-
+    // Verificar que la preventa no está anulada
     if (preventa.FechaAnulacion) {
+      await t.rollback();
       return res.status(400).json({
         success: false,
         message: "La preventa ya está anulada",
+      });
+    }
+
+    // Verificar que la preventa no está facturada
+    if (preventa.FacturaNumero) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "No se puede anular una preventa ya facturada",
       });
     }
 
@@ -346,43 +366,59 @@ exports.anularPreventa = async (req, res) => {
 
 // Facturar preventa
 exports.facturarPreventa = async (req, res) => {
+  // Usar los modelos dinámicos inicializados para esta empresa
+  const { PreventaCabeza } = req.models;
+  
+  // Iniciar transacción
+  const t = await req.db.transaction();
+  
   try {
     const { tipo, sucursal, numero } = req.params;
     const { facturaTipo, facturaSucursal, facturaNumero } = req.body;
 
+    // Validar datos
     if (!facturaTipo || !facturaSucursal || !facturaNumero) {
+      await t.rollback();
       return res.status(400).json({
         success: false,
-        message: "Datos de factura incompletos",
+        message:
+          "Faltan datos obligatorios (facturaTipo, facturaSucursal, facturaNumero)",
       });
     }
 
+    // Verificar que la preventa existe
     const preventa = await PreventaCabeza.findOne({
       where: {
         DocumentoTipo: tipo,
         DocumentoSucursal: sucursal,
         DocumentoNumero: numero,
       },
+      transaction: t,
     });
 
     if (!preventa) {
+      await t.rollback();
       return res.status(404).json({
         success: false,
         message: "Preventa no encontrada",
       });
     }
 
-    if (preventa.FacturaNumero) {
-      return res.status(400).json({
-        success: false,
-        message: "La preventa ya ha sido facturada",
-      });
-    }
-
+    // Verificar que la preventa no está anulada
     if (preventa.FechaAnulacion) {
+      await t.rollback();
       return res.status(400).json({
         success: false,
         message: "No se puede facturar una preventa anulada",
+      });
+    }
+
+    // Verificar que la preventa no está facturada
+    if (preventa.FacturaNumero) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "La preventa ya ha sido facturada",
       });
     }
 
@@ -408,11 +444,14 @@ exports.facturarPreventa = async (req, res) => {
   }
 };
 
-// Actualizar preventa existente
+// Actualizar preventa
 exports.actualizarPreventa = async (req, res) => {
+  // Usar los modelos dinámicos inicializados para esta empresa
+  const { PreventaCabeza, PreventaItem } = req.models;
+  
   // Iniciar transacción
-  const t = await sequelize.transaction();
-
+  const t = await req.db.transaction();
+  
   try {
     const { tipo, sucursal, numero } = req.params;
     const preventaData = req.body;
@@ -420,7 +459,7 @@ exports.actualizarPreventa = async (req, res) => {
     delete preventaData.Items;
 
     // Verificar que la preventa existe
-    const preventaExistente = await PreventaCabeza.findOne({
+    const preventa = await PreventaCabeza.findOne({
       where: {
         DocumentoTipo: tipo,
         DocumentoSucursal: sucursal,
@@ -429,7 +468,7 @@ exports.actualizarPreventa = async (req, res) => {
       transaction: t,
     });
 
-    if (!preventaExistente) {
+    if (!preventa) {
       await t.rollback();
       return res.status(404).json({
         success: false,
@@ -437,8 +476,8 @@ exports.actualizarPreventa = async (req, res) => {
       });
     }
 
-    // Verificar que no esté anulada ni facturada
-    if (preventaExistente.FechaAnulacion) {
+    // Verificar que la preventa no está anulada
+    if (preventa.FechaAnulacion) {
       await t.rollback();
       return res.status(400).json({
         success: false,
@@ -446,11 +485,12 @@ exports.actualizarPreventa = async (req, res) => {
       });
     }
 
-    if (preventaExistente.FacturaNumero) {
+    // Verificar que la preventa no está facturada
+    if (preventa.FacturaNumero) {
       await t.rollback();
       return res.status(400).json({
         success: false,
-        message: "No se puede actualizar una preventa que ya ha sido facturada",
+        message: "No se puede actualizar una preventa ya facturada",
       });
     }
 
@@ -464,7 +504,7 @@ exports.actualizarPreventa = async (req, res) => {
       transaction: t,
     });
 
-    // Eliminar los ítems existentes
+    // Eliminar los items existentes
     await PreventaItem.destroy({
       where: {
         DocumentoTipo: tipo,
@@ -474,7 +514,7 @@ exports.actualizarPreventa = async (req, res) => {
       transaction: t,
     });
 
-    // Crear los nuevos ítems
+    // Crear los nuevos items
     if (items.length > 0) {
       // Preparar los items con las claves de la preventa
       const itemsConClaves = items.map((item) => ({
