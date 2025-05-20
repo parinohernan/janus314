@@ -7,6 +7,7 @@
   import PdfViewer from '$lib/components/documentos/PdfViewer.svelte';
   import DocumentToolbar from '$lib/components/documentos/DocumentToolbar.svelte';
   import { DocumentService } from '$lib/services/DocumentService';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   
   // Obtener parámetros de la URL
   const tipo = $page.params.tipo;
@@ -25,7 +26,7 @@
       loading = true;
       error = null;
       
-      const response = await fetch(`${PUBLIC_API_URL}/facturas/${tipo}/${sucursal}/${numero}`);
+      const response = await fetchWithAuth(`/facturas/${tipo}/${sucursal}/${numero}`);
       
       if (!response.ok) {
         throw new Error('Error al cargar la factura');

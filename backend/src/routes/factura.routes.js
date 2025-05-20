@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const facturaController = require("../controllers/factura.controller");
 const pdfController = require("../controllers/pdf.controller");
+const getEmpresaConnection = require("../middleware/dbConnection");
 
 // Listar facturas con paginación y filtros
 router.get("/", facturaController.listarFacturas);
@@ -16,7 +17,7 @@ router.post("/", facturaController.crearFactura);
 router.put("/anular/:tipo/:sucursal/:numero", facturaController.anularFactura);
 
 // Nueva ruta para generar PDF
-router.get("/pdf/:tipo/:sucursal/:numero", pdfController.generarFacturaPDF);
+router.get("/pdf/:tipo/:sucursal/:numero", getEmpresaConnection, pdfController.generarFacturaPDF);
 
 // Obtener últimas facturas de un cliente
 router.get(

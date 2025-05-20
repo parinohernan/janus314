@@ -1,12 +1,13 @@
 const PDFDocument = require("pdfkit");
-const FacturaCabeza = require("../models/facturaCabeza.model");
-const FacturaItem = require("../models/facturaItem.model");
-const Cliente = require("../models/cliente.model");
-const Articulo = require("../models/articulo.model");
+// Reemplazar las importaciones directas de modelos por uso de req.models
+// const FacturaCabeza = require("../models/facturaCabeza.model");
+// const FacturaItem = require("../models/facturaItem.model");
+// const Cliente = require("../models/cliente.model");
+// const Articulo = require("../models/articulo.model");
 const fs = require("fs");
 const path = require("path");
 const { getTemplateRenderer } = require("../templates/pdf");
-const DatosEmpresa = require("../models/datosEmpresa.model");
+// const DatosEmpresa = require("../models/datosEmpresa.model");
 const renderFacturaA = require("../templates/pdf/facturaA.template");
 const renderFacturaB = require("../templates/pdf/facturaB.template");
 const renderPrefactura = require("../templates/pdf/prefactura.template.js");
@@ -14,14 +15,17 @@ const renderNotaCreditoA = require("../templates/pdf/notaCreditoA.template.js");
 const renderNotaCreditoB = require("../templates/pdf/notaCreditoB.template.js");
 // const renderNotaCreditoC = require("../templates/pdf/notaCreditoC.template");
 // const renderNotaCreditoF = require("../templates/pdf/notaCreditoF.template");
-const NotaCreditoCabeza = require("../models/notaCreditoCabeza.model");
-const NotaCreditoItem = require("../models/notaCreditoItem.model");
+// const NotaCreditoCabeza = require("../models/notaCreditoCabeza.model");
+// const NotaCreditoItem = require("../models/notaCreditoItem.model");
 // const datosEmpresaController = require("../controllers/datosEmpresa.controller");
 const docFacturaA4 = { margin: 42.5, size: "A4" }; // 1.5cm = 42.5 puntos (1cm = 28.35 puntos)
 // Función para generar PDF de factura
 exports.generarFacturaPDF = async (req, res) => {
   try {
     const { tipo, sucursal, numero } = req.params;
+    
+    // Obtener los modelos dinámicos de la empresa actual
+    const { FacturaCabeza, FacturaItem, Cliente, Articulo, DatosEmpresa } = req.models;
 
     // Obtener datos de la factura con el cliente
     const factura = await FacturaCabeza.findOne({
@@ -313,6 +317,9 @@ function generarContenidoPDF(doc, factura, items) {
 exports.generarNotaCreditoPDF = async (req, res) => {
   try {
     const { tipo, sucursal, numero } = req.params;
+    
+    // Obtener los modelos dinámicos de la empresa actual
+    const { NotaCreditoCabeza, NotaCreditoItem, Cliente, Articulo, DatosEmpresa } = req.models;
 
     // Obtener datos de la nota de crédito con el cliente
     const notaCredito = await NotaCreditoCabeza.findOne({

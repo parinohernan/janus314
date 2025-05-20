@@ -7,6 +7,7 @@
   import { navigationState } from '$lib/stores/navigationState';
   import { writable } from 'svelte/store';
   import CaeModal from '$lib/components/facturas/CaeModal.svelte';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
   // Definición de interfaces
   interface Factura {
@@ -106,7 +107,7 @@
       if (filtroFechaDesde) params.append('fechaDesde', filtroFechaDesde);
       if (filtroFechaHasta) params.append('fechaHasta', filtroFechaHasta);
       
-      const response = await fetch(`${PUBLIC_API_URL}/facturas?${params}`);
+      const response = await fetchWithAuth(`/facturas?${params}`);
       
       if (!response.ok) {
         if (response.status === 500) {
@@ -179,8 +180,8 @@
     }
     
     try {
-      const response = await fetch(
-        `${PUBLIC_API_URL}/facturas/anular/${tipo}/${sucursal}/${numero}`,
+      const response = await fetchWithAuth(
+        `/facturas/anular/${tipo}/${sucursal}/${numero}`,
         {
           method: 'PUT',
           headers: {
@@ -214,7 +215,12 @@
     
     timeoutId = setTimeout(async () => {
       try {
-        const response = await fetch(`${PUBLIC_API_URL}/clientes?search=${encodeURIComponent(busqueda)}&limit=10`);
+        const response = await fetchWithAuth(`/clientes`, {
+          params: {
+            search: busqueda,
+            limit: 10
+          }
+        });
         
         if (!response.ok) {
           throw new Error('Error al buscar clientes');
