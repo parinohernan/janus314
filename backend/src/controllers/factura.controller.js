@@ -206,14 +206,15 @@ exports.obtenerFactura = async (req, res) => {
 
 // Crear nueva factura - Versión modularizada
 exports.crearFactura = async (req, res) => {
-  const t = await sequelize.transaction();
-
   try {
     const { FacturaCabeza, FacturaItem, Cliente, Articulo, MovimientoStock, NumerosControl } = req.models;
     const facturaData = req.body;
     
     // Obtener la conexión de la empresa
     const connection = req.db;
+    
+    // Crear transacción usando la conexión de la empresa específica, no la global
+    const t = await connection.transaction();
     
     // Ajuste de zona horaria: si viene una fecha en facturaData, la ajustamos a GMT-3
     if (facturaData.Fecha) {
@@ -237,9 +238,61 @@ exports.crearFactura = async (req, res) => {
       console.log('Fecha actual ajustada para zona horaria GMT-3:', facturaData.Fecha);
     }
     
+    // Obtener número de comprobante desde el servidor de forma segura
+    // Utilizamos directamente una consulta SQL a la base de datos específica de la empresa
+    try {
+      // Usamos la conexión a la base de datos específica de la empresa
+      console.log('Obteniendo número de comprobante con conexión de empresa:', connection.config.database);
+      const [result] = await connection.query(
+        `SELECT NumeroProximo FROM t_numeroscontrol 
+         WHERE Codigo = ? AND Sucursal = ? 
+         FOR UPDATE`,
+        {
+          replacements: [facturaData.DocumentoTipo, facturaData.DocumentoSucursal],
+          type: connection.QueryTypes.SELECT,
+          transaction: t,
+        }
+      );
+
+      if (!result) {
+        throw new Error(
+          `No se encontró configuración para el comprobante ${facturaData.DocumentoTipo} y sucursal ${facturaData.DocumentoSucursal}`
+        );
+      }
+
+      const numeroActual = result.NumeroProximo;
+
+      // Actualizar inmediatamente el número incrementándolo
+      await connection.query(
+        `UPDATE t_numeroscontrol 
+         SET NumeroProximo = NumeroProximo + 1 
+         WHERE Codigo = ? AND Sucursal = ?`,
+        {
+          replacements: [facturaData.DocumentoTipo, facturaData.DocumentoSucursal],
+          type: connection.QueryTypes.UPDATE,
+          transaction: t,
+        }
+      );
+
+      // Formatear el número como string con ceros a la izquierda (8 dígitos)
+      facturaData.DocumentoNumero = numeroActual.toString().padStart(8, "0");
+      console.log(`Número de factura asignado por el servidor: ${facturaData.DocumentoNumero}`);
+      
+      // Hacemos COMMIT para guardar el incremento del número, incluso si falla algo después
+      await t.commit();
+      console.log('Transacción confirmada: número de comprobante actualizado');
+      
+    } catch (numError) {
+      console.error("Error al obtener número de comprobante:", numError);
+      await t.rollback();
+      return res.status(500).json({
+        success: false,
+        message: "Error al obtener número de comprobante",
+        error: numError.message,
+      });
+    }
+    
     // completo los campos necesarios con los nombres adecuados
-    facturaData.DocumentoNumero =
-      facturaData.DocumentoNumero.toString().padStart(8, "0");
     facturaData.PagoTipo = facturaData.FormaPagoCodigo;
     delete facturaData.FormaPagoCodigo;
     facturaData.VendedorCodigo = facturaData.Vendedor || "1";
@@ -250,21 +303,36 @@ exports.crearFactura = async (req, res) => {
     delete facturaData.ListaPrecio;
     facturaData.CodigoUsuario = "admin";
 
-    if (facturaData.PagoTipo === "CC") {
-      // actualizo saldo del cliente
-      const cliente = await Cliente.findOne({
-        where: { Codigo: facturaData.ClienteCodigo },
-      });
-      await Cliente.update(
-        { ImporteDeuda: cliente.ImporteDeuda + facturaData.ImporteTotal },
-        { where: { Codigo: facturaData.ClienteCodigo } }
-      );
-    } else {
-      facturaData.ImportePagado = facturaData.ImporteTotal;
+    // Creamos una nueva transacción para el saldo del cliente
+    const tCliente = await connection.transaction();
+    
+    try {
+      if (facturaData.PagoTipo === "CC") {
+        // actualizo saldo del cliente
+        const cliente = await Cliente.findOne({
+          where: { Codigo: facturaData.ClienteCodigo },
+          transaction: tCliente
+        });
+        await Cliente.update(
+          { ImporteDeuda: cliente.ImporteDeuda + facturaData.ImporteTotal },
+          { 
+            where: { Codigo: facturaData.ClienteCodigo },
+            transaction: tCliente 
+          }
+        );
+        
+        // Confirmamos esta transacción también
+        await tCliente.commit();
+      } else {
+        facturaData.ImportePagado = facturaData.ImporteTotal;
+        // No necesitamos la transacción en este caso
+        await tCliente.rollback();
+      }
+    } catch (clienteError) {
+      await tCliente.rollback();
+      console.error("Error al actualizar saldo del cliente:", clienteError);
+      // Continuamos con la creación de la factura aunque haya fallado la actualización del saldo
     }
-
-    // No necesitamos usar la transacción creada con sequelize global, cancelarla
-    await t.rollback();
 
     // Crear factura usando el servicio (pasando la transacción y los modelos dinámicos)
     const facturaCreada = await FacturaService.crearFactura(
@@ -284,10 +352,6 @@ exports.crearFactura = async (req, res) => {
       data: facturaCreada,
     });
   } catch (error) {
-    // Aseguramos el rollback en caso de cualquier error
-    if (!t.finished) {
-      await t.rollback();
-    }
     console.error("Error al crear factura:", error);
     res.status(500).json({
       success: false,

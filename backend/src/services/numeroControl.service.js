@@ -7,22 +7,24 @@ const NumeroControlService = {
    * @param {string} tipo - Tipo de documento
    * @param {string} sucursal - Código de sucursal
    * @param {Object} transaction - Transacción de Sequelize
-   * @param {Object} NumeroControl - Modelo dinámico (opcional)
+   * @param {Object} NumeroControl - Modelo dinámico (requerido)
    * @returns {string} - Próximo número formateado
    */
-  async obtenerYActualizarNumero(tipo, sucursal, transaction, NumeroControl = null) {
+  async obtenerYActualizarNumero(tipo, sucursal, transaction, NumeroControl) {
     try {
-      // Si no se proporciona el modelo, importarlo (fallback)
-      const ModeloNumeroControl = NumeroControl || require("../models/numerosControl.model");
+      // Validar que se proporcionó el modelo dinámico
+      if (!NumeroControl) {
+        throw new Error("Debe proporcionar el modelo NumerosControl de la empresa específica");
+      }
       
-      // Obtener registro actual
-      const numeroControl = await ModeloNumeroControl.findOne({
+      // Obtener registro actual usando el modelo dinámico de la empresa
+      const numeroControl = await NumeroControl.findOne({
         where: {
-          tipo,
-          sucursal,
+          Codigo: tipo,
+          Sucursal: sucursal,
         },
         transaction,
-        lock: transaction.LOCK.UPDATE,
+        lock: transaction ? transaction.LOCK.UPDATE : null,
       });
 
       if (!numeroControl) {
@@ -32,12 +34,12 @@ const NumeroControlService = {
       }
 
       // Obtener el número actual
-      const numeroActual = numeroControl.numeroProximo;
+      const numeroActual = numeroControl.NumeroProximo;
 
       // Actualizar para el próximo
       await numeroControl.update(
         {
-          numeroProximo: numeroActual + 1,
+          NumeroProximo: numeroActual + 1,
         },
         { transaction }
       );
