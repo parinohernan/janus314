@@ -159,6 +159,7 @@
     icon: string;
     displayValue: number;
     targetValue: number;
+    route?: string;
   }
 
   // Funciones principales de la aplicación
@@ -169,12 +170,12 @@
       description: 'Registra ventas rápidamente',
       route: '/ventas/bot/nueva'
     },
-    {
-      icon: '📄',
-      title: 'Comprobantes',
-      description: 'Consulta y comparte facturas',
-      route: '/ventas/bot/comprobantes'
-    },
+    // {
+    //   icon: '📄',
+    //   title: 'Comprobantes',
+    //   description: 'Consulta y comparte facturas',
+    //   route: '/ventas/bot/comprobantes'
+    // },
     {
       icon: 'ℹ️',
       title: 'Sobre Nosotros',
@@ -186,27 +187,47 @@
   // Estadísticas rápidas con valores de animación
   let quickStats: Stat[] = [
     {
-      label: 'Ventas Hoy',
-      value: '0',
-      icon: '📈',
+      label: 'Ver comprobantes',
+      value: 'Ventas',
+      icon: '🛍️',
       displayValue: 0,
-      targetValue: 0
+      targetValue: 0,
+      route: '/ventas/bot/comprobantes'
     },
     {
-      label: 'Mis Ventas',
-      value: '0',
-      icon: '🎯',
-      displayValue: 0,
-      targetValue: 0
-    },
-    {
-      label: 'Clientes',
-      value: '0',
+      label: 'Gestion de Clientes',
+      value: 'Clientes', 
       icon: '👥',
       displayValue: 0,
-      targetValue: 0
+      targetValue: 0,
+      route: '/ventas/bot/clientes'
+      // Otros iconos recomendados:
+      // 👥 - Siluetas de personas
+      // 🤝 - Apretón de manos (relación comercial)
+      // 💼 - Maletín (negocios)
+      // 🏢 - Edificio (empresas/clientes corporativos)
+    },
+    {
+      label: 'Centro de Estadísticas',
+      value: 'Estadisticas',
+      icon: '📈',
+      displayValue: 0,
+      targetValue: 0,
+      route: '/ventas/bot/estadisticas'
+    },
+    {
+      label: 'Gestion de Productos',
+      value: 'Productos',
+      icon: '📦',
+      displayValue: 0,
+      targetValue: 0,
+      route: '/ventas/bot/productos'
     }
   ];
+
+  // Variables para almacenar las estadísticas separadas
+  let ventasHoy = 0;
+  let ventasVendedor = 0;
 
   // Optimizado para memorizar el valor
   const fechaHoy = (() => {
@@ -217,55 +238,58 @@
     return `${año}-${mes}-${dia}`;
   })();
 
-  async function cargarEstadisticas() {
-    try {
-      // Realizar peticiones en paralelo para mejorar rendimiento
-      const [responseVentasHoy, responseVentasVendedor] = await Promise.all([
-        // Petición 1: Ventas totales del día
-        fetchWithAuth('/facturas', {
-          params: {
-            page: 1,
-            limit: 1,
-            tipo: 'PRF',
-            fecha: fechaHoy
-          }
-        }),
+  // async function cargarEstadisticas() {
+    // try {
+    //   // Realizar peticiones en paralelo para mejorar rendimiento
+    //   const [responseVentasHoy, responseVentasVendedor] = await Promise.all([
+    //     // Petición 1: Ventas totales del día
+    //     fetchWithAuth('/facturas', {
+    //       params: {
+    //         page: 1,
+    //         limit: 1,
+    //         tipo: 'PRF',
+    //         fecha: fechaHoy
+    //       }
+    //     }),
         
-        // Petición 2: Ventas del vendedor
-        fetchWithAuth('/facturas', {
-          params: {
-            page: 1,
-            limit: 1,
-            tipo: 'PRF',
-            fecha: fechaHoy,
-            codigoVendedor: codigoVendedor
-          }
-        })
-      ]);
+    //     // Petición 2: Ventas del vendedor
+    //     fetchWithAuth('/facturas', {
+    //       params: {
+    //         page: 1,
+    //         limit: 1,
+    //         tipo: 'PRF',
+    //         fecha: fechaHoy,
+    //         codigoVendedor: codigoVendedor
+    //       }
+    //     })
+    //   ]);
 
-      // Procesar respuestas en paralelo
-      const resultados = await Promise.all([
-        responseVentasHoy.ok ? responseVentasHoy.json() : null,
-        responseVentasVendedor.ok ? responseVentasVendedor.json() : null
-      ]);
+    //   // Procesar respuestas en paralelo
+    //   const resultados = await Promise.all([
+    //     responseVentasHoy.ok ? responseVentasHoy.json() : null,
+    //     responseVentasVendedor.ok ? responseVentasVendedor.json() : null
+    //   ]);
 
-      // Actualizar estadísticas con los resultados
-      if (resultados[0] && resultados[0].meta?.totalItems !== undefined) {
-        quickStats[0].value = resultados[0].meta.totalItems.toString();
-        quickStats[0].targetValue = resultados[0].meta.totalItems;
-      }
+    //   // Almacenar valores individuales
+    //   if (resultados[0] && resultados[0].meta?.totalItems !== undefined) {
+    //     ventasHoy = resultados[0].meta.totalItems;
+    //   }
       
-      if (resultados[1] && resultados[1].meta?.totalItems !== undefined) {
-        quickStats[1].value = resultados[1].meta.totalItems.toString();
-        quickStats[1].targetValue = resultados[1].meta.totalItems;
-      }
+    //   if (resultados[1] && resultados[1].meta?.totalItems !== undefined) {
+    //     ventasVendedor = resultados[1].meta.totalItems;
+    //   }
 
-      // Actualizar la vista una sola vez
-      quickStats = [...quickStats];
-    } catch (error) {
-      console.error('Error al cargar estadísticas:', error);
-    }
-  }
+    //   // Actualizar la estadística combinada
+    //   // quickStats[0].value = `${ventasVendedor} / ${ventasHoy}`;
+    //   quickStats[0].targetValue = ventasVendedor + ventasHoy;
+    //   quickStats[0].displayValue = ventasVendedor + ventasHoy;
+
+    //   // Actualizar la vista una sola vez
+    //   quickStats = [...quickStats];
+    // } catch (error) {
+    //   console.error('Error al cargar estadísticas:', error);
+    // }
+  
 
   onMount(async () => {
     // Una sola verificación de autenticación al inicio
@@ -286,11 +310,13 @@
     }
     
     // Cargar estadísticas inmediatamente
-    cargarEstadisticas();
+    // cargarEstadisticas();
   });
 
   function navigateTo(route: string) {
-    navigate(route);
+    // Asegurar que la ruta sea absoluta
+    const absoluteRoute = route.startsWith('/') ? route : `/${route}`;
+    navigate(absoluteRoute);
   }
 </script>
 
@@ -326,7 +352,34 @@
   </header>
 
   <!-- Estadísticas Rápidas -->
-  <QuickStats codigoVendedor={codigoVendedor} />
+  <div class="stats-container">
+    {#each quickStats as stat}
+      {#if stat.route}
+        <button 
+          class="stat-card clickable"
+          on:click={() => navigateTo(stat.route as string)}
+          aria-label={`Ver ${stat.label}`}
+        >
+          <div class="stat-icon">{stat.icon}</div>
+          <div class="stat-content">
+            <div class="stat-value">{stat.value}</div>
+            <div class="stat-label">{stat.label}</div>
+            {#if stat.label === 'Ventas'}
+              <div class="stat-sublabel">Mis ventas / Total del día</div>
+            {/if}
+          </div>
+        </button>
+      {:else}
+        <div class="stat-card">
+          <div class="stat-icon">{stat.icon}</div>
+          <div class="stat-content">
+            <div class="stat-value">{stat.value}</div>
+            <div class="stat-label">{stat.label}</div>
+          </div>
+        </div>
+      {/if}
+    {/each}
+  </div>
 
   <!-- Funciones Principales -->
   <div class="features-grid">
@@ -350,6 +403,7 @@
         
         {#if errorLogin}
           <div class="error-message">{errorLogin}</div>
+          <div class="error-message">Puedes usar Empresa 1, Usuario 1 y Contraseña 1234 para probar la aplicación</div>
         {/if}
         
         <form on:submit|preventDefault={iniciarSesion}>
@@ -462,6 +516,74 @@
   .logout-icon,
   .login-icon {
     font-size: 1.2rem;
+  }
+
+  /* Estilos para las estadísticas */
+  .stats-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+    font-family: inherit;
+    font-size: inherit;
+    border: none;
+    width: 100%;
+    height: 90px; /* Altura fija para todas las tarjetas */
+  }
+
+  .clickable {
+    cursor: pointer;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+  }
+
+  .clickable:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+  }
+
+  .clickable:active {
+    transform: scale(0.98);
+    background-color: rgba(0, 0, 0, 0.03);
+  }
+
+  .clickable:focus {
+    outline: 2px solid var(--tg-theme-button-color, #2481cc);
+    outline-offset: 2px;
+  }
+
+  .stat-icon {
+    font-size: 1.8rem;
+  }
+
+  .stat-content {
+    flex: 1;
+  }
+
+  .stat-value {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--tg-theme-text-color, #000);
+  }
+
+  .stat-label {
+    font-size: 0.9rem;
+    color: var(--tg-theme-hint-color, #999);
+    margin-top: 4px;
+  }
+
+  .stat-sublabel {
+    font-size: 0.7rem;
+    color: var(--tg-theme-hint-color, #999);
+    margin-top: 2px;
   }
 
   .features-grid {

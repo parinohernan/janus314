@@ -132,7 +132,7 @@ export class ArticuloService {
 				search: '',
 				field: 'Descripcion',
 				order: 'ASC' as const,
-				activo: true
+				activo: 1
 			};
 
 			const queryParams = { ...defaultParams, ...params };

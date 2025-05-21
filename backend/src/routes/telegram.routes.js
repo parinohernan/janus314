@@ -115,6 +115,9 @@ router.post('/notify/:userId', async (req, res) => {
 // Endpoint para crear factura desde Telegram
 router.post("/facturas", getEmpresaConnection, addServices, telegramController.crearFactura);
 
+// Endpoint para crear o actualizar un producto
+router.post("/productos", getEmpresaConnection, addServices, telegramController.crearProducto);
+
 // Endpoint para obtener datos básicos
 router.get("/datos", getEmpresaConnection, addServices, telegramController.obtenerDatos);
 

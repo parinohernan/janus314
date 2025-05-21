@@ -21,9 +21,9 @@
     if (typeof window !== 'undefined' && 'Telegram' in window) {
       const telegram = (window as any).Telegram;
       if (telegram?.WebApp) {
-        // Si estamos en Telegram Web App, redirigir a /nueva
+        // Si estamos en Telegram Web App, redirigir a /home en lugar de /nueva
         showLanding = false;
-        goto('/ventas/bot/nueva');
+        goto('/ventas/bot/home');
         return;
       }
     }

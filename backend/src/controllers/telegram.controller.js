@@ -384,4 +384,121 @@ const obtenerDatosDirecto = async (req, res) => {
       error: error.message
     });
   }
+};
+
+// Endpoint para crear o actualizar un producto desde Telegram
+exports.crearProducto = async (req, res) => {
+  try {
+    const productoData = req.body;
+    console.log("Datos de producto recibidos de Telegram:", productoData);
+    
+    // Validar datos mínimos requeridos
+    if (!productoData.Descripcion) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "La descripción del producto es obligatoria" 
+      });
+    }
+    
+    // Usar la transacción de la conexión de empresa
+    const t = await req.db.transaction();
+    
+    try {
+      // Obtener modelo desde req.models
+      const { Articulo } = req.models;
+      
+      // Generar código automático si no viene
+      if (!productoData.Codigo) {
+        try {
+          // Obtener el último código de artículo
+          const ultimoArticulo = await Articulo.findOne({
+            order: [['Codigo', 'DESC']],
+            transaction: t
+          });
+          
+          if (ultimoArticulo) {
+            // Incrementar el último código
+            const ultimoCodigo = parseInt(ultimoArticulo.Codigo, 10);
+            productoData.Codigo = (ultimoCodigo + 1).toString().padStart(6, '0');
+          } else {
+            // Si no hay artículos, empezar desde 1
+            productoData.Codigo = '000001';
+          }
+        } catch (error) {
+          console.error("Error al generar código automático:", error);
+          throw error;
+        }
+      }
+      
+      // Preparar datos para creación de producto
+      const articuloData = {
+        Codigo: productoData.Codigo,
+        Descripcion: productoData.Descripcion,
+        CodigoBarras: productoData.CodigoBarras || '',
+        CodigoProveedor: productoData.CodigoProveedor || '',
+        Proveedor: productoData.Proveedor || '',
+        Rubro: productoData.Rubro || '',
+        Familia: productoData.Familia || '',
+        Subfamilia: productoData.Subfamilia || '',
+        Existencia: productoData.ExistenciaActual || 0,
+        ExistenciaMinima: productoData.ExistenciaMinima || 0,
+        ExistenciaMaxima: productoData.ExistenciaMaxima || 0,
+        UbicacionDeposito: productoData.UbicacionDeposito || '',
+        Peso: productoData.Peso || 0,
+        UnidadVenta: productoData.UnidadVenta || 'u',
+        PrecioCosto: productoData.PrecioCostoSinIva || 0,
+        PorcentajeIva1: productoData.PorcentajeIva1 || 21,
+        PorcentajeIva2: productoData.PorcentajeIva2 || 0,
+        Lista1: productoData.PrecioLista1 || 0,
+        Lista2: productoData.PrecioLista2 || 0,
+        Lista3: productoData.PrecioLista3 || 0,
+        Lista4: productoData.PrecioLista4 || 0,
+        Lista5: productoData.PrecioLista5 || 0,
+        PorcentajeVendedor: productoData.PorcentajeVendedor || 0,
+        Activo: true
+      };
+      
+      // Verificar si el producto ya existe
+      const productoExistente = await Articulo.findOne({
+        where: { Codigo: productoData.Codigo },
+        transaction: t
+      });
+      
+      let nuevoProducto;
+      
+      if (productoExistente) {
+        // Actualizar producto existente
+        await productoExistente.update(articuloData, { transaction: t });
+        nuevoProducto = productoExistente;
+      } else {
+        // Crear nuevo producto
+        nuevoProducto = await Articulo.create(articuloData, { transaction: t });
+      }
+      
+      // Confirmar transacción
+      await t.commit();
+      
+      res.status(201).json({
+        success: true,
+        message: productoExistente ? "Producto actualizado correctamente" : "Producto creado correctamente",
+        data: {
+          Codigo: nuevoProducto.Codigo,
+          Descripcion: nuevoProducto.Descripcion
+        }
+      });
+      
+    } catch (error) {
+      await t.rollback();
+      console.error("Error al crear/actualizar producto desde Telegram:", error);
+      throw error;
+    }
+    
+  } catch (error) {
+    console.error("Error al crear/actualizar producto desde Telegram:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al crear/actualizar producto desde Telegram",
+      error: error.message
+    });
+  }
 }; 
