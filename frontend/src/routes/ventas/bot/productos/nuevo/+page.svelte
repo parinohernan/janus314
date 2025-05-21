@@ -21,9 +21,7 @@
       case 3:
         return true; // No hay campos obligatorios en este paso
       case 4:
-        return !!producto.PrecioLista1 && !!producto.PrecioLista2 && 
-               !!producto.PrecioLista3 && !!producto.PrecioLista4 && 
-               !!producto.PrecioLista5 && !!producto.PorcentajeIva1; // Todos los precios y el IVA1 son obligatorios
+        return !!producto.PorcentajeIva1; // Solo el IVA1 es obligatorio
       default:
         return true;
     }
@@ -153,8 +151,8 @@
         PorcentajeVendedor: Number(producto.PorcentajeVendedor)
       };
 
-      // Enviar datos al backend
-      const response = await fetchWithAuth('/api/telegram/productos', {
+      // Enviar datos al backend - Corregir URL duplicada
+      const response = await fetchWithAuth('/telegram/productos', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -477,7 +475,7 @@
           
           <div class="form-group">
             <label for="precioLista1">
-              Precio Lista 1 <span class="required">*</span>
+              Porcentaje Lista 1
             </label>
             <input 
               type="number" 
@@ -485,14 +483,13 @@
               bind:value={producto.PrecioLista1} 
               placeholder="0"
               min="0"
-              step="0.01"
-              required
+              step="1"
             />
           </div>
           
           <div class="form-group">
             <label for="precioLista2">
-              Precio Lista 2 <span class="required">*</span>
+              Porcentaje Lista 2
             </label>
             <input 
               type="number" 
@@ -500,14 +497,13 @@
               bind:value={producto.PrecioLista2} 
               placeholder="0"
               min="0"
-              step="0.01"
-              required
+              step="1"
             />
           </div>
           
           <div class="form-group">
             <label for="precioLista3">
-              Precio Lista 3 <span class="required">*</span>
+              Porcentaje Lista 3
             </label>
             <input 
               type="number" 
@@ -515,14 +511,13 @@
               bind:value={producto.PrecioLista3} 
               placeholder="0"
               min="0"
-              step="0.01"
-              required
+              step="1"
             />
           </div>
           
           <div class="form-group">
             <label for="precioLista4">
-              Precio Lista 4 <span class="required">*</span>
+              Porcentaje Lista 4
             </label>
             <input 
               type="number" 
@@ -530,14 +525,13 @@
               bind:value={producto.PrecioLista4} 
               placeholder="0"
               min="0"
-              step="0.01"
-              required
+              step="1"
             />
           </div>
           
           <div class="form-group">
             <label for="precioLista5">
-              Precio Lista 5 <span class="required">*</span>
+              Porcentaje Lista 5
             </label>
             <input 
               type="number" 
@@ -545,8 +539,7 @@
               bind:value={producto.PrecioLista5} 
               placeholder="0"
               min="0"
-              step="0.01"
-              required
+              step="1"
             />
           </div>
           
@@ -791,7 +784,7 @@
     color: #4caf50;
   }
   
-  .error-state button, .success-state button {
+  .error-state button {
     margin-top: 12px;
     padding: 8px 16px;
     background-color: var(--tg-theme-button-color, #2481cc);

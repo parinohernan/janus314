@@ -65,6 +65,31 @@ export class ArticuloService {
 	}
 
 	/**
+	 * Actualiza un artículo existente
+	 */
+	public static async actualizarArticulo(codigo: string, articulo: Partial<Articulo>): Promise<Articulo | null> {
+		try {
+			if (!codigo) {
+				return null;
+			}
+
+			const response = await fetchWithAuth(`/articulos/${codigo}`, {
+				method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(articulo)
+			});
+
+			const data = await response.json();
+			return data;
+		} catch (error: any) {
+			console.error(`Error al actualizar artículo ${codigo}:`, error);
+			throw new Error(`Error al actualizar el artículo: ${error.message || 'Error desconocido'}`);
+		}
+	}
+
+	/**
 	 * Convierte un artículo a un ítem de factura
 	 */
 	public static convertirAItemFactura(

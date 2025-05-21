@@ -82,8 +82,14 @@ export async function fetchWithAuth(endpoint: string, options: FetchOptions = {}
       throw new Error('No hay token de autenticación');
     }
 
+    // Asegurarse de que el endpoint no comienza con /api si PUBLIC_API_URL ya lo incluye
+    let cleanEndpoint = endpoint;
+    if (PUBLIC_API_URL.endsWith('/api') && endpoint.startsWith('/api')) {
+      cleanEndpoint = endpoint.substring(4); // Elimina los primeros 4 caracteres (/api)
+    }
+
     // Construir la URL con los parámetros de consulta si existen
-    let url = `${PUBLIC_API_URL}${endpoint}`;
+    let url = `${PUBLIC_API_URL}${cleanEndpoint}`;
     if (options.params) {
       const searchParams = new URLSearchParams();
       Object.entries(options.params).forEach(([key, value]) => {

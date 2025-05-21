@@ -342,7 +342,7 @@
         </div>
       {:else}
         <div class="welcome-container">
-          <p class="welcome-text">¡Bienvenido! 👋</p>
+        <p class="welcome-text">¡Bienvenido! 👋</p>
           <button class="login-button" on:click={() => mostrarModalLogin = true} title="Iniciar sesión">
             <span class="login-icon">🔑</span>
           </button>

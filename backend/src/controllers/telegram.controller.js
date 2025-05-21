@@ -132,9 +132,9 @@ exports.crearFactura = async (req, res) => {
     const t = await req.db.transaction();
     
     try {
-      // Obtener próximo número de comprobante si no viene
-      if (!facturaData.DocumentoNumero || facturaData.DocumentoNumero === "00000000") {
-        try {
+    // Obtener próximo número de comprobante si no viene
+    if (!facturaData.DocumentoNumero || facturaData.DocumentoNumero === "00000000") {
+      try {
           // Obtener el próximo número usando el controlador de números de control
           // Si req.services está disponible, usar ese método
           if (req.services && req.services.numeroControlService) {
@@ -146,16 +146,16 @@ exports.crearFactura = async (req, res) => {
           } else {
             // Fallback al método directo
             const numeroControl = await req.db.query(
-              "SELECT NumeroProximo FROM t_numeroscontrol WHERE Codigo = ? AND Sucursal = ?",
-              {
-                replacements: [facturaData.DocumentoTipo, facturaData.DocumentoSucursal],
+          "SELECT NumeroProximo FROM t_numeroscontrol WHERE Codigo = ? AND Sucursal = ?",
+          {
+            replacements: [facturaData.DocumentoTipo, facturaData.DocumentoSucursal],
                 type: req.db.QueryTypes.SELECT,
-                transaction: t
-              }
-            );
+            transaction: t
+          }
+        );
             // console.log("===========Telegram en el try:", numeroControl);
-            if (numeroControl && numeroControl.length > 0) {
-              facturaData.DocumentoNumero = numeroControl[0].NumeroProximo.toString().padStart(8, "0");
+        if (numeroControl && numeroControl.length > 0) {
+          facturaData.DocumentoNumero = numeroControl[0].NumeroProximo.toString().padStart(8, "0");
 
               // Incrementar el número
               await req.db.query(
@@ -167,12 +167,12 @@ exports.crearFactura = async (req, res) => {
                 }
               );
             }
-          }
-        } catch (error) {
-          console.error("Error al obtener próximo número:", error);
-          throw error;
         }
+      } catch (error) {
+        console.error("Error al obtener próximo número:", error);
+          throw error;
       }
+    }
       
       console.log("===========Telegram desp del try:", facturaData.Vendedor);
       
@@ -186,86 +186,86 @@ exports.crearFactura = async (req, res) => {
       fechaBsAs = fechaBsAs.toISOString().split('T')[0];
       
       
-      // Preparar datos para creación de factura
-      const facturaCabeza = {
+    // Preparar datos para creación de factura
+    const facturaCabeza = {
+      DocumentoTipo: facturaData.DocumentoTipo,
+      DocumentoSucursal: facturaData.DocumentoSucursal,
+      DocumentoNumero: facturaData.DocumentoNumero,
+        Fecha: fechaBsAs,
+      ClienteCodigo: facturaData.ClienteCodigo,
+        VendedorCodigo: facturaData.Vendedor,
+      PagoTipo: facturaData.FormaPagoCodigo || 'CO',
+      ImporteBruto: facturaData.ImporteBruto,
+      PorcentajeBonificacion: facturaData.PorcentajeBonificacion || 0,
+      ImporteBonificado: facturaData.ImporteBonificado || 0,
+      ImporteNeto: facturaData.ImporteNeto,
+      ImporteAdicional: facturaData.ImporteAdicional || 0,
+      ImporteIva1: facturaData.ImporteIva1,
+      ImporteIva2: facturaData.ImporteIva2 || 0,
+      BaseImponible1: facturaData.BaseImponible1,
+      BaseImponible2: facturaData.BaseImponible2 || 0,
+      ImporteTotal: facturaData.ImporteTotal,
+      ImportePagado: facturaData.ImportePagado || 0,
+      PorcentajeIva1: 21,
+      PorcentajeIva2: 10.5,
+      ListaNumero: facturaData.ListaPrecio || 1,
+      Observacion: facturaData.Observacion || '',
+      CodigoUsuario: 'admin',
+      CajaNumero: facturaData.CajaNumero
+    };
+    
+    // Crear factura cabeza
+    const nuevaFactura = await FacturaCabeza.create(facturaCabeza, { transaction: t });
+    
+    // Crear items de factura
+    for (const item of facturaData.Items) {
+      // Buscar el artículo en la base de datos
+      const articulo = await Articulo.findOne({
+        where: { Codigo: item.CodigoArticulo },
+        transaction: t
+      });
+      
+      if (!articulo) {
+        console.warn(`Artículo no encontrado: ${item.CodigoArticulo}`);
+      }
+      
+      // Crear item de factura
+      await FacturaItem.create({
         DocumentoTipo: facturaData.DocumentoTipo,
         DocumentoSucursal: facturaData.DocumentoSucursal,
         DocumentoNumero: facturaData.DocumentoNumero,
-        Fecha: fechaBsAs,
-        ClienteCodigo: facturaData.ClienteCodigo,
-        VendedorCodigo: facturaData.Vendedor,
-        PagoTipo: facturaData.FormaPagoCodigo || 'CO',
-        ImporteBruto: facturaData.ImporteBruto,
-        PorcentajeBonificacion: facturaData.PorcentajeBonificacion || 0,
-        ImporteBonificado: facturaData.ImporteBonificado || 0,
-        ImporteNeto: facturaData.ImporteNeto,
-        ImporteAdicional: facturaData.ImporteAdicional || 0,
-        ImporteIva1: facturaData.ImporteIva1,
-        ImporteIva2: facturaData.ImporteIva2 || 0,
-        BaseImponible1: facturaData.BaseImponible1,
-        BaseImponible2: facturaData.BaseImponible2 || 0,
-        ImporteTotal: facturaData.ImporteTotal,
-        ImportePagado: facturaData.ImportePagado || 0,
-        PorcentajeIva1: 21,
-        PorcentajeIva2: 10.5,
-        ListaNumero: facturaData.ListaPrecio || 1,
-        Observacion: facturaData.Observacion || '',
-        CodigoUsuario: 'admin',
-        CajaNumero: facturaData.CajaNumero
-      };
+        CodigoArticulo: item.CodigoArticulo,
+        Cantidad: item.Cantidad,
+        PrecioLista: item.PrecioLista || item.PrecioUnitario,
+        PorcentajeBonificado: item.PorcentajeBonificado || 0,
+        ImporteBonificado: item.ImporteBonificado || 0,
+        PrecioUnitario: item.PrecioUnitario,
+        ImporteCosto: articulo ? (articulo.PrecioCosto * item.Cantidad) : 0
+      }, { transaction: t });
       
-      // Crear factura cabeza
-      const nuevaFactura = await FacturaCabeza.create(facturaCabeza, { transaction: t });
-      
-      // Crear items de factura
-      for (const item of facturaData.Items) {
-        // Buscar el artículo en la base de datos
-        const articulo = await Articulo.findOne({
-          where: { Codigo: item.CodigoArticulo },
-          transaction: t
-        });
-        
-        if (!articulo) {
-          console.warn(`Artículo no encontrado: ${item.CodigoArticulo}`);
-        }
-        
-        // Crear item de factura
-        await FacturaItem.create({
-          DocumentoTipo: facturaData.DocumentoTipo,
-          DocumentoSucursal: facturaData.DocumentoSucursal,
-          DocumentoNumero: facturaData.DocumentoNumero,
-          CodigoArticulo: item.CodigoArticulo,
-          Cantidad: item.Cantidad,
-          PrecioLista: item.PrecioLista || item.PrecioUnitario,
-          PorcentajeBonificado: item.PorcentajeBonificado || 0,
-          ImporteBonificado: item.ImporteBonificado || 0,
-          PrecioUnitario: item.PrecioUnitario,
-          ImporteCosto: articulo ? (articulo.PrecioCosto * item.Cantidad) : 0
-        }, { transaction: t });
-        
-        // Actualizar stock si es necesario
-        if (articulo) {
-          const nuevoStock = Math.max(0, articulo.Existencia - item.Cantidad);
-          await articulo.update({ Existencia: nuevoStock }, { transaction: t });
-        }
+      // Actualizar stock si es necesario
+      if (articulo) {
+        const nuevoStock = Math.max(0, articulo.Existencia - item.Cantidad);
+        await articulo.update({ Existencia: nuevoStock }, { transaction: t });
       }
-      
-      // Confirmar transacción
-      await t.commit();
-      
-      res.status(201).json({
-        success: true,
-        message: "Factura creada correctamente desde Telegram",
-        data: {
-          DocumentoTipo: nuevaFactura.DocumentoTipo,
-          DocumentoSucursal: nuevaFactura.DocumentoSucursal,
-          DocumentoNumero: nuevaFactura.DocumentoNumero,
-          ImporteTotal: nuevaFactura.ImporteTotal
-        }
-      });
-      
-    } catch (error) {
-      await t.rollback();
+    }
+    
+    // Confirmar transacción
+    await t.commit();
+    
+    res.status(201).json({
+      success: true,
+      message: "Factura creada correctamente desde Telegram",
+      data: {
+        DocumentoTipo: nuevaFactura.DocumentoTipo,
+        DocumentoSucursal: nuevaFactura.DocumentoSucursal,
+        DocumentoNumero: nuevaFactura.DocumentoNumero,
+        ImporteTotal: nuevaFactura.ImporteTotal
+      }
+    });
+    
+  } catch (error) {
+    await t.rollback();
       console.error("Error al crear factura desde Telegram:", error);
       throw error;
     }
@@ -410,20 +410,65 @@ exports.crearProducto = async (req, res) => {
       // Generar código automático si no viene
       if (!productoData.Codigo) {
         try {
-          // Obtener el último código de artículo
-          const ultimoArticulo = await Articulo.findOne({
-            order: [['Codigo', 'DESC']],
-            transaction: t
-          });
+          // Buscar la configuración de último código de artículo
+          // Usar una consulta directa ya que puede haber diferencias en el modelo
+          const configUltimoCodigo = await req.db.query(
+            "SELECT Codigo, ValorConfig FROM t_configuracion WHERE Codigo = 'ART_ULTIMO_CODIGO'",
+            {
+              type: req.db.QueryTypes.SELECT,
+              transaction: t
+            }
+          );
           
-          if (ultimoArticulo) {
+          let nuevoCodigo;
+          
+          if (configUltimoCodigo && configUltimoCodigo.length > 0 && configUltimoCodigo[0].ValorConfig) {
             // Incrementar el último código
-            const ultimoCodigo = parseInt(ultimoArticulo.Codigo, 10);
-            productoData.Codigo = (ultimoCodigo + 1).toString().padStart(6, '0');
+            const ultimoCodigo = parseInt(configUltimoCodigo[0].ValorConfig, 10);
+            nuevoCodigo = ultimoCodigo + 1;
+            productoData.Codigo = nuevoCodigo.toString().padStart(6, '0');
+            
+            // Actualizar la configuración con el nuevo valor
+            await req.db.query(
+              "UPDATE t_configuracion SET ValorConfig = ? WHERE Codigo = 'ART_ULTIMO_CODIGO'",
+              {
+                replacements: [nuevoCodigo.toString()],
+                type: req.db.QueryTypes.UPDATE,
+                transaction: t
+              }
+            );
           } else {
-            // Si no hay artículos, empezar desde 1
-            productoData.Codigo = '000001';
+            // Si no existe la configuración o está vacía, buscar en la tabla de artículos
+            const ultimoArticulo = await Articulo.findOne({
+              order: [['Codigo', 'DESC']],
+              transaction: t
+            });
+            
+            if (ultimoArticulo) {
+              // Incrementar el último código
+              const ultimoCodigo = parseInt(ultimoArticulo.Codigo, 10);
+              nuevoCodigo = ultimoCodigo + 1;
+              productoData.Codigo = nuevoCodigo.toString().padStart(6, '0');
+            } else {
+              // Si no hay artículos, empezar desde 1
+              nuevoCodigo = 1;
+              productoData.Codigo = '000001';
+            }
+            
+            // Crear la configuración si no existía
+            if (!configUltimoCodigo || configUltimoCodigo.length === 0) {
+              await req.db.query(
+                "INSERT INTO t_configuracion (Codigo, ValorConfig, Descripcion) VALUES (?, ?, ?)",
+                {
+                  replacements: ['ART_ULTIMO_CODIGO', nuevoCodigo.toString(), 'Último código de artículo utilizado'],
+                  type: req.db.QueryTypes.INSERT,
+                  transaction: t
+                }
+              );
+            }
           }
+          
+          console.log(`Nuevo código de artículo generado: ${productoData.Codigo}`);
         } catch (error) {
           console.error("Error al generar código automático:", error);
           throw error;

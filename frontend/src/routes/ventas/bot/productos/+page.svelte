@@ -88,6 +88,11 @@
     goto(`/ventas/bot/productos/detalles/${codigo}`);
   }
   
+  // Navegar a la página de editar producto
+  function editarProducto(codigo: string) {
+    goto(`/ventas/bot/productos/editar/${codigo}`);
+  }
+  
   // Navegar a la página de crear nuevo producto
   function crearNuevoProducto() {
     goto('/ventas/bot/productos/nuevo');
@@ -199,6 +204,13 @@
               aria-label={`Ver detalles de ${producto.Descripcion}`}
             >
               👁️
+            </button>
+            <button 
+              class="btn-editar" 
+              on:click={() => editarProducto(producto.Codigo)}
+              aria-label={`Editar ${producto.Descripcion}`}
+            >
+              ✏️
             </button>
           </div>
         </div>
@@ -465,7 +477,7 @@
     gap: 8px;
   }
   
-  .btn-ver {
+  .btn-ver, .btn-editar {
     width: 32px;
     height: 32px;
     border-radius: 50%;
