@@ -84,7 +84,7 @@
   
   // Navegar para crear nuevo cliente
   function nuevoCliente() {
-    goto('/ventas/bot/clientes/nuevo');
+    goto('/ventas/bot/clientes/nuevo-cliente');
   }
   
   // Navegar a home
