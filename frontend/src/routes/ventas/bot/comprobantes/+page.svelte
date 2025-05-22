@@ -6,6 +6,7 @@
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { auth } from '$lib/stores/authStore';
   import { get } from 'svelte/store';
+  import ComprobanteDetalle from '../components/ComprobanteDetalle.svelte';
 
 
   interface Comprobante {
@@ -92,6 +93,18 @@
   // Variable para código del vendedor
   let codigoVendedor: string = '1'; // Valor por defecto por si fallan las demás opciones
   
+  // Variables para el componente de detalle del comprobante
+  let comprobanteFormateado: any = {
+    tipo: '',
+    sucursal: '',
+    numero: '',
+    fecha: '',
+    clienteNombre: '',
+    total: 0,
+    vendedorNombre: '',
+    items: []
+  };
+  
   // Función para guardar datos del vendedor en localStorage
   function guardarDatosVendedor(usuario: any) {
     if (usuario) {
@@ -134,10 +147,8 @@
     }
   });
 
-  // Telegram WebApp
-  /* 
+  // Referencia al objeto de Telegram WebApp
   let tg: any = null;
-  */
 
   let mostrarModalWhatsApp = false;
   let numeroTelefono = '';
@@ -146,8 +157,26 @@
   let comprobanteParaCompartir: Comprobante | null = null;
   let detallesParaCompartir: ComprobanteDetalle[] = [];
 
+  // Definir una interfaz para el evento personalizado
+  interface ActualizarTelefonoEvent extends CustomEvent {
+    detail: {
+      clienteCodigo: string;
+      nuevoTelefono: string;
+    };
+  }
+
+  // Función para manejar eventos de actualización de teléfono
+  const handleActualizarTelefono = ((event: Event) => {
+    const customEvent = event as ActualizarTelefonoEvent;
+    if (customEvent.detail && customEvent.detail.clienteCodigo && customEvent.detail.nuevoTelefono) {
+      const { clienteCodigo, nuevoTelefono } = customEvent.detail;
+      console.log(`Actualizando teléfono para cliente ${clienteCodigo}: ${nuevoTelefono}`);
+      actualizarTelefonoCliente(clienteCodigo, nuevoTelefono);
+    }
+  }) as EventListener;
+
   onMount(async () => {
-    /* 
+    // Inicializar el objeto de Telegram WebApp si estamos en Telegram
     if (typeof window !== 'undefined' && 'Telegram' in window) {
       const telegram = (window as any).Telegram;
       if (telegram && telegram.WebApp) {
@@ -155,7 +184,6 @@
         tg.expand();
       }
     }
-    */
     
     // Verificar estado actual de autenticación
     const authState = get(auth);
@@ -186,6 +214,19 @@
     
     await cargarVendedores();
     await cargarComprobantes();
+    
+    // Escuchar eventos personalizados para actualizar teléfono
+    window.addEventListener('actualizarTelefono', handleActualizarTelefono);
+  });
+
+  onDestroy(() => {
+    // Limpiar suscripción cuando el componente se destruye
+    if (unsubscribe) {
+      unsubscribe();
+    }
+    
+    // Eliminar el event listener
+    window.removeEventListener('actualizarTelefono', handleActualizarTelefono);
   });
 
   async function cargarVendedores() {
@@ -259,17 +300,21 @@
     try {
       isLoading = true;
       error = null;
+      comprobanteSeleccionado = comprobante;
+      
+      // Obtener detalles del comprobante - Corregir URL
       const response = await fetchWithAuth(`/facturas/${comprobante.DocumentoTipo}/${comprobante.DocumentoSucursal}/${comprobante.DocumentoNumero}`);
-
+      
       if (!response.ok) {
-        throw new Error('Error al cargar los detalles');
+        throw new Error('Error al cargar los detalles del comprobante');
       }
+      
       const data = await response.json() as ApiDetalleResponse;
-      if (data.success && data.data) {
-        // Log para depurar - ver si el teléfono viene del backend
-        console.log("Datos del cliente recibidos:", data.data.encabezado.Cliente);
+      
+      if (data && data.success && data.data) {
+        const items = data.data.items;
         
-        detallesComprobante = data.data.items.map((item: ApiFacturaDetalle) => ({
+        detallesComprobante = items.map(item => ({
           Codigo: item.CodigoArticulo,
           Descripcion: item.Descripcion,
           Cantidad: item.Cantidad,
@@ -277,25 +322,10 @@
           ImporteTotal: item.Cantidad * item.PrecioUnitario
         }));
         
-        let clienteTelefono = data.data.encabezado.Cliente?.Telefono || '';
+        // Obtener teléfono del cliente
+        const clienteTelefono = data.data.encabezado.Cliente?.Telefono || '';
         
-        // Si tenemos código de cliente pero no teléfono, intentamos obtenerlo directamente
-        if (data.data.encabezado.ClienteCodigo && !clienteTelefono) {
-          try {
-            const clienteResponse = await fetchWithAuth(`/clientes/${data.data.encabezado.ClienteCodigo}`);
-            if (clienteResponse.ok) {
-              const clienteData = await clienteResponse.json();
-              console.log("Datos adicionales del cliente:", clienteData);
-              if (clienteData.Telefono) {
-                clienteTelefono = clienteData.Telefono;
-                console.log("Teléfono obtenido de la API de clientes:", clienteTelefono);
-              }
-            }
-          } catch (clienteErr) {
-            console.error("Error al obtener datos adicionales del cliente:", clienteErr);
-          }
-        }
-        
+        // Actualizar el comprobante seleccionado con los datos del cliente
         comprobanteSeleccionado = {
           ...comprobante,
           ClienteDescripcion: data.data.encabezado.Cliente?.Descripcion || 'Sin cliente',
@@ -304,6 +334,27 @@
         
         // Log para depurar - confirmar que se asignó correctamente
         console.log("Teléfono asignado:", comprobanteSeleccionado.ClienteTelefono);
+        
+        // Formatear datos para el componente ComprobanteDetalle
+        comprobanteFormateado = {
+          tipo: comprobanteSeleccionado.DocumentoTipo,
+          sucursal: comprobanteSeleccionado.DocumentoSucursal,
+          numero: comprobanteSeleccionado.DocumentoNumero,
+          fecha: comprobanteSeleccionado.Fecha,
+          clienteCodigo: comprobanteSeleccionado.ClienteCodigo,
+          clienteNombre: comprobanteSeleccionado.ClienteDescripcion,
+          clienteTelefono: comprobanteSeleccionado.ClienteTelefono,
+          total: comprobanteSeleccionado.ImporteTotal,
+          vendedorCodigo: comprobanteSeleccionado.VendedorCodigo,
+          vendedorNombre: obtenerNombreVendedor(comprobanteSeleccionado.VendedorCodigo),
+          items: detallesComprobante.map(item => ({
+            codigo: item.Codigo,
+            descripcion: item.Descripcion,
+            cantidad: item.Cantidad,
+            precioUnitario: item.PrecioUnitario,
+            subtotal: item.ImporteTotal
+          }))
+        };
         
         mostrarDetalles = true;
       } else {
@@ -491,13 +542,27 @@
     const url = `mailto:?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(mensaje)}`;
     window.location.href = url;
   }
+
+  // Función para compartir comprobante mediante Telegram
+  function compartirComprobante() {
+    if (comprobanteSeleccionado && tg) {
+      const mensaje = prepararMensajeComprobante(comprobanteSeleccionado, detallesComprobante);
+      
+      tg.sendData(JSON.stringify({
+        action: 'share',
+        data: mensaje
+      }));
+      
+      comprobanteParaCompartir = null;
+      detallesParaCompartir = [];
+    }
+  }
 </script>
 
-<!-- Comentado para desvincular el bot de Telegram
+<!-- Comentado para desvincular el bot de Telegram -->
 <svelte:head>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </svelte:head>
--->
 
 <div class="telegram-webapp">
   <button class="btn-volver" on:click={() => navigate('/ventas/bot/home')}>← Volver</button>
@@ -573,50 +638,11 @@
       </button>
     </div>
   {:else}
-    <div class="detalles-comprobante">
-      
-      {#if comprobanteSeleccionado}
-        <div class="detalles-header">
-          <h2>{comprobanteSeleccionado.DocumentoTipo}-{comprobanteSeleccionado.DocumentoSucursal}-{comprobanteSeleccionado.DocumentoNumero}</h2>
-          <div class="detalles-fecha">{comprobanteSeleccionado.Fecha}</div>
-          <div class="detalles-cliente">{comprobanteSeleccionado.ClienteDescripcion}</div>
-          {#if comprobanteSeleccionado.ClienteTelefono}
-            <div class="detalles-telefono">Tel: {comprobanteSeleccionado.ClienteTelefono}</div>
-          {/if}
-        </div>
-
-        <div class="detalles-items">
-          {#each detallesComprobante as item}
-            <div class="detalle-item">
-              <div class="item-descripcion">{item.Descripcion}</div>
-              <div class="item-cantidad">{item.Cantidad}</div>
-              <div class="item-precio">{formatearImporte(item.PrecioUnitario)}</div>
-              <div class="item-total">{formatearImporte(item.ImporteTotal)}</div>
-            </div>
-          {/each}
-        </div>
-
-        <div class="detalles-total">
-          <span>Total:</span>
-          <span>{formatearImporte(comprobanteSeleccionado.ImporteTotal)}</span>
-        </div>
-
-        <div class="acciones-comprobante">
-          <button 
-            class="btn-compartir whatsapp"
-            on:click={() => abrirModalWhatsApp(comprobanteSeleccionado, detallesComprobante)}
-          >
-            Compartir por WhatsApp
-          </button>
-          <button 
-            class="btn-compartir email"
-            on:click={() => compartirPorEmail(comprobanteSeleccionado, detallesComprobante)}
-          >
-            Compartir por Email
-          </button>
-        </div>
-      {/if}
-    </div>
+    <ComprobanteDetalle
+      comprobante={comprobanteFormateado}
+      mostrar={mostrarDetalles}
+      onClose={cerrarDetalles}
+    />
   {/if}
 
   {#if mostrarModalWhatsApp}
@@ -760,10 +786,6 @@
     font-size: 0.9em;
   }
 
-  .detalles-comprobante {
-    padding: 16px 0;
-  }
-
   .btn-volver {
     background: none;
     border: none;
@@ -772,76 +794,6 @@
     cursor: pointer;
     font-size: 1em;
     margin-bottom: 16px;
-  }
-
-  .detalles-header {
-    margin-bottom: 20px;
-  }
-
-  .detalles-header h2 {
-    margin: 0;
-    font-size: 1.2em;
-  }
-
-  .detalles-fecha {
-    color: var(--tg-theme-hint-color, #999);
-    font-size: 0.9em;
-    margin: 4px 0;
-  }
-
-  .detalles-cliente {
-    font-weight: bold;
-  }
-
-  .detalles-telefono {
-    font-size: 0.9em;
-    color: var(--tg-theme-hint-color, #777);
-    margin-top: 4px;
-  }
-
-  .detalles-items {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .detalle-item {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr;
-    gap: 8px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--tg-theme-hint-color, #eee);
-  }
-
-  .item-descripcion {
-    font-size: 0.9em;
-  }
-
-  .item-cantidad {
-    text-align: right;
-    font-size: 0.9em;
-  }
-
-  .item-precio {
-    text-align: right;
-    font-size: 0.9em;
-    color: var(--tg-theme-hint-color, #999);
-  }
-
-  .item-total {
-    text-align: right;
-    font-size: 0.9em;
-    font-weight: bold;
-  }
-
-  .detalles-total {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 20px;
-    padding-top: 16px;
-    border-top: 2px solid var(--tg-theme-hint-color, #eee);
-    font-weight: bold;
-    font-size: 1.1em;
   }
 
   .error {
@@ -878,15 +830,6 @@
     color: var(--tg-theme-text-color, #000);
   }
 
-  .acciones-comprobante {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 20px;
-    padding-top: 16px;
-    border-top: 1px solid var(--tg-theme-hint-color, #eee);
-  }
-
   .btn-compartir {
     padding: 12px;
     border: none;
@@ -902,11 +845,6 @@
   .btn-compartir.whatsapp {
     background-color: #25D366;
     color: white;
-  }
-
-  .btn-compartir.email {
-    background-color: var(--tg-theme-button-color, #2481cc);
-    color: var(--tg-theme-button-text-color, #fff);
   }
 
   .modal-overlay {

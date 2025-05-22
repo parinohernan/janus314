@@ -5,6 +5,7 @@
   import ArticulosBusqueda from '../components/ArticulosBusqueda.svelte';
   import ArticulosSeleccionados from '../components/ArticulosSeleccionados.svelte';
   import CobroModal from '../components/CobroModal.svelte';
+  import ComprobanteDetalle from '../components/ComprobanteDetalle.svelte';
   import { obtenerPrecioSegunLista, fetchProductos } from '../components/utils';
   import type { Articulo, Cliente, ArticuloSeleccionado } from '../components/types';
   import '../components/bot.css';
@@ -79,6 +80,17 @@
   let mostrarModalCobro: boolean = false;
   let montoPagado: number = 0;
   let cambio: number = 0;
+  
+  // Variables para el modal de comprobante
+  let mostrarComprobanteDetalle: boolean = false;
+  let comprobanteActual: any = {
+    tipo: '',
+    sucursal: '',
+    numero: '',
+    clienteNombre: '',
+    total: 0,
+    items: []
+  };
   
   // Referencia al objeto de Telegram WebApp
   let tg: any = null;
@@ -418,32 +430,46 @@
       success = 'Factura creada correctamente';
       mostrarModalCobro = false;
       
-      // Limpiar datos para nueva venta
-      cliente = 'CF';
-      clienteSeleccionado = { Codigo: 'CF', Descripcion: 'Consumidor Final' };
-      selectedArticulos = [];
-      busquedaProducto = '';
-      productosFiltrados = [];
-      montoPagado = 0;
-      cambio = 0;
-      error = null;
+      // Preparar datos para el comprobante
+      const numeroComprobante = data.data?.DocumentoNumero || data.data?.numero || '00000000';
+      const itemsComprobante = selectedArticulos.map(articulo => ({
+        codigo: articulo.Codigo,
+        descripcion: articulo.Descripcion || '',
+        cantidad: cantidadTotal(articulo),
+        precioUnitario: Number((articulo.PrecioVenta || 0).toFixed(2)),
+        subtotal: Number(((articulo.PrecioVenta || 0) * cantidadTotal(articulo)).toFixed(2))
+      }));
       
-      // Enviar datos a Telegram y cerrar WebApp si tg está disponible
+      // Configurar el comprobante actual
+      comprobanteActual = {
+        tipo: factura.DocumentoTipo,
+        sucursal: factura.DocumentoSucursal,
+        numero: numeroComprobante,
+        fecha: factura.Fecha,
+        clienteCodigo: cliente,
+        clienteNombre: clienteSeleccionado.Descripcion,
+        total: factura.ImporteTotal,
+        vendedorCodigo: codigoVendedor,
+        vendedorNombre: localStorage.getItem('botVendedorNombre') || 'Vendedor',
+        items: itemsComprobante
+      };
+      
+      // Mostrar el detalle del comprobante
+      mostrarComprobanteDetalle = true;
+      
+      // Limpiar datos para nueva venta (se hace después de cerrar el comprobante)
+      
+      // Enviar datos a Telegram si el usuario cierra el comprobante
       if (tg) {
         tg.sendData(JSON.stringify({
           tipo: factura.DocumentoTipo,
           sucursal: factura.DocumentoSucursal,
-          numero: data.data?.DocumentoNumero || data.data?.numero || 'pendiente',
+          numero: numeroComprobante,
           cliente: cliente,
           total: factura.ImporteTotal,
           pagado: montoPagado,
           cambio: cambio
         }));
-        
-        // Cerrar la webapp después de un momento
-        setTimeout(() => {
-          if (tg) tg.close();
-        }, 1000);
       }
       
     } catch (err: unknown) {
@@ -452,6 +478,28 @@
       console.error("Error completo:", err);
     } finally {
       isLoading = false;
+    }
+  }
+  
+  // Función para cerrar el detalle del comprobante y preparar nueva venta
+  function cerrarComprobanteDetalle() {
+    mostrarComprobanteDetalle = false;
+    
+    // Limpiar datos para nueva venta
+    cliente = 'CF';
+    clienteSeleccionado = { Codigo: 'CF', Descripcion: 'Consumidor Final' };
+    selectedArticulos = [];
+    busquedaProducto = '';
+    productosFiltrados = [];
+    montoPagado = 0;
+    cambio = 0;
+    error = null;
+    
+    // Cerrar la webapp de Telegram después de un momento si está disponible
+    if (tg) {
+      setTimeout(() => {
+        if (tg) tg.close();
+      }, 1000);
     }
   }
   
@@ -542,7 +590,7 @@
     
     <div class="actions">
       <button type="submit" class="btn-primary" disabled={isLoading}>
-        {isLoading ? 'Procesando...' : 'Cobrar'}
+        {isLoading ? 'Procesando...' : (selectedArticulos.length > 0 ? 'Cobrar' : 'Agregar artículos')}
       </button>
     </div>
   </form>
@@ -564,6 +612,12 @@
     {calcularCambio}
     cancelar={() => mostrarModalCobro = false}
     terminar={procesarCobro}
+  />
+  
+  <ComprobanteDetalle
+    comprobante={comprobanteActual}
+    mostrar={mostrarComprobanteDetalle}
+    onClose={cerrarComprobanteDetalle}
   />
 </div>
 

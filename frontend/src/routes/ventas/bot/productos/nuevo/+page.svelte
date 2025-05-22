@@ -5,7 +5,7 @@
   import { writable } from 'svelte/store';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { ProveedorService, type Proveedor, type ProveedorCompleto } from '$lib/services/ProveedorService';
-  import { RubroService, type Rubro } from '$lib/services/RubroService';
+  import { RubroService, type Rubro, type RubroCompleto } from '$lib/services/RubroService';
   import { CodigoPostalService, type CodigoPostal } from '$lib/services/CodigoPostalService';
 
   // Paso actual del formulario
@@ -99,6 +99,17 @@
   let loadingProveedor = false;
   let errorProveedor = '';
   let successProveedor = false;
+
+  // Modal de nuevo rubro
+  let mostrarModalRubro = false;
+  let nuevoRubro: RubroCompleto = {
+    Codigo: '',
+    Descripcion: '',
+    RubroGrupoCodigo: ''
+  };
+  let loadingRubro = false;
+  let errorRubro = '';
+  let successRubro = false;
 
   // Calcular precio de costo sin IVA cuando cambia el precio con IVA
   $: if (producto.PrecioCostoConIva > 0) {
@@ -236,8 +247,8 @@
     mostrarModalProveedor = false;
   }
 
-  // Manejar tecla Escape para cerrar el modal
-  function handleKeydown(event: KeyboardEvent) {
+  // Manejar tecla Escape para cerrar el modal de proveedor
+  function handleKeydownProveedor(event: KeyboardEvent) {
     if (event.key === 'Escape' && mostrarModalProveedor) {
       cerrarModalProveedor();
     }
@@ -289,6 +300,78 @@
       }
     } finally {
       loadingProveedor = false;
+    }
+  }
+
+  // Funciones para el modal de nuevo rubro
+  function abrirModalRubro() {
+    nuevoRubro = {
+      Codigo: '',
+      Descripcion: '',
+      RubroGrupoCodigo: ''
+    };
+    errorRubro = '';
+    successRubro = false;
+    mostrarModalRubro = true;
+  }
+
+  function cerrarModalRubro() {
+    mostrarModalRubro = false;
+  }
+  
+  // Manejar tecla Escape para cerrar el modal de rubro
+  function handleKeydownRubro(event: KeyboardEvent) {
+    if (event.key === 'Escape' && mostrarModalRubro) {
+      cerrarModalRubro();
+    }
+  }
+
+  async function guardarRubro() {
+    // Validación básica
+    if (!nuevoRubro.Descripcion) {
+      errorRubro = 'La descripción del rubro es obligatoria';
+      return;
+    }
+
+    try {
+      loadingRubro = true;
+      errorRubro = '';
+
+      // Generar código automáticamente si está vacío
+      if (!nuevoRubro.Codigo) {
+        // Usar timestamp como código único (máximo 4 caracteres)
+        nuevoRubro.Codigo = Date.now().toString().substring(9, 13);
+      }
+
+      // Guardar nuevo rubro
+      const rubroGuardado = await RubroService.crearRubro(nuevoRubro);
+      
+      // Actualizar la lista de rubros
+      rubros = [...rubros, {
+        Codigo: rubroGuardado.Codigo,
+        Descripcion: rubroGuardado.Descripcion
+      }];
+      
+      // Seleccionar el nuevo rubro en el formulario
+      producto.Rubro = rubroGuardado.Codigo;
+      
+      // Mostrar mensaje de éxito
+      successRubro = true;
+      
+      // Cerrar el modal después de 2 segundos
+      setTimeout(() => {
+        cerrarModalRubro();
+      }, 2000);
+      
+    } catch (err) {
+      console.error('Error al guardar rubro:', err);
+      if (err instanceof Error) {
+        errorRubro = err.message;
+      } else {
+        errorRubro = 'Error al guardar el rubro';
+      }
+    } finally {
+      loadingRubro = false;
     }
   }
 
@@ -418,15 +501,27 @@
           </div>
           
           <div class="form-group">
-            <label for="rubro">
-              Rubro <span class="required">*</span>
-            </label>
-            <select id="rubro" bind:value={producto.Rubro} required>
-              <option value="">Seleccione un rubro</option>
-              {#each rubros as rubro}
-                <option value={rubro.Codigo}>{rubro.Descripcion}</option>
-              {/each}
-            </select>
+            <div class="field-with-action">
+              <label for="rubro">
+                Rubro <span class="required">*</span>
+              </label>
+              <div class="select-with-button">
+                <select id="rubro" bind:value={producto.Rubro} required>
+                  <option value="">Seleccione un rubro</option>
+                  {#each rubros as rubro}
+                    <option value={rubro.Codigo}>{rubro.Descripcion}</option>
+                  {/each}
+                </select>
+                <button 
+                  class="btn-add" 
+                  on:click={abrirModalRubro} 
+                  title="Agregar nuevo rubro"
+                  type="button"
+                >
+                  <span>+</span>
+                </button>
+              </div>
+            </div>
           </div>
           
           <div class="form-group">
@@ -707,15 +802,15 @@
     <div 
       class="modal-overlay" 
       on:click|self={cerrarModalProveedor}
-      on:keydown={handleKeydown}
+      on:keydown={handleKeydownProveedor}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="modal-titulo"
+      aria-labelledby="modal-titulo-proveedor"
       tabindex="-1"
     >
       <div class="modal-content">
         <div class="modal-header">
-          <h3 id="modal-titulo">Nuevo Proveedor</h3>
+          <h3 id="modal-titulo-proveedor">Nuevo Proveedor</h3>
           <button class="btn-close" on:click={cerrarModalProveedor} aria-label="Cerrar modal">×</button>
         </div>
         
@@ -854,6 +949,86 @@
                 </button>
                 <button type="submit" class="btn-primary">
                   Guardar Proveedor
+                </button>
+              </div>
+            </form>
+          {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
+  
+  <!-- Modal para agregar nuevo rubro -->
+  {#if mostrarModalRubro}
+    <div 
+      class="modal-overlay" 
+      on:click|self={cerrarModalRubro}
+      on:keydown={handleKeydownRubro}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-titulo-rubro"
+      tabindex="-1"
+    >
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modal-titulo-rubro">Nuevo Rubro</h3>
+          <button class="btn-close" on:click={cerrarModalRubro} aria-label="Cerrar modal">×</button>
+        </div>
+        
+        <div class="modal-body">
+          {#if loadingRubro}
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <span>Guardando rubro...</span>
+            </div>
+          {:else if errorRubro}
+            <div class="error-state">
+              <span>{errorRubro}</span>
+              <button on:click={() => errorRubro = ''}>Aceptar</button>
+            </div>
+          {:else if successRubro}
+            <div class="success-state">
+              <span>¡Rubro creado correctamente!</span>
+            </div>
+          {:else}
+            <form on:submit|preventDefault={guardarRubro}>
+              <div class="form-section">
+                <h4>Datos del Rubro</h4>
+                
+                <div class="form-group">
+                  <label for="rubroDescripcion">
+                    Descripción <span class="required">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    id="rubroDescripcion" 
+                    bind:value={nuevoRubro.Descripcion} 
+                    placeholder="Nombre del rubro"
+                    required
+                  />
+                </div>
+                
+                <div class="form-group">
+                  <label for="rubroGrupo">
+                    Grupo de Rubro
+                    <span class="disabled-field">(No disponible por el momento)</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    id="rubroGrupo" 
+                    bind:value={nuevoRubro.RubroGrupoCodigo} 
+                    placeholder="Grupo"
+                    disabled
+                  />
+                </div>
+              </div>
+              
+              <div class="modal-actions">
+                <button type="button" class="btn-secondary" on:click={cerrarModalRubro}>
+                  Cancelar
+                </button>
+                <button type="submit" class="btn-primary">
+                  Guardar Rubro
                 </button>
               </div>
             </form>
