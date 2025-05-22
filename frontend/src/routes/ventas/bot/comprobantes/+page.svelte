@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { goto as navigate } from '$app/navigation';
   import '../components/bot.css';
+  import '../components/mobile-fix.css';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { auth } from '$lib/stores/authStore';
   import { get } from 'svelte/store';
@@ -573,7 +574,7 @@
     </div>
   {:else}
     <div class="detalles-comprobante">
-      <!-- <button class="btn-volver" on:click={cerrarDetalles}>← Volver</button> -->
+      <button class="btn-volver" on:click={cerrarDetalles}>← Volver</button>
       
       {#if comprobanteSeleccionado}
         <div class="detalles-header">

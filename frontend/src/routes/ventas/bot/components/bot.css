@@ -2,12 +2,24 @@
 
 :root {
   --tg-theme-bg-color: #ffffff;
-  --tg-theme-text-color: #000000;
-  --tg-theme-hint-color: #999999;
+  --tg-theme-text-color: #222222;
+  --tg-theme-hint-color: #666666;
   --tg-theme-link-color: #2481cc;
   --tg-theme-button-color: #2481cc;
   --tg-theme-button-text-color: #ffffff;
-  --tg-theme-secondary-bg-color: #f5f5f5;
+  --tg-theme-secondary-bg-color: #f8f9fa;
+  
+  /* Nuevas variables para mejorar el diseño */
+  --app-shadow-sm: 0 2px 5px rgba(0, 0, 0, 0.04);
+  --app-shadow-md: 0 4px 15px rgba(0, 0, 0, 0.08);
+  --app-border-radius: 12px;
+  --app-spacing-sm: 8px;
+  --app-spacing-md: 16px;
+  --app-spacing-lg: 24px;
+  --app-primary-light: rgba(36, 129, 204, 0.08);
+  --app-primary-color: #2481cc;
+  --app-border-color: rgba(0, 0, 0, 0.06);
+  --app-gradient: linear-gradient(135deg, #2481cc, #1a68a7);
 }
 
 /* Estilos base */

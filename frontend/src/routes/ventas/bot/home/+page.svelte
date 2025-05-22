@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { goto as navigate } from '$app/navigation';
-  import '../../../../app.css';
+  import '../components/bot.css';
   import QuickStats from '../components/QuickStats.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { auth } from '$lib/stores/authStore';
@@ -266,17 +266,11 @@
   }
 </script>
 
-<!-- Comentado para desvincular el bot de Telegram
-<svelte:head>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-</svelte:head>
--->
-
-<div class="home-container">
+<div class="telegram-webapp">
   <!-- Header con saludo personalizado -->
   <header class="header">
     <div class="app-title">
-      <h1>JanO MPOS</h1>
+      <h1>Jano miniPOS</h1>
       {#if userName}
         <p class="welcome-text">¡Hola, {userName}! 👋</p>
       {:else if vendedorNombre && isAuthenticated}
@@ -410,7 +404,7 @@
 </div>
 
 <style>
-  .home-container {
+  .telegram-webapp {
     padding: 16px;
     max-width: 100%;
     min-height: 100vh;
@@ -420,6 +414,8 @@
 
   .header {
     margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
   }
 
   .app-title h1 {
@@ -427,6 +423,27 @@
     margin: 0;
     color: var(--tg-theme-text-color, #000);
     font-weight: bold;
+    background: linear-gradient(to right, #2481cc, #0072cf);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    /* text-fill-color: transparent; */
+  }
+  
+  @media (max-width: 480px) {
+    .header {
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+    }
+    
+    .app-title h1 {
+      font-size: 1.5rem;
+    }
+    
+    .welcome-text {
+      font-size: 0.95rem !important;
+      margin-top: 4px !important;
+    }
   }
 
   .welcome-container {
@@ -439,6 +456,7 @@
     margin: 8px 0 0 0;
     color: var(--tg-theme-hint-color, #999);
     font-size: 1.1rem;
+    font-weight: 500;
   }
 
   .logout-button,
@@ -471,9 +489,16 @@
     gap: 16px;
     margin-bottom: 24px;
   }
+  
+  @media (max-width: 480px) {
+    .stats-container {
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+  }
 
   .stat-card {
-    background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+    background: var(--tg-theme-secondary-bg-color, #f8f9fa);
     border-radius: 12px;
     padding: 16px;
     display: flex;
@@ -485,20 +510,23 @@
     border: none;
     width: 100%;
     height: 90px; /* Altura fija para todas las tarjetas */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.04);
   }
 
   .clickable {
     cursor: pointer;
-    transition: transform 0.2s ease, background-color 0.2s ease;
+    transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
   }
 
   .clickable:hover {
-    background-color: rgba(0, 0, 0, 0.02);
+    background-color: #f0f4f9;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   }
 
   .clickable:active {
     transform: scale(0.98);
-    background-color: rgba(0, 0, 0, 0.03);
+    background-color: rgba(36, 129, 204, 0.05);
   }
 
   .clickable:focus {
@@ -508,6 +536,14 @@
 
   .stat-icon {
     font-size: 1.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    background: rgba(36, 129, 204, 0.08);
+    border-radius: 10px;
+    color: var(--tg-theme-button-color, #2481cc);
   }
 
   .stat-content {
@@ -516,18 +552,18 @@
 
   .stat-value {
     font-size: 1.2rem;
-    font-weight: bold;
+    font-weight: 600;
     color: var(--tg-theme-text-color, #000);
   }
 
   .stat-label {
     font-size: 0.9rem;
-    color: var(--tg-theme-hint-color, #999);
+    color: var(--tg-theme-hint-color, #888);
     margin-top: 4px;
   }
 
   .stat-sublabel {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     color: var(--tg-theme-hint-color, #999);
     margin-top: 2px;
   }
@@ -536,41 +572,63 @@
     display: grid;
     gap: 16px;
   }
+  
+  @media (max-width: 480px) {
+    .features-grid {
+      gap: 10px;
+    }
+  }
 
   .feature-card {
-    background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+    background: var(--tg-theme-secondary-bg-color, #f8f9fa);
     padding: 20px;
-    border-radius: 12px;
-    border: none;
+    border-radius: 14px;
+    border: 1px solid rgba(0, 0, 0, 0.04);
     text-align: left;
     display: grid;
     grid-template-columns: auto 1fr;
     gap: 16px;
     align-items: center;
     cursor: pointer;
-    transition: transform 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
     width: 100%;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  }
+
+  .feature-card:hover {
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    background-color: #f0f4f9;
   }
 
   .feature-card:active {
     transform: scale(0.98);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
   }
 
   .feature-icon {
     font-size: 2rem;
     grid-row: span 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    background: rgba(36, 129, 204, 0.08);
+    border-radius: 12px;
+    color: var(--tg-theme-button-color, #2481cc);
   }
 
   .feature-card h3 {
     margin: 0;
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     color: var(--tg-theme-text-color, #000);
+    font-weight: 600;
   }
 
   .feature-card p {
     margin: 4px 0 0 0;
     font-size: 0.9rem;
-    color: var(--tg-theme-hint-color, #999);
+    color: var(--tg-theme-hint-color, #888);
   }
 
   /* Estilos para el modal de login */
@@ -666,11 +724,53 @@
     font-size: 0.9rem;
   }
 
-  @media (max-width: 360px) {
-    .feature-card {
-      padding: 16px;
+  @media (max-width: 480px) {
+    /* Reducción de fuentes en tarjetas para móviles */
+    .stat-icon {
+      font-size: 1.4rem;
+      width: 40px;
+      height: 40px;
     }
     
+    .stat-value {
+      font-size: 0.95rem;
+    }
+    
+    .stat-label {
+      font-size: 0.75rem;
+    }
+    
+    .stat-sublabel {
+      font-size: 0.65rem;
+    }
+    
+    .feature-icon {
+      font-size: 1.6rem;
+      width: 48px;
+      height: 48px;
+    }
+    
+    .feature-card h3 {
+      font-size: 1rem;
+    }
+    
+    .feature-card p {
+      font-size: 0.8rem;
+    }
+    
+    .feature-card {
+      padding: 14px;
+      gap: 12px;
+    }
+    
+    .stat-card {
+      padding: 12px;
+      gap: 10px;
+      height: 75px;
+    }
+  }
+
+  @media (max-width: 360px) {    
     .modal-content {
       padding: 16px;
     }
