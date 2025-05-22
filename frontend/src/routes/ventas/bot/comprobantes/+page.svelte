@@ -574,7 +574,6 @@
     </div>
   {:else}
     <div class="detalles-comprobante">
-      <button class="btn-volver" on:click={cerrarDetalles}>← Volver</button>
       
       {#if comprobanteSeleccionado}
         <div class="detalles-header">

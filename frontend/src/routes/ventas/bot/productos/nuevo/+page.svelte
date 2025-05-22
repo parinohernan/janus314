@@ -4,8 +4,9 @@
   import '../../../../../app.css';
   import { writable } from 'svelte/store';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
-  import { ProveedorService, type Proveedor } from '$lib/services/ProveedorService';
+  import { ProveedorService, type Proveedor, type ProveedorCompleto } from '$lib/services/ProveedorService';
   import { RubroService, type Rubro } from '$lib/services/RubroService';
+  import { CodigoPostalService, type CodigoPostal } from '$lib/services/CodigoPostalService';
 
   // Paso actual del formulario
   let currentStep = 1;
@@ -74,11 +75,30 @@
   let rubros: Rubro[] = [];
   let familias = [];
   let subfamilias = [];
+  let codigosPostales: CodigoPostal[] = [];
 
   // Estado del formulario
   let loading = false;
   let error = '';
   let success = false;
+
+  // Modal de nuevo proveedor
+  let mostrarModalProveedor = false;
+  let nuevoProveedor: ProveedorCompleto = {
+    Codigo: '',
+    Descripcion: '',
+    Cuit: '',
+    Calle: '',
+    Numero: '',
+    Piso: '',
+    Departamento: '',
+    CodigoPostal: '',
+    Telefono: '',
+    Mail: ''
+  };
+  let loadingProveedor = false;
+  let errorProveedor = '';
+  let successProveedor = false;
 
   // Calcular precio de costo sin IVA cuando cambia el precio con IVA
   $: if (producto.PrecioCostoConIva > 0) {
@@ -102,9 +122,13 @@
       // Cargar rubros
       rubros = await RubroService.obtenerRubros();
       
+      // Cargar códigos postales
+      codigosPostales = await CodigoPostalService.obtenerCodigosPostales();
+      
       // Mostrar resultado en consola
       console.log('Proveedores cargados:', proveedores.length);
       console.log('Rubros cargados:', rubros.length);
+      console.log('Códigos postales cargados:', codigosPostales.length);
       
       if (proveedores.length === 0) {
         console.warn('No se encontraron proveedores');
@@ -187,6 +211,85 @@
   // Volver al listado de productos
   function volverListado() {
     goto('/ventas/bot/productos');
+  }
+
+  // Funciones para el modal de nuevo proveedor
+  function abrirModalProveedor() {
+    nuevoProveedor = {
+      Codigo: '',
+      Descripcion: '',
+      Cuit: '',
+      Calle: '',
+      Numero: '',
+      Piso: '',
+      Departamento: '',
+      CodigoPostal: '',
+      Telefono: '',
+      Mail: ''
+    };
+    errorProveedor = '';
+    successProveedor = false;
+    mostrarModalProveedor = true;
+  }
+
+  function cerrarModalProveedor() {
+    mostrarModalProveedor = false;
+  }
+
+  // Manejar tecla Escape para cerrar el modal
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape' && mostrarModalProveedor) {
+      cerrarModalProveedor();
+    }
+  }
+
+  async function guardarProveedor() {
+    // Validación básica
+    if (!nuevoProveedor.Descripcion) {
+      errorProveedor = 'La descripción del proveedor es obligatoria';
+      return;
+    }
+
+    try {
+      loadingProveedor = true;
+      errorProveedor = '';
+
+      // Generar código automáticamente si está vacío
+      if (!nuevoProveedor.Codigo) {
+        // Usar timestamp como código único
+        nuevoProveedor.Codigo = Date.now().toString().substring(7, 13);
+      }
+
+      // Guardar nuevo proveedor
+      const proveedorGuardado = await ProveedorService.crearProveedor(nuevoProveedor);
+      
+      // Actualizar la lista de proveedores
+      proveedores = [...proveedores, {
+        Codigo: proveedorGuardado.Codigo,
+        Descripcion: proveedorGuardado.Descripcion
+      }];
+      
+      // Seleccionar el nuevo proveedor en el formulario
+      producto.Proveedor = proveedorGuardado.Codigo;
+      
+      // Mostrar mensaje de éxito
+      successProveedor = true;
+      
+      // Cerrar el modal después de 2 segundos
+      setTimeout(() => {
+        cerrarModalProveedor();
+      }, 2000);
+      
+    } catch (err) {
+      console.error('Error al guardar proveedor:', err);
+      if (err instanceof Error) {
+        errorProveedor = err.message;
+      } else {
+        errorProveedor = 'Error al guardar el proveedor';
+      }
+    } finally {
+      loadingProveedor = false;
+    }
   }
 
   // Cargar datos iniciales
@@ -291,15 +394,27 @@
           <h2>Clasificación</h2>
           
           <div class="form-group">
-            <label for="proveedor">
-              Proveedor <span class="required">*</span>
-            </label>
-            <select id="proveedor" bind:value={producto.Proveedor} required>
-              <option value="">Seleccione un proveedor</option>
-              {#each proveedores as proveedor}
-                <option value={proveedor.Codigo}>{proveedor.Descripcion}</option>
-              {/each}
-            </select>
+            <div class="field-with-action">
+              <label for="proveedor">
+                Proveedor <span class="required">*</span>
+              </label>
+              <div class="select-with-button">
+                <select id="proveedor" bind:value={producto.Proveedor} required>
+                  <option value="">Seleccione un proveedor</option>
+                  {#each proveedores as proveedor}
+                    <option value={proveedor.Codigo}>{proveedor.Descripcion}</option>
+                  {/each}
+                </select>
+                <button 
+                  class="btn-add" 
+                  on:click={abrirModalProveedor} 
+                  title="Agregar nuevo proveedor"
+                  type="button"
+                >
+                  <span>+</span>
+                </button>
+              </div>
+            </div>
           </div>
           
           <div class="form-group">
@@ -586,6 +701,167 @@
       </div>
     {/if}
   </div>
+  
+  <!-- Modal para agregar nuevo proveedor -->
+  {#if mostrarModalProveedor}
+    <div 
+      class="modal-overlay" 
+      on:click|self={cerrarModalProveedor}
+      on:keydown={handleKeydown}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-titulo"
+      tabindex="-1"
+    >
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modal-titulo">Nuevo Proveedor</h3>
+          <button class="btn-close" on:click={cerrarModalProveedor} aria-label="Cerrar modal">×</button>
+        </div>
+        
+        <div class="modal-body">
+          {#if loadingProveedor}
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <span>Guardando proveedor...</span>
+            </div>
+          {:else if errorProveedor}
+            <div class="error-state">
+              <span>{errorProveedor}</span>
+              <button on:click={() => errorProveedor = ''}>Aceptar</button>
+            </div>
+          {:else if successProveedor}
+            <div class="success-state">
+              <span>¡Proveedor creado correctamente!</span>
+            </div>
+          {:else}
+            <form on:submit|preventDefault={guardarProveedor}>
+              <div class="form-section">
+                <h4>Datos principales</h4>
+                
+                <div class="form-group">
+                  <label for="proveedorDescripcion">
+                    Descripción <span class="required">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    id="proveedorDescripcion" 
+                    bind:value={nuevoProveedor.Descripcion} 
+                    placeholder="Nombre del proveedor"
+                    required
+                  />
+                </div>
+                
+                <div class="form-group">
+                  <label for="proveedorCuit">CUIT</label>
+                  <input 
+                    type="text" 
+                    id="proveedorCuit" 
+                    bind:value={nuevoProveedor.Cuit} 
+                    placeholder="CUIT sin guiones"
+                  />
+                </div>
+              </div>
+              
+              <div class="form-section">
+                <h4>Dirección</h4>
+                
+                <div class="form-group">
+                  <label for="proveedorCalle">Calle</label>
+                  <input 
+                    type="text" 
+                    id="proveedorCalle" 
+                    bind:value={nuevoProveedor.Calle} 
+                    placeholder="Nombre de la calle"
+                  />
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="proveedorNumero">Número</label>
+                    <input 
+                      type="text" 
+                      id="proveedorNumero" 
+                      bind:value={nuevoProveedor.Numero} 
+                      placeholder="Número"
+                    />
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="proveedorPiso">Piso</label>
+                    <input 
+                      type="text" 
+                      id="proveedorPiso" 
+                      bind:value={nuevoProveedor.Piso} 
+                      placeholder="Piso"
+                    />
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="proveedorDepartamento">Departamento</label>
+                    <input 
+                      type="text" 
+                      id="proveedorDepartamento" 
+                      bind:value={nuevoProveedor.Departamento} 
+                      placeholder="Depto."
+                    />
+                  </div>
+                </div>
+                
+                <div class="form-group">
+                  <label for="proveedorCodigoPostal">Ciudad (Código Postal)</label>
+                  <select 
+                    id="proveedorCodigoPostal" 
+                    bind:value={nuevoProveedor.CodigoPostal}
+                  >
+                    <option value="">Seleccione una localidad</option>
+                    {#each codigosPostales as cp}
+                      <option value={cp.Codigo}>
+                        {cp.Descripcion} {cp.ProvinciaRelacion ? `(${cp.ProvinciaRelacion.Descripcion})` : ''}
+                      </option>
+                    {/each}
+                  </select>
+                </div>
+              </div>
+              
+              <div class="form-section">
+                <h4>Contacto</h4>
+                
+                <div class="form-group">
+                  <label for="proveedorTelefono">Teléfono</label>
+                  <input 
+                    type="tel" 
+                    id="proveedorTelefono" 
+                    bind:value={nuevoProveedor.Telefono} 
+                    placeholder="Número de teléfono"
+                  />
+                </div>
+                
+                <div class="form-group">
+                  <label for="proveedorEmail">Email</label>
+                  <input 
+                    type="email" 
+                    id="proveedorEmail" 
+                    bind:value={nuevoProveedor.Mail} 
+                    placeholder="Correo electrónico"
+                  />
+                </div>
+              </div>
+              
+              <div class="modal-actions">
+                <button type="button" class="btn-secondary" on:click={cerrarModalProveedor}>
+                  Cancelar
+                </button>
+                <button type="submit" class="btn-primary">
+                  Guardar Proveedor
+                </button>
+              </div>
+            </form>
+          {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -792,5 +1068,122 @@
     border: none;
     border-radius: 6px;
     cursor: pointer;
+  }
+  
+  /* Estilos para el select con botón */
+  .field-with-action {
+    width: 100%;
+  }
+  
+  .select-with-button {
+    display: flex;
+    gap: 8px;
+  }
+  
+  .select-with-button select {
+    flex: 1;
+  }
+  
+  .btn-add {
+    width: 40px;
+    height: 44px;
+    border-radius: 6px;
+    background-color: var(--tg-theme-button-color, #2481cc);
+    color: var(--tg-theme-button-text-color, #fff);
+    border: none;
+    font-size: 1.5rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  
+  /* Estilos para el modal */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    padding: 16px;
+  }
+  
+  .modal-content {
+    background-color: var(--tg-theme-bg-color, #fff);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--tg-theme-hint-color, #eee);
+  }
+  
+  .modal-header h3 {
+    margin: 0;
+    font-size: 1.3rem;
+    color: var(--tg-theme-text-color, #000);
+  }
+  
+  .btn-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--tg-theme-hint-color, #777);
+    cursor: pointer;
+  }
+  
+  .modal-body {
+    padding: 20px;
+  }
+  
+  .form-section {
+    margin-bottom: 24px;
+  }
+  
+  .form-section h4 {
+    font-size: 1.1rem;
+    margin: 0 0 16px 0;
+    color: var(--tg-theme-text-color, #000);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--tg-theme-hint-color, #eee);
+  }
+  
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+  
+  @media (max-width: 600px) {
+    .form-row {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  
+  @media (max-width: 400px) {
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
   }
 </style> 

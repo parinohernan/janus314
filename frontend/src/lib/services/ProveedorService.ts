@@ -5,6 +5,17 @@ export interface Proveedor {
   Descripcion: string;
 }
 
+export interface ProveedorCompleto extends Proveedor {
+  Cuit?: string;
+  Calle?: string;
+  Numero?: string;
+  Piso?: string;
+  Departamento?: string;
+  CodigoPostal?: string;
+  Telefono?: string;
+  Mail?: string;
+}
+
 export class ProveedorService {
   /**
    * Obtiene la lista de proveedores
@@ -56,6 +67,31 @@ export class ProveedorService {
       }
     } catch (error) {
       console.error(`Error al eliminar proveedor ${codigo}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Crea un nuevo proveedor
+   */
+  public static async crearProveedor(proveedor: ProveedorCompleto): Promise<ProveedorCompleto> {
+    try {
+      const response = await fetchWithAuth('/proveedores', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(proveedor)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al crear el proveedor');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error al crear proveedor:', error);
       throw error;
     }
   }
