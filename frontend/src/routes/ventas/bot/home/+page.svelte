@@ -238,59 +238,7 @@
     return `${año}-${mes}-${dia}`;
   })();
 
-  // async function cargarEstadisticas() {
-    // try {
-    //   // Realizar peticiones en paralelo para mejorar rendimiento
-    //   const [responseVentasHoy, responseVentasVendedor] = await Promise.all([
-    //     // Petición 1: Ventas totales del día
-    //     fetchWithAuth('/facturas', {
-    //       params: {
-    //         page: 1,
-    //         limit: 1,
-    //         tipo: 'PRF',
-    //         fecha: fechaHoy
-    //       }
-    //     }),
-        
-    //     // Petición 2: Ventas del vendedor
-    //     fetchWithAuth('/facturas', {
-    //       params: {
-    //         page: 1,
-    //         limit: 1,
-    //         tipo: 'PRF',
-    //         fecha: fechaHoy,
-    //         codigoVendedor: codigoVendedor
-    //       }
-    //     })
-    //   ]);
-
-    //   // Procesar respuestas en paralelo
-    //   const resultados = await Promise.all([
-    //     responseVentasHoy.ok ? responseVentasHoy.json() : null,
-    //     responseVentasVendedor.ok ? responseVentasVendedor.json() : null
-    //   ]);
-
-    //   // Almacenar valores individuales
-    //   if (resultados[0] && resultados[0].meta?.totalItems !== undefined) {
-    //     ventasHoy = resultados[0].meta.totalItems;
-    //   }
-      
-    //   if (resultados[1] && resultados[1].meta?.totalItems !== undefined) {
-    //     ventasVendedor = resultados[1].meta.totalItems;
-    //   }
-
-    //   // Actualizar la estadística combinada
-    //   // quickStats[0].value = `${ventasVendedor} / ${ventasHoy}`;
-    //   quickStats[0].targetValue = ventasVendedor + ventasHoy;
-    //   quickStats[0].displayValue = ventasVendedor + ventasHoy;
-
-    //   // Actualizar la vista una sola vez
-    //   quickStats = [...quickStats];
-    // } catch (error) {
-    //   console.error('Error al cargar estadísticas:', error);
-    // }
   
-
   onMount(async () => {
     // Una sola verificación de autenticación al inicio
     const authState = get(auth);
@@ -308,9 +256,7 @@
         mostrarModalLogin = true;
       }
     }
-    
-    // Cargar estadísticas inmediatamente
-    // cargarEstadisticas();
+ 
   });
 
   function navigateTo(route: string) {
@@ -330,7 +276,7 @@
   <!-- Header con saludo personalizado -->
   <header class="header">
     <div class="app-title">
-      <h1>Janus MiniMonster</h1>
+      <h1>JanO MPOS</h1>
       {#if userName}
         <p class="welcome-text">¡Hola, {userName}! 👋</p>
       {:else if vendedorNombre && isAuthenticated}

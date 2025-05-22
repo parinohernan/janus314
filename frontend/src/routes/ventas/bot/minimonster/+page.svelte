@@ -2,13 +2,14 @@
   import { onMount } from 'svelte';
   import '../../../../app.css';
   import SolicitudForm from '../components/SolicitudForm.svelte';
+  import { planes } from './planes.js';
 
   let isVisible = Array(6).fill(false);
   let mostrarFormulario = false;
   let currentSlide = 0;
-  let autoplayInterval: number;
+  let autoplayInterval: ReturnType<typeof setInterval>;
   let currentPriceSlide = 0;
-  let priceAutoplayInterval: number;
+  let priceAutoplayInterval: ReturnType<typeof setInterval>;
   
   // Beneficios principales
   const beneficios = [
@@ -31,58 +32,6 @@
       icon: '🔒',
       title: 'Seguro',
       description: 'Tus datos siempre protegidos y respaldados en la nube.'
-    }
-  ];
-
-  const planes = [
-    {
-      nombre: 'Plan Gratuito',
-      precio: '0',
-      periodo: 'mes',
-      caracteristicas: [
-        'Hasta 100 productos',
-        'Hasta 50 ventas por mes',
-        'Reportes básicos',
-        '1 usuario'
-      ]
-    },
-    {
-      nombre: 'Plan Básico',
-      precio: '19.99',
-      periodo: 'mes',
-      caracteristicas: [
-        'Hasta 500 productos',
-        'Ventas ilimitadas',
-        'Reportes avanzados',
-        '3 usuarios',
-        'Soporte por chat'
-      ]
-    },
-    {
-      nombre: 'Plan Pro',
-      precio: '39.99',
-      periodo: 'mes',
-      caracteristicas: [
-        'Productos ilimitados',
-        'Ventas ilimitadas',
-        'Reportes personalizados',
-        'Usuarios ilimitados',
-        'Soporte prioritario',
-        'API de integración'
-      ]
-    },
-    {
-      nombre: 'Plan Empresa',
-      precio: 'Consultar',
-      periodo: '',
-      caracteristicas: [
-        'Todo lo del Plan Pro',
-        'Instalación personalizada',
-        'Capacitación del personal',
-        'Soporte 24/7',
-        'Personalización total',
-        'SLA garantizado'
-      ]
     }
   ];
 
@@ -172,7 +121,7 @@
   <!-- Hero Section -->
   <section class="hero">
     <div class="hero-content animate-on-scroll" class:visible={isVisible[0]}>
-      <h1>MiniMonster POS</h1>
+      <h1>JANO mini POS</h1>
       <p class="hero-subtitle">El punto de venta más simple y poderoso para tu negocio</p>
       <button class="cta-button" on:click={abrirFormulario}>¡Pruébalo Gratis!</button>
     </div>
@@ -217,78 +166,39 @@
         <h4>✓ Reportes Diarios</h4>
         <p>Resumen de ventas y productos más vendidos</p>
       </div>
+      <div class="feature">
+        <h4>✓ Comparte comprobantes por WhatsApp</h4>
+        <p>Envía facturas y recibos directamente a tus clientes</p>
+      </div>
     </div>
   </section>
 
-  <!-- Precios
+  <!-- Precios -->
   <section class="pricing animate-on-scroll" class:visible={isVisible[5]}>
     <h2>Planes y Precios</h2>
-    <div class="carousel-container">
-      <button 
-        class="carousel-button prev" 
-        on:click={() => {
-          stopPriceAutoplay();
-          prevPriceSlide();
-        }}
-        aria-label="Plan anterior"
-      >
-        ❮
-      </button>
-
-      <div class="carousel-track" style="transform: translateX(-{currentPriceSlide * 100}%)">
-        {#each planes as plan, i}
-          <div 
-            class="pricing-card" 
-            class:active={i === currentPriceSlide}
-          >
-            <h3>{plan.nombre}</h3>
-            <div class="price">
-              {#if plan.precio === 'Consultar'}
-                {plan.precio}
-              {:else}
-                ${plan.precio}
-                <span class="period">/{plan.periodo}</span>
-              {/if}
-            </div>
-            <ul>
-              {#each plan.caracteristicas as caracteristica}
-                <li>✓ {caracteristica}</li>
-              {/each}
-            </ul>
-            <button class="cta-button" on:click={abrirFormulario}>
-              {plan.precio === 'Consultar' ? 'Contactar' : 'Comenzar'}
-            </button>
+    <div class="pricing-table">
+      {#each planes as plan}
+        <div class="pricing-card">
+          <h2>{plan.nombre}</h2>
+          <p class="plan-description">{plan.descripcion}</p>
+          <div class="price">
+            {plan.precio}
           </div>
-        {/each}
-      </div>
-
-      <button 
-        class="carousel-button next" 
-        on:click={() => {
-          stopPriceAutoplay();
-          nextPriceSlide();
-        }}
-        aria-label="Siguiente plan"
-      >
-        ❯
-      </button>
-
-      <div class="carousel-indicators">
-        {#each planes as _, i}
-          <button
-            class="indicator"
-            class:active={i === currentPriceSlide}
-            on:click={() => {
-              stopPriceAutoplay();
-              goToPriceSlide(i);
-            }}
-            aria-label="Ir a plan {i + 1}"
-            aria-current={i === currentPriceSlide}
-          ></button>
-        {/each}
-      </div>
+          <div class="promo-price">
+            {plan.precio_promo}
+          </div>
+          <ul>
+            {#each plan.beneficios as beneficio}
+              <li>✓ {beneficio.name}: <span class="alcance">{beneficio.alcance}</span></li>
+            {/each}
+          </ul>
+          <button class="cta-button" on:click={abrirFormulario}>
+            Comenzar
+          </button>
+        </div>
+      {/each}
     </div>
-  </section> -->
+  </section>
 
   <!-- CTA Final -->
   <section class="final-cta">
@@ -426,7 +336,7 @@
     margin-bottom: 0.5rem;
     font-size: 1.2rem;
   }
-/* 
+
   .pricing {
     padding: 4rem 1rem;
     text-align: center;
@@ -437,47 +347,55 @@
   .pricing h2 {
     margin-bottom: 3rem;
     font-size: 2.5rem;
-  } */
-
-  /* .carousel-container {
-    position: relative;
-    width: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 40px;
   }
 
-  .carousel-track {
+  .pricing-table {
     display: flex;
-    transition: transform 0.5s ease-in-out;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
   }
 
   .pricing-card {
-    min-width: 100%;
+    flex: 1;
+    min-width: 250px;
+    max-width: 350px;
     padding: 2rem;
     background: white;
     border-radius: 15px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease;
-    opacity: 0.7;
-    transform: scale(0.95);
+    display: flex;
+    flex-direction: column;
   }
 
-  .pricing-card.active {
-    opacity: 1;
-    transform: scale(1);
-  } */
-
-  /* .price {
-    font-size: 3rem;
-    color: var(--tg-theme-button-color, #FF6B6B);
-    margin: 1rem 0;
+  .pricing-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   }
 
-  .period {
-    font-size: 1.2rem;
-    opacity: 0.7;
+  .plan-description {
+    color: #666;
+    font-style: italic;
+    margin-bottom: 1rem;
+    min-height: 50px;
+  }
+
+  .price {
+    font-size: 2rem;
+    /* font-weight: unset; */
+    color: var(--tg-theme-button-color, #3f3636);
+    margin: 1rem 0 0.5rem;
+    text-decoration: line-through;
+  }
+
+  .promo-price {
+    font-size: 1.5rem;
+    color: #28a745;
+    margin-bottom: 1rem;
+    font-weight: bold;
   }
 
   .pricing-card ul {
@@ -485,6 +403,7 @@
     padding: 0;
     margin: 2rem 0;
     text-align: left;
+    flex-grow: 1;
   }
 
   .pricing-card li {
@@ -493,56 +412,9 @@
     position: relative;
   }
 
-  .carousel-button {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    background: var(--tg-theme-button-color, #FF6B6B);
-    color: white;
-    border: none;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    cursor: pointer;
-    z-index: 2;
-    transition: all 0.3s ease;
+  .alcance {
+    font-weight: bold;
   }
-
-  .carousel-button:hover {
-    background: var(--tg-theme-button-color, #ff8585);
-    transform: translateY(-50%) scale(1.1);
-  }
-
-  .carousel-button.prev {
-    left: 0;
-  }
-
-  .carousel-button.next {
-    right: 0;
-  } */
-
-  /* .carousel-indicators {
-    display: flex;
-    justify-content: center;
-    gap: 0.5rem;
-    margin-top: 2rem;
-  } */
-
-  /* .indicator {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--tg-theme-hint-color, #ddd);
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    transition: all 0.3s ease;
-  } 
-  .indicator.active {
-    background: var(--tg-theme-button-color, #FF6B6B);
-    transform: scale(1.2);
-  }*/
-
 
   .final-cta {
     padding: 6rem 1rem;
@@ -588,27 +460,23 @@
       padding: 3rem 1rem;
     }
 
-    /* .carousel-container {
-      padding: 0 30px;
-    } */
-
-    /* .carousel-button {
-      width: 30px;
-      height: 30px;
-      font-size: 0.8em;
-    } */
-
-    .feature {
-      padding: 1rem;
+    .pricing-table {
+      flex-direction: column;
+      align-items: center;
     }
 
-    /* .price {
-      font-size: 2.5rem;
-    } 
+    .pricing-card {
+      width: 100%;
+      max-width: 100%;
+    }
 
-    .period {
-      font-size: 1rem;
-    }*/
+    .price {
+      font-size: 1.8rem;
+    }
+    
+    .promo-price {
+      font-size: 1.3rem;
+    }
 
     .benefits {
       padding: 2rem 1rem;
