@@ -16,6 +16,7 @@
     ImporteTotal: number;
     ClienteCodigo: string;
     ClienteDescripcion: string;
+    ClienteTelefono?: string;
     VendedorCodigo: string;
   }
 
@@ -43,6 +44,7 @@
     VendedorCodigo: string;
     Cliente?: {
       Descripcion: string;
+      Telefono?: string;
     };
   }
 
@@ -138,6 +140,8 @@
 
   let mostrarModalWhatsApp = false;
   let numeroTelefono = '';
+  let telefonoOriginal = '';
+  let mostrarOpcionActualizar = false;
   let comprobanteParaCompartir: Comprobante | null = null;
   let detallesParaCompartir: ComprobanteDetalle[] = [];
 
@@ -261,6 +265,9 @@
       }
       const data = await response.json() as ApiDetalleResponse;
       if (data.success && data.data) {
+        // Log para depurar - ver si el teléfono viene del backend
+        console.log("Datos del cliente recibidos:", data.data.encabezado.Cliente);
+        
         detallesComprobante = data.data.items.map((item: ApiFacturaDetalle) => ({
           Codigo: item.CodigoArticulo,
           Descripcion: item.Descripcion,
@@ -268,10 +275,35 @@
           PrecioUnitario: item.PrecioUnitario,
           ImporteTotal: item.Cantidad * item.PrecioUnitario
         }));
+        
+        let clienteTelefono = data.data.encabezado.Cliente?.Telefono || '';
+        
+        // Si tenemos código de cliente pero no teléfono, intentamos obtenerlo directamente
+        if (data.data.encabezado.ClienteCodigo && !clienteTelefono) {
+          try {
+            const clienteResponse = await fetchWithAuth(`/clientes/${data.data.encabezado.ClienteCodigo}`);
+            if (clienteResponse.ok) {
+              const clienteData = await clienteResponse.json();
+              console.log("Datos adicionales del cliente:", clienteData);
+              if (clienteData.Telefono) {
+                clienteTelefono = clienteData.Telefono;
+                console.log("Teléfono obtenido de la API de clientes:", clienteTelefono);
+              }
+            }
+          } catch (clienteErr) {
+            console.error("Error al obtener datos adicionales del cliente:", clienteErr);
+          }
+        }
+        
         comprobanteSeleccionado = {
           ...comprobante,
-          ClienteDescripcion: data.data.encabezado.Cliente?.Descripcion || 'Sin cliente'
+          ClienteDescripcion: data.data.encabezado.Cliente?.Descripcion || 'Sin cliente',
+          ClienteTelefono: clienteTelefono,
         };
+        
+        // Log para depurar - confirmar que se asignó correctamente
+        console.log("Teléfono asignado:", comprobanteSeleccionado.ClienteTelefono);
+        
         mostrarDetalles = true;
       } else {
         throw new Error('Error en el formato de respuesta');
@@ -318,7 +350,7 @@
     mensaje += `Fecha: ${fecha}\n`;
     mensaje += `Cliente: ${comprobante.ClienteDescripcion}\n`;
     mensaje += `Vendedor: ${obtenerNombreVendedor(comprobante.VendedorCodigo)}\n\n`;
-    
+    mensaje += `Teléfono: ${comprobante.ClienteTelefono}\n\n`;
     mensaje += `*Productos:*\n`;
     detalles.forEach(item => {
       mensaje += `• ${item.Descripcion}\n`;
@@ -331,12 +363,103 @@
     return mensaje;
   }
 
+  // Actualizar el teléfono del cliente en la base de datos
+  async function actualizarTelefonoCliente(codigo: string, nuevoTelefono: string) {
+    try {
+      isLoading = true;
+      error = null;
+      
+      console.log(`Intentando actualizar teléfono para cliente ${codigo} con valor: ${nuevoTelefono}`);
+      
+      // Primero obtenemos los datos actuales del cliente para asegurarnos de tener toda la info
+      const getResponse = await fetchWithAuth(`/clientes/${codigo}`);
+      
+      if (!getResponse.ok) {
+        console.error(`Error al obtener datos del cliente: ${getResponse.status} - ${getResponse.statusText}`);
+        throw new Error('Error al obtener datos del cliente');
+      }
+      
+      const clienteActual = await getResponse.json();
+      console.log("Datos actuales del cliente:", clienteActual);
+      
+      // Usar directamente PUT en lugar de PATCH (PATCH no está permitido por CORS)
+      console.log("Intentando actualizar con PUT...");
+      const putResponse = await fetchWithAuth(`/clientes/${codigo}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...clienteActual,
+          Telefono: nuevoTelefono
+        }),
+      });
+      
+      if (!putResponse.ok) {
+        console.error(`PUT falló con status ${putResponse.status} - ${putResponse.statusText}`);
+        const errorText = await putResponse.text();
+        console.error("Detalles del error:", errorText);
+        throw new Error('Error al actualizar el teléfono del cliente');
+      }
+      
+      console.log("Actualización exitosa con PUT");
+      
+      // Mostrar mensaje de éxito temporal
+      const mensajeAnterior = error;
+      error = 'Teléfono actualizado correctamente';
+      setTimeout(() => {
+        error = mensajeAnterior;
+      }, 2000);
+      
+      return true;
+    } catch (err) {
+      console.error('Error al actualizar el teléfono:', err);
+      error = 'Error al actualizar el teléfono del cliente. Intente nuevamente más tarde.';
+      return false;
+    } finally {
+      isLoading = false;
+    }
+  }
+
   function abrirModalWhatsApp(comprobante: Comprobante | null, detalles: ComprobanteDetalle[]) {
     if (!comprobante) return;
     comprobanteParaCompartir = comprobante;
     detallesParaCompartir = detalles;
-    numeroTelefono = '';
+    
+    // Log para depurar - verificar teléfono al abrir modal
+    console.log("Teléfono del cliente al abrir modal:", comprobante.ClienteTelefono);
+    
+    // Precargar el teléfono del cliente si existe
+    if (comprobante.ClienteTelefono) {
+      // Limpiar el teléfono de espacios, guiones y paréntesis
+      numeroTelefono = comprobante.ClienteTelefono.replace(/[\s\-()]/g, '');
+      // Si empieza con 0, quitarlo
+      if (numeroTelefono.startsWith('0')) {
+        numeroTelefono = numeroTelefono.substring(1);
+      }
+      // Si empieza con 15, quitarlo y asegurarse de que tenga el formato correcto
+      // if (numeroTelefono.includes('15')) {
+      //   numeroTelefono = numeroTelefono.replace('15', '');
+      // }
+      console.log("Teléfono procesado:", numeroTelefono);
+    } else {
+      numeroTelefono = '';
+      console.log("No se encontró teléfono para el cliente");
+    }
+    
+    // Guardar el teléfono original para detectar cambios
+    telefonoOriginal = numeroTelefono;
+    mostrarOpcionActualizar = false;
     mostrarModalWhatsApp = true;
+  }
+
+  // Detectar cambios en el número de teléfono
+  function verificarCambioTelefono() {
+    if (telefonoOriginal && numeroTelefono && telefonoOriginal !== numeroTelefono) {
+      mostrarOpcionActualizar = true;
+    } else {
+      mostrarOpcionActualizar = false;
+    }
   }
 
   function compartirPorWhatsApp() {
@@ -450,13 +573,16 @@
     </div>
   {:else}
     <div class="detalles-comprobante">
-      <button class="btn-volver" on:click={cerrarDetalles}>← Volver</button>
+      <!-- <button class="btn-volver" on:click={cerrarDetalles}>← Volver</button> -->
       
       {#if comprobanteSeleccionado}
         <div class="detalles-header">
           <h2>{comprobanteSeleccionado.DocumentoTipo}-{comprobanteSeleccionado.DocumentoSucursal}-{comprobanteSeleccionado.DocumentoNumero}</h2>
           <div class="detalles-fecha">{comprobanteSeleccionado.Fecha}</div>
           <div class="detalles-cliente">{comprobanteSeleccionado.ClienteDescripcion}</div>
+          {#if comprobanteSeleccionado.ClienteTelefono}
+            <div class="detalles-telefono">Tel: {comprobanteSeleccionado.ClienteTelefono}</div>
+          {/if}
         </div>
 
         <div class="detalles-items">
@@ -505,15 +631,43 @@
             bind:value={numeroTelefono}
             placeholder="Ej: 3492123456"
             class="input-telefono"
+            on:input={verificarCambioTelefono}
           />
           <small class="ayuda-texto">Ingrese el número sin 0 ni 15. Ej: 3492123456</small>
+          
+          {#if mostrarOpcionActualizar && comprobanteParaCompartir}
+            <div class="actualizar-telefono">
+              <label class="checkbox-container">
+                <input type="checkbox" id="actualizarTelefono" />
+                <span class="checkbox-label">Actualizar teléfono del cliente</span>
+              </label>
+              <small class="ayuda-texto">Se guardará el nuevo número en la ficha del cliente</small>
+            </div>
+          {/if}
         </div>
         <div class="modal-actions">
           <button class="btn-cancelar" on:click={() => mostrarModalWhatsApp = false}>
             Cancelar
           </button>
-          <button class="btn-compartir whatsapp" on:click={compartirPorWhatsApp}>
-            Enviar
+          {#if mostrarOpcionActualizar && comprobanteParaCompartir}
+            <button 
+              class="btn-actualizar" 
+              on:click={() => {
+                const checkboxActualizar = document.getElementById('actualizarTelefono') as HTMLInputElement;
+                if (checkboxActualizar && checkboxActualizar.checked && comprobanteParaCompartir) {
+                  const telefonoLimpio = numeroTelefono.replace(/[\s\-()]/g, '');
+                  actualizarTelefonoCliente(comprobanteParaCompartir.ClienteCodigo, telefonoLimpio);
+                }
+              }}
+            >
+              Actualizar Teléfono
+            </button>
+          {/if}
+          <button 
+            class="btn-compartir whatsapp" 
+            on:click={compartirPorWhatsApp}
+          >
+            Enviar WhatsApp
           </button>
         </div>
       </div>
@@ -637,6 +791,12 @@
 
   .detalles-cliente {
     font-weight: bold;
+  }
+
+  .detalles-telefono {
+    font-size: 0.9em;
+    color: var(--tg-theme-hint-color, #777);
+    margin-top: 4px;
   }
 
   .detalles-items {
@@ -815,6 +975,34 @@
     background: none;
     border-radius: 4px;
     color: var(--tg-theme-text-color, #000);
+    cursor: pointer;
+  }
+
+  .actualizar-telefono {
+    margin-top: 12px;
+    padding: 8px;
+    background-color: var(--tg-theme-secondary-bg-color, #f5f5f5);
+    border-radius: 4px;
+  }
+  
+  .checkbox-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+  
+  .checkbox-label {
+    font-size: 0.9em;
+    color: var(--tg-theme-text-color, #000);
+  }
+
+  .btn-actualizar {
+    padding: 8px 16px;
+    background-color: var(--tg-theme-button-color, #2481cc);
+    color: var(--tg-theme-button-text-color, #fff);
+    border: none;
+    border-radius: 4px;
     cursor: pointer;
   }
 </style> 
