@@ -176,12 +176,12 @@
     //   description: 'Consulta y comparte facturas',
     //   route: '/ventas/bot/comprobantes'
     // },
-    {
-      icon: 'ℹ️',
-      title: 'Sobre Nosotros',
-      description: 'Conoce más sobre MiniMonster',
-      route: '/ventas/bot/minimonster'
-    }
+    // {
+    //   icon: 'ℹ️',
+    //   title: 'Sobre Nosotros',
+    //   description: 'Conoce más sobre MiniMonster',
+    //   route: '/ventas/bot/minimonster'
+    // }
   ];
 
   // Estadísticas rápidas con valores de animación
@@ -222,6 +222,22 @@
       displayValue: 0,
       targetValue: 0,
       route: '/ventas/bot/productos'
+    },
+    {
+      label: 'Alerta de Stock',
+      value: 'Alertas',
+      icon: '🔔',
+      displayValue: 0,
+      targetValue: 0,
+      route: '/ventas/bot/alerta-stock',
+    },
+    {
+      label: 'Sobre Nosotros',
+      value: 'Jano miniPOS',
+      icon: 'ℹ️',
+      displayValue: 0,
+      targetValue: 0,
+      route: '/ventas/bot/minimonster',
     }
   ];
 
@@ -290,7 +306,20 @@
       {/if}
     </div>
   </header>
-
+  
+  <!-- Funciones Principales -->
+  <div class="features-grid">
+    {#each mainFeatures as feature}
+      <button 
+        class="feature-card"
+        on:click={() => navigateTo(feature.route)}
+      >
+        <span class="feature-icon">{feature.icon}</span>
+        <h3>{feature.title}</h3>
+        <p>{feature.description}</p>
+      </button>
+    {/each}
+  </div>
   <!-- Estadísticas Rápidas -->
   <div class="stats-container">
     {#each quickStats as stat}
@@ -321,19 +350,6 @@
     {/each}
   </div>
 
-  <!-- Funciones Principales -->
-  <div class="features-grid">
-    {#each mainFeatures as feature}
-      <button 
-        class="feature-card"
-        on:click={() => navigateTo(feature.route)}
-      >
-        <span class="feature-icon">{feature.icon}</span>
-        <h3>{feature.title}</h3>
-        <p>{feature.description}</p>
-      </button>
-    {/each}
-  </div>
   
   <!-- Modal de inicio de sesión -->
   {#if mostrarModalLogin}
