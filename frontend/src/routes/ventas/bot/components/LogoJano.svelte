@@ -62,70 +62,40 @@
       class:wiggle={isHovered && animated}
     >
       <!-- Oreja izquierda -->
-      <path 
-        d="M30,30 L20,10 L35,25 Z" 
-        fill="#ff7733" 
-        class="fox-ear"
-      />
+      <polygon points="28,32 15,8 38,25" fill="#ff7733"/>
+      <polygon points="22,18 28,32 30,20" fill="#ffb380"/>
       <!-- Oreja derecha -->
+      <polygon points="72,32 85,8 62,25" fill="#ff7733"/>
+      <polygon points="78,18 72,32 70,20" fill="#ffb380"/>
+      <!-- Cara (forma de pera) -->
       <path 
-        d="M70,30 L80,10 L65,25 Z" 
-        fill="#ff7733" 
-        class="fox-ear"
+        d="M30,40 Q50,10 70,40 Q90,70 50,90 Q10,70 30,40 Z"
+        fill="#ff9966"
+        stroke="#ff7733"
+        stroke-width="2"
       />
-      <!-- Cara -->
-      <circle 
-        cx="50" 
-        cy="50" 
-        r="30" 
-        fill="#ff9966" 
-        class="fox-face"
+      <!-- Frente blanca -->
+      <path 
+        d="M40,60 Q50,80 60,60 Q50,70 40,60 Z"
+        fill="#fff6ee"
+        opacity="0.8"
       />
+      <!-- Hocico blanco -->
+      <ellipse cx="50" cy="70" rx="12" ry="8" fill="#fff6ee" />
+      <!-- Nariz -->
+      <ellipse cx="50" cy="74" rx="3" ry="2" fill="#333" />
+      <!-- Boca -->
+      <path d="M50,76 Q52,78 54,76" stroke="#333" stroke-width="1" fill="none"/>
+      <path d="M50,76 Q48,78 46,76" stroke="#333" stroke-width="1" fill="none"/>
       <!-- Ojos -->
-      <circle 
-        cx="40" 
-        cy="45" 
-        r="4" 
-        fill="#333" 
-        class="fox-eye"
-      />
-      <circle 
-        cx="60" 
-        cy="45" 
-        r="4" 
-        fill="#333" 
-        class="fox-eye"
-      />
-      <!-- Hocico -->
-      <path 
-        d="M50,55 L45,65 L55,65 Z" 
-        fill="#ffccbb" 
-        class="fox-nose"
-      />
-      <circle 
-        cx="50" 
-        cy="62" 
-        r="2" 
-        fill="#333" 
-        class="fox-nose-tip"
-      />
+      <ellipse cx="42" cy="55" rx="3" ry="5" fill="#333"/>
+      <ellipse cx="58" cy="55" rx="3" ry="5" fill="#333"/>
+      <!-- Brillo en los ojos -->
+      <ellipse cx="41" cy="54" rx="0.7" ry="1" fill="#fff"/>
+      <ellipse cx="57" cy="54" rx="0.7" ry="1" fill="#fff"/>
       <!-- Mejillas -->
-      <circle 
-        cx="35" 
-        cy="55" 
-        r="5" 
-        fill="#ffaa88" 
-        class="fox-cheek"
-        opacity="0.5"
-      />
-      <circle 
-        cx="65" 
-        cy="55" 
-        r="5" 
-        fill="#ffaa88" 
-        class="fox-cheek"
-        opacity="0.5"
-      />
+      <ellipse cx="37" cy="65" rx="3" ry="2" fill="#ffaa88" opacity="0.5"/>
+      <ellipse cx="63" cy="65" rx="3" ry="2" fill="#ffaa88" opacity="0.5"/>
     </svg>
   </div>
   
@@ -155,20 +125,7 @@
     width: 100%;
     height: 100%;
   }
-  
-  .fox-ear, .fox-face, .fox-nose, .fox-nose-tip, .fox-eye, .fox-cheek {
-    transition: all 0.3s ease;
-  }
-  
-  .fox-logo:hover .fox-ear {
-    transform-origin: bottom center;
-    transform: rotate(-5deg);
-  }
-  
-  .fox-logo:hover .fox-eye {
-    transform: scale(1.1);
-  }
-  
+   
   .wiggle {
     animation: wiggle 0.5s ease;
   }

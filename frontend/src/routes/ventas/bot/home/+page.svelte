@@ -289,6 +289,7 @@
     <div class="app-title">
       <LogoJano size="large" animated={true} />
       {#if userName}
+        <p>empresa: {empresa}</p>
         <p class="welcome-text">¡Hola, {userName}! 👋</p>
       {:else if vendedorNombre && isAuthenticated}
         <div class="welcome-container">

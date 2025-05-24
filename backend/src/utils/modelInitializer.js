@@ -52,21 +52,41 @@ const initializeModels = (sequelize) => {
       type: DataTypes.STRING(100),
       allowNull: false
     },
-    PrecioCosto: {
-      type: DataTypes.DECIMAL(18, 2),
-      allowNull: true
-    },
     Existencia: {
       type: DataTypes.DECIMAL(18, 2),
       allowNull: true
     },
-    Activo: {
-      type: DataTypes.TINYINT,
-      defaultValue: 1
+    ExistenciaMinima: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: true,
+      defaultValue: 0
+    },
+    ExistenciaMaxima: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: true,
+      defaultValue: 0
+    },
+    PrecioCosto: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: true
+    },
+    PrecioCostoMasImp: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: true,
+      defaultValue: 0
+    },
+    UnidadVenta: {
+      type: DataTypes.CHAR(3),
+      allowNull: true
     },
     PorcentajeIVA1: {
       type: DataTypes.DECIMAL(5, 2),
       allowNull: true
+    },
+    PorcentajeIVA2: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+      defaultValue: 0
     },
     Lista1: {
       type: DataTypes.DECIMAL(18, 2),
@@ -95,6 +115,32 @@ const initializeModels = (sequelize) => {
     RubroCodigo: {
       type: DataTypes.STRING(20),
       allowNull: true
+    },
+    Peso: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: true,
+      defaultValue: 0
+    },
+    PorcentajeVendedor: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: true
+    },
+    Activo: {
+      type: DataTypes.TINYINT,
+      defaultValue: 1
+    },
+    UbicacionDeposito: {
+      type: DataTypes.STRING(100),
+      allowNull: true
+    },
+    CodigoBarras: {
+      type: DataTypes.STRING(20),
+      allowNull: true
+    },
+    ProveedorArticuloCodigo: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      defaultValue: ""
     }
   }, {
     tableName: 't_articulos',

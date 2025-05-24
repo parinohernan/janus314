@@ -42,7 +42,7 @@
     
     // Inicializar con Home
     const items: BreadcrumbItem[] = !hideHome 
-      ? [{ label: 'Home', path: '/ventas/bot', active: false }] 
+      ? [{ label: 'Home', path: '/ventas/bot/home', active: false }] 
       : [];
     
     // Procesar la ruta actual
