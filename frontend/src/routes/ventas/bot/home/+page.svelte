@@ -3,6 +3,7 @@
   import { goto as navigate } from '$app/navigation';
   import '../components/bot.css';
   import QuickStats from '../components/QuickStats.svelte';
+  import LogoJano from '../components/LogoJano.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { auth } from '$lib/stores/authStore';
   import { get } from 'svelte/store';
@@ -286,7 +287,7 @@
   <!-- Header con saludo personalizado -->
   <header class="header">
     <div class="app-title">
-      <h1>Jano miniPOS</h1>
+      <LogoJano size="large" animated={true} />
       {#if userName}
         <p class="welcome-text">¡Hola, {userName}! 👋</p>
       {:else if vendedorNombre && isAuthenticated}
@@ -434,26 +435,16 @@
     border-bottom: 1px solid rgba(0,0,0,0.05);
   }
 
-  .app-title h1 {
-    font-size: 1.8rem;
-    margin: 0;
-    color: var(--tg-theme-text-color, #000);
-    font-weight: bold;
-    background: linear-gradient(to right, #2481cc, #0072cf);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    /* text-fill-color: transparent; */
+  .app-title {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
   }
   
   @media (max-width: 480px) {
     .header {
       margin-bottom: 16px;
       padding-bottom: 12px;
-    }
-    
-    .app-title h1 {
-      font-size: 1.5rem;
     }
     
     .welcome-text {

@@ -8,6 +8,7 @@ router.use(getEmpresaConnection);
 
 // Rutas para artículos
 router.get("/", articuloController.getAllArticulos);
+router.get("/stock-bajo", articuloController.getStockBajo);
 router.post("/asociar-codigo", articuloController.asociarCodigoBarras);
 router.get("/:id", articuloController.getArticuloById);
 router.post("/", articuloController.createArticulo);

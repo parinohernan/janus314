@@ -374,3 +374,92 @@ exports.actualizarPrecios = async (req, res) => {
     return res.status(500).json({ message: "Error al actualizar los precios" });
   }
 };
+
+// Obtener artículos con stock bajo (existencia menor que existenciaMinima)
+exports.getStockBajo = async (req, res) => {
+  try {
+    const { Articulo, Proveedor, Rubro } = req.models;
+    const {
+      page = 1,
+      limit = 10,
+      search = "",
+      field = "Descripcion",
+      order = "ASC"
+    } = req.query;
+
+    // Calcular offset para paginación
+    const offset = (page - 1) * limit;
+
+    // Configurar opciones de búsqueda
+    const whereClause = {
+      Activo: 1, // Solo artículos activos
+      ExistenciaMinima: { 
+        [Op.gt]: 0 // ExistenciaMinima mayor que 0
+      },
+      Existencia: {
+        [Op.lt]: req.db.col('ExistenciaMinima') // Existencia menor que ExistenciaMinima
+      }
+    };
+    
+    if (search) {
+      whereClause[Op.and] = [
+        {
+          [Op.or]: [
+            { Codigo: { [Op.like]: `%${search}%` } },
+            { Descripcion: { [Op.like]: `%${search}%` } },
+            { CodigoBarras: { [Op.like]: `%${search}%` } }
+          ]
+        }
+      ];
+    }
+
+    // Validar campo de ordenamiento
+    const validFields = ["Codigo", "Descripcion", "Existencia", "ExistenciaMinima"];
+    const sortField = validFields.includes(field) ? field : "Descripcion";
+
+    // Obtener total de registros
+    const count = await Articulo.count({ where: whereClause });
+
+    // Obtener registros paginados
+    const articulos = await Articulo.findAll({
+      attributes: [
+        'Codigo', 'Descripcion', 'PrecioCosto', 'Existencia', 
+        'ExistenciaMinima', // Añadir este campo explícitamente
+        'Activo', 'PorcentajeIVA1', 'Lista1', 'Lista2', 
+        'Lista3', 'Lista4', 'Lista5', 'ProveedorCodigo', 'RubroCodigo'
+      ],
+      where: whereClause,
+      order: [[sortField, order]],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      include: [
+        {
+          model: Proveedor,
+          as: "Proveedor",
+          attributes: ["Codigo", "Descripcion"],
+          required: false
+        },
+        {
+          model: Rubro,
+          as: "Rubro",
+          attributes: ["Codigo", "Descripcion"],
+          required: false
+        }
+      ]
+    });
+
+    // Calcular páginas totales
+    const totalPages = Math.ceil(count / limit);
+
+    return res.status(200).json({
+      items: articulos,
+      totalItems: count,
+      itemsPerPage: parseInt(limit),
+      currentPage: parseInt(page),
+      totalPages: totalPages
+    });
+  } catch (error) {
+    console.error("Error al obtener artículos con stock bajo:", error);
+    return res.status(500).json({ message: "Error al obtener los artículos con stock bajo" });
+  }
+};

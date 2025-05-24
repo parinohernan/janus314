@@ -5,6 +5,7 @@
   import '../components/bot.css';
   import { auth } from '$lib/stores/authStore';
   import { get } from 'svelte/store';
+  import LogoJano from '../components/LogoJano.svelte';
   
   // Estado de la interfaz
   let activeTab = 'vendedores'; // 'vendedores' o 'productos'
@@ -389,7 +390,10 @@
       <button class="btn-back" on:click={volverInicio} aria-label="Volver">
         <span class="back-icon">←</span>
       </button>
-      <h1 class="page-title">Estadísticas</h1>
+      <div class="title-container">
+        <LogoJano size="small" animated={false} />
+        <h2 class="page-subtitle">Estadísticas</h2>
+      </div>
     </div>
   </header>
   
@@ -682,6 +686,12 @@
     gap: 12px;
   }
 
+  .title-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .btn-back {
     background: none;
     border: none;
@@ -694,7 +704,7 @@
     padding: 4px;
   }
 
-  .page-title {
+  .page-subtitle {
     font-size: 1.5rem;
     margin: 0;
     color: var(--tg-theme-text-color, #000);
@@ -926,7 +936,7 @@
   }
 
   @media (max-width: 480px) {
-    .page-title {
+    .page-subtitle {
       font-size: 1.3rem;
     }
     
