@@ -480,6 +480,7 @@ exports.crearProducto = async (req, res) => {
         Codigo: productoData.Codigo,
         Descripcion: productoData.Descripcion,
         CodigoBarras: productoData.CodigoBarras || '',
+        ProveedorArticuloCodigo: productoData.CodigoProveedor || '',
         ProveedorCodigo: productoData.ProveedorCodigo || null,
         RubroCodigo: productoData.RubroCodigo || null,
         Existencia: Number(productoData.ExistenciaActual || 0),
@@ -517,8 +518,52 @@ exports.crearProducto = async (req, res) => {
         await productoExistente.update(articuloData, { transaction: t });
         nuevoProducto = productoExistente;
       } else {
-        // Crear nuevo producto
-        nuevoProducto = await Articulo.create(articuloData, { transaction: t });
+        // Crear nuevo producto utilizando una consulta SQL directa para asegurar que todos los campos se incluyan
+        // Esta es una solución alternativa en caso de que el modelo Sequelize no tenga todos los campos
+        await req.db.query(
+          `INSERT INTO t_articulos (
+            Codigo, Descripcion, CodigoBarras, ProveedorCodigo, ProveedorArticuloCodigo, RubroCodigo,
+            Existencia, ExistenciaMinima, ExistenciaMaxima, UbicacionDeposito,
+            Peso, UnidadVenta, PrecioCosto, PrecioCostoMasImp, 
+            PorcentajeIVA1, PorcentajeIVA2, Lista1, Lista2, Lista3, Lista4, Lista5,
+            PorcentajeVendedor, Activo
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          {
+            replacements: [
+              articuloData.Codigo, 
+              articuloData.Descripcion, 
+              articuloData.CodigoBarras,
+              articuloData.ProveedorCodigo, 
+              articuloData.ProveedorArticuloCodigo,
+              articuloData.RubroCodigo,
+              articuloData.Existencia, 
+              articuloData.ExistenciaMinima, 
+              articuloData.ExistenciaMaxima,
+              articuloData.UbicacionDeposito, 
+              articuloData.Peso, 
+              articuloData.UnidadVenta,
+              articuloData.PrecioCosto, 
+              articuloData.PrecioCostoMasImp,
+              articuloData.PorcentajeIVA1, 
+              articuloData.PorcentajeIVA2,
+              articuloData.Lista1, 
+              articuloData.Lista2, 
+              articuloData.Lista3, 
+              articuloData.Lista4, 
+              articuloData.Lista5,
+              articuloData.PorcentajeVendedor, 
+              articuloData.Activo
+            ],
+            type: req.db.QueryTypes.INSERT,
+            transaction: t
+          }
+        );
+        
+        // Recuperar el artículo recién creado
+        nuevoProducto = await Articulo.findOne({
+          where: { Codigo: articuloData.Codigo },
+          transaction: t
+        });
       }
       
       // Confirmar transacción

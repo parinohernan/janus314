@@ -167,7 +167,7 @@
     try {
       loading = true;
       error = '';
-
+      console.log("producto", producto);
       // Asegurar que valores numéricos sean números y no strings
       const productoParaEnviar = {
         ...producto,
