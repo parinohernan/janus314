@@ -51,6 +51,9 @@
   class="logo-container"
   on:mouseenter={() => isHovered = true}
   on:mouseleave={() => isHovered = false}
+  role="button"
+  aria-label="Logo Jano miniPOS"
+  tabindex="0"
 >
   <div class="fox-container" style="width: {logoSize}; height: {logoSize};">
     <svg 

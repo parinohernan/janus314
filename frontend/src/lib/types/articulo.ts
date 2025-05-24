@@ -6,6 +6,10 @@ export interface Articulo {
 	PorcentajeIva?: number;
 	PorcentajeIva1?: number;
 	Existencia: number;
+	ExistenciaMinima?: number;
+	ExistenciaMaxima?: number;
+	ProveedorCodigo?: string;
+	RubroCodigo?: string;
 	Activo: number;
 	Lista1?: number;
 	Lista2?: number;

@@ -384,7 +384,8 @@ exports.getStockBajo = async (req, res) => {
       limit = 10,
       search = "",
       field = "Descripcion",
-      order = "ASC"
+      order = "ASC",
+      proveedor = ""
     } = req.query;
 
     // Calcular offset para paginación
@@ -392,14 +393,19 @@ exports.getStockBajo = async (req, res) => {
 
     // Configurar opciones de búsqueda
     const whereClause = {
-      Activo: 1, // Solo artículos activos
+      Activo: 1,
       ExistenciaMinima: { 
-        [Op.gt]: 0 // ExistenciaMinima mayor que 0
+        [Op.gt]: 0
       },
       Existencia: {
-        [Op.lt]: req.db.col('ExistenciaMinima') // Existencia menor que ExistenciaMinima
+        [Op.lt]: req.db.col('ExistenciaMinima')
       }
     };
+    
+    // Filtrar por proveedor si se especifica
+    if (proveedor && proveedor !== 'todos') {
+      whereClause.ProveedorCodigo = proveedor;
+    }
     
     if (search) {
       whereClause[Op.and] = [

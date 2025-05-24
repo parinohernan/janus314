@@ -480,28 +480,29 @@ exports.crearProducto = async (req, res) => {
         Codigo: productoData.Codigo,
         Descripcion: productoData.Descripcion,
         CodigoBarras: productoData.CodigoBarras || '',
-        CodigoProveedor: productoData.CodigoProveedor || '',
-        Proveedor: productoData.Proveedor || '',
-        Rubro: productoData.Rubro || '',
-        Familia: productoData.Familia || '',
-        Subfamilia: productoData.Subfamilia || '',
-        Existencia: productoData.ExistenciaActual || 0,
-        ExistenciaMinima: productoData.ExistenciaMinima || 0,
-        ExistenciaMaxima: productoData.ExistenciaMaxima || 0,
+        ProveedorCodigo: productoData.ProveedorCodigo || null,
+        RubroCodigo: productoData.RubroCodigo || null,
+        Existencia: Number(productoData.ExistenciaActual || 0),
+        ExistenciaMinima: Number(productoData.ExistenciaMinima || 0),
+        ExistenciaMaxima: Number(productoData.ExistenciaMaxima || 0),
         UbicacionDeposito: productoData.UbicacionDeposito || '',
-        Peso: productoData.Peso || 0,
+        Peso: Number(productoData.Peso || 0),
         UnidadVenta: productoData.UnidadVenta || 'u',
-        PrecioCosto: productoData.PrecioCostoSinIva || 0,
-        PorcentajeIva1: productoData.PorcentajeIva1 || 21,
-        PorcentajeIva2: productoData.PorcentajeIva2 || 0,
-        Lista1: productoData.PrecioLista1 || 0,
-        Lista2: productoData.PrecioLista2 || 0,
-        Lista3: productoData.PrecioLista3 || 0,
-        Lista4: productoData.PrecioLista4 || 0,
-        Lista5: productoData.PrecioLista5 || 0,
-        PorcentajeVendedor: productoData.PorcentajeVendedor || 0,
-        Activo: true
+        PrecioCosto: Number(productoData.PrecioCostoSinIva || productoData.PrecioCosto || 0),
+        PrecioCostoMasImp: Number(productoData.PrecioCostoMasImp || productoData.PrecioCostoConIva || 0),
+        PorcentajeIVA1: Number(productoData.PorcentajeIVA1 || productoData.PorcentajeIva1 || 21),
+        PorcentajeIVA2: Number(productoData.PorcentajeIVA2 || productoData.PorcentajeIva2 || 0),
+        Lista1: Number(productoData.PrecioLista1 || 0),
+        Lista2: Number(productoData.PrecioLista2 || 0),
+        Lista3: Number(productoData.PrecioLista3 || 0),
+        Lista4: Number(productoData.PrecioLista4 || 0),
+        Lista5: Number(productoData.PrecioLista5 || 0),
+        PorcentajeVendedor: Number(productoData.PorcentajeVendedor || 0),
+        Activo: 1
       };
+      
+      // Log para depuración
+      console.log("Datos a guardar en la base de datos:", JSON.stringify(articuloData, null, 2));
       
       // Verificar si el producto ya existe
       const productoExistente = await Articulo.findOne({

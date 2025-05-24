@@ -112,6 +112,8 @@
         PrecioCostoSinIva: Number(producto.PrecioCostoSinIva),
         PrecioCostoConIva: Number(producto.PrecioCostoConIva),
         Existencia: Number(producto.Existencia || 0),
+        ExistenciaMinima: Number(producto.ExistenciaMinima || 0),
+        ExistenciaMaxima: Number(producto.ExistenciaMaxima || 0),
         PorcentajeIva1: Number(producto.PorcentajeIva1),
         Lista1: Number(producto.Lista1 || 0),
         Lista2: Number(producto.Lista2 || 0),

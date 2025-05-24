@@ -170,14 +170,21 @@
       // Asegurar que valores numéricos sean números y no strings
       const productoParaEnviar = {
         ...producto,
+        ProveedorCodigo: producto.Proveedor,
+        RubroCodigo: producto.Rubro,
         ExistenciaActual: Number(producto.ExistenciaActual),
         ExistenciaMinima: Number(producto.ExistenciaMinima),
         ExistenciaMaxima: Number(producto.ExistenciaMaxima),
         Peso: Number(producto.Peso),
+        UnidadVenta: producto.UnidadVenta || 'u',
+        PrecioCosto: Number(producto.PrecioCostoSinIva),
         PrecioCostoSinIva: Number(producto.PrecioCostoSinIva),
         PrecioCostoConIva: Number(producto.PrecioCostoConIva),
+        PrecioCostoMasImp: Number(producto.PrecioCostoConIva),
+        PorcentajeIVA1: Number(producto.PorcentajeIva1),
         PorcentajeIva1: Number(producto.PorcentajeIva1),
-        PorcentajeIva2: Number(producto.PorcentajeIva2),
+        PorcentajeIVA2: Number(producto.PorcentajeIva2 || 0),
+        PorcentajeIva2: Number(producto.PorcentajeIva2 || 0),
         PrecioLista1: Number(producto.PrecioLista1),
         PrecioLista2: Number(producto.PrecioLista2),
         PrecioLista3: Number(producto.PrecioLista3),
@@ -185,6 +192,21 @@
         PrecioLista5: Number(producto.PrecioLista5),
         PorcentajeVendedor: Number(producto.PorcentajeVendedor)
       };
+
+      // Agregar logs de depuración para ver los valores
+      console.log("Producto original:", {
+        ExistenciaMinima: producto.ExistenciaMinima,
+        ExistenciaMaxima: producto.ExistenciaMaxima,
+        UnidadVenta: producto.UnidadVenta,
+        PrecioCostoSinIva: producto.PrecioCostoSinIva
+      });
+      console.log("Producto preparado para enviar:", {
+        ExistenciaMinima: productoParaEnviar.ExistenciaMinima,
+        ExistenciaMaxima: productoParaEnviar.ExistenciaMaxima,
+        UnidadVenta: productoParaEnviar.UnidadVenta,
+        PrecioCostoSinIva: productoParaEnviar.PrecioCostoSinIva,
+        PrecioCosto: productoParaEnviar.PrecioCosto
+      });
 
       // Enviar datos al backend - Corregir URL duplicada
       const response = await fetchWithAuth('/telegram/productos', {
@@ -615,12 +637,15 @@
           
           <div class="form-group">
             <label for="unidadVenta">Unidad de Venta</label>
-            <input 
-              type="text" 
+            <select 
               id="unidadVenta" 
-              bind:value={producto.UnidadVenta} 
-              placeholder="u"
-            />
+              bind:value={producto.UnidadVenta}
+            >
+              <option value="u">Unidad (u)</option>
+              <option value="kg">Kilogramo (kg)</option>
+              <option value="lt">Litro (lt)</option>
+              <option value="mt">Metro (mt)</option>
+            </select>
           </div>
         </div>
       {/if}

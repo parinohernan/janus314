@@ -25,6 +25,36 @@
   // Debounce para la búsqueda
   let searchTimeout: NodeJS.Timeout | null = null;
   
+  // Estado para la lista de proveedores y el proveedor seleccionado
+  let proveedores: any[] = [];
+  let proveedorSeleccionado = 'todos';
+  
+  // Función para cargar la lista de proveedores
+  async function cargarProveedores() {
+    try {
+      const response = await fetchWithAuth('/api/proveedores?activo=1');
+      
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      // Transformar la respuesta al formato necesario
+      proveedores = [
+        { codigo: 'todos', descripcion: 'Todos los proveedores' },
+        ...data.items.map((p: any) => ({
+          codigo: p.Codigo,
+          descripcion: p.Descripcion
+        }))
+      ];
+    } catch (err) {
+      console.error('Error al cargar proveedores:', err);
+      // Fallback para no bloquear la funcionalidad
+      proveedores = [{ codigo: 'todos', descripcion: 'Todos los proveedores' }];
+    }
+  }
+  
   // Cargar productos con stock bajo
   async function cargarProductosBajoStock() {
     try {
@@ -40,7 +70,7 @@
       }
       
       const response = await fetchWithAuth(
-        `/api/articulos/stock-bajo?page=${currentPage}&limit=${itemsPerPage}&search=${searchTerm}&field=${orderField}&order=${orderDirection}`
+        `/api/articulos/stock-bajo?page=${currentPage}&limit=${itemsPerPage}&search=${searchTerm}&field=${orderField}&order=${orderDirection}&proveedor=${proveedorSeleccionado}`
       );
       
       if (!response.ok) {
@@ -115,8 +145,15 @@
     return 'normal';
   }
   
+  // Función para manejar el cambio de proveedor
+  function cambiarProveedor() {
+    currentPage = 1;
+    cargarProductosBajoStock();
+  }
+  
   // Cargar datos al montar el componente
   onMount(() => {
+    cargarProveedores();
     cargarProductosBajoStock();
   });
 </script>
@@ -137,13 +174,27 @@
   
   <!-- Barra de búsqueda -->
   <div class="search-filter-container">
-    <div class="search-bar">
-      <input
-        type="text"
-        placeholder="Buscar productos..."
-        bind:value={searchTerm}
-        on:input={handleSearchChange}
-      />
+    <div class="filter-row">
+      <div class="search-bar">
+        <input
+          type="text"
+          placeholder="Buscar productos..."
+          bind:value={searchTerm}
+          on:input={handleSearchChange}
+        />
+      </div>
+      
+      <div class="filter-select">
+        <select 
+          bind:value={proveedorSeleccionado}
+          on:change={cambiarProveedor}
+          aria-label="Filtrar por proveedor"
+        >
+          {#each proveedores as proveedor}
+            <option value={proveedor.codigo}>{proveedor.descripcion}</option>
+          {/each}
+        </select>
+      </div>
     </div>
   </div>
   
@@ -270,7 +321,31 @@
     border-radius: 8px;
   }
 
+  .filter-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  
+  .search-bar {
+    flex: 1;
+    min-width: 200px;
+  }
+  
+  .filter-select {
+    width: 200px;
+  }
+  
   .search-bar input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    font-size: 1rem;
+    background-color: var(--tg-theme-bg-color, #fff);
+  }
+  
+  .filter-select select {
     width: 100%;
     padding: 10px;
     border: 1px solid rgba(0, 0, 0, 0.1);
@@ -483,6 +558,14 @@
     
     .alerta-card {
       padding: 12px;
+    }
+    
+    .filter-row {
+      flex-direction: column;
+    }
+    
+    .filter-select {
+      width: 100%;
     }
   }
 </style> 
