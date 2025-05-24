@@ -7,6 +7,7 @@
   import { ProveedorService, type Proveedor, type ProveedorCompleto } from '$lib/services/ProveedorService';
   import { RubroService, type Rubro, type RubroCompleto } from '$lib/services/RubroService';
   import { CodigoPostalService, type CodigoPostal } from '$lib/services/CodigoPostalService';
+  import Breadcrumbs from '../../components/Breadcrumbs/index.svelte';
 
   // Paso actual del formulario
   let currentStep = 1;
@@ -404,6 +405,15 @@
 </script>
 
 <div class="nuevo-producto-container">
+  <!-- Breadcrumbs -->
+  <Breadcrumbs 
+    customPath={[
+      { label: 'Home', path: '/ventas/bot' },
+      { label: 'Productos', path: '/ventas/bot/productos' },
+      { label: 'Nuevo Producto', path: '/ventas/bot/productos/nuevo' }
+    ]}
+  />
+
   <!-- Header con título y botón de volver -->
   <header class="header">
     <div class="header-title">

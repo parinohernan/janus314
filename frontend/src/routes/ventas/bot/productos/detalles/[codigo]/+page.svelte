@@ -4,6 +4,7 @@
   import '../../../../../../app.css';
   import { ProveedorService, type Proveedor } from '$lib/services/ProveedorService';
   import { RubroService, type Rubro } from '$lib/services/RubroService';
+  import Breadcrumbs from '../../../components/Breadcrumbs/index.svelte';
   
   // Exportar las propiedades del componente
   export let data: { articulo: any };
@@ -76,6 +77,9 @@
 </script>
 
 <div class="detalle-producto-container">
+  <!-- Breadcrumbs -->
+  <Breadcrumbs />
+  
   <!-- Header con título y botones de acción -->
   <header class="header">
     <div class="header-title">

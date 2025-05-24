@@ -5,6 +5,7 @@
   import { ArticuloService } from '$lib/services/ArticuloService';
   import { obtenerPrecioSegunLista } from '../components/utils';
   import type { Articulo } from '../components/types';
+  import Breadcrumbs from '../components/Breadcrumbs/index.svelte';
   
   // Estado para la búsqueda y paginación
   let searchTerm = '';
@@ -124,6 +125,14 @@
 </script>
 
 <div class="productos-container">
+  <!-- Breadcrumbs personalizados -->
+  <Breadcrumbs 
+    customPath={[
+      { label: 'Home', path: '/ventas/bot' },
+      { label: 'Productos', path: '/ventas/bot/productos' }
+    ]}
+  />
+
   <!-- Header con botones de navegación -->
   <header class="header">
     <div class="header-title">
