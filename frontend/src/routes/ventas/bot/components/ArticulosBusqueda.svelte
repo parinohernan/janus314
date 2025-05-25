@@ -3,6 +3,7 @@
   import { fetchProductos } from './utils';
   import { onDestroy } from 'svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { goto } from '$app/navigation';
 
   export let agregarArticulo: (a: Articulo) => void;
   export let handleArticuloKeyDown: (e: KeyboardEvent, a: Articulo) => void;
@@ -307,6 +308,11 @@
   onDestroy(() => {
     detenerEscanner();
   });
+
+  // Función para ir a la página de nuevo producto
+  function irANuevoProducto() {
+    goto('/ventas/bot/productos/nuevo');
+  }
 </script>
 
 <div class="form-group">
@@ -378,7 +384,12 @@
     {:else if error}
       <div class="no-resultados">{error}</div>
     {:else if productosFiltrados.length === 0 && busquedaProducto.length >= 2}
-      <div class="no-resultados">No se encontraron productos con "{busquedaProducto}"</div>
+      <div class="no-resultados">
+        <p>No se encontraron productos con "{busquedaProducto}"</p>
+        <button class="btn-nuevo-producto" on:click={irANuevoProducto}>
+          <span>➕ Crear nuevo producto</span>
+        </button>
+      </div>
     {:else if productosFiltrados.length > 0}
       {#each productosFiltrados as articulo}
         <div 
@@ -738,5 +749,33 @@
     height: 2px;
     background: rgba(255, 255, 255, 0.5);
     pointer-events: none;
+  }
+
+  .btn-nuevo-producto {
+    margin-top: 10px;
+    background: var(--tg-theme-button-color, #2481cc);
+    color: var(--tg-theme-button-text-color, #fff);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    margin-right: auto;
+    transition: all 0.2s ease;
+  }
+
+  .btn-nuevo-producto:hover {
+    transform: scale(1.05);
+    background: var(--tg-theme-button-color, #1e6ca8);
+  }
+
+  .btn-nuevo-producto span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
 </style> 

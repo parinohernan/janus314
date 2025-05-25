@@ -12,6 +12,7 @@
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { auth } from '$lib/stores/authStore';
   import { get } from 'svelte/store';
+  import ClienteNuevoModal from '../components/ClienteNuevoModal.svelte';
   
   // Asegurar que haya un token para el bot de Telegram
   if (typeof localStorage !== 'undefined' && !localStorage.getItem('authToken')) {
@@ -96,6 +97,10 @@
   let tg: any = null;
   
   let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
+  
+  let mostrarModalNuevoCliente = false;
+  
+  let formaPago: string = 'CO'; // Valor por defecto para forma de pago
   
   onMount(async () => {
     // Verificar estado actual de autenticación
@@ -348,6 +353,7 @@
       const importeTotal = selectedArticulos.reduce((sum, a) => sum + ((a.PrecioVenta || 0) * cantidadTotal(a)), 0);
       const importeBruto = importeTotal / 1.21; // Base imponible (precio sin IVA)
       const iva21 = importeTotal - importeBruto; // IVA = precio con IVA - precio sin IVA
+      console.log("formaPago", formaPago);
       
       // Crear objeto de factura con todos los campos requeridos
       const factura: any = {
@@ -359,7 +365,7 @@
         // Usar el nombre que espera el controlador (cambiará a VendedorCodigo internamente)
         Vendedor: codigoVendedor,
         // Usar el nombre que espera el controlador (cambiará a PagoTipo internamente)
-        FormaPagoCodigo: 'CO',
+        FormaPagoCodigo: formaPago,
         ImporteBruto: Number(importeBruto.toFixed(2)),
         PorcentajeBonificacion: 0,
         ImporteBonificado: 0,
@@ -370,14 +376,14 @@
         BaseImponible1: Number(importeBruto.toFixed(2)),
         BaseImponible2: 0,
         ImporteTotal: Number(importeTotal.toFixed(2)),
-        ImportePagado: Number(montoPagado.toFixed(2)),
+        ImportePagado: formaPago === 'CC' ? 0 : Number(montoPagado.toFixed(2)),
         // Usar el nombre que espera el controlador (cambiará a ListaNumero internamente)
         ListaPrecio: parseInt(listaPrecios),
         Observacion: '',
         CajaNumero: null,
         // Datos adicionales del cobro
-        MontoPagado: Number(montoPagado.toFixed(2)),
-        Cambio: Number(cambio.toFixed(2))
+        MontoPagado: formaPago === 'CC' ? 0 : Number(montoPagado.toFixed(2)),
+        Cambio: formaPago === 'CC' ? 0 : Number(cambio.toFixed(2))
       };
       
       // Crear array de items para agregar a la factura
@@ -531,6 +537,14 @@
     }
   }
 
+  function handleClienteCreado(event: CustomEvent) {
+    const nuevoCliente = event.detail.cliente;
+    clientes = [nuevoCliente, ...clientes];
+    cliente = nuevoCliente.Codigo;
+    clienteSeleccionado = nuevoCliente;
+    mostrarModalNuevoCliente = false;
+  }
+
   onDestroy(() => {
     if (debounceTimeout) clearTimeout(debounceTimeout);
   });
@@ -560,17 +574,20 @@
   <form on:submit|preventDefault={enviarVenta}>
     <div class="form-group">
       <label for="cliente-display">Cliente</label>
-      <div 
-        id="cliente-display"
-        class="cliente-seleccionado" 
-        on:click={abrirSelectorCliente} 
-        on:keydown={(e) => e.key === 'Enter' && abrirSelectorCliente()} 
-        role="button" 
-        tabindex="0"
-        aria-haspopup="dialog"
-      >
-        <span class="cliente-label">{clienteSeleccionado.Descripcion}</span>
-        <span class="cliente-editar">✏️</span>
+      <div class="cliente-selector-row">
+        <div 
+          id="cliente-display"
+          class="cliente-seleccionado" 
+          on:click={abrirSelectorCliente} 
+          on:keydown={(e) => e.key === 'Enter' && abrirSelectorCliente()} 
+          role="button" 
+          tabindex="0"
+          aria-haspopup="dialog"
+        >
+          <span class="cliente-label">{clienteSeleccionado.Descripcion}</span>
+          <!-- <span class="cliente-editar">✏️</span> -->
+          <button type="button" class="btn-nuevo-cliente" aria-label="Agregar nuevo cliente" on:click={() => mostrarModalNuevoCliente = true}>+</button>
+        </div>
       </div>
     </div>
     <ArticulosBusqueda
@@ -612,12 +629,19 @@
     {calcularCambio}
     cancelar={() => mostrarModalCobro = false}
     terminar={procesarCobro}
+    clienteSeleccionado={clienteSeleccionado}
+    on:formaPagoChange={e => formaPago = e.detail}
   />
   
   <ComprobanteDetalle
     comprobante={comprobanteActual}
     mostrar={mostrarComprobanteDetalle}
     onClose={cerrarComprobanteDetalle}
+  />
+  <ClienteNuevoModal
+    mostrar={mostrarModalNuevoCliente}
+    on:clienteCreado={handleClienteCreado}
+    onClose={() => mostrarModalNuevoCliente = false}
   />
 </div>
 
@@ -640,7 +664,14 @@
   }
   
   /* Estilos para cliente */
+  .cliente-selector-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    width: 100%;
+  }
   .cliente-seleccionado {
+    flex: 1;
     display: flex;
     padding: 10px;
     background: var(--tg-theme-secondary-bg-color, #f5f5f5);
@@ -649,15 +680,15 @@
     align-items: center;
     margin-bottom: 15px;
     justify-content: space-between;
+    min-width: 0;
   }
-  
   .cliente-label {
     font-weight: bold;
   }
   
-  .cliente-editar {
+  /* .cliente-editar {
     color: var(--tg-theme-link-color, #2481cc);
-  }
+  } */
   
   .error {
     color: #d32f2f;
@@ -703,5 +734,36 @@
     cursor: pointer;
     font-size: 1em;
     margin-bottom: 16px;
+  }
+
+  .btn-nuevo-cliente {
+    margin-left: 8px;
+    flex-shrink: 0;
+    background: #e8f5e9;
+    color: #2481cc;
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    font-size: 1.4em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .btn-nuevo-cliente:hover {
+    background: #b2ebf2;
+    transform: scale(1.05);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+  }
+  .btn-nuevo-cliente:active {
+    transform: scale(0.95);
+  }
+  .btn-nuevo-cliente:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(36,129,204,0.3);
   }
 </style> 

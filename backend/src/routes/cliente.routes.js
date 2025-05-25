@@ -11,4 +11,7 @@ router.post("/", clienteController.createCliente);
 router.put("/:id", clienteController.updateCliente);
 router.put("/:id/toggleActivo", clienteController.toggleActivoCliente);
 
+// Ruta para obtener el saldo del cliente
+router.get('/:codigo/saldo', clienteController.obtenerSaldoCliente);
+
 module.exports = router;

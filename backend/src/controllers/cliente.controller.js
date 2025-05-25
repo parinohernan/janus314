@@ -1,8 +1,9 @@
 const { Op } = require("sequelize");
 const sequelize = require("sequelize");
+const pool = require("../config/database");
 
 // Obtener todos los clientes (con filtros y paginación)
-exports.getAllClientes = async (req, res) => {
+const getAllClientes = async (req, res) => {
   try {
     const { Cliente, CategoriaIva } = req.models;
     const {
@@ -96,7 +97,7 @@ exports.getAllClientes = async (req, res) => {
 };
 
 // Obtener un cliente por Código
-exports.getClienteById = async (req, res) => {
+const getClienteById = async (req, res) => {
   try {
     const { Cliente, CategoriaIva } = req.models;
     const cliente = await Cliente.findByPk(req.params.id, {
@@ -121,7 +122,7 @@ exports.getClienteById = async (req, res) => {
 };
 
 // Crear nuevo cliente
-exports.createCliente = async (req, res) => {
+const createCliente = async (req, res) => {
   try {
     const { Cliente } = req.models;
     // Validar campos obligatorios
@@ -193,7 +194,7 @@ exports.createCliente = async (req, res) => {
 };
 
 // Actualizar cliente
-exports.updateCliente = async (req, res) => {
+const updateCliente = async (req, res) => {
   try {
     const { Cliente } = req.models;
     const cliente = await Cliente.findByPk(req.params.id);
@@ -259,7 +260,7 @@ exports.updateCliente = async (req, res) => {
 };
 
 // Eliminar cliente
-exports.toggleActivoCliente = async (req, res) => {
+const toggleActivoCliente = async (req, res) => {
   try {
     const { Cliente } = req.models;
     const cliente = await Cliente.findByPk(req.params.id);
@@ -289,7 +290,7 @@ exports.toggleActivoCliente = async (req, res) => {
 };
 
 // Obtener cuentas corrientes de clientes
-exports.getCuentasCorrientes = async (req, res) => {
+const getCuentasCorrientes = async (req, res) => {
   try {
     const { Cliente } = req.models;
     const {
@@ -350,7 +351,7 @@ exports.getCuentasCorrientes = async (req, res) => {
 };
 
 // Obtener comprobantes de un cliente
-exports.getComprobantesCliente = async (req, res) => {
+const getComprobantesCliente = async (req, res) => {
   try {
     const { Cliente, Factura, NotaCredito, NotaDebito, Recibo } = req.models;
     const { id } = req.params;
@@ -493,4 +494,53 @@ exports.getComprobantesCliente = async (req, res) => {
     console.error(error);
     return res.status(500).json({ message: "Error al obtener los comprobantes del cliente" });
   }
+};
+
+// Obtener saldo del cliente
+const obtenerSaldoCliente = async (req, res) => {
+  try {
+    const { codigo } = req.params;
+    const { FacturaCabeza } = req.models;
+    
+    // Usar Sequelize para obtener el saldo
+    const result = await FacturaCabeza.findOne({
+      attributes: [
+        [
+          sequelize.fn(
+            'COALESCE',
+            sequelize.fn('SUM', 
+              sequelize.literal('ImporteTotal - ImportePagado')
+            ),
+            0
+          ),
+          'Saldo'
+        ]
+      ],
+      where: {
+        ClienteCodigo: codigo,
+        PagoTipo: 'CC'
+      }
+    });
+    
+    res.json({
+      saldo: result?.getDataValue('Saldo') || 0
+    });
+  } catch (error) {
+    console.error('Error al obtener saldo del cliente:', error);
+    res.status(500).json({ 
+      error: 'Error al obtener saldo del cliente',
+      details: error.message 
+    });
+  }
+};
+
+module.exports = {
+  getAllClientes,
+  getClienteById,
+  createCliente,
+  updateCliente,
+  toggleActivoCliente,
+  getCuentasCorrientes,
+  getComprobantesCliente,
+  obtenerSaldoCliente
 };

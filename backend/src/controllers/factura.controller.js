@@ -216,141 +216,91 @@ exports.crearFactura = async (req, res) => {
     // Crear transacción usando la conexión de la empresa específica, no la global
     const t = await connection.transaction();
     
-    // Ajuste de zona horaria: si viene una fecha en facturaData, la ajustamos a GMT-3
-    if (facturaData.Fecha) {
-      // Parseamos la fecha que llega
-      const fechaOriginal = new Date(facturaData.Fecha);
-      
-      // Creamos una fecha en formato ISO pero ajustada al huso horario GMT-3
-      // Esto garantiza que la fecha se guarde correctamente en la zona horaria local
-      const fechaLocal = new Date(fechaOriginal.getTime());
-      // Establecemos la hora a las 12 del mediodía para evitar problemas con cambios de día
-      fechaLocal.setHours(12, 0, 0, 0);
-      
-      // Actualizamos la fecha en facturaData con el formato YYYY-MM-DD
-      facturaData.Fecha = fechaLocal.toISOString().split('T')[0];
-      console.log('Fecha ajustada para zona horaria GMT-3:', facturaData.Fecha);
-    } else {
-      // Si no viene fecha, creamos una fecha actual en GMT-3
-      const ahora = new Date();
-      ahora.setHours(12, 0, 0, 0); // Mediodía para evitar problemas con cambios de día
-      facturaData.Fecha = ahora.toISOString().split('T')[0];
-      console.log('Fecha actual ajustada para zona horaria GMT-3:', facturaData.Fecha);
-    }
-    
-    // Obtener número de comprobante desde el servidor de forma segura
-    // Utilizamos directamente una consulta SQL a la base de datos específica de la empresa
     try {
-      // Usamos la conexión a la base de datos específica de la empresa
-      console.log('Obteniendo número de comprobante con conexión de empresa:', connection.config.database);
-      const [result] = await connection.query(
-        `SELECT NumeroProximo FROM t_numeroscontrol 
-         WHERE Codigo = ? AND Sucursal = ? 
-         FOR UPDATE`,
-        {
-          replacements: [facturaData.DocumentoTipo, facturaData.DocumentoSucursal],
-          type: connection.QueryTypes.SELECT,
-          transaction: t,
-        }
-      );
-
-      if (!result) {
-        throw new Error(
-          `No se encontró configuración para el comprobante ${facturaData.DocumentoTipo} y sucursal ${facturaData.DocumentoSucursal}`
-        );
+      // Ajuste de zona horaria: si viene una fecha en facturaData, la ajustamos a GMT-3
+      if (facturaData.Fecha) {
+        // Parseamos la fecha que llega
+        const fechaOriginal = new Date(facturaData.Fecha);
+        
+        // Creamos una fecha en formato ISO pero ajustada al huso horario GMT-3
+        // Esto garantiza que la fecha se guarde correctamente en la zona horaria local
+        const fechaLocal = new Date(fechaOriginal.getTime());
+        // Establecemos la hora a las 12 del mediodía para evitar problemas con cambios de día
+        fechaLocal.setHours(12, 0, 0, 0);
+        
+        // Actualizamos la fecha en facturaData con el formato YYYY-MM-DD
+        facturaData.Fecha = fechaLocal.toISOString().split('T')[0];
+        console.log('Fecha ajustada para zona horaria GMT-3:', facturaData.Fecha);
+      } else {
+        // Si no viene fecha, creamos una fecha actual en GMT-3
+        const ahora = new Date();
+        ahora.setHours(12, 0, 0, 0); // Mediodía para evitar problemas con cambios de día
+        facturaData.Fecha = ahora.toISOString().split('T')[0];
+        console.log('Fecha actual ajustada para zona horaria GMT-3:', facturaData.Fecha);
       }
-
-      const numeroActual = result.NumeroProximo;
-
-      // Actualizar inmediatamente el número incrementándolo
-      await connection.query(
-        `UPDATE t_numeroscontrol 
-         SET NumeroProximo = NumeroProximo + 1 
-         WHERE Codigo = ? AND Sucursal = ?`,
-        {
-          replacements: [facturaData.DocumentoTipo, facturaData.DocumentoSucursal],
-          type: connection.QueryTypes.UPDATE,
-          transaction: t,
-        }
-      );
-
-      // Formatear el número como string con ceros a la izquierda (8 dígitos)
-      facturaData.DocumentoNumero = numeroActual.toString().padStart(8, "0");
-      console.log(`Número de factura asignado por el servidor: ${facturaData.DocumentoNumero}`);
       
-      // Hacemos COMMIT para guardar el incremento del número, incluso si falla algo después
-      await t.commit();
-      console.log('Transacción confirmada: número de comprobante actualizado');
-      
-    } catch (numError) {
-      console.error("Error al obtener número de comprobante:", numError);
-      await t.rollback();
-      return res.status(500).json({
-        success: false,
-        message: "Error al obtener número de comprobante",
-        error: numError.message,
-      });
-    }
-    
-    // completo los campos necesarios con los nombres adecuados
-    facturaData.PagoTipo = facturaData.FormaPagoCodigo;
-    delete facturaData.FormaPagoCodigo;
-    facturaData.VendedorCodigo = facturaData.Vendedor || "1";
-    delete facturaData.Vendedor;
-    facturaData.PorcentajeIva1 = "21";
-    facturaData.PorcentajeIva2 = "10.5";
-    facturaData.ListaNumero = facturaData.ListaPrecio;
-    delete facturaData.ListaPrecio;
-    facturaData.CodigoUsuario = "admin";
+      // completo los campos necesarios con los nombres adecuados
+      facturaData.PagoTipo = facturaData.FormaPagoCodigo;
+      delete facturaData.FormaPagoCodigo;
+      facturaData.VendedorCodigo = facturaData.Vendedor || "1";
+      delete facturaData.Vendedor;
+      facturaData.PorcentajeIva1 = "21";
+      facturaData.PorcentajeIva2 = "10.5";
+      facturaData.ListaNumero = facturaData.ListaPrecio;
+      delete facturaData.ListaPrecio;
+      facturaData.CodigoUsuario = "admin";
 
-    // Creamos una nueva transacción para el saldo del cliente
-    const tCliente = await connection.transaction();
-    
-    try {
+      // Si es cuenta corriente, el importe pagado es 0
       if (facturaData.PagoTipo === "CC") {
-        // actualizo saldo del cliente
+        facturaData.ImportePagado = 0;
+        
+        // Actualizar saldo del cliente
         const cliente = await Cliente.findOne({
           where: { Codigo: facturaData.ClienteCodigo },
-          transaction: tCliente
+          transaction: t
         });
+        
+        if (!cliente) {
+          throw new Error("Cliente no encontrado");
+        }
+        
+        // Actualizar el saldo del cliente
         await Cliente.update(
-          { ImporteDeuda: cliente.ImporteDeuda + facturaData.ImporteTotal },
+          { 
+            ImporteDeuda: sequelize.literal(`ImporteDeuda + ${facturaData.ImporteTotal}`)
+          },
           { 
             where: { Codigo: facturaData.ClienteCodigo },
-            transaction: tCliente 
+            transaction: t 
           }
         );
-        
-        // Confirmamos esta transacción también
-        await tCliente.commit();
       } else {
+        // Si es contado, el importe pagado es el total
         facturaData.ImportePagado = facturaData.ImporteTotal;
-        // No necesitamos la transacción en este caso
-        await tCliente.rollback();
       }
-    } catch (clienteError) {
-      await tCliente.rollback();
-      console.error("Error al actualizar saldo del cliente:", clienteError);
-      // Continuamos con la creación de la factura aunque haya fallado la actualización del saldo
+
+      // Crear factura usando el servicio (pasando la transacción y los modelos dinámicos)
+      const facturaCreada = await FacturaService.crearFactura(
+        facturaData, 
+        t,  // Pasar la transacción para que todo se haga en la misma
+        { FacturaCabeza, FacturaItem, Articulo, MovimientoStock, NumerosControl },
+        connection  // Pasar la conexión específica de la empresa
+      );
+
+      // Confirmar la transacción
+      await t.commit();
+
+      //aca incluir Comunicacion con ARCA o AFIP
+      res.status(201).json({
+        success: true,
+        message: "Factura creada correctamente",
+        data: facturaCreada,
+      });
+    } catch (error) {
+      // Si hay error, hacer rollback
+      await t.rollback();
+      throw error;
     }
-
-    // Crear factura usando el servicio (pasando la transacción y los modelos dinámicos)
-    const facturaCreada = await FacturaService.crearFactura(
-      facturaData, 
-      null,  // No pasar transacción propia, el servicio creará una con la conexión adecuada
-      { FacturaCabeza, FacturaItem, Articulo, MovimientoStock, NumerosControl },
-      connection  // Pasar la conexión específica de la empresa
-    );
-
-    // No necesitamos manejar la transacción aquí, el servicio lo hace
-    // Tampoco necesitamos actualizar el número de control aquí, se hace dentro del servicio
-
-    //aca incluir Comunicacion con ARCA o AFIP
-    res.status(201).json({
-      success: true,
-      message: "Factura creada correctamente",
-      data: facturaCreada,
-    });
   } catch (error) {
     console.error("Error al crear factura:", error);
     res.status(500).json({
