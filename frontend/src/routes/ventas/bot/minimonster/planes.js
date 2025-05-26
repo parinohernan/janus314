@@ -1,7 +1,7 @@
 export const planes = [
     {
         id: 1,
-        nombre: "Plan STARTED",
+        nombre: "Plan inicial",
         descripcion: "Ideal para nuevos negocios",
         precio: "6000 ARS/mes",
         precio_promo: "4200 ARS/mes (3 meses)",
@@ -14,7 +14,7 @@ export const planes = [
     },
     {
         id: 2,
-        nombre: "Plan BALANCED",
+        nombre: "Plan intermedio",
         descripcion: "Ideal para negocios establecidos",
         precio: "18000 ARS/mes",
         precio_promo: "12000 ARS/mes (3 meses)",
@@ -27,7 +27,7 @@ export const planes = [
     },
     {
         id: 3,
-        nombre: "Plan TOP LEVEL",
+        nombre: "Plan avanzado",
         descripcion: "Ideal para negocios establecidos con mas de 3 empleados",
         precio: "28000 ARS/mes",
         precio_promo: "20000 ARS/mes (3 meses)",

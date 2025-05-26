@@ -56,47 +56,12 @@
   tabindex="0"
 >
   <div class="fox-container" style="width: {logoSize}; height: {logoSize};">
-    <svg 
-      class="fox-logo" 
-      viewBox="0 0 100 100" 
+    <img 
+      src="/logojano.png" 
+      alt="Jano Fox Logo"
+      class="fox-logo"
       class:wiggle={isHovered && animated}
-    >
-      <!-- Oreja izquierda -->
-      <polygon points="28,32 15,8 38,25" fill="#ff7733"/>
-      <polygon points="22,18 28,32 30,20" fill="#ffb380"/>
-      <!-- Oreja derecha -->
-      <polygon points="72,32 85,8 62,25" fill="#ff7733"/>
-      <polygon points="78,18 72,32 70,20" fill="#ffb380"/>
-      <!-- Cara (forma de pera) -->
-      <path 
-        d="M30,40 Q50,10 70,40 Q90,70 50,90 Q10,70 30,40 Z"
-        fill="#ff9966"
-        stroke="#ff7733"
-        stroke-width="2"
-      />
-      <!-- Frente blanca -->
-      <path 
-        d="M40,60 Q50,80 60,60 Q50,70 40,60 Z"
-        fill="#fff6ee"
-        opacity="0.8"
-      />
-      <!-- Hocico blanco -->
-      <ellipse cx="50" cy="70" rx="12" ry="8" fill="#fff6ee" />
-      <!-- Nariz -->
-      <ellipse cx="50" cy="74" rx="3" ry="2" fill="#333" />
-      <!-- Boca -->
-      <path d="M50,76 Q52,78 54,76" stroke="#333" stroke-width="1" fill="none"/>
-      <path d="M50,76 Q48,78 46,76" stroke="#333" stroke-width="1" fill="none"/>
-      <!-- Ojos -->
-      <ellipse cx="42" cy="55" rx="3" ry="5" fill="#333"/>
-      <ellipse cx="58" cy="55" rx="3" ry="5" fill="#333"/>
-      <!-- Brillo en los ojos -->
-      <ellipse cx="41" cy="54" rx="0.7" ry="1" fill="#fff"/>
-      <ellipse cx="57" cy="54" rx="0.7" ry="1" fill="#fff"/>
-      <!-- Mejillas -->
-      <ellipse cx="37" cy="65" rx="3" ry="2" fill="#ffaa88" opacity="0.5"/>
-      <ellipse cx="63" cy="65" rx="3" ry="2" fill="#ffaa88" opacity="0.5"/>
-    </svg>
+    />
   </div>
   
   <div 
@@ -124,6 +89,7 @@
   .fox-logo {
     width: 100%;
     height: 100%;
+    object-fit: contain;
   }
    
   .wiggle {

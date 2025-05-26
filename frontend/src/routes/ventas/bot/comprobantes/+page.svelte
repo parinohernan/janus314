@@ -7,6 +7,7 @@
   import { auth } from '$lib/stores/authStore';
   import { get } from 'svelte/store';
   import ComprobanteDetalle from '../components/ComprobanteDetalle.svelte';
+  import LogoJano from '../components/LogoJano.svelte';
 
 
   interface Comprobante {
@@ -565,7 +566,18 @@
 </svelte:head>
 
 <div class="telegram-webapp">
-  <button class="btn-volver" on:click={() => navigate('/ventas/bot/home')}>← Volver</button>
+  <!-- Header con botones de navegación -->
+  <header class="header">
+    <div class="header-content">
+      <button class="btn-back" on:click={() => navigate('/ventas/bot/home')} aria-label="Volver">
+        <span class="back-icon">←</span>
+      </button>
+      <div class="title-container">
+        <LogoJano size="small" animated={false} />
+        <h2 class="page-subtitle">Comprobantes</h2>
+      </div>
+    </div>
+  </header>
 
   {#if error}
     <div class="error">{error}</div>
@@ -705,8 +717,46 @@
   .telegram-webapp {
     padding: 16px;
     max-width: 100%;
+    min-height: 100vh;
     color: var(--tg-theme-text-color, #000);
     background: var(--tg-theme-bg-color, #fff);
+  }
+
+  .header {
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .header-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .title-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .btn-back {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--tg-theme-button-color, #2481cc);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+  }
+
+  .page-subtitle {
+    font-size: 1.5rem;
+    margin: 0;
+    color: var(--tg-theme-text-color, #000);
   }
 
   .comprobantes-lista {
@@ -784,29 +834,6 @@
 
   .pagina-actual {
     font-size: 0.9em;
-  }
-
-  .btn-volver {
-    background: none;
-    border: none;
-    color: var(--tg-theme-link-color, #2481cc);
-    padding: 8px 0;
-    cursor: pointer;
-    font-size: 1em;
-    margin-bottom: 16px;
-  }
-
-  .error {
-    color: #d32f2f;
-    padding: 8px;
-    margin-bottom: 16px;
-    background-color: #ffebee;
-    border-radius: 4px;
-  }
-
-  .loading {
-    text-align: center;
-    padding: 20px;
   }
 
   .filtros {

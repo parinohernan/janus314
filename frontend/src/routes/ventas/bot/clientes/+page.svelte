@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import '../../../../app.css';
   import { ClienteService, type ClienteCuentaCorriente } from '$lib/services/ClienteService';
+  import LogoJano from '../components/LogoJano.svelte';
   
   // Estado para la búsqueda y paginación
   let searchTerm = '';
@@ -110,13 +111,16 @@
 <div class="clientes-container">
   <!-- Header con botones de navegación -->
   <header class="header">
-    <div class="header-title">
-      <h1>Clientes</h1>
+    <div class="header-content">
+      <button class="btn-back" on:click={volverHome} aria-label="Volver">
+        <span class="back-icon">←</span>
+      </button>
+      <div class="title-container">
+        <LogoJano size="small" animated={false} />
+        <h2 class="page-subtitle">Clientes</h2>
+      </div>
     </div>
     <div class="header-actions">
-      <button class="btn-back" on:click={volverHome} aria-label="Volver a inicio">
-        <span class="icon">←</span> <span class="label">Volver</span>
-      </button>
       <button class="btn-nuevo" on:click={nuevoCliente}>
         <span class="icon">+</span> <span class="label">Nuevo Cliente</span>
       </button>
@@ -219,14 +223,38 @@
   }
   
   .header {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+  }
+  
+  .header-content {
+    display: flex;
+    align-items: center;
     gap: 12px;
   }
   
-  .header-title h1 {
-    font-size: 1.8rem;
+  .title-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .btn-back {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--tg-theme-button-color, #2481cc);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+  }
+  
+  .page-subtitle {
+    font-size: 1.5rem;
     margin: 0;
     color: var(--tg-theme-text-color, #000);
   }
@@ -234,22 +262,6 @@
   .header-actions {
     display: flex;
     gap: 10px;
-  }
-  
-  .btn-back, .btn-nuevo {
-    padding: 8px 16px;
-    border-radius: 8px;
-    border: none;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.9rem;
-    cursor: pointer;
-  }
-  
-  .btn-back {
-    background-color: var(--tg-theme-secondary-bg-color, #f5f5f5);
-    color: var(--tg-theme-text-color, #000);
   }
   
   .btn-nuevo {

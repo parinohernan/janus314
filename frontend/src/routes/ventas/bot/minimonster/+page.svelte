@@ -121,9 +121,16 @@
   <!-- Hero Section -->
   <section class="hero">
     <div class="hero-content animate-on-scroll" class:visible={isVisible[0]}>
-      <h1>JANO mini POS</h1>
-      <p class="hero-subtitle">El punto de venta más simple y poderoso para tu negocio</p>
-      <button class="cta-button" on:click={abrirFormulario}>¡Pruébalo Gratis!</button>
+      <div class="hero-flex">
+        <div class="hero-text">
+          <h1>JANO mini POS</h1>
+          <p class="hero-subtitle">El punto de venta más simple y poderoso para tu negocio</p>
+          <button class="cta-button" on:click={abrirFormulario}>¡Pruébalo Gratis!</button>
+        </div>
+        <div class="hero-image">
+          <img src="/logojano.png" alt="Jano Logo" class="logo-hero" />
+        </div>
+      </div>
     </div>
   </section>
 
@@ -451,6 +458,33 @@
     transform: translateY(0);
   }
 
+  .hero-flex {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+  }
+
+  .hero-text {
+    flex: 1;
+  }
+
+  .hero-image {
+    flex: 0 0 auto;
+    width: 200px;
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .logo-hero {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.3));
+  }
+
   @media (max-width: 768px) {
     h1 {
       font-size: 2.5rem;
@@ -458,6 +492,17 @@
 
     .hero {
       padding: 3rem 1rem;
+    }
+
+    .hero-flex {
+      flex-direction: column;
+      text-align: center;
+    }
+
+    .hero-image {
+      width: 150px;
+      height: 150px;
+      margin: 0 auto;
     }
 
     .pricing-table {

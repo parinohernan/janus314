@@ -353,7 +353,6 @@
       const importeTotal = selectedArticulos.reduce((sum, a) => sum + ((a.PrecioVenta || 0) * cantidadTotal(a)), 0);
       const importeBruto = importeTotal / 1.21; // Base imponible (precio sin IVA)
       const iva21 = importeTotal - importeBruto; // IVA = precio con IVA - precio sin IVA
-      console.log("formaPago", formaPago);
       
       // Crear objeto de factura con todos los campos requeridos
       const factura: any = {
