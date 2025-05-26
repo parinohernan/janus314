@@ -6,6 +6,7 @@
   import { formatDate } from '$lib/utils/dateUtils';
   import { navigationState } from '$lib/stores/navigationState';
   import { writable } from 'svelte/store';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
   // Definición de interfaces
   interface Recibo {
@@ -86,25 +87,22 @@
       loading = true;
       error = null;
       
-      // Construir parámetros de consulta
-      const params = new URLSearchParams();
-      params.append('page', currentPage.toString());
-      params.append('limit', itemsPerPage.toString());
-      params.append('orderBy', 'Fecha');  // Ordenar por fecha
-      params.append('orderDir', 'desc');  // Orden
+      // Construir parámetros para fetchWithAuth
+      const params: Record<string, string | number> = {
+        page: currentPage,
+        limit: itemsPerPage,
+        orderBy: 'Fecha',
+        orderDir: 'desc'
+      };
       
-      if (filtroTipo) params.append('tipo', filtroTipo);
-      if (filtroCliente) params.append('cliente', filtroCliente);
-      if (filtroFechaDesde) params.append('fechaDesde', filtroFechaDesde);
-      if (filtroFechaHasta) params.append('fechaHasta', filtroFechaHasta);
+      if (filtroTipo) params.tipo = filtroTipo;
+      if (filtroCliente) params.cliente = filtroCliente;
+      if (filtroFechaDesde) params.fechaDesde = filtroFechaDesde;
+      if (filtroFechaHasta) params.fechaHasta = filtroFechaHasta;
       
-      const response = await fetch(`${PUBLIC_API_URL}/recibos?${params}`);
+      const response = await fetchWithAuth('/recibos', { params });
       
       if (!response.ok) {
-        if (response.status === 500) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Error interno del servidor');
-        }
         throw new Error('Error al cargar los recibos');
       }
       
@@ -171,15 +169,12 @@
     }
     
     try {
-      const response = await fetch(
-        `${PUBLIC_API_URL}/recibos/${tipo}/${sucursal}/${numero}/anular`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
+      const response = await fetchWithAuth(`/recibos/${tipo}/${sucursal}/${numero}/anular`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
         }
-      );
+      });
       
       if (!response.ok) {
         throw new Error('Error al anular el recibo');

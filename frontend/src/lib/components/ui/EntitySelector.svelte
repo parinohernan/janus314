@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte';
   import { PUBLIC_API_URL } from '$env/static/public';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
   // Props
   export let label = '';
@@ -42,8 +43,7 @@
     
     try {
       loading = true;
-      const url = `${PUBLIC_API_URL}${apiEndpoint}/${id}`;
-      const response = await fetch(url);
+      const response = await fetchWithAuth(`${apiEndpoint}/${id}`);
       
       if (!response.ok) {
         throw new Error('Error al cargar el elemento');
@@ -79,8 +79,7 @@
         const params = new URLSearchParams();
         params.append(searchParam, searchTerm);
         
-        const url = `${PUBLIC_API_URL}${apiEndpoint}?${params}`;
-        const response = await fetch(url);
+        const response = await fetchWithAuth(`${apiEndpoint}?${params}`);
         
         if (!response.ok) {
           throw new Error('Error al buscar elementos');

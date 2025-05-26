@@ -7,6 +7,7 @@
   import { formatDate } from '$lib/utils/dateUtils';
   import html2pdf from 'html2pdf.js';
   import ReciboPDF from './ReciboPDF.svelte';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
   // Obtener parámetros de la URL
   const tipo = $page.params.tipo;
@@ -27,7 +28,7 @@
       error = null;
       
       console.log('Cargando recibo:', { tipo, sucursal, numero });
-      const response = await fetch(`${PUBLIC_API_URL}/recibos/${tipo}/${sucursal}/${numero}`);
+      const response = await fetchWithAuth(`/recibos/${tipo}/${sucursal}/${numero}`);
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
@@ -43,7 +44,7 @@
       console.log('Recibo cargado:', recibo);
     } catch (err) {
       console.error('Error cargando recibo:', err);
-      error = err instanceof Error ? err.message : 'Error desconocido';
+      error = err instanceof Error ? err.message : 'Error al cargar el recibo';
     } finally {
       loading = false;
     }

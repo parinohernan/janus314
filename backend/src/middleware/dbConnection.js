@@ -53,6 +53,7 @@ const getEmpresaConnection = async (req, res, next) => {
     const empresaDB = await DBManager.getConnectionWithConfig(empresaData);
     
     // Inicializar los modelos con la conexión de la empresa
+    console.log('Inicializando modelos...');
     const models = initializeModels(empresaDB);
     
     // Verificar que los modelos se inicializaron correctamente
@@ -61,6 +62,24 @@ const getEmpresaConnection = async (req, res, next) => {
       return res.status(500).json({
         success: false,
         error: 'Error al inicializar los modelos'
+      });
+    }
+
+    // Verificar específicamente ReciboItem y ReciboValor
+    console.log('Verificando modelos específicos:');
+    console.log('- ReciboItem:', !!models.ReciboItem);
+    console.log('- ReciboValor:', !!models.ReciboValor);
+    console.log('- Modelos disponibles:', Object.keys(models));
+
+    // Verificar que los modelos necesarios estén presentes
+    const modelosRequeridos = ['ReciboItem', 'ReciboValor', 'ReciboCabeza', 'Cliente'];
+    const modelosFaltantes = modelosRequeridos.filter(modelo => !models[modelo]);
+    
+    if (modelosFaltantes.length > 0) {
+      console.error('❌ Error: Faltan los siguientes modelos:', modelosFaltantes);
+      return res.status(500).json({
+        success: false,
+        error: `Error al inicializar los modelos: Faltan ${modelosFaltantes.join(', ')}`
       });
     }
 

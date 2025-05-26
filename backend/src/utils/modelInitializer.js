@@ -1201,6 +1201,98 @@ const initializeModels = (sequelize) => {
     timestamps: false,
   });
 
+  // Definir modelo ReciboItem
+  console.log('Definiendo modelo ReciboItem...');
+  const ReciboItem = sequelize.define('ReciboItem', {
+    DocumentoTipo: {
+      type: DataTypes.STRING(3),
+      allowNull: false,
+      primaryKey: true
+    },
+    DocumentoSucursal: {
+      type: DataTypes.STRING(4),
+      allowNull: false,
+      primaryKey: true
+    },
+    DocumentoNumero: {
+      type: DataTypes.STRING(8),
+      allowNull: false,
+      primaryKey: true
+    },
+    FacturaTipo: {
+      type: DataTypes.STRING(3),
+      allowNull: false,
+      primaryKey: true
+    },
+    FacturaSucursal: {
+      type: DataTypes.STRING(4),
+      allowNull: false,
+      primaryKey: true
+    },
+    FacturaNumero: {
+      type: DataTypes.STRING(8),
+      allowNull: false,
+      primaryKey: true
+    },
+    ImportePagado: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: false,
+      defaultValue: 0.000
+    }
+  }, {
+    tableName: 'recibositems',
+    timestamps: false
+  });
+  console.log('ReciboItem definido:', ReciboItem ? 'Sí' : 'No');
+
+  // Definir modelo ReciboValor
+  console.log('Definiendo modelo ReciboValor...');
+  const ReciboValor = sequelize.define('ReciboValor', {
+    DocumentoTipo: {
+      type: DataTypes.STRING(3),
+      allowNull: false,
+      primaryKey: true
+    },
+    DocumentoSucursal: {
+      type: DataTypes.STRING(4),
+      allowNull: false,
+      primaryKey: true
+    },
+    DocumentoNumero: {
+      type: DataTypes.STRING(8),
+      allowNull: false,
+      primaryKey: true
+    },
+    ValorCodigo: {
+      type: DataTypes.STRING(4),
+      allowNull: false
+    },
+    ValorFecha: {
+      type: DataTypes.DATEONLY,
+      allowNull: true
+    },
+    ValorSucursal: {
+      type: DataTypes.STRING(4),
+      allowNull: true
+    },
+    ValorNumero: {
+      type: DataTypes.STRING(50),
+      allowNull: true
+    },
+    ValorBanco: {
+      type: DataTypes.STRING(4),
+      allowNull: true
+    },
+    ValorImporte: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true
+    }
+  }, {
+    tableName: 'recibosvalores',
+    timestamps: false
+  });
+  console.log('ReciboValor definido:', ReciboValor ? 'Sí' : 'No');
+
   return {
     Articulo,
     Proveedor,
@@ -1221,7 +1313,13 @@ const initializeModels = (sequelize) => {
     PreventaCabeza,
     PreventaItem,
     Configuracion,
-    TipoDePago
+    TipoDePago,
+    ReciboItem,
+    ReciboValor,
+    ReciboCabeza,
+    FacturaCabeza,
+    NotaCreditoCabeza,
+    NotaDebitoCabeza
   };
 };
 

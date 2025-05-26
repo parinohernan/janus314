@@ -5,7 +5,7 @@ const sequelize = require('../config/database');
 // Obtener todos los recibos (con filtros y paginación)
 exports.getAllRecibos = async (req, res) => {
   try {
-    const { ReciboCabeza, Cliente, Usuario, Vendedor } = req.models;
+    const { Recibo } = req.models;
     const {
       page = 1,
       limit = 10,
@@ -38,34 +38,19 @@ exports.getAllRecibos = async (req, res) => {
     const sortField = validFields.includes(field) ? field : 'Fecha';
     const sortOrder = order === 'ASC' ? 'ASC' : 'DESC';
 
-    const count = await ReciboCabeza.count({ where: whereClause });
+    // Primero hacemos la consulta sin includes para el conteo
+    const count = await Recibo.count({ where: whereClause });
 
-    const recibos = await ReciboCabeza.findAll({
+    // Luego hacemos la consulta con includes para los datos
+    const recibos = await Recibo.findAll({
       where: whereClause,
       order: [
-        ['Fecha', sortOrder],
+        [sortField, sortOrder],
         ['DocumentoSucursal', sortOrder],
         ['DocumentoNumero', sortOrder]
       ],
       limit: parseInt(limit),
-      offset: parseInt(offset),
-      include: [
-        {
-          model: Cliente,
-          as: 'ClienteRelacion',
-          attributes: ['Descripcion', 'NombreFantasia']
-        },
-        {
-          model: Usuario,
-          as: 'UsuarioRelacion',
-          attributes: ['Descripcion']
-        },
-        {
-          model: Vendedor,
-          as: 'VendedorRelacion',
-          attributes: ['Descripcion']
-        }
-      ]
+      offset: parseInt(offset)
     });
 
     const totalPages = Math.ceil(count / limit);
@@ -80,87 +65,122 @@ exports.getAllRecibos = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Error al obtener los recibos' });
+    console.error('Error en getAllRecibos:', error);
+    return res.status(500).json({ 
+      message: 'Error al obtener los recibos',
+      error: error.message 
+    });
   }
 };
 
 // Obtener un recibo por ID
 exports.getReciboById = async (req, res) => {
   try {
-    const { ReciboCabeza, Cliente, Usuario, Vendedor, ReciboItem, ReciboValor } = req.models;
+    console.log('Iniciando getReciboById...');
+    const { Recibo, Cliente, Usuario, Vendedor, ReciboItem, ReciboValor } = req.models;
+    
+    console.log('Modelos disponibles:', Object.keys(req.models));
+    console.log('Estado de los modelos:', {
+      tieneRecibo: !!Recibo,
+      tieneCliente: !!Cliente,
+      tieneUsuario: !!Usuario,
+      tieneVendedor: !!Vendedor,
+      tieneReciboItem: !!ReciboItem,
+      tieneReciboValor: !!ReciboValor
+    });
+    
+    // Verificar que tenemos todos los modelos necesarios
+    if (!ReciboItem || !ReciboValor) {
+      console.error('Modelos faltantes:', { 
+        tieneReciboItem: !!ReciboItem, 
+        tieneReciboValor: !!ReciboValor 
+      });
+      throw new Error('No se pudieron inicializar todos los modelos necesarios');
+    }
+
     const { tipo, sucursal, numero } = req.params;
     console.log("___________tipo, sucursal, numero", tipo, sucursal, numero);
     
-    // Obtener encabezado
-    const recibo = await ReciboCabeza.findOne({
+    // Obtener encabezado sin includes primero
+    const recibo = await Recibo.findOne({
       where: {
         DocumentoTipo: tipo,
         DocumentoSucursal: sucursal,
         DocumentoNumero: numero
-      },
-      include: [
-        {
-          model: Cliente,
-          as: 'ClienteRelacion',
-          attributes: ['Descripcion', 'NombreFantasia', 'Cuit']
-        },
-        {
-          model: Usuario,
-          as: 'UsuarioRelacion',
-          attributes: ['Descripcion']
-        },
-        {
-          model: Vendedor,
-          as: 'VendedorRelacion',
-          attributes: ['Descripcion']
-        }
-      ]
+      }
     });
 
     if (!recibo) {
       return res.status(404).json({ message: 'Recibo no encontrado' });
     }
 
-    // Obtener items manualmente (documentos de deuda)
-    const items = await ReciboItem.findAll({
-      where: {
-        DocumentoTipo: tipo,
-        DocumentoSucursal: sucursal,
-        DocumentoNumero: numero
-      }
-    });
+    console.log('Recibo encontrado:', recibo.toJSON());
 
-    // Obtener valores manualmente (documentos de pago)
-    const valores = await ReciboValor.findAll({
-      where: {
-        DocumentoTipo: tipo,
-        DocumentoSucursal: sucursal,
-        DocumentoNumero: numero
-      }
-    });
-    // obtener los documentos de credito
-    const documentosCredito = await ReciboValor.findAll({
-      where: {
-        DocumentoTipo: tipo,
-        DocumentoSucursal: sucursal,
-        DocumentoNumero: numero,
-        ValorCodigo: 'NCF' // Filtrar solo los valores que son notas de crédito
-      }
-    });
+    try {
+      // Obtener las relaciones por separado
+      const clientePromise = Cliente.findByPk(recibo.ClienteCodigo);
+      const usuarioPromise = recibo.CodigoUsuario ? Usuario.findByPk(recibo.CodigoUsuario) : Promise.resolve(null);
+      const vendedorPromise = recibo.VendedorCodigo ? Vendedor.findByPk(recibo.VendedorCodigo) : Promise.resolve(null);
+      const itemsPromise = ReciboItem.findAll({
+        where: {
+          DocumentoTipo: tipo,
+          DocumentoSucursal: sucursal,
+          DocumentoNumero: numero
+        }
+      });
+      const valoresPromise = ReciboValor.findAll({
+        where: {
+          DocumentoTipo: tipo,
+          DocumentoSucursal: sucursal,
+          DocumentoNumero: numero
+        }
+      });
 
-    // Combinar los datos
-    const reciboCompleto = {
-      ...recibo.toJSON(),
-      Items: items,
-      Valores: valores,
-      DocumentosCredito: documentosCredito
-    };
+      const [cliente, usuario, vendedor, items, valores] = await Promise.all([
+        clientePromise,
+        usuarioPromise,
+        vendedorPromise,
+        itemsPromise,
+        valoresPromise
+      ]);
 
-    return res.status(200).json(reciboCompleto);
+      console.log('Datos relacionados obtenidos:', {
+        tieneCliente: !!cliente,
+        tieneUsuario: !!usuario,
+        tieneVendedor: !!vendedor,
+        cantidadItems: items.length,
+        cantidadValores: valores.length
+      });
+
+      // Combinar los datos
+      const reciboCompleto = {
+        ...recibo.toJSON(),
+        ClienteRelacion: cliente ? {
+          Descripcion: cliente.Descripcion,
+          NombreFantasia: cliente.NombreFantasia,
+          Cuit: cliente.Cuit
+        } : null,
+        UsuarioRelacion: usuario ? {
+          Descripcion: usuario.Descripcion
+        } : null,
+        VendedorRelacion: vendedor ? {
+          Descripcion: vendedor.Descripcion
+        } : null,
+        Items: items,
+        Valores: valores
+      };
+
+      return res.status(200).json(reciboCompleto);
+    } catch (innerError) {
+      console.error('Error obteniendo datos relacionados:', innerError);
+      throw innerError;
+    }
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Error al obtener el recibo' });
+    console.error('Error en getReciboById:', error);
+    return res.status(500).json({ 
+      message: 'Error al obtener el recibo',
+      error: error.message 
+    });
   }
 };
 
@@ -170,7 +190,7 @@ exports.createRecibo = async (req, res) => {
   
   console.log("___________req.body", req.body);
   try {
-    const { ReciboCabeza, ReciboItem, ReciboValor, NotaCreditoCabeza, NotaDebitoCabeza, FacturaCabeza } = req.models;
+    const { Recibo, ReciboItem, ReciboValor, NotaCreditoCabeza, NotaDebitoCabeza, FacturaCabeza } = req.models;
     const {
       DocumentoTipo,
       DocumentoSucursal,
@@ -504,7 +524,7 @@ async function grabarReciboYFormasPago(
   transaction
 ) {
    // Crear el recibo
-  const recibo = await ReciboCabeza.create({
+  const recibo = await Recibo.create({
     DocumentoTipo,
     DocumentoSucursal,
     DocumentoNumero,
@@ -548,7 +568,7 @@ exports.updateRecibo = async (req, res) => {
     const { tipo, sucursal, numero } = req.params;
     const { cabeza, items } = req.body;
     
-    const recibo = await ReciboCabeza.findOne({
+    const recibo = await Recibo.findOne({
       where: {
         DocumentoTipo: tipo,
         DocumentoSucursal: sucursal,
@@ -605,7 +625,7 @@ exports.anularRecibo = async (req, res) => {
   try {
     const { tipo, sucursal, numero } = req.params;
     
-    const recibo = await ReciboCabeza.findOne({
+    const recibo = await Recibo.findOne({
       where: {
         DocumentoTipo: tipo,
         DocumentoSucursal: sucursal,
@@ -916,7 +936,7 @@ exports.listarRecibos = async (req, res) => {
       };
     }
     
-    const recibos = await ReciboCabeza.findAndCountAll({
+    const recibos = await Recibo.findAndCountAll({
       where: whereClause,
       limit,
       offset,
