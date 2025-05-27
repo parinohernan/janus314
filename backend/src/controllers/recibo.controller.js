@@ -186,11 +186,15 @@ exports.getReciboById = async (req, res) => {
 
 // Crear un nuevo recibo
 exports.createRecibo = async (req, res) => {
-  const t = await sequelize.transaction();
-  
-  console.log("___________req.body", req.body);
   try {
-    const { Recibo, ReciboItem, ReciboValor, NotaCreditoCabeza, NotaDebitoCabeza, FacturaCabeza } = req.models;
+    const { Recibo, ReciboItem, ReciboValor, NotaCreditoCabeza, NotaDebitoCabeza, FacturaCabeza, Cliente } = req.models;
+    
+    // Obtener la instancia de sequelize desde cualquier modelo
+    const sequelize = Recibo.sequelize;
+    const t = await sequelize.transaction();
+    
+    console.log("___________req.body", req.body);
+    
     const {
       DocumentoTipo,
       DocumentoSucursal,
@@ -228,95 +232,126 @@ exports.createRecibo = async (req, res) => {
       DocCreditoImporte: doc.Importe
     }));
 
-    // 1. Crear primero el recibo
-    const recibo = await grabarReciboYFormasPago(
-      DocumentoTipo,
-      DocumentoSucursal,
-      DocumentoNumero,
-      Fecha,
-      CodigoCliente,
-      Observaciones,
-      FormasPago,
-      ImporteTotal,
-      t
-    );
-
-    // 2. Actualizar documentos de deuda (facturas o notas de débito)
-    await actualizarDocumentosDeuda(documentosDeudaMapeados, {DocumentoTipo, DocumentoSucursal, DocumentoNumero}, t);
-
-    // 3. Actualizar documentos de crédito
-    await actualizarDocumentosCredito(documentosCreditoMapeados, {DocumentoTipo, DocumentoSucursal, DocumentoNumero}, t);
-
-    // 4. Actualizar número de control
     try {
-      await NumerosControlController.actualizarNumeroDirecto(
+      // 1. Crear primero el recibo
+      console.log("Paso 1: Creando recibo y formas de pago...");
+      const recibo = await grabarReciboYFormasPago(
         DocumentoTipo,
         DocumentoSucursal,
-        ImporteTotal
+        DocumentoNumero,
+        Fecha,
+        CodigoCliente,
+        Observaciones,
+        FormasPago,
+        ImporteTotal,
+        t,
+        { Recibo, ReciboValor }
       );
+      console.log("Recibo creado:", recibo.toJSON());
 
-    } catch (errorNumero) {
-      // Si hay error en la actualización del número, hacemos rollback
-      await t.rollback();
-      return res.status(500).json({
-        success: false,
-        message: "Error al actualizar el número de control",
-        error: errorNumero.message,
-      });
-    }
+      // 2. Actualizar documentos de deuda (facturas o notas de débito)
+      console.log("Paso 2: Actualizando documentos de deuda...");
+      await actualizarDocumentosDeuda(
+        documentosDeudaMapeados, 
+        {DocumentoTipo, DocumentoSucursal, DocumentoNumero}, 
+        t,
+        { FacturaCabeza, NotaDebitoCabeza, ReciboItem }
+      );
+      console.log("Documentos de deuda actualizados correctamente");
 
-    // 5. Actualizar la deuda del cliente
-    try {
-      // Calcular el total de las formas de pago
-      const totalFormasPago = FormasPago.reduce((total, formaPago) => total + formaPago.Importe, 0);
-      
-      // Obtener el cliente
-      const cliente = await Cliente.findByPk(CodigoCliente, { transaction: t });
-      
-      if (!cliente) {
-        throw new Error(`Cliente no encontrado: ${CodigoCliente}`);
+      // 3. Actualizar documentos de crédito
+      console.log("Paso 3: Actualizando documentos de crédito...");
+      await actualizarDocumentosCredito(documentosCreditoMapeados, {DocumentoTipo, DocumentoSucursal, DocumentoNumero}, t);
+      console.log("Documentos de crédito actualizados correctamente");
+
+      // 4. Actualizar número de control
+      console.log("Paso 4: Actualizando número de control...");
+      try {
+        await NumerosControlController.actualizarNumeroDirecto(
+          DocumentoTipo,
+          DocumentoSucursal,
+          ImporteTotal,
+          t,
+          req.models
+        );
+        console.log("Número de control actualizado correctamente");
+      } catch (errorNumero) {
+        console.error("Error al actualizar número de control:", errorNumero);
+        await t.rollback();
+        return res.status(500).json({
+          success: false,
+          message: "Error al actualizar el número de control",
+          error: errorNumero.message,
+          stack: errorNumero.stack
+        });
       }
-      
-      // Actualizar la deuda del cliente
-      await cliente.update(
-        { 
-          ImporteDeuda: (cliente.ImporteDeuda || 0) - totalFormasPago 
-        },
-        { transaction: t }
-      );
-    } catch (errorCliente) {
-      // Si hay error en la actualización del cliente, hacemos rollback
-      await t.rollback();
-      return res.status(500).json({
-        success: false,
-        message: "Error al actualizar la deuda del cliente",
-        error: errorCliente.message,
-      });
-    }
 
-    // Confirmar transacción
-    await t.commit();
-    
-    return res.status(201).json({
-      success: true,
-      message: 'Recibo creado correctamente',
-      data: recibo
-    });
+      // 5. Actualizar la deuda del cliente
+      console.log("Paso 5: Actualizando deuda del cliente...");
+      try {
+        // Calcular el total de las formas de pago
+        const totalFormasPago = FormasPago.reduce((total, formaPago) => total + formaPago.Importe, 0);
+        
+        // Obtener el cliente
+        const cliente = await Cliente.findByPk(CodigoCliente, { transaction: t });
+        
+        if (!cliente) {
+          throw new Error(`Cliente no encontrado: ${CodigoCliente}`);
+        }
+        
+        // Actualizar la deuda del cliente
+        await cliente.update(
+          { 
+            ImporteDeuda: (cliente.ImporteDeuda || 0) - totalFormasPago 
+          },
+          { transaction: t }
+        );
+        console.log("Deuda del cliente actualizada correctamente");
+      } catch (errorCliente) {
+        console.error("Error al actualizar deuda del cliente:", errorCliente);
+        await t.rollback();
+        return res.status(500).json({
+          success: false,
+          message: "Error al actualizar la deuda del cliente",
+          error: errorCliente.message,
+          stack: errorCliente.stack
+        });
+      }
+
+      // Confirmar transacción
+      console.log("Confirmando transacción...");
+      await t.commit();
+      console.log("Transacción confirmada exitosamente");
+      
+      return res.status(201).json({
+        success: true,
+        message: 'Recibo creado correctamente',
+        data: recibo
+      });
+    } catch (error) {
+      // Revertir transacción en caso de error
+      console.error("Error en el proceso de creación:", error);
+      console.error("Stack trace:", error.stack);
+      await t.rollback();
+      throw error;
+    }
   } catch (error) {
-    // Revertir transacción en caso de error
-    await t.rollback();
-    
     console.error('Error al crear recibo:', error);
+    console.error('Stack trace:', error.stack);
     return res.status(500).json({
       success: false,
       message: 'Error al crear el recibo',
-      error: error.message
+      error: error.message,
+      stack: error.stack,
+      details: error.toString()
     });
   }
 };
 
 // Función para actualizar documentos de deuda
-async function actualizarDocumentosDeuda(documentosDeuda, {DocumentoTipo, DocumentoSucursal, DocumentoNumero}, transaction) {
+async function actualizarDocumentosDeuda(documentosDeuda, {DocumentoTipo, DocumentoSucursal, DocumentoNumero}, transaction, models) {
+  const { FacturaCabeza, NotaDebitoCabeza, ReciboItem } = models;
+  
   if (!documentosDeuda || documentosDeuda.length === 0) {
     return;
   }
@@ -521,9 +556,12 @@ async function grabarReciboYFormasPago(
   Observaciones,
   FormasPago,
   ImporteTotal,
-  transaction
+  transaction,
+  models
 ) {
-   // Crear el recibo
+  const { Recibo, ReciboValor } = models;
+
+  // Crear el recibo
   const recibo = await Recibo.create({
     DocumentoTipo,
     DocumentoSucursal,
@@ -533,14 +571,13 @@ async function grabarReciboYFormasPago(
     ImporteTotal,
     ClienteCodigo: CodigoCliente,
     Estado: 'A' // Activo
-    
   }, { transaction });
+
   console.log("_____________________formas de pago", FormasPago);
   // Grabar las formas de pago
   if (FormasPago && FormasPago.length > 0) {
     for (const formaPago of FormasPago) {
-
-      const { Codigo, Descripcion, Banco, Numero, Fecha, Importe , chequeCodigo} = formaPago;
+      const { Codigo, Descripcion, Banco, Numero, Fecha, Importe, chequeCodigo } = formaPago;
       console.log("formaPago", formaPago);
       await ReciboValor.create({
         DocumentoTipo,
@@ -792,10 +829,14 @@ exports.anularRecibo = async (req, res) => {
 exports.getDocumentosDeuda = async (req, res) => {
   try {
     const { codigocliente } = req.params;
+    const { Cliente } = req.models;
     
     if (!codigocliente) {
       return res.status(400).json({ message: 'Se requiere el código del cliente' });
     }
+
+    // Obtener la instancia de sequelize desde el modelo Cliente
+    const sequelize = Cliente.sequelize;
     
     // Consulta SQL para obtener las facturas impagas del cliente
     const query = `
@@ -807,36 +848,39 @@ exports.getDocumentosDeuda = async (req, res) => {
         f.ImporteTotal,
         f.ImportePagado
       FROM 
-        FacturaCabeza f
+        facturacabeza f
       WHERE 
         f.ClienteCodigo = :codigocliente
         AND f.ImporteTotal - COALESCE(f.ImportePagado, 0) > 0
       ORDER BY 
         f.Fecha ASC
     `;
-//consulta para obtener las notas de debito impagas
-const queryNotasDebito = `
-  SELECT 
-    n.DocumentoTipo,
-    n.DocumentoSucursal,
-    n.DocumentoNumero,
-    n.Fecha,
-    n.ImporteTotal,
-    n.ImportePagado
-  FROM 
-    NotaDebitoCabeza n
-  WHERE 
-    n.ClienteCodigo = :codigocliente
-    AND n.ImporteTotal - COALESCE(n.ImportePagado, 0) > 0 
-    ORDER BY 
-      n.Fecha ASC
+    
+    //consulta para obtener las notas de debito impagas
+    const queryNotasDebito = `
+      SELECT 
+        n.DocumentoTipo,
+        n.DocumentoSucursal,
+        n.DocumentoNumero,
+        n.Fecha,
+        n.ImporteTotal,
+        n.ImportePagado
+      FROM 
+        notadebitocabeza n
+      WHERE 
+        n.ClienteCodigo = :codigocliente
+        AND n.ImporteTotal - COALESCE(n.ImportePagado, 0) > 0 
+      ORDER BY 
+        n.Fecha ASC
     `;
-    // obtener las facturas impagas
+
+    // obtener las facturas impagas usando la conexión de la empresa
     const facturas = await sequelize.query(query, {
       replacements: { codigocliente },
       type: sequelize.QueryTypes.SELECT
     });
-    // obtener las notas de debito impagas
+
+    // obtener las notas de debito impagas usando la conexión de la empresa
     const notasDebito = await sequelize.query(queryNotasDebito, {
       replacements: { codigocliente },
       type: sequelize.QueryTypes.SELECT
@@ -864,6 +908,7 @@ const queryNotasDebito = `
 exports.getDocumentosCredito = async (req, res) => {
   try {
     const { codigocliente } = req.params;
+    const { Cliente } = req.models;
     
     if (!codigocliente) {
       return res.status(400).json({ 
@@ -871,6 +916,9 @@ exports.getDocumentosCredito = async (req, res) => {
         message: 'El código de cliente es requerido' 
       });
     }
+
+    // Obtener la instancia de sequelize desde el modelo Cliente
+    const sequelize = Cliente.sequelize;
     
     // Consulta para obtener notas de crédito con saldo disponible
     const query = `
@@ -883,7 +931,7 @@ exports.getDocumentosCredito = async (req, res) => {
         COALESCE(nc.ImporteUtilizado, 0) as importeUtilizado,
         (nc.ImporteTotal - COALESCE(nc.ImporteUtilizado, 0)) as saldo
       FROM 
-        NotaCreditoCabeza nc
+        notacreditocabeza nc
       WHERE 
         nc.codigocliente = :codigocliente
         AND nc.ImporteTotal > COALESCE(nc.ImporteUtilizado, 0)
@@ -891,6 +939,7 @@ exports.getDocumentosCredito = async (req, res) => {
         nc.Fecha DESC
     `;
     
+    // Usar la conexión de la empresa para ejecutar la consulta
     const documentosCredito = await sequelize.query(query, {
       replacements: { codigocliente },
       type: sequelize.QueryTypes.SELECT

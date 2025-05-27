@@ -190,7 +190,7 @@ ${comprobante.items ? comprobante.items.map(item =>
 ).join('\n') : ''}
 
 Gracias por su compra!
-    `.trim();
+    \n\nInforme generado con jano miniPOS - www.janus314.com.ar`.trim();
     
     // Agregar el prefijo del país (54 para Argentina) si no lo tiene
     const numeroCompleto = numeroLimpio.startsWith('54') ? numeroLimpio : `54${numeroLimpio}`;

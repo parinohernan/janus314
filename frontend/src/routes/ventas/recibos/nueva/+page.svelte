@@ -8,6 +8,7 @@
   import { EmpresaService } from '$lib/services/EmpresaService';
   import FormasPago from '$lib/components/recibos/FormasPago.svelte';
   import { goto } from '$app/navigation';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
   // Estado del formulario
   let loading = false;
@@ -206,7 +207,7 @@
     saldoPendiente = importeTotalPagar - importeTotalCredito - importeTotalFormasPago;
   }
 
-  // Cargar documentos de crédito de un cliente
+  // Función para cargar documentos de crédito
   async function cargarDocumentosCredito(codigoCliente: string) {
     if (!codigoCliente) return;
     
@@ -215,7 +216,7 @@
     
     try {
       console.log('Cargando documentos de crédito para cliente:', codigoCliente);
-      const response = await fetch(`${PUBLIC_API_URL}/recibos/doccredito/${codigoCliente}`);
+      const response = await fetchWithAuth(`/recibos/doccredito/${codigoCliente}`);
       
       if (!response.ok) {
         throw new Error(`Error al cargar documentos de crédito: ${response.status} ${response.statusText}`);
@@ -265,7 +266,12 @@
     
     timeoutId = setTimeout(async () => {
       try {
-        const response = await fetch(`${PUBLIC_API_URL}/clientes?search=${encodeURIComponent(busqueda)}&limit=10`);
+        const response = await fetchWithAuth('/clientes', {
+          params: {
+            search: busqueda,
+            limit: 10
+          }
+        });
         
         if (!response.ok) {
           throw new Error('Error al buscar clientes');
@@ -313,8 +319,7 @@
     errorDocumentosDeuda = null;
     
     try {
-      
-      const response = await fetch(`${PUBLIC_API_URL}/recibos/docdeuda/${codigoCliente}`);
+      const response = await fetchWithAuth(`/recibos/docdeuda/${codigoCliente}`);
       
       if (!response.ok) {
         throw new Error(`Error al cargar documentos de deuda: ${response.status} ${response.statusText}`);
@@ -345,9 +350,8 @@
 
   // Obtener próximo número de recibo
   const obtenerProximoNumero = async () => {
-    // console.log('obtenerProximoNumero', recibo.DocumentoTipo);
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/numeros-control/${recibo.DocumentoTipo}/${recibo.DocumentoSucursal}`);
+      const response = await fetchWithAuth(`/numeros-control/${recibo.DocumentoTipo}/${recibo.DocumentoSucursal}`);
       if (response.ok) {
         const data = await response.json();
         recibo.DocumentoNumero = data.data.proximoNumero;
@@ -453,7 +457,7 @@
       };
       console.log('reciboData', reciboData);
       // Enviar datos al servidor
-      const response = await fetch(`${PUBLIC_API_URL}/recibos`, {
+      const response = await fetchWithAuth('/recibos', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

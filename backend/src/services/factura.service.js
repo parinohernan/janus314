@@ -51,17 +51,6 @@ const FacturaService = {
       // Configurar PagoTipo e ImportePagado según la forma de pago
       if (facturaData.PagoTipo === "CC") {
         facturaData.ImportePagado = 0;
-        
-        // Actualizar saldo del cliente
-        await Cliente.update(
-          { 
-            ImporteDeuda: connection.literal(`ImporteDeuda + ${facturaData.ImporteTotal}`)
-          },
-          { 
-            where: { Codigo: facturaData.ClienteCodigo },
-            transaction: t 
-          }
-        );
       } else {
         facturaData.ImportePagado = facturaData.ImporteTotal;
       }

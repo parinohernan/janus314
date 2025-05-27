@@ -230,65 +230,49 @@ exports.incrementNumber = async (req, res) => {
 };
 
 // Método para actualizar directamente (no como middleware de Express)
-exports.actualizarNumeroDirecto = async (tipo, sucursal, db, models) => {
-  // Usar la base de datos y modelos proporcionados, o si no son proporcionados, usar req.db y req.models
-  const sequelize = db;
-  const { NumerosControl } = models || {};
-  const t = await sequelize.transaction();
-
+exports.actualizarNumeroDirecto = async (tipo, sucursal, importe, transaction = null, models = null) => {
   try {
-    // Validar parámetros
-    if (!tipo || !sucursal) {
-      await t.rollback();
-      throw new Error("Debe proporcionar el código de comprobante y sucursal");
+    if (!models) {
+      throw new Error('Se requieren los modelos para actualizar el número de control');
+    }
+    
+    const { NumerosControl } = models;
+    
+    if (!NumerosControl) {
+      throw new Error('Modelo NumerosControl no disponible');
+    }
+    
+    console.log('Buscando número de control para:', { tipo, sucursal });
+    
+    // Buscar el número de control usando los nombres correctos de columnas
+    const numeroControl = await NumerosControl.findOne({
+      where: {
+        Codigo: tipo,
+        Sucursal: sucursal
+      },
+      transaction
+    });
+
+    if (!numeroControl) {
+      throw new Error(`No se encontró el número de control para el tipo ${tipo} y sucursal ${sucursal}`);
     }
 
-    // Primero obtenemos el número actual con bloqueo para evitar concurrencia
-    const [result] = await sequelize.query(
-      `SELECT NumeroProximo FROM t_numeroscontrol 
-       WHERE Codigo = ? AND Sucursal = ? 
-       FOR UPDATE`,
-      {
-        replacements: [tipo, sucursal],
-        type: QueryTypes.SELECT,
-        transaction: t,
-      }
-    );
+    console.log('Número de control encontrado:', numeroControl.toJSON());
 
-    if (!result) {
-      await t.rollback();
-      throw new Error(
-        `No se encontró configuración para el comprobante ${tipo} y sucursal ${sucursal}`
-      );
-    }
+    // Incrementar el número usando el campo correcto
+    const nuevoNumero = (parseInt(numeroControl.NumeroProximo) + 1).toString().padStart(8, '0');
+    
+    // Actualizar el número usando los nombres correctos de campos
+    await numeroControl.update({
+      NumeroProximo: parseInt(nuevoNumero),
+      ImporteAcumulado: (parseFloat(numeroControl.ImporteAcumulado) || 0) + parseFloat(importe)
+    }, { transaction });
 
-    const numeroActual = result.NumeroProximo;
+    console.log('Número de control actualizado a:', nuevoNumero);
 
-    // Actualizar el número incrementándolo
-    await NumerosControl.update(
-      { NumeroProximo: numeroActual + 1 },
-      {
-        where: {
-          Codigo: tipo,
-          Sucursal: sucursal,
-        },
-        transaction: t,
-      }
-    );
-
-    await t.commit();
-
-    // Devolver el número que se utilizó (el que estaba antes de incrementar)
-    return {
-      tipo: tipo,
-      sucursal: sucursal,
-      numeroUtilizado: numeroActual,
-      nuevoProximoNumero: numeroActual + 1,
-      numeroFormateado: String(numeroActual).padStart(8, "0"),
-    };
+    return nuevoNumero;
   } catch (error) {
-    await t.rollback();
-    console.error("Error al actualizar próximo número:", error);
+    console.error('Error al actualizar número de control:', error);
     throw error;
   }
 };

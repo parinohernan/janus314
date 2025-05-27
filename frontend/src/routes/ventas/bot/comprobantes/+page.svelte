@@ -412,6 +412,7 @@
     
     mensaje += `\n*Total: ${formatearImporte(comprobante.ImporteTotal)}*\n\n`;
     mensaje += `Muchas gracias por su compra.`;
+    mensaje += `\n* www.janus314.com.ar *`;
     
     return mensaje;
   }

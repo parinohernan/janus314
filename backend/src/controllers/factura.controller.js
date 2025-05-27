@@ -177,12 +177,11 @@ exports.obtenerFactura = async (req, res) => {
     // Combinar los items con la información de artículos
     const itemsConArticulos = items.map((item) => {
       const articulo = articulosPorCodigo[item.CodigoArticulo] || null;
-      // console.log("articulo", articulo);
       return {
         ...item,
-        PorcentajeIVA1: articulo.PorcentajeIVA1,
-        PorcentajeIVA2: articulo.PorcentajeIVA2,
-        Descripcion: articulo.Descripcion,
+        PorcentajeIVA1: articulo?.PorcentajeIVA1 || 0,
+        PorcentajeIVA2: articulo?.PorcentajeIVA2 || 0,
+        Descripcion: articulo?.Descripcion || 'Artículo no encontrado',
       };
     });
     // console.log("itemsConArticulos", itemsConArticulos.length);
@@ -267,7 +266,7 @@ exports.crearFactura = async (req, res) => {
         // Actualizar el saldo del cliente
         await Cliente.update(
           { 
-            ImporteDeuda: sequelize.literal(`ImporteDeuda + ${facturaData.ImporteTotal}`)
+            ImporteDeuda: connection.literal(`COALESCE(ImporteDeuda, 0) + ${parseFloat(facturaData.ImporteTotal) || 0}`)
           },
           { 
             where: { Codigo: facturaData.ClienteCodigo },
