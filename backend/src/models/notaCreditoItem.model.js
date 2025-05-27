@@ -20,12 +20,6 @@ class NotaCreditoItem extends sequelize.Sequelize.Model {
         allowNull: false,
         primaryKey: true,
       },
-      ItemNumero: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        primaryKey: true,
-        autoIncrement: true,
-      },
       CodigoArticulo: {
         type: DataTypes.STRING(20),
         allowNull: false,
@@ -33,10 +27,6 @@ class NotaCreditoItem extends sequelize.Sequelize.Model {
           model: Articulo,
           key: "Codigo",
         },
-      },
-      Descripcion: {
-        type: DataTypes.STRING(100),
-        allowNull: false,
       },
       Cantidad: {
         type: DataTypes.DOUBLE(15, 3),
@@ -48,38 +38,26 @@ class NotaCreditoItem extends sequelize.Sequelize.Model {
         allowNull: false,
         defaultValue: 0,
       },
-      PorcentajeBonificacion: {
-        type: DataTypes.DOUBLE(15, 3),
+      DocummentoLiqTipo: {
+        type: DataTypes.CHAR(3),
         allowNull: false,
-        defaultValue: 0,
       },
-      PorcentajeIva: {
-        type: DataTypes.DOUBLE(15, 3),
-        allowNull: false,
-        defaultValue: 0,
+      DocummentoLiqSucursal: {
+        type: DataTypes.STRING(4),
       },
-      PrecioUnitarioConIva: {
-        type: DataTypes.DOUBLE(15, 3),
-        allowNull: false,
-        defaultValue: 0,
+      DocummentoLiqNumero: {
+        type: DataTypes.STRING(8),
       },
-      Total: {
-        type: DataTypes.DOUBLE(15, 3),
-        allowNull: false,
-        defaultValue: 0,
-      },
-      TotalConIva: {
-        type: DataTypes.DOUBLE(15, 3),
-        allowNull: false,
-        defaultValue: 0,
-      },
+      liqFecha: {
+        type: DataTypes.DATE,
+      }      
     };
   }
 }
 
 NotaCreditoItem.init(NotaCreditoItem.getAttributes(), {
   sequelize,
-  tableName: "notacreditoitem",
+  tableName: "notacreditoitems",
   timestamps: false,
   indexes: [
     { fields: ["CodigoArticulo"] },

@@ -13,6 +13,7 @@ const renderFacturaB = require("../templates/pdf/facturaB.template");
 const renderPrefactura = require("../templates/pdf/prefactura.template.js");
 const renderNotaCreditoA = require("../templates/pdf/notaCreditoA.template.js");
 const renderNotaCreditoB = require("../templates/pdf/notaCreditoB.template.js");
+const renderNotaCreditoF = require("../templates/pdf/notaCreditoF.template.js");
 // const renderNotaCreditoC = require("../templates/pdf/notaCreditoC.template");
 // const renderNotaCreditoF = require("../templates/pdf/notaCreditoF.template");
 // const NotaCreditoCabeza = require("../models/notaCreditoCabeza.model");
@@ -81,10 +82,21 @@ exports.generarFacturaPDF = async (req, res) => {
 
     // Combinar los items con la información de artículos
     const itemsConArticulos = items.map((item) => {
-      const articulo = articulosPorCodigo[item.CodigoArticulo] || null;
+      const itemData = item.get({ plain: true });
+      const articulo = itemData.Articulo || {};
+      const subtotal = itemData.Cantidad * itemData.PrecioUnitario;
+      const porcentajeIva = articulo.PorcentajeIVA1 || 0;
+      const importeIva = subtotal * (porcentajeIva / 100);
+      
       return {
-        ...item,
-        Articulo: articulo,
+        ...itemData,
+        Descripcion: articulo.Descripcion || '',
+        UnidadVenta: articulo.UnidadVenta || '',
+        PrecioUnitario: itemData.PrecioUnitario || articulo.Lista1 || 0,
+        PorcentajeIVA1: articulo.PorcentajeIVA1 || 0,
+        PorcentajeIVA2: articulo.PorcentajeIVA2 || 0,
+        Total: subtotal,
+        TotalConIva: subtotal + importeIva
       };
     });
 
@@ -346,43 +358,33 @@ exports.generarNotaCreditoPDF = async (req, res) => {
         DocumentoSucursal: sucursal,
         DocumentoNumero: numero,
       },
+      include: [{ 
+        model: Articulo,
+        attributes: ['Codigo', 'Descripcion', 'UnidadVenta', 'Lista1', 'PorcentajeIVA1', 'PorcentajeIVA2']
+      }],
       attributes: [
         'DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 
-        'CodigoArticulo', 'Cantidad', 'ImporteCosto', 'PrecioLista', 
-        'PorcentajeBonificado', 'ImporteBonificado', 'PrecioUnitario', 
-        'DocumentoLiqTipo', 'DocumentoLiqSucursal', 'DocumentoLiqNumero', 
-        'LiqFecha', 'es_merma', 'Descripcion'
-      ],
-      raw: true,
+        'CodigoArticulo', 'Cantidad', 'PrecioUnitario'
+      ]
     });
 
-    // Obtener artículos relacionados
-    const codigosArticulos = items.map((item) => item.CodigoArticulo);
-    const articulos = await Articulo.findAll({
-      where: {
-        Codigo: codigosArticulos,
-      },
-      raw: true,
-    });
-
-    // Mapear artículos por código
-    const articulosPorCodigo = {};
-    articulos.forEach((articulo) => {
-      articulosPorCodigo[articulo.Codigo] = articulo;
-    });
-
-    // Combinar items con información de artículos
+    // Combinar los items con la información de artículos
     const itemsConArticulos = items.map((item) => {
-      const articulo = articulosPorCodigo[item.CodigoArticulo] || null;
+      const itemData = item.get({ plain: true });
+      const articulo = itemData.Articulo || {};
+      const subtotal = itemData.Cantidad * itemData.PrecioUnitario;
+      const porcentajeIva = articulo.PorcentajeIVA1 || 0;
+      const importeIva = subtotal * (porcentajeIva / 100);
+      
       return {
-        ...item,
-        Descripcion: item.Descripcion || articulo.Descripcion,
-        PorcentajeBonificado: item.PorcentajeBonificado || 0,
-        Unidad: articulo.Unidad,
-        PrecioUnitario: item.PrecioUnitario || articulo.PrecioUnitario,
+        ...itemData,
+        Descripcion: articulo.Descripcion || '',
+        UnidadVenta: articulo.UnidadVenta || '',
+        PrecioUnitario: itemData.PrecioUnitario || articulo.Lista1 || 0,
         PorcentajeIVA1: articulo.PorcentajeIVA1 || 0,
         PorcentajeIVA2: articulo.PorcentajeIVA2 || 0,
-        // Articulo: articulo,
+        Total: subtotal,
+        TotalConIva: subtotal + importeIva
       };
     });
 

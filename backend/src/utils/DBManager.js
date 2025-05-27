@@ -25,7 +25,7 @@ class DBManager {
 
     NotaCreditoItem.init(NotaCreditoItem.getAttributes(), {
       sequelize,
-      tableName: 'notacreditoitem',
+      tableName: 'notacreditoitems',
       timestamps: false,
     });
 

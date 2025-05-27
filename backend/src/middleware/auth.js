@@ -30,6 +30,12 @@ const authenticateToken = async (req, res, next) => {
         req.dbConnection = connection;
         req.user = user;
         
+        // Obtener los modelos de la conexión
+        req.models = connection.models;
+        
+        // Log para debug
+        console.log('Modelos disponibles:', Object.keys(req.models));
+        
         next();
       } catch (error) {
         console.error('Error al obtener conexión de empresa:', error);
