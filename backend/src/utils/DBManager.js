@@ -1,6 +1,10 @@
 const { Sequelize } = require('sequelize');
 const Empresa = require('../models/Empresa');
 const cache = require('./cache');
+const NotaCreditoCabeza = require('../models/notaCreditoCabeza.model');
+const NotaCreditoItem = require('../models/notaCreditoItem.model');
+const Cliente = require('../models/cliente.model');
+const Articulo = require('../models/articulo.model');
 
 class DBManager {
   constructor() {
@@ -9,6 +13,46 @@ class DBManager {
     }
     this.pools = new Map();
     DBManager.instance = this;
+  }
+
+  async initModels(sequelize) {
+    // Definir los modelos para esta conexión
+    NotaCreditoCabeza.init(NotaCreditoCabeza.getAttributes(), {
+      sequelize,
+      tableName: 'notacreditocabeza',
+      timestamps: false,
+    });
+
+    NotaCreditoItem.init(NotaCreditoItem.getAttributes(), {
+      sequelize,
+      tableName: 'notacreditoitem',
+      timestamps: false,
+    });
+
+    Cliente.init(Cliente.getAttributes(), {
+      sequelize,
+      tableName: 'clientes',
+      timestamps: false,
+    });
+
+    Articulo.init(Articulo.getAttributes(), {
+      sequelize,
+      tableName: 'articulos',
+      timestamps: false,
+    });
+
+    // Establecer las asociaciones
+    NotaCreditoCabeza.belongsTo(Cliente, {
+      foreignKey: "CodigoCliente",
+      targetKey: "Codigo",
+    });
+
+    NotaCreditoItem.belongsTo(Articulo, {
+      foreignKey: "CodigoArticulo",
+      targetKey: "Codigo",
+    });
+
+    console.log('✅ Modelos inicializados correctamente para la conexión');
   }
 
   async getConnectionWithConfig(empresaConfig) {
@@ -50,6 +94,9 @@ class DBManager {
       // Probar la conexión
       await sequelize.authenticate();
       console.log('✅ Conexión establecida exitosamente para empresa:', empresaConfig.nombre);
+
+      // Inicializar los modelos para esta conexión
+      await this.initModels(sequelize);
       
       // Guardar en el pool
       this.pools.set(empresaConfig.id, sequelize);

@@ -12,9 +12,10 @@ const NotaCreditoService = {
   /**
    * Crea una nueva nota de crédito completa (cabecera e ítems)
    * @param {Object} notaCreditoData - Datos de la nota de crédito
+   * @param {Object} dbConnection - Conexión a la base de datos de la empresa
    * @returns {Object} - Datos de la nota de crédito creada
    */
-  async crearNotaCredito(notaCreditoData) {
+  async crearNotaCredito(notaCreditoData, dbConnection) {
     // Validar datos de la nota de crédito
     const validacion = NotaCreditoValidator.validarNotaCredito(notaCreditoData);
     if (!validacion.isValid) {
@@ -22,6 +23,10 @@ const NotaCreditoService = {
         `Datos de nota de crédito inválidos: ${validacion.errors.join(", ")}`
       );
     }
+
+    // Definir los modelos para esta conexión
+    const NotaCreditoCabezaEmpresa = dbConnection.model('NotaCreditoCabeza');
+    const NotaCreditoItemEmpresa = dbConnection.model('NotaCreditoItem');
 
     // Ejecutar todo el proceso en una transacción
     return await TransactionService.ejecutarEnTransaccion(
@@ -32,7 +37,8 @@ const NotaCreditoService = {
             await NumeroControlService.obtenerYActualizarNumero(
               notaCreditoData.DocumentoTipo,
               notaCreditoData.DocumentoSucursal,
-              transaction
+              transaction,
+              dbConnection
             );
         }
 
@@ -51,7 +57,8 @@ const NotaCreditoService = {
         // Crear cabecera de nota de crédito
         const notaCreditoCabeza = await this.crearCabeceraNotaCredito(
           notaCreditoData,
-          transaction
+          transaction,
+          NotaCreditoCabezaEmpresa
         );
 
         // Crear items de nota de crédito
@@ -60,7 +67,8 @@ const NotaCreditoService = {
           notaCreditoData.DocumentoTipo,
           notaCreditoData.DocumentoSucursal,
           notaCreditoData.DocumentoNumero,
-          transaction
+          transaction,
+          NotaCreditoItemEmpresa
         );
 
         // Procesar stock si corresponde
@@ -71,7 +79,8 @@ const NotaCreditoService = {
             notaCreditoData.DocumentoSucursal,
             notaCreditoData.DocumentoNumero,
             notaCreditoData.Fecha,
-            transaction
+            transaction,
+            dbConnection
           );
         }
 
@@ -79,7 +88,8 @@ const NotaCreditoService = {
           ...notaCreditoCabeza.get({ plain: true }),
           Items: notaCreditoItems.map((item) => item.get({ plain: true })),
         };
-      }
+      },
+      dbConnection
     );
   },
 
@@ -87,11 +97,12 @@ const NotaCreditoService = {
    * Crea la cabecera de una nota de crédito
    * @param {Object} notaCreditoData - Datos de la nota de crédito
    * @param {Object} transaction - Transacción de Sequelize
+   * @param {Object} NotaCreditoCabezaModel - Modelo de NotaCreditoCabeza para la empresa
    * @returns {Object} - Cabecera de nota de crédito creada
    */
-  async crearCabeceraNotaCredito(notaCreditoData, transaction) {
+  async crearCabeceraNotaCredito(notaCreditoData, transaction, NotaCreditoCabezaModel) {
     try {
-      return await NotaCreditoCabeza.create(notaCreditoData, { transaction });
+      return await NotaCreditoCabezaModel.create(notaCreditoData, { transaction });
     } catch (error) {
       console.error("Error al crear cabecera de nota de crédito:", error);
       throw error;
@@ -105,6 +116,7 @@ const NotaCreditoService = {
    * @param {string} documentoSucursal - Sucursal
    * @param {string} documentoNumero - Número de documento
    * @param {Object} transaction - Transacción de Sequelize
+   * @param {Object} NotaCreditoItemModel - Modelo de NotaCreditoItem para la empresa
    * @returns {Array} - Items de nota de crédito creados
    */
   async crearItemsNotaCredito(
@@ -112,7 +124,8 @@ const NotaCreditoService = {
     documentoTipo,
     documentoSucursal,
     documentoNumero,
-    transaction
+    transaction,
+    NotaCreditoItemModel
   ) {
     try {
       // Preparar items con sus claves primarias
@@ -124,7 +137,7 @@ const NotaCreditoService = {
       }));
 
       // Crear todos los items
-      return await NotaCreditoItem.bulkCreate(itemsConPK, { transaction });
+      return await NotaCreditoItemModel.bulkCreate(itemsConPK, { transaction });
     } catch (error) {
       console.error("Error al crear items de nota de crédito:", error);
       throw error;

@@ -10,7 +10,7 @@ export class NotaCreditoService {
 		notaCredito: NotaCredito
 	): Promise<{ success: boolean; data?: any; error?: string }> {
 		try {
-			const response = await fetchWithAuth(`${PUBLIC_API_URL}/notascredito`, {
+			const response = await fetchWithAuth('/notascredito', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
@@ -46,7 +46,7 @@ export class NotaCreditoService {
 	public static async obtenerProximoNumero(tipo: string, sucursal: string): Promise<string> {
 		console.log('tipo', tipo);
 		console.log('sucursal', sucursal);
-		const url = `${PUBLIC_API_URL}/numeros-control/${tipo}/${sucursal}`;
+		const url = `/numeros-control/${tipo}/${sucursal}`;
 		console.log('URL', url);
 		try {
 			const response = await fetchWithAuth(url);
@@ -103,7 +103,7 @@ export class NotaCreditoService {
 		filtros: any = {}
 	): Promise<{ success: boolean; data?: any; error?: string }> {
 		try {
-			let url = `${PUBLIC_API_URL}/notascredito?page=${pagina}&limit=${limite}`;
+			let url = `/notascredito?page=${pagina}&limit=${limite}`;
 
 			// Agregar filtros a la URL si existen
 			if (filtros.tipo) url += `&tipo=${filtros.tipo}`;
@@ -111,7 +111,7 @@ export class NotaCreditoService {
 			if (filtros.fechaDesde) url += `&fechaDesde=${filtros.fechaDesde}`;
 			if (filtros.fechaHasta) url += `&fechaHasta=${filtros.fechaHasta}`;
 
-			const response = await fetch(url);
+			const response = await fetchWithAuth(url);
 
 			if (!response.ok) {
 				throw new Error('Error al obtener notas de crédito');
@@ -140,7 +140,7 @@ export class NotaCreditoService {
 		numero: string
 	): Promise<{ success: boolean; data?: any; error?: string }> {
 		try {
-			const response = await fetch(`${PUBLIC_API_URL}/notascredito/${tipo}/${sucursal}/${numero}`);
+			const response = await fetchWithAuth(`/notascredito/${tipo}/${sucursal}/${numero}`);
 
 			if (!response.ok) {
 				throw new Error('Error al obtener detalle de nota de crédito');
@@ -169,8 +169,8 @@ export class NotaCreditoService {
 		numero: string
 	): Promise<{ success: boolean; data?: any; error?: string }> {
 		try {
-			const response = await fetch(
-				`${PUBLIC_API_URL}/notascredito/anular/${tipo}/${sucursal}/${numero}`,
+			const response = await fetchWithAuth(
+				`/notascredito/anular/${tipo}/${sucursal}/${numero}`,
 				{
 					method: 'PUT',
 					headers: {

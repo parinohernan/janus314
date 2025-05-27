@@ -4,6 +4,7 @@
   import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
   import { goto } from '$app/navigation';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
   // Obtener parámetros de la URL
   const { tipo, sucursal, numero } = $page.params;
@@ -16,10 +17,10 @@
       loading = true;
       
       // Construir la URL para obtener el PDF
-      const url = `${PUBLIC_API_URL}/notascredito/pdf/${tipo}/${sucursal}/${numero}`;
+      const url = `/notascredito/pdf/${tipo}/${sucursal}/${numero}`;
       
-      // Realizar la solicitud para obtener el PDF
-      const response = await fetch(url);
+      // Realizar la solicitud para obtener el PDF usando fetchWithAuth
+      const response = await fetchWithAuth(url);
       
       if (!response.ok) {
         if (response.status === 404) {

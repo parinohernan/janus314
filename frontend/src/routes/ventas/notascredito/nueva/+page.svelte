@@ -99,8 +99,8 @@
     facturasLoading = true;
     timeoutId = setTimeout(async () => {
       try {
-        const response = await fetch(
-          `${PUBLIC_API_URL}/facturas?search=${encodeURIComponent(busqueda)}&limit=10`
+        const response = await fetchWithAuth(
+          `/facturas?search=${encodeURIComponent(busqueda)}&limit=10`
         );
         if (!response.ok) throw new Error('Error al buscar facturas');
         
@@ -250,8 +250,8 @@
     clientesLoading = true;
     timeoutId = setTimeout(async () => {
       try {
-        const response = await fetch(
-          `${PUBLIC_API_URL}/clientes?search=${encodeURIComponent(busqueda)}&limit=10`
+        const response = await fetchWithAuth(
+          `/clientes?search=${encodeURIComponent(busqueda)}&limit=10`
         );
         if (!response.ok) throw new Error('Error al buscar clientes');
         
@@ -283,8 +283,8 @@
 
     timeoutId = setTimeout(async () => {
       try {
-        const response = await fetch(
-          `${PUBLIC_API_URL}/articulos?search=${encodeURIComponent(busqueda)}&limit=10`
+        const response = await fetchWithAuth(
+          `/articulos?search=${encodeURIComponent(busqueda)}&limit=10`
         );
         if (!response.ok) throw new Error('Error al buscar artículos');
         

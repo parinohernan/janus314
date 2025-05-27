@@ -2,7 +2,10 @@ const express = require("express");
 const router = express.Router();
 const notaCreditoController = require("../controllers/notaCredito.controller");
 const pdfController = require("../controllers/pdf.controller");
-const getEmpresaConnection = require("../middleware/dbConnection");
+const { authenticateToken } = require("../middleware/auth");
+
+// Aplicar middleware de autenticación a todas las rutas
+router.use(authenticateToken);
 
 // Listar notas de crédito con paginación y filtros
 router.get("/", notaCreditoController.listarNotasCredito);
@@ -23,6 +26,6 @@ router.put(
 );
 
 // Generar PDF de nota de crédito
-router.get("/pdf/:tipo/:sucursal/:numero", getEmpresaConnection, pdfController.generarNotaCreditoPDF);
+router.get("/pdf/:tipo/:sucursal/:numero", pdfController.generarNotaCreditoPDF);
 
 module.exports = router;

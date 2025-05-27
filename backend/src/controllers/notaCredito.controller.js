@@ -10,7 +10,6 @@ const NotaCreditoService = require("../services/notaCredito.service");
 // Obtener listado de notas de crédito (con paginación y filtros)
 exports.listarNotasCredito = async (req, res) => {
   try {
-    const { NotaCreditoCabeza, Cliente } = req.models;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
@@ -42,12 +41,16 @@ exports.listarNotasCredito = async (req, res) => {
     }
     console.log("whereClause", whereClause);
 
+    // Definir los modelos para esta conexión
+    const NotaCreditoCabezaEmpresa = req.dbConnection.model('NotaCreditoCabeza');
+    const ClienteEmpresa = req.dbConnection.model('Cliente');
+
     // Consulta con join a cliente
-    const notasCredito = await NotaCreditoCabeza.findAndCountAll({
+    const notasCredito = await NotaCreditoCabezaEmpresa.findAndCountAll({
       where: whereClause,
       include: [
         {
-          model: Cliente,
+          model: ClienteEmpresa,
           attributes: ["Codigo", "Descripcion"],
         },
       ],
@@ -82,11 +85,16 @@ exports.listarNotasCredito = async (req, res) => {
 // Obtener detalle de una nota de crédito
 exports.obtenerNotaCredito = async (req, res) => {
   try {
-    const { NotaCreditoCabeza, NotaCreditoItem, Cliente, Articulo } = req.models;
     const { tipo, sucursal, numero } = req.params;
 
+    // Definir los modelos para esta conexión
+    const NotaCreditoCabezaEmpresa = req.dbConnection.model('NotaCreditoCabeza');
+    const NotaCreditoItemEmpresa = req.dbConnection.model('NotaCreditoItem');
+    const ClienteEmpresa = req.dbConnection.model('Cliente');
+    const ArticuloEmpresa = req.dbConnection.model('Articulo');
+
     // Obtener encabezado
-    const notaCredito = await NotaCreditoCabeza.findOne({
+    const notaCredito = await NotaCreditoCabezaEmpresa.findOne({
       where: {
         DocumentoTipo: tipo,
         DocumentoSucursal: sucursal,
@@ -94,7 +102,7 @@ exports.obtenerNotaCredito = async (req, res) => {
       },
       include: [
         {
-          model: Cliente,
+          model: ClienteEmpresa,
           attributes: ["Codigo", "Descripcion", "CategoriaIva"],
         },
       ],
@@ -108,20 +116,20 @@ exports.obtenerNotaCredito = async (req, res) => {
     }
 
     // Obtener items manualmente
-    const items = await NotaCreditoItem.findAll({
+    const items = await NotaCreditoItemEmpresa.findAll({
       where: {
         DocumentoTipo: tipo,
         DocumentoSucursal: sucursal,
         DocumentoNumero: numero,
       },
-      include: [{ model: Articulo }],
+      include: [{ model: ArticuloEmpresa }],
     });
 
     // Obtener los códigos de artículos para buscarlos
     const codigosArticulos = items.map((item) => item.CodigoArticulo);
 
     // Buscar los artículos correspondientes
-    const articulos = await Articulo.findAll({
+    const articulos = await ArticuloEmpresa.findAll({
       where: {
         Codigo: codigosArticulos,
       },
@@ -138,7 +146,7 @@ exports.obtenerNotaCredito = async (req, res) => {
     const itemsConArticulos = items.map((item) => {
       const articulo = articulosPorCodigo[item.CodigoArticulo] || null;
       return {
-        ...item,
+        ...item.get({ plain: true }),
         Articulo: articulo,
       };
     });
@@ -163,65 +171,32 @@ exports.obtenerNotaCredito = async (req, res) => {
 // Crear nueva nota de crédito
 exports.crearNotaCredito = async (req, res) => {
   try {
-    const { NotaCreditoCabeza, NotaCreditoItem, Cliente, Articulo } = req.models;
-    const connection = req.db;
-    const t = await connection.transaction();
     console.log("notaCreditoData", req.body);
-    
-    try {
-      const notaCreditoData = req.body;
+    const notaCreditoData = req.body;
 
-      // Completar datos necesarios
-      notaCreditoData.DocumentoNumero = notaCreditoData.DocumentoNumero
-        ? notaCreditoData.DocumentoNumero.toString().padStart(8, "0")
-        : null;
+    // Completar datos necesarios
+    notaCreditoData.DocumentoNumero = notaCreditoData.DocumentoNumero
+      ? notaCreditoData.DocumentoNumero.toString().padStart(8, "0")
+      : null;
 
-      // Si tiene referencia a factura, formatear los datos
-      if (notaCreditoData.FacturaReferencia) {
-        notaCreditoData.factura_tipo = notaCreditoData.FacturaReferencia.tipo;
-        notaCreditoData.factura_sucursal =
-          notaCreditoData.FacturaReferencia.sucursal;
-        notaCreditoData.factura_numero = notaCreditoData.FacturaReferencia.numero;
-        delete notaCreditoData.FacturaReferencia;
-      }
-
-      // Crear nota de crédito usando el servicio
-      const notaCreditoCreada = await NotaCreditoService.crearNotaCredito(
-        notaCreditoData,
-        t, // Pasar la transacción al servicio
-        { NotaCreditoCabeza, NotaCreditoItem, Cliente, Articulo }, // Pasar los modelos dinámicos
-        connection // Pasar la conexión de la empresa
-      );
-
-      // Actualizar número de control dentro de la transacción
-      try {
-        await numerosControlController.actualizarNumeroDirecto(
-          notaCreditoData.DocumentoTipo,
-          notaCreditoData.DocumentoSucursal,
-          notaCreditoData.ImporteTotal,
-          t,
-          req.models
-        );
-
-        await t.commit();
-
-        res.status(201).json({
-          success: true,
-          message: "Nota de crédito creada correctamente",
-          data: notaCreditoCreada,
-        });
-      } catch (errorNumero) {
-        await t.rollback();
-        return res.status(500).json({
-          success: false,
-          message: "Error al actualizar el número de control",
-          error: errorNumero.message,
-        });
-      }
-    } catch (error) {
-      await t.rollback();
-      throw error;
+    // Si tiene referencia a factura, formatear los datos
+    if (notaCreditoData.FacturaReferencia) {
+      notaCreditoData.factura_tipo = notaCreditoData.FacturaReferencia.tipo;
+      notaCreditoData.factura_sucursal = notaCreditoData.FacturaReferencia.sucursal;
+      notaCreditoData.factura_numero = notaCreditoData.FacturaReferencia.numero;
+      delete notaCreditoData.FacturaReferencia;
     }
+
+    // Crear nota de crédito usando el servicio
+    const notaCreditoCreada = await NotaCreditoService.crearNotaCredito(
+      notaCreditoData,
+      req.dbConnection
+    );
+
+    res.json({
+      success: true,
+      data: notaCreditoCreada,
+    });
   } catch (error) {
     console.error("Error al crear nota de crédito:", error);
     res.status(500).json({

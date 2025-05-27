@@ -1,5 +1,6 @@
 import type { Factura, ItemFactura, Cliente } from '$lib/types';
 import { PUBLIC_API_URL } from '$env/static/public';
+import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
 export class FacturaService {
 	/**
@@ -9,7 +10,7 @@ export class FacturaService {
 		factura: Factura
 	): Promise<{ success: boolean; data?: any; error?: string }> {
 		try {
-			const response = await fetch(`${PUBLIC_API_URL}/facturas`, {
+			const response = await fetchWithAuth('/facturas', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
@@ -44,7 +45,7 @@ export class FacturaService {
 	 */
 	public static async obtenerProximoNumero(tipo: string, sucursal: string): Promise<string> {
 		try {
-			const response = await fetch(`${PUBLIC_API_URL}/numeros-control/${tipo}/${sucursal}`);
+			const response = await fetchWithAuth(`/numeros-control/${tipo}/${sucursal}`);
 
 			if (!response.ok) {
 				throw new Error('Error al obtener próximo número');
@@ -101,9 +102,9 @@ export class FacturaService {
 		try {
 			console.log('obtener ultimas facturas codigoCliente', codigoCliente);
 			console.log('obtener ultimas facturas limite', limite);
-			const url = `${PUBLIC_API_URL}/facturas/cliente/${codigoCliente}?limit=${limite}&sort=fecha:desc`;
+			const url = `/facturas/cliente/${codigoCliente}?limit=${limite}&sort=fecha:desc`;
 
-			const response = await fetch(url);
+			const response = await fetchWithAuth(url);
 
 			if (!response.ok) {
 				throw new Error('Error al obtener facturas del cliente');
@@ -146,7 +147,7 @@ export class FacturaService {
 			console.log('obtener detalle tipo', tipo);
 			console.log('obtener detalle sucursal', sucursal);
 			console.log('obtener detalle numero', numero);
-			const response = await fetch(`${PUBLIC_API_URL}/facturas/${tipo}/${sucursal}/${numero}`);
+			const response = await fetchWithAuth(`/facturas/${tipo}/${sucursal}/${numero}`);
 
 			if (!response.ok) {
 				throw new Error('Error al obtener detalle de factura');
