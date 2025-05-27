@@ -221,19 +221,17 @@ exports.crearFactura = async (req, res) => {
         // Parseamos la fecha que llega
         const fechaOriginal = new Date(facturaData.Fecha);
         
-        // Creamos una fecha en formato ISO pero ajustada al huso horario GMT-3
-        // Esto garantiza que la fecha se guarde correctamente en la zona horaria local
-        const fechaLocal = new Date(fechaOriginal.getTime());
-        // Establecemos la hora a las 12 del mediodía para evitar problemas con cambios de día
-        fechaLocal.setHours(12, 0, 0, 0);
+        // Ajustamos la fecha a GMT-3
+        const fechaLocal = new Date(fechaOriginal);
+        fechaLocal.setHours(fechaLocal.getHours() - 3);
         
-        // Actualizamos la fecha en facturaData con el formato YYYY-MM-DD
+        // Formateamos la fecha como YYYY-MM-DD
         facturaData.Fecha = fechaLocal.toISOString().split('T')[0];
         console.log('Fecha ajustada para zona horaria GMT-3:', facturaData.Fecha);
       } else {
         // Si no viene fecha, creamos una fecha actual en GMT-3
         const ahora = new Date();
-        ahora.setHours(12, 0, 0, 0); // Mediodía para evitar problemas con cambios de día
+        ahora.setHours(ahora.getHours() - 3);
         facturaData.Fecha = ahora.toISOString().split('T')[0];
         console.log('Fecha actual ajustada para zona horaria GMT-3:', facturaData.Fecha);
       }

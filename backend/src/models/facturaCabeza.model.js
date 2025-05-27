@@ -25,8 +25,17 @@ const FacturaCabeza = sequelize.define(
       primaryKey: true,
     },
     Fecha: {
-      type: DataTypes.DATEONLY,
+      type: DataTypes.DATE,
       allowNull: true,
+      get() {
+        const date = this.getDataValue('Fecha');
+        if (date) {
+          const localDate = new Date(date);
+          localDate.setHours(localDate.getHours() - 3);
+          return localDate.toISOString().split('T')[0];
+        }
+        return null;
+      }
     },
     ClienteCodigo: {
       type: DataTypes.STRING(8),

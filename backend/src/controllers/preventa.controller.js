@@ -219,12 +219,11 @@ exports.crearPreventa = async (req, res) => {
         const resultado = await numerosControlController.actualizarNumeroDirecto(
           preventaData.DocumentoTipo,
           preventaData.DocumentoSucursal,
-          req.db,
+          preventaData.ImporteTotal || 0,
+          t,
           req.models
         );
-        preventaData.DocumentoNumero = resultado.numeroUtilizado
-          .toString()
-          .padStart(8, "0");
+        preventaData.DocumentoNumero = resultado.toString().padStart(8, "0");
       } catch (error) {
         await t.rollback();
         return res.status(500).json({

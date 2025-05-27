@@ -493,7 +493,7 @@
                 {factura.DocumentoSucursal}-{factura.DocumentoNumero}
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
-                {factura.Fecha ? new Date(factura.Fecha).toLocaleDateString('es-AR') : ''}
+                {factura.Fecha}
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 {factura.Cliente ? factura.Cliente.Descripcion || 'Cliente no asignado' : 'Cliente no asignado'}

@@ -4,10 +4,21 @@
  * @returns Fecha formateada en formato local
  */
 export function formatDate(dateString: string): string {
-	// Asegurarse de que la fecha se interprete en la zona horaria local
-	console.log("dateString",dateString);
-	const [year, month, day] = dateString.split('-');
-	return new Date(parseInt(year), parseInt(month) - 1, parseInt(day)).toLocaleDateString();
+	if (!dateString) return '';
+	try {
+		// Crear una fecha en GMT
+		const date = new Date(dateString);
+		// Ajustar a GMT-3
+		const localDate = new Date(date.getTime() - (3 * 60 * 60 * 1000));
+		return localDate.toLocaleDateString('es-AR', {
+			day: '2-digit',
+			month: '2-digit',
+			year: 'numeric'
+		});
+	} catch (error) {
+		console.error('Error al formatear fecha:', error);
+		return dateString;
+	}
 }
 
 /**
@@ -18,8 +29,11 @@ export function formatDate(dateString: string): string {
 export function formatDateOnly(dateString: string): string {
 	if (!dateString) return '';
 	try {
+		// Crear una fecha en GMT
 		const date = new Date(dateString);
-		return date.toLocaleDateString('es-AR', {
+		// Ajustar a GMT-3
+		const localDate = new Date(date.getTime() - (3 * 60 * 60 * 1000));
+		return localDate.toLocaleDateString('es-AR', {
 			day: '2-digit',
 			month: '2-digit',
 			year: 'numeric'
@@ -36,8 +50,8 @@ export function formatDateOnly(dateString: string): string {
  */
 export function getTodayISOArgentina(): string {
 	const now = new Date();
-	// Ajustar a la zona horaria de Argentina (GMT-3)
-	const argentinaTime = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
+	// Ajustar a GMT-3
+	const argentinaTime = new Date(now.getTime() - (3 * 60 * 60 * 1000));
 	return argentinaTime.toISOString().split('T')[0];
 }
 
@@ -50,8 +64,11 @@ export function formatDateForInput(dateString: string): string {
 	if (!dateString) return '';
 
 	try {
+		// Crear una fecha en GMT
 		const date = new Date(dateString);
-		return date.toISOString().split('T')[0];
+		// Ajustar a GMT-3
+		const localDate = new Date(date.getTime() - (3 * 60 * 60 * 1000));
+		return localDate.toISOString().split('T')[0];
 	} catch (error) {
 		console.error('Error al formatear fecha para input:', error);
 		return '';
@@ -65,7 +82,9 @@ export function formatDateForInput(dateString: string): string {
  */
 export function parseDate(dateString: string): Date {
 	const [year, month, day] = dateString.split('-');
-	return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+	// Crear fecha en GMT-3
+	const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+	return new Date(date.getTime() - (3 * 60 * 60 * 1000));
 }
 
 /**
