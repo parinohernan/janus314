@@ -276,6 +276,18 @@ exports.crearFactura = async (req, res) => {
         facturaData.ImportePagado = facturaData.ImporteTotal;
       }
 
+      // Obtener y actualizar el número de control
+      const numeroControl = await numerosControlController.actualizarNumeroDirecto(
+        facturaData.DocumentoTipo,
+        facturaData.DocumentoSucursal,
+        facturaData.ImporteTotal,
+        t,
+        req.models
+      );
+
+      // Asignar el número obtenido a la factura
+      facturaData.DocumentoNumero = numeroControl;
+
       // Crear factura usando el servicio (pasando la transacción y los modelos dinámicos)
       const facturaCreada = await FacturaService.crearFactura(
         facturaData, 

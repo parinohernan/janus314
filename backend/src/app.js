@@ -87,6 +87,7 @@ app.use("/api/stockmovimientos", (req, res) => {
   res.json({ message: "API de Gestión Comercial funcionando correctamente" });
 });
 app.use("/api/facturas", getEmpresaConnection, facturaRoutes);
+app.use("/api/notascredito", getEmpresaConnection, notaCreditoRoutes);
 app.use("/api/vendedores", getEmpresaConnection, vendedorRoutes);
 app.use("/api/usuarios", getEmpresaConnection, usuarioRoutes);
 

@@ -55,19 +55,21 @@ const FacturaService = {
         facturaData.ImportePagado = facturaData.ImporteTotal;
       }
       
-      // Crear cabecera de factura
-      const facturaCabeza = await this.crearCabeceraFactura(
-        facturaData,
-        t,
-        FacturaCabeza
+      // Crear la factura
+      const facturaCabeza = await FacturaCabeza.create(
+        {
+          ...facturaData,
+          DocumentoNumero: facturaData.DocumentoNumero.toString().padStart(8, "0")
+        },
+        { transaction: t }
       );
 
-      // Crear items de factura
+      // Crear items de factura con el número formateado
       const facturaItems = await this.crearItemsFactura(
         facturaData.Items,
         facturaData.DocumentoTipo,
         facturaData.DocumentoSucursal,
-        facturaData.DocumentoNumero,
+        facturaData.DocumentoNumero.toString().padStart(8, "0"),
         t,
         FacturaItem
       );

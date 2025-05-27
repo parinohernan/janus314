@@ -8,6 +8,7 @@
   import { writable } from 'svelte/store';
   import { EmpresaService } from '$lib/services/EmpresaService';
   import CaeModal from '$lib/components/facturas/CaeModal.svelte';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
   // Definición de interfaces
   interface NotaCredito {
@@ -114,9 +115,8 @@
       if (filtroCliente) params.append('cliente', filtroCliente);
       if (filtroFechaDesde) params.append('fechaDesde', filtroFechaDesde);
       if (filtroFechaHasta) params.append('fechaHasta', filtroFechaHasta);
-      // if (filtroSucursal) params.append('sucursal', filtroSucursal);
       
-      const response = await fetch(`${PUBLIC_API_URL}/notascredito?${params}`);
+      const response = await fetchWithAuth(`/notascredito?${params}`);
       
       if (!response.ok) {
         if (response.status === 500) {
@@ -198,8 +198,8 @@
     }
     
     try {
-      const response = await fetch(
-        `${PUBLIC_API_URL}/notascredito/anular/${tipo}/${sucursal}/${numero}`,
+      const response = await fetchWithAuth(
+        `/notascredito/anular/${tipo}/${sucursal}/${numero}`,
         {
           method: 'PUT',
           headers: {
@@ -233,7 +233,12 @@
     
     timeoutId = setTimeout(async () => {
       try {
-        const response = await fetch(`${PUBLIC_API_URL}/clientes?search=${encodeURIComponent(busqueda)}&limit=10`);
+        const response = await fetchWithAuth(`/clientes`, {
+          params: {
+            search: busqueda,
+            limit: 10
+          }
+        });
         
         if (!response.ok) {
           throw new Error('Error al buscar clientes');

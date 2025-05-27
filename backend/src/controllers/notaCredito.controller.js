@@ -10,6 +10,7 @@ const NotaCreditoService = require("../services/notaCredito.service");
 // Obtener listado de notas de crédito (con paginación y filtros)
 exports.listarNotasCredito = async (req, res) => {
   try {
+    const { NotaCreditoCabeza, Cliente } = req.models;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
@@ -20,9 +21,7 @@ exports.listarNotasCredito = async (req, res) => {
     const sucursal = req.query.sucursal || null;
 
     // Construir condiciones de filtrado
-    const whereClause = {
-      DocumentoTipo: { [Op.ne]: "NTC" }, // Excluir documentos tipo NTC
-    };
+    const whereClause = {};
 
     if (tipo) whereClause.DocumentoTipo = tipo;
     if (clienteCodigo) whereClause.CodigoCliente = clienteCodigo;
@@ -83,6 +82,7 @@ exports.listarNotasCredito = async (req, res) => {
 // Obtener detalle de una nota de crédito
 exports.obtenerNotaCredito = async (req, res) => {
   try {
+    const { NotaCreditoCabeza, NotaCreditoItem, Cliente, Articulo } = req.models;
     const { tipo, sucursal, numero } = req.params;
 
     // Obtener encabezado
@@ -162,85 +162,67 @@ exports.obtenerNotaCredito = async (req, res) => {
 
 // Crear nueva nota de crédito
 exports.crearNotaCredito = async (req, res) => {
-  const t = await sequelize.transaction();
-  console.log("notaCreditoData", req.body);
   try {
-    const notaCreditoData = req.body;
-
-    // Completar datos necesarios
-    notaCreditoData.DocumentoNumero = notaCreditoData.DocumentoNumero
-      ? notaCreditoData.DocumentoNumero.toString().padStart(8, "0")
-      : null;
-
-    // Si tiene referencia a factura, formatear los datos
-    if (notaCreditoData.FacturaReferencia) {
-      notaCreditoData.factura_tipo = notaCreditoData.FacturaReferencia.tipo;
-      notaCreditoData.factura_sucursal =
-        notaCreditoData.FacturaReferencia.sucursal;
-      notaCreditoData.factura_numero = notaCreditoData.FacturaReferencia.numero;
-      delete notaCreditoData.FacturaReferencia;
-    }
-
-    // Crear nota de crédito usando el servicio
-    const notaCreditoCreada = await NotaCreditoService.crearNotaCredito(
-      notaCreditoData,
-      t // Pasar la transacción al servicio
-    );
-
-    // Actualizar número de control dentro de la transacción
+    const { NotaCreditoCabeza, NotaCreditoItem, Cliente, Articulo } = req.models;
+    const connection = req.db;
+    const t = await connection.transaction();
+    console.log("notaCreditoData", req.body);
+    
     try {
-      await numerosControlController.actualizarNumeroDirecto(
-        notaCreditoData.DocumentoTipo,
-        notaCreditoData.DocumentoSucursal,
-        t
-      );
-    } catch (errorNumero) {
-      await t.rollback();
-      return res.status(500).json({
-        success: false,
-        message: "Error al actualizar el número de control",
-        error: errorNumero.message,
-      });
-    }
+      const notaCreditoData = req.body;
 
-    // Si el pago es en cuenta corriente (CC), actualizar el importe de deuda del cliente
-    if (notaCreditoData.FormaPagoCodigo === 'CC') {
-      console.log("Actualizando deuda del cliente", notaCreditoData);
+      // Completar datos necesarios
+      notaCreditoData.DocumentoNumero = notaCreditoData.DocumentoNumero
+        ? notaCreditoData.DocumentoNumero.toString().padStart(8, "0")
+        : null;
+
+      // Si tiene referencia a factura, formatear los datos
+      if (notaCreditoData.FacturaReferencia) {
+        notaCreditoData.factura_tipo = notaCreditoData.FacturaReferencia.tipo;
+        notaCreditoData.factura_sucursal =
+          notaCreditoData.FacturaReferencia.sucursal;
+        notaCreditoData.factura_numero = notaCreditoData.FacturaReferencia.numero;
+        delete notaCreditoData.FacturaReferencia;
+      }
+
+      // Crear nota de crédito usando el servicio
+      const notaCreditoCreada = await NotaCreditoService.crearNotaCredito(
+        notaCreditoData,
+        t, // Pasar la transacción al servicio
+        { NotaCreditoCabeza, NotaCreditoItem, Cliente, Articulo }, // Pasar los modelos dinámicos
+        connection // Pasar la conexión de la empresa
+      );
+
+      // Actualizar número de control dentro de la transacción
       try {
-        // Obtener el cliente
-        const cliente = await Cliente.findByPk(notaCreditoData.CodigoCliente, { transaction: t });
-        
-        if (!cliente) {
-          throw new Error(`Cliente no encontrado: ${notaCreditoData.CodigoCliente}`);
-        }
-        
-        // Actualizar la deuda del cliente (restar el importe de la nota de crédito)
-        await cliente.update(
-          { 
-            ImporteDeuda: (cliente.ImporteDeuda || 0) - notaCreditoData.ImporteTotal 
-          },
-          { transaction: t }
+        await numerosControlController.actualizarNumeroDirecto(
+          notaCreditoData.DocumentoTipo,
+          notaCreditoData.DocumentoSucursal,
+          notaCreditoData.ImporteTotal,
+          t,
+          req.models
         );
-      } catch (errorCliente) {
-        // Si hay error en la actualización del cliente, hacemos rollback
+
+        await t.commit();
+
+        res.status(201).json({
+          success: true,
+          message: "Nota de crédito creada correctamente",
+          data: notaCreditoCreada,
+        });
+      } catch (errorNumero) {
         await t.rollback();
         return res.status(500).json({
           success: false,
-          message: "Error al actualizar la deuda del cliente",
-          error: errorCliente.message,
+          message: "Error al actualizar el número de control",
+          error: errorNumero.message,
         });
       }
+    } catch (error) {
+      await t.rollback();
+      throw error;
     }
-
-    await t.commit();
-
-    res.status(201).json({
-      success: true,
-      message: "Nota de crédito creada correctamente",
-      data: notaCreditoCreada,
-    });
   } catch (error) {
-    await t.rollback();
     console.error("Error al crear nota de crédito:", error);
     res.status(500).json({
       success: false,
@@ -331,6 +313,40 @@ exports.anularNotaCredito = async (req, res) => {
       success: false,
       message: "Error al anular nota de crédito",
       error: error.message,
+    });
+  }
+};
+
+// Obtener próximo número de nota de crédito
+exports.obtenerProximoNumero = async (req, res) => {
+  try {
+    const { tipo, sucursal } = req.params;
+    
+    // Validar parámetros
+    if (!tipo || !sucursal) {
+      return res.status(400).json({
+        success: false,
+        message: "Tipo y sucursal son requeridos"
+      });
+    }
+
+    // Obtener próximo número usando el controlador de números de control
+    const proximoNumero = await numerosControlController.obtenerProximoNumeroDirecto(
+      tipo,
+      sucursal,
+      req.models
+    );
+
+    res.json({
+      success: true,
+      data: proximoNumero
+    });
+  } catch (error) {
+    console.error("Error al obtener próximo número:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener próximo número",
+      error: error.message
     });
   }
 };

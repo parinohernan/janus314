@@ -5,33 +5,33 @@ const NumerosControl = sequelize.define(
   "NumerosControl",
   {
     Codigo: {
-      type: DataTypes.CHAR(3),
-      allowNull: false,
+      type: DataTypes.STRING(3),
       primaryKey: true,
-      comment: "Tipo de comprobante (STK, FAC, REC, etc.)",
+      allowNull: false,
     },
     Sucursal: {
       type: DataTypes.STRING(4),
-      allowNull: false,
       primaryKey: true,
-      comment: "Código de sucursal",
+      allowNull: false,
     },
     Descripcion: {
       type: DataTypes.STRING(50),
       allowNull: true,
-      comment: "Descripción del tipo de comprobante",
     },
     NumeroProximo: {
       type: DataTypes.INTEGER,
-      allowNull: true,
+      allowNull: false,
       defaultValue: 1,
-      comment: "Próximo número a utilizar",
     },
     Copias: {
       type: DataTypes.INTEGER,
       allowNull: true,
       defaultValue: 1,
-      comment: "Cantidad de copias a imprimir",
+    },
+    ImporteAcumulado: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false,
+      defaultValue: 0,
     },
   },
   {

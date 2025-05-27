@@ -1,5 +1,6 @@
 import type { NotaCredito, ItemNotaCredito, Cliente } from '$lib/types';
 import { PUBLIC_API_URL } from '$env/static/public';
+import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
 export class NotaCreditoService {
 	/**
@@ -9,7 +10,7 @@ export class NotaCreditoService {
 		notaCredito: NotaCredito
 	): Promise<{ success: boolean; data?: any; error?: string }> {
 		try {
-			const response = await fetch(`${PUBLIC_API_URL}/notascredito`, {
+			const response = await fetchWithAuth(`${PUBLIC_API_URL}/notascredito`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
@@ -45,9 +46,10 @@ export class NotaCreditoService {
 	public static async obtenerProximoNumero(tipo: string, sucursal: string): Promise<string> {
 		console.log('tipo', tipo);
 		console.log('sucursal', sucursal);
-		console.log('PUBLIC_API_URL', `${PUBLIC_API_URL}/numeros-control/${tipo}/${sucursal}`);
+		const url = `${PUBLIC_API_URL}/numeros-control/${tipo}/${sucursal}`;
+		console.log('URL', url);
 		try {
-			const response = await fetch(`${PUBLIC_API_URL}/numeros-control/${tipo}/${sucursal}`);
+			const response = await fetchWithAuth(url);
 
 			if (!response.ok) {
 				throw new Error('Error al obtener próximo número');
@@ -87,7 +89,8 @@ export class NotaCreditoService {
 			ImporteUtilizado: 0,
 			Observacion: '',
 			PorStock: true,
-			Items: []
+			Items: [],
+			FormaPagoCodigo: ''
 		};
 	}
 

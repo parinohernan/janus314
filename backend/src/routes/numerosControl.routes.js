@@ -1,18 +1,16 @@
 const express = require("express");
 const router = express.Router();
 const numerosControlController = require("../controllers/numerosControl.controller");
+const { authenticateToken } = require('../middleware/auth');
 
 // Listar todos los tipos de comprobantes configurados
 router.get("/", numerosControlController.listarNumerosControl);
 
-// Obtener el próximo número para un tipo de comprobante y sucursal
-router.get("/:codigo/:sucursal", numerosControlController.obtenerProximoNumero);
+// Obtener próximo número para un tipo de comprobante y sucursal
+router.get("/:tipo/:sucursal", authenticateToken, numerosControlController.obtenerProximoNumero);
 
-// Actualizar (incrementar) el próximo número para un tipo de comprobante y sucursal
-router.put(
-  "/:codigo/:sucursal",
-  numerosControlController.actualizarProximoNumero
-);
+// Actualizar número de control
+router.put("/:tipo/:sucursal", authenticateToken, numerosControlController.actualizarProximoNumero);
 
 // Obtener y actualizar en una operación atómica (útil para reservar un número)
 router.post(

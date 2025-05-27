@@ -640,48 +640,53 @@ const initializeModels = (sequelize) => {
   });
 
   // Definir modelo NotaCreditoCabeza
-  const NotaCreditoCabeza = sequelize.define('NotaCreditoCabeza', {
-    DocumentoTipo: {
-      type: DataTypes.CHAR(3),
-      primaryKey: true,
-      allowNull: false,
+  const NotaCreditoCabeza = sequelize.define(
+    "NotaCreditoCabeza",
+    {
+      DocumentoTipo: {
+        type: DataTypes.CHAR(3),
+        allowNull: false,
+        primaryKey: true,
+        comment: "Tipo de comprobante (NCA, NCB, etc)",
+      },
+      DocumentoSucursal: {
+        type: DataTypes.STRING(4),
+        allowNull: false,
+        primaryKey: true,
+      },
+      DocumentoNumero: {
+        type: DataTypes.STRING(8),
+        allowNull: false,
+        primaryKey: true,
+      },
+      CodigoCliente: {
+        type: DataTypes.STRING(8),
+        allowNull: false,
+      },
+      Fecha: {
+        type: DataTypes.DATEONLY,
+        allowNull: false,
+      },
+      ImporteTotal: {
+        type: DataTypes.DOUBLE(15, 3),
+        allowNull: true,
+        defaultValue: 0.0,
+      },
+      ImporteUtilizado: {
+        type: DataTypes.DOUBLE(15, 3),
+        allowNull: true,
+        defaultValue: 0.0,
+      },
+      FechaAnulacion: {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+      }
     },
-    DocumentoSucursal: {
-      type: DataTypes.STRING(4),
-      primaryKey: true,
-      allowNull: false,
-    },
-    DocumentoNumero: {
-      type: DataTypes.STRING(8),
-      primaryKey: true,
-      allowNull: false,
-    },
-    Fecha: {
-      type: DataTypes.DATEONLY,
-      allowNull: false,
-    },
-    CodigoCliente: {
-      type: DataTypes.STRING(8),
-      allowNull: false,
-    },
-    ImporteTotal: {
-      type: DataTypes.DOUBLE(15, 3),
-      allowNull: true,
-      defaultValue: 0.0,
-    },
-    ImporteUtilizado: {
-      type: DataTypes.DOUBLE(15, 3),
-      allowNull: true,
-      defaultValue: 0.0,
-    },
-    FechaAnulacion: {
-      type: DataTypes.DATEONLY,
-      allowNull: true,
+    {
+      tableName: "notacreditocabeza",
+      timestamps: false,
     }
-  }, {
-    tableName: "notacreditocabeza",
-    timestamps: false
-  });
+  );
 
   // Definir modelo NotaDebitoCabeza
   const NotaDebitoCabeza = sequelize.define('NotaDebitoCabeza', {
@@ -1293,6 +1298,12 @@ const initializeModels = (sequelize) => {
   });
   console.log('ReciboValor definido:', ReciboValor ? 'Sí' : 'No');
 
+  // Establecer las asociaciones
+  NotaCreditoCabeza.belongsTo(Cliente, {
+    foreignKey: "CodigoCliente",
+    targetKey: "Codigo",
+  });
+
   return {
     Articulo,
     Proveedor,
@@ -1305,8 +1316,8 @@ const initializeModels = (sequelize) => {
     Vendedor,
     FacturaCabeza,
     FacturaItem,
-    NotaCredito: NotaCreditoCabeza,
-    NotaDebito: NotaDebitoCabeza,
+    NotaCreditoCabeza,
+    NotaDebitoCabeza,
     Recibo: ReciboCabeza,
     MovimientoStock,
     NumerosControl,
@@ -1316,10 +1327,7 @@ const initializeModels = (sequelize) => {
     TipoDePago,
     ReciboItem,
     ReciboValor,
-    ReciboCabeza,
-    FacturaCabeza,
-    NotaCreditoCabeza,
-    NotaDebitoCabeza
+    ReciboCabeza
   };
 };
 
