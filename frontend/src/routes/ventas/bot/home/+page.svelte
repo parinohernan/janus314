@@ -233,6 +233,14 @@
       route: '/ventas/bot/alerta-stock',
     },
     {
+      label: 'Caja',
+      value: 'Caja',
+      icon: '💰',
+      displayValue: 0,
+      targetValue: 0,
+      route: '/ventas/bot/caja',
+    },
+    {
       label: 'Sobre Nosotros',
       value: 'Jano miniPOS',
       icon: 'ℹ️',

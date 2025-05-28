@@ -12,6 +12,13 @@ export default defineConfig({
 		}
 	},
 	server: {
+		proxy: {
+			'/api': {
+				target: 'http://localhost:3000',
+				changeOrigin: true,
+				secure: false,
+			}
+		},
 		allowedHosts: [
 			'078ff12b0f772e359c3c334e37c09b3b.serveo.net',
 			'janus314.osvi.lat',

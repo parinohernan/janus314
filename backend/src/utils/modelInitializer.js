@@ -1,6 +1,30 @@
 const { DataTypes } = require('sequelize');
+const CajaCabeza = require('../models/cajaCabeza.model');
+const CajaMovimientos = require('../models/cajaMovimientos.model');
+const CajaArqueoDetalle = require('../models/cajaArqueoDetalle.model');
 
 const initializeModels = (sequelize) => {
+  console.log('Iniciando inicialización de modelos...');
+
+  // Inicializar modelos de caja
+  CajaCabeza.init(CajaCabeza.getAttributes(), {
+    sequelize,
+    tableName: 'caja_cabeza',
+    timestamps: false,
+  });
+
+  CajaMovimientos.init(CajaMovimientos.getAttributes(), {
+    sequelize,
+    tableName: 'caja_movimientos',
+    timestamps: false,
+  });
+
+  CajaArqueoDetalle.init(CajaArqueoDetalle.getAttributes(), {
+    sequelize,
+    tableName: 'caja_arqueo_detalle',
+    timestamps: false,
+  });
+
   // Definir modelo Provincia
   const Provincia = sequelize.define('Provincia', {
     Codigo: {
@@ -1304,7 +1328,46 @@ const initializeModels = (sequelize) => {
     targetKey: "Codigo",
   });
 
-  return {
+  // Asociaciones de caja
+  CajaMovimientos.belongsTo(CajaCabeza, {
+    foreignKey: 'CajaCabezaId',
+    targetKey: 'Codigo',
+    constraints: false
+  });
+
+  CajaMovimientos.belongsTo(TipoDePago, {
+    foreignKey: "MetodoPago",
+    targetKey: "Codigo",
+    as: "TipoPago"
+  });
+
+  CajaMovimientos.belongsTo(Vendedor, {
+    foreignKey: "UsuarioId",
+    targetKey: "Codigo",
+    as: "Usuario"
+  });
+
+  CajaArqueoDetalle.belongsTo(CajaCabeza, {
+    foreignKey: 'CajaCabezaId',
+    targetKey: 'Codigo',
+    constraints: false
+  });
+
+  CajaArqueoDetalle.belongsTo(TipoDePago, {
+    foreignKey: "MetodoPago",
+    targetKey: "Codigo",
+    as: "TipoPago"
+  });
+
+  // Crear el objeto de modelos
+  const modelos = {
+    Cliente,
+    Vendedor,
+    Recibo: ReciboCabeza,
+    ReciboItem,
+    ReciboValor,
+    ReciboCabeza,
+    // Otros modelos necesarios
     Articulo,
     Proveedor,
     Rubro,
@@ -1312,23 +1375,27 @@ const initializeModels = (sequelize) => {
     Provincia,
     Localidad,
     CategoriaIva,
-    Cliente,
-    Vendedor,
     FacturaCabeza,
     FacturaItem,
-    NotaCreditoCabeza,
-    NotaDebitoCabeza,
-    Recibo: ReciboCabeza,
+    NotaCredito: NotaCreditoCabeza,
+    NotaDebito: NotaDebitoCabeza,
     MovimientoStock,
     NumerosControl,
     PreventaCabeza,
     PreventaItem,
     Configuracion,
     TipoDePago,
-    ReciboItem,
-    ReciboValor,
-    ReciboCabeza
+    // Modelos de caja
+    CajaCabeza,
+    CajaMovimientos,
+    CajaArqueoDetalle
   };
+
+  console.log('Modelos inicializados:', Object.keys(modelos));
+  console.log('ReciboItem en modelos:', !!modelos.ReciboItem);
+  console.log('ReciboValor en modelos:', !!modelos.ReciboValor);
+  console.log('CajaCabeza en modelos:', !!modelos.CajaCabeza);
+  return modelos;
 };
 
 module.exports = initializeModels; 

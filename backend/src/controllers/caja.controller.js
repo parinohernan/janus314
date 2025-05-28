@@ -1,5 +1,4 @@
 const { Op } = require("sequelize");
-const sequelize = require("../config/database");
 
 // Listar cajas con paginación y filtros
 exports.listarCajas = async (req, res) => {
@@ -105,15 +104,28 @@ exports.obtenerCaja = async (req, res) => {
 
 // Abrir nueva caja
 exports.abrirCaja = async (req, res) => {
-  const t = await sequelize.transaction();
+  const t = await req.db.transaction();
   try {
-    const { CajaCabeza } = req.models;
+    const { CajaCabeza, Vendedor } = req.models;
     const { vendedorId, saldoInicial, descripcion } = req.body;
+
+    // Asegurarnos de que el vendedorId sea '1' si viene como '001'
+    const normalizedVendedorId = vendedorId.replace(/^0+/, '') || '1';
+
+    // Verificar si el vendedor existe
+    const vendedor = await Vendedor.findByPk(normalizedVendedorId);
+    if (!vendedor) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: `El vendedor ${normalizedVendedorId} no existe`,
+      });
+    }
 
     // Verificar si el vendedor ya tiene una caja abierta
     const cajaAbierta = await CajaCabeza.findOne({
       where: {
-        VendedorId: vendedorId,
+        VendedorId: normalizedVendedorId,
         Estado: 'abierta',
       },
       transaction: t,
@@ -129,11 +141,12 @@ exports.abrirCaja = async (req, res) => {
 
     // Crear nueva caja
     const nuevaCaja = await CajaCabeza.create({
-      VendedorId: vendedorId,
-      SaldoInicial: saldoInicial,
-      Descripcion: descripcion,
+      VendedorId: normalizedVendedorId,
+      SaldoInicial: saldoInicial || 0,
+      Descripcion: descripcion || 'Apertura de caja',
       Estado: 'abierta',
       Apertura: new Date(),
+      SaldoTeorico: saldoInicial || 0
     }, { transaction: t });
 
     await t.commit();
@@ -156,7 +169,7 @@ exports.abrirCaja = async (req, res) => {
 
 // Registrar movimiento de caja
 exports.registrarMovimiento = async (req, res) => {
-  const t = await sequelize.transaction();
+  const t = await req.db.transaction();
   try {
     const { CajaCabeza, CajaMovimientos } = req.models;
     const {
@@ -234,7 +247,7 @@ exports.registrarMovimiento = async (req, res) => {
 
 // Realizar arqueo de caja
 exports.realizarArqueo = async (req, res) => {
-  const t = await sequelize.transaction();
+  const t = await req.db.transaction();
   try {
     const { CajaCabeza, CajaArqueoDetalle } = req.models;
     const { codigo } = req.params;
@@ -244,7 +257,7 @@ exports.realizarArqueo = async (req, res) => {
     const caja = await CajaCabeza.findOne({
       where: {
         Codigo: codigo,
-        Estado: 'abierta',
+        Estado: 'abierta'
       },
       transaction: t,
     });
@@ -299,7 +312,7 @@ exports.realizarArqueo = async (req, res) => {
 
 // Cerrar caja
 exports.cerrarCaja = async (req, res) => {
-  const t = await sequelize.transaction();
+  const t = await req.db.transaction();
   try {
     const { CajaCabeza } = req.models;
     const { codigo } = req.params;
@@ -309,7 +322,7 @@ exports.cerrarCaja = async (req, res) => {
     const caja = await CajaCabeza.findOne({
       where: {
         Codigo: codigo,
-        Estado: 'en_arqueo',
+        Estado: 'en_arqueo'
       },
       transaction: t,
     });
@@ -391,12 +404,13 @@ exports.obtenerCajasVendedor = async (req, res) => {
     const { CajaCabeza } = req.models;
     const { vendedorId } = req.params;
 
+    // Asegurarnos de que el vendedorId sea '1' si viene como '001'
+    const normalizedVendedorId = vendedorId.replace(/^0+/, '') || '1';
+
     const cajas = await CajaCabeza.findAll({
       where: {
-        VendedorId: vendedorId,
-        Estado: {
-          [Op.in]: ['abierta', 'en_arqueo'],
-        },
+        VendedorId: normalizedVendedorId,
+        Estado: 'abierta'
       },
       order: [['Apertura', 'DESC']],
     });

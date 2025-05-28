@@ -42,6 +42,7 @@ const telegramController = require('./controllers/telegram.controller');
 const solicitudRoutes = require('./routes/solicitud.routes');
 const adminRoutes = require('./routes/admin.routes');
 const healthRoutes = require('./routes/health.routes');
+const cajaRoutes = require('./routes/caja.routes');
 
 // Crear app Express
 const app = express();
@@ -114,6 +115,9 @@ app.use("/api/informes", getEmpresaConnection, informesRoutes);
 
 // Rutas de recibos
 app.use("/api/recibos", getEmpresaConnection, reciboRoutes);
+
+// Rutas de cajas
+app.use("/api/cajas", getEmpresaConnection, cajaRoutes);
 
 // Rutas de Telegram
 app.use('/api/telegram', telegramRoutes);
