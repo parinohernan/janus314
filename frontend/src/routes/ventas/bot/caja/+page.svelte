@@ -45,6 +45,7 @@
   let loading: boolean = true;
   let error: string | null = null;
   let vendedorId: string = '';
+  let saldoInicial: number = 0;
 
   // Estado del modal
   let showModal = false;
@@ -114,6 +115,7 @@
   // Función para abrir caja
   async function abrirCaja() {
     try {
+      loading = true;
       const response = await fetchWithAuth('/cajas', {
         method: 'POST',
         headers: {
@@ -121,7 +123,7 @@
         },
         body: JSON.stringify({
           vendedorId,
-          saldoInicial: 0,
+          saldoInicial,
           descripcion: 'Apertura de caja'
         })
       });
@@ -129,9 +131,12 @@
       if (data.success) {
         cajaAbierta = data.data;
         error = null;
+        await cargarEstadoCaja();
       }
     } catch (err) {
       error = "Error al abrir la caja";
+    } finally {
+      loading = false;
     }
   }
 
@@ -344,11 +349,32 @@
             {/if}
           </div>
         {:else}
-          <button
-            class="w-full p-4 bg-blue-500 text-white rounded-lg font-medium"
-            on:click={abrirCaja}>
-            Abrir Caja
-          </button>
+          <div class="space-y-4">
+            <div class="p-4 rounded-lg bg-blue-50">
+              <h3 class="text-lg font-medium text-gray-900 mb-2">Abrir Nueva Caja</h3>
+              <form on:submit|preventDefault={abrirCaja} class="space-y-4">
+                <div class="form-group">
+                  <label for="saldoInicial" class="block text-sm font-medium text-gray-700 mb-1">
+                    Saldo Inicial
+                  </label>
+                  <input
+                    id="saldoInicial"
+                    type="number"
+                    step="0.01"
+                    bind:value={saldoInicial}
+                    class="w-full p-3 border rounded-lg"
+                    placeholder="0.00"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  class="w-full p-4 bg-blue-500 text-white rounded-lg font-medium"
+                  disabled={loading}>
+                  {loading ? 'Abriendo...' : 'Abrir Caja'}
+                </button>
+              </form>
+            </div>
+          </div>
         {/if}
       </div>
     {/if}

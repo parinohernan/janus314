@@ -99,7 +99,8 @@ async function cerrarCaja(req, res) {
       SaldoCierre: efectivoFinal,
       Cierre: new Date(),
       Estado: 'cerrada',
-      Observaciones: observaciones
+      Observaciones: observaciones,
+      SaldoTeorico: saldoTeorico
     }, { transaction });
 
     await transaction.commit();

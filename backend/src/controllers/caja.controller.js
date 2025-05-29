@@ -264,7 +264,7 @@ exports.realizarArqueo = async (req, res) => {
   try {
     const { CajaCabeza, CajaArqueoDetalle } = req.models;
     const { codigo } = req.params;
-    const { detalles } = req.body;
+    const { efectivoContado, diferencia, observaciones, usuarioId } = req.body;
 
     // Verificar que la caja esté abierta
     const caja = await CajaCabeza.findOne({
@@ -283,24 +283,17 @@ exports.realizarArqueo = async (req, res) => {
       });
     }
 
-    // Cambiar estado a en_arqueo
-    await caja.update({
-      Estado: 'en_arqueo',
+    // Registrar detalle del arqueo sin cambiar el estado de la caja
+    const arqueoDetalle = await CajaArqueoDetalle.create({
+      CajaCabezaId: codigo,
+      MetodoPago: 'EFE',
+      MontoContado: efectivoContado,
+      MontoSistema: caja.SaldoTeorico,
+      Diferencia: diferencia,
+      Observaciones: observaciones,
+      UsuarioId: usuarioId,
+      FechaHora: new Date()
     }, { transaction: t });
-
-    // Registrar detalles del arqueo
-    const arqueoDetalles = await Promise.all(
-      detalles.map(detalle => 
-        CajaArqueoDetalle.create({
-          CajaCabezaId: codigo,
-          MetodoPago: detalle.metodoPago,
-          MontoContado: detalle.montoContado,
-          MontoSistema: detalle.montoSistema,
-          Diferencia: detalle.montoContado - detalle.montoSistema,
-          Observaciones: detalle.observaciones,
-        }, { transaction: t })
-      )
-    );
 
     await t.commit();
 
@@ -309,7 +302,7 @@ exports.realizarArqueo = async (req, res) => {
       message: "Arqueo realizado exitosamente",
       data: {
         caja,
-        arqueoDetalles,
+        arqueoDetalle,
       },
     });
   } catch (error) {

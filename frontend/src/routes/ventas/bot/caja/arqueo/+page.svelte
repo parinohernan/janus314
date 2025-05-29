@@ -62,7 +62,7 @@
 
     loading = true;
     try {
-      const response = await fetchWithAuth('/cajas/arqueo', {
+      const response = await fetchWithAuth(`/cajas/arqueo/${cajaAbierta.Codigo}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
