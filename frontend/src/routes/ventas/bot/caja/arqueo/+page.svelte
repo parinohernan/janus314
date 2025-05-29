@@ -4,21 +4,20 @@
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { onMount } from 'svelte';
   import '../../../../../app.css';
-  import Breadcrumbs from '../../components/Breadcrumbs/index.svelte';
   import LogoJano from '../../components/LogoJano.svelte';
 
-  let importe: number = 0;
-  let concepto: string = '';
   let loading: boolean = false;
   let error: string | null = null;
   let vendedorId: string = '';
   let cajaAbierta: any = null;
 
-  const breadcrumbs = [
-    { label: 'Home', path: '/ventas/bot/home' },
-    { label: 'Caja', path: '/ventas/bot/caja' },
-    { label: 'Nuevo Egreso', path: '/ventas/bot/caja/egreso' }
-  ];
+  // Valores del arqueo
+  let efectivoContado: number = 0;
+  let observaciones: string = '';
+
+  // Datos calculados
+  let saldoTeorico: number = 0;
+  let diferencia: number = 0;
 
   // Cargar el estado de la caja al montar el componente
   async function cargarEstadoCaja() {
@@ -37,6 +36,7 @@
       const data = await response.json();
       if (data.success && data.data.length > 0) {
         cajaAbierta = data.data[0];
+        saldoTeorico = parseFloat(cajaAbierta.SaldoTeorico?.toString() || '0');
       } else {
         error = "No hay una caja abierta";
         setTimeout(() => {
@@ -49,35 +49,29 @@
     }
   }
 
-  async function registrarEgreso() {
-    if (!vendedorId) {
-      error = "No se encontró el código del vendedor";
-      return;
-    }
+  // Calcular diferencia cuando cambie el efectivo contado
+  $: {
+    diferencia = efectivoContado - saldoTeorico;
+  }
 
-    if (!cajaAbierta) {
-      error = "No hay una caja abierta";
-      return;
-    }
-
-    if (!importe || !concepto) {
-      error = "Por favor complete todos los campos";
+  async function registrarArqueo() {
+    if (!vendedorId || !cajaAbierta) {
+      error = "No se puede realizar el arqueo";
       return;
     }
 
     loading = true;
     try {
-      const response = await fetchWithAuth('/cajas/movimiento', {
+      const response = await fetchWithAuth('/cajas/arqueo', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           cajaCabezaId: cajaAbierta.Codigo,
-          tipo: 'egreso',
-          importe,
-          concepto,
-          metodoPago: 'EFE',
+          efectivoContado,
+          diferencia,
+          observaciones,
           usuarioId: vendedorId
         })
       });
@@ -86,7 +80,7 @@
       if (data.success) {
         goto('/ventas/bot/caja');
       } else {
-        error = data.message || "Error al registrar el egreso";
+        error = data.message || "Error al registrar el arqueo";
       }
     } catch (err) {
       error = "Error al conectar con el servidor";
@@ -110,7 +104,7 @@
       </button>
       <div class="title-container">
         <LogoJano size="small" animated={false} />
-        <h2 class="page-subtitle">Nuevo Egreso</h2>
+        <h2 class="page-subtitle">Arqueo de Caja</h2>
       </div>
     </div>
   </header>
@@ -123,39 +117,61 @@
     {/if}
 
     {#if cajaAbierta}
-      <form on:submit|preventDefault={registrarEgreso} class="space-y-4">
+      <!-- Información de Saldo Teórico -->
+      <div class="saldo-info p-4 rounded-lg bg-blue-50 mb-6">
+        <div class="text-sm text-gray-600">Saldo Teórico</div>
+        <div class="text-2xl font-bold text-blue-600">
+          ${saldoTeorico.toFixed(2)}
+        </div>
+      </div>
+
+      <form on:submit|preventDefault={registrarArqueo} class="space-y-4">
         <div class="form-group">
-          <label for="importe" class="block text-sm font-medium text-gray-700 mb-1">
-            Importe
+          <label for="efectivoContado" class="block text-sm font-medium text-gray-700 mb-1">
+            Efectivo Contado
           </label>
           <input
-            id="importe"
+            id="efectivoContado"
             type="number"
             step="0.01"
-            bind:value={importe}
+            bind:value={efectivoContado}
             class="w-full p-3 border rounded-lg"
             placeholder="0.00"
           />
         </div>
 
+        <!-- Mostrar diferencia -->
+        <div class="diferencia-info p-4 rounded-lg mb-4" 
+          class:bg-red-50={diferencia < 0}
+          class:bg-green-50={diferencia > 0}
+          class:bg-gray-50={diferencia === 0}>
+          <div class="text-sm text-gray-600">Diferencia</div>
+          <div class="text-xl font-bold"
+            class:text-red-600={diferencia < 0}
+            class:text-green-600={diferencia > 0}
+            class:text-gray-600={diferencia === 0}>
+            ${diferencia.toFixed(2)}
+          </div>
+        </div>
+
         <div class="form-group">
-          <label for="concepto" class="block text-sm font-medium text-gray-700 mb-1">
-            Concepto
+          <label for="observaciones" class="block text-sm font-medium text-gray-700 mb-1">
+            Observaciones
           </label>
-          <input
-            id="concepto"
-            type="text"
-            bind:value={concepto}
+          <textarea
+            id="observaciones"
+            bind:value={observaciones}
             class="w-full p-3 border rounded-lg"
-            placeholder="Ingrese el concepto"
-          />
+            rows="3"
+            placeholder="Ingrese observaciones sobre el arqueo"
+          ></textarea>
         </div>
 
         <button
           type="submit"
-          class="w-full p-4 bg-red-500 text-white font-medium rounded-lg"
+          class="w-full p-4 bg-blue-500 text-white font-medium rounded-lg"
           disabled={loading}>
-          {loading ? 'Registrando...' : 'Registrar Egreso'}
+          {loading ? 'Registrando...' : 'Registrar Arqueo'}
         </button>
       </form>
     {/if}
@@ -220,7 +236,7 @@
     cursor: not-allowed;
   }
 
-  input {
+  input, textarea {
     font-size: 16px; /* Evita zoom en iOS */
   }
 </style> 

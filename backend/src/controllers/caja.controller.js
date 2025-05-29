@@ -186,6 +186,14 @@ exports.registrarMovimiento = async (req, res) => {
       usuarioId,
     } = req.body;
 
+    if (!cajaCabezaId) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "El ID de la caja es requerido"
+      });
+    }
+
     // Verificar que la caja esté abierta
     const caja = await CajaCabeza.findOne({
       where: {
@@ -215,13 +223,14 @@ exports.registrarMovimiento = async (req, res) => {
       ValorFecha: valorFecha,
       DocumentoAsociado: documentoAsociado,
       TipoDocumento: tipoDocumento,
+      FechaHora: new Date(),
       UsuarioId: usuarioId,
     }, { transaction: t });
 
     // Actualizar saldo teórico de la caja
     const nuevoSaldo = tipo === 'ingreso' 
-      ? caja.SaldoTeorico + importe 
-      : caja.SaldoTeorico - importe;
+      ? parseFloat(caja.SaldoTeorico || 0) + parseFloat(importe) 
+      : parseFloat(caja.SaldoTeorico || 0) - parseFloat(importe);
 
     await caja.update({
       SaldoTeorico: nuevoSaldo,
@@ -229,10 +238,14 @@ exports.registrarMovimiento = async (req, res) => {
 
     await t.commit();
 
+    // Devolver el movimiento y el nuevo saldo
     res.json({
       success: true,
       message: "Movimiento registrado exitosamente",
-      data: movimiento,
+      data: {
+        movimiento,
+        nuevoSaldo
+      }
     });
   } catch (error) {
     await t.rollback();
@@ -415,9 +428,17 @@ exports.obtenerCajasVendedor = async (req, res) => {
       order: [['Apertura', 'DESC']],
     });
 
+    // Asegurarnos de que SaldoTeorico sea siempre un número
+    const cajasNormalizadas = cajas.map(caja => ({
+      ...caja.toJSON(),
+      SaldoTeorico: parseFloat(caja.SaldoTeorico || 0).toFixed(2),
+      SaldoInicial: parseFloat(caja.SaldoInicial || 0).toFixed(2),
+      SaldoCierre: caja.SaldoCierre ? parseFloat(caja.SaldoCierre).toFixed(2) : null
+    }));
+
     res.json({
       success: true,
-      data: cajas,
+      data: cajasNormalizadas,
     });
   } catch (error) {
     console.error("Error al obtener cajas del vendedor:", error);

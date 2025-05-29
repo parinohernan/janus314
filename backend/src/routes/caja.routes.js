@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const cajaController = require("../controllers/caja.controller");
+const cajaResumenController = require("../controllers/cajaResumen.controller");
 
 // Listar cajas con paginación y filtros
 router.get("/", cajaController.listarCajas);
@@ -25,5 +26,9 @@ router.get("/:codigo/movimientos", cajaController.obtenerMovimientos);
 
 // Obtener cajas abiertas por vendedor
 router.get("/vendedor/:vendedorId", cajaController.obtenerCajasVendedor);
+
+// Rutas para resumen y cierre de caja
+router.get("/:id/resumen", cajaResumenController.obtenerResumenCaja);
+router.post("/:id/cierre", cajaResumenController.cerrarCaja);
 
 module.exports = router; 
