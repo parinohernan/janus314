@@ -1,7 +1,7 @@
 export interface FormaPago {
   codigo: string;
   descripcion: string;
-  banco?: string;
+  banco?: string | null;
   numero?: string;
   fecha?: string;
   importe: number;
@@ -21,22 +21,22 @@ export const BANCOS: Banco[] = [
 
 export const FORMAS_PAGO: FormaPago[] = [
   {
-    codigo: 'EF',
+    codigo: 'EFE',
     descripcion: 'Efectivo $',
     banco: null,
     importe: 0
   },
   {
-    codigo: 'CH',
-    descripcion: 'Cheque',
+    codigo: 'TRA',
+    descripcion: 'Transferencia',
     banco: '',
     numero: '',
     fecha: '',
     importe: 0
   },
   {
-    codigo: 'TRF',
-    descripcion: 'Transferencia',
+    codigo: 'TAR',
+    descripcion: 'Tarjeta',
     banco: '',
     numero: '',
     fecha: '',

@@ -53,8 +53,9 @@ class CajaMovimientos extends Model {
         allowNull: true
       },
       TipoDocumento: {
-        type: DataTypes.ENUM('factura', 'recibo', 'nota_credito', 'gasto', 'otros'),
-        allowNull: true
+        type: DataTypes.STRING(3),
+        allowNull: true,
+        comment: 'Tipo de documento (PRF, FCA, FCB, REC, NCA, NCB, etc)'
       },
       FechaHora: {
         type: DataTypes.DATE,

@@ -6,8 +6,11 @@
   import ArticulosSeleccionados from '../components/ArticulosSeleccionados.svelte';
   import CobroModal from '../components/CobroModal.svelte';
   import ComprobanteDetalle from '../components/ComprobanteDetalle.svelte';
+  import FormasPago from '$lib/components/recibos/FormasPago.svelte';
   import { obtenerPrecioSegunLista, fetchProductos } from '../components/utils';
   import type { Articulo, Cliente, ArticuloSeleccionado } from '../components/types';
+  import type { FormaPago } from '$lib/constants/formasPago';
+  import { CODIGO_CORTO } from '$lib/constants/formasPago';
   import '../components/bot.css';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { auth } from '$lib/stores/authStore';
@@ -102,6 +105,12 @@
   
   let formaPago: string = 'CO'; // Valor por defecto para forma de pago
   
+  // Estado para la caja
+  let cajaAbierta: any = null;
+  let formasPago: FormaPago[] = [];
+  let importeTotalFormasPago = 0;
+  let saldoPendiente = 0;
+  
   onMount(async () => {
     // Verificar estado actual de autenticación
     const authState = get(auth);
@@ -167,6 +176,9 @@
       }
       
       isLoading = false;
+
+      // Verificar caja abierta después de obtener el código del vendedor
+      await verificarCajaAbierta();
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
       error = 'Error al cargar datos: ' + errorMessage;
@@ -310,8 +322,73 @@
     }
   }
   
-  // Enviar venta
-  async function enviarVenta(): Promise<void> {
+  // Función para verificar caja abierta
+  async function verificarCajaAbierta() {
+    try {
+      const response = await fetchWithAuth(`/cajas/vendedor/${codigoVendedor}`);
+      const data = await response.json();
+      
+      if (data.success && data.data.length > 0) {
+        cajaAbierta = data.data[0];
+        return true;
+      } else {
+        error = "No hay una caja abierta para este vendedor";
+        return false;
+      }
+    } catch (err) {
+      error = "Error al verificar el estado de la caja";
+      console.error(err);
+      return false;
+    }
+  }
+  
+  // Función para registrar movimientos en caja
+  async function registrarMovimientosCaja(formasPago: FormaPago[], importeTotal: number) {
+    try {
+      console.log('Registrando movimientos en caja:', { cajaAbierta, formasPago });
+      
+      for (const formaPago of formasPago) {
+        const movimiento = {
+          cajaCabezaId: cajaAbierta.Codigo,
+          tipo: 'ingreso',
+          importe: parseFloat(formaPago.importe.toString()),
+          concepto: `Venta de contado - ${formaPago.descripcion}`,
+          metodoPago: formaPago.codigo,
+          referencia: formaPago.numero || null,
+          banco: formaPago.banco || null,
+          valorFecha: formaPago.fecha || new Date().toISOString().split('T')[0],
+          documentoAsociado: comprobanteActual?.numero || '',
+          tipoDocumento: 'PRF',
+          usuarioId: codigoVendedor.replace(/^0+/, '')
+        };
+
+        console.log('Enviando movimiento:', movimiento);
+
+        const response = await fetchWithAuth('/cajas/movimiento', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(movimiento)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Error del servidor:', errorData);
+          throw new Error(errorData.message || 'Error al registrar movimiento en caja');
+        }
+
+        const responseData = await response.json();
+        console.log('Movimiento registrado:', responseData);
+      }
+    } catch (err) {
+      console.error('Error al registrar movimientos:', err);
+      throw err;
+    }
+  }
+  
+  // Modificar la función enviarVenta para verificar caja abierta
+  async function enviarVenta() {
     if (!cliente) {
       error = 'Debe seleccionar un cliente';
       return;
@@ -321,19 +398,25 @@
       error = 'Debe agregar al menos un artículo';
       return;
     }
-    
-    // Calcular importes para la factura (los precios ya incluyen IVA)
-    const importeTotal = selectedArticulos.reduce((sum, a) => sum + ((a.PrecioVenta || 0) * cantidadTotal(a)), 0);
-    
-    // Inicializar el monto pagado con el total y mostrar el modal de cobro
-    montoPagado = importeTotal;
-    cambio = 0;
-    
-    // Limpiar la búsqueda antes de mostrar el modal de cobro
-    if (articulosBusquedaComponent) {
-      articulosBusquedaComponent.limpiarBusqueda();
+
+    // Verificar caja abierta
+    if (!cajaAbierta) {
+      const tieneCaja = await verificarCajaAbierta();
+      if (!tieneCaja) {
+        error = 'No hay una caja abierta. Debe abrir la caja antes de realizar ventas.';
+        return;
+      }
     }
     
+    // Calcular importes para la factura
+    const importeTotal = selectedArticulos.reduce((sum, a) => sum + ((a.PrecioVenta || 0) * cantidadTotal(a)), 0);
+    
+    // Inicializar formas de pago
+    formasPago = [];
+    importeTotalFormasPago = 0;
+    saldoPendiente = importeTotal;
+    
+    // Mostrar el modal de cobro
     mostrarModalCobro = true;
   }
   
@@ -343,28 +426,42 @@
     cambio = Math.max(0, montoPagado - importeTotal);
   }
   
-  // Función para procesar el cobro final y crear la factura
-  async function procesarCobro(): Promise<void> {
+  // Modificar la función procesarCobro para manejar mejor los errores
+  async function procesarCobro() {
     try {
       isLoading = true;
       error = null;
+
+      if (importeTotalFormasPago !== selectedArticulos.reduce((sum, a) => sum + ((a.PrecioVenta || 0) * cantidadTotal(a)), 0)) {
+        error = 'El total de las formas de pago debe ser igual al importe de la venta';
+        return;
+      }
+
+      // Verificar que la caja siga abierta antes de procesar
+      const cajaResponse = await fetchWithAuth(`/cajas/vendedor/${codigoVendedor}`);
+      const cajaData = await cajaResponse.json();
       
-      // Calcular importes para la factura (los precios ya incluyen IVA)
+      if (!cajaData.success || !cajaData.data.length) {
+        error = 'La caja ya no está abierta. Por favor, verifique el estado de la caja.';
+        return;
+      }
+      
+      cajaAbierta = cajaData.data[0];
+
+      // Calcular importes para la factura
       const importeTotal = selectedArticulos.reduce((sum, a) => sum + ((a.PrecioVenta || 0) * cantidadTotal(a)), 0);
-      const importeBruto = importeTotal / 1.21; // Base imponible (precio sin IVA)
-      const iva21 = importeTotal - importeBruto; // IVA = precio con IVA - precio sin IVA
-      
-      // Crear objeto de factura con todos los campos requeridos
-      const factura: any = {
-        DocumentoTipo: 'PRF', // Prefactura para telegram
-        DocumentoSucursal: '0100', // Sucursal para telegram
-        DocumentoNumero: '00000000', // El servidor asignará el número
-        Fecha: new Date().toISOString().split('T')[0], // Fecha actual en formato YYYY-MM-DD
+      const importeBruto = importeTotal / 1.21;
+      const iva21 = importeTotal - importeBruto;
+
+      // Crear objeto de factura
+      const factura = {
+        DocumentoTipo: 'PRF',
+        DocumentoSucursal: '0100',
+        DocumentoNumero: '00000000',
+        Fecha: new Date().toISOString().split('T')[0],
         ClienteCodigo: cliente,
-        // Usar el nombre que espera el controlador (cambiará a VendedorCodigo internamente)
-        Vendedor: codigoVendedor,
-        // Usar el nombre que espera el controlador (cambiará a PagoTipo internamente)
-        FormaPagoCodigo: formaPago,
+        Vendedor: codigoVendedor.replace(/^0+/, ''),
+        FormaPagoCodigo: formasPago[0].codigo,
         ImporteBruto: Number(importeBruto.toFixed(2)),
         PorcentajeBonificacion: 0,
         ImporteBonificado: 0,
@@ -375,109 +472,74 @@
         BaseImponible1: Number(importeBruto.toFixed(2)),
         BaseImponible2: 0,
         ImporteTotal: Number(importeTotal.toFixed(2)),
-        ImportePagado: formaPago === 'CC' ? 0 : Number(montoPagado.toFixed(2)),
-        // Usar el nombre que espera el controlador (cambiará a ListaNumero internamente)
+        ImportePagado: Number(importeTotalFormasPago.toFixed(2)),
         ListaPrecio: parseInt(listaPrecios),
-        Observacion: '',
-        CajaNumero: null,
-        // Datos adicionales del cobro
-        MontoPagado: formaPago === 'CC' ? 0 : Number(montoPagado.toFixed(2)),
-        Cambio: formaPago === 'CC' ? 0 : Number(cambio.toFixed(2))
+        Observacion: formasPago.length > 1 ? 
+          `Pago mixto: ${formasPago.map(fp => `${fp.descripcion}: $${fp.importe}`).join(', ')}` : '',
+        CajaNumero: cajaAbierta.Codigo
       };
-      
-      // Crear array de items para agregar a la factura
-      const items = [];
-      
-      // Agregar cada artículo con su estructura completa
-      for (const articulo of selectedArticulos) {
-        // Obtener datos del artículo
-        items.push({
-          CodigoArticulo: articulo.Codigo,
-          Descripcion: articulo.Descripcion || '',
-          Cantidad: cantidadTotal(articulo),
-          PrecioUnitario: Number((articulo.PrecioVenta || 0).toFixed(2)),
-          PrecioLista: Number((articulo.PrecioVenta || 0).toFixed(2)),
-          PorcentajeBonificado: 0,
-          ImporteBonificado: 0,
-          PorcentajeIva: 21
-        });
-      }
-      
-      // Asignar los items a la factura
-      factura.Items = items;
-      
-      console.log("Enviando factura:", JSON.stringify(factura));
-      
-      // Usar el nuevo endpoint específico para Telegram
-      const response = await fetchWithAuth('/telegram/facturas', {
+
+      console.log('Enviando factura:', factura);
+
+      // Crear la factura
+      const facturaResponse = await fetchWithAuth('/telegram/facturas', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify(factura)
+        body: JSON.stringify({
+          ...factura,
+          Items: selectedArticulos.map(articulo => ({
+            CodigoArticulo: articulo.Codigo,
+            Descripcion: articulo.Descripcion || '',
+            Cantidad: cantidadTotal(articulo),
+            PrecioUnitario: Number((articulo.PrecioVenta || 0).toFixed(2)),
+            PrecioLista: Number((articulo.PrecioVenta || 0).toFixed(2)),
+            PorcentajeBonificado: 0,
+            ImporteBonificado: 0,
+            PorcentajeIva: 21
+          }))
+        })
       });
-      
-      const responseText = await response.text();
-      console.log("Respuesta del servidor:", responseText);
-      
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        throw new Error(`Error en respuesta del servidor: ${responseText}`);
+
+      if (!facturaResponse.ok) {
+        const errorData = await facturaResponse.json();
+        throw new Error(errorData.message || 'Error al crear la factura');
       }
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Error al crear la factura');
-      }
-      
+
+      const facturaData = await facturaResponse.json();
+      console.log('Factura creada:', facturaData);
+
+      // Registrar movimientos en caja
+      await registrarMovimientosCaja(formasPago, importeTotal);
+
       success = 'Factura creada correctamente';
       mostrarModalCobro = false;
-      
+
       // Preparar datos para el comprobante
-      const numeroComprobante = data.data?.DocumentoNumero || data.data?.numero || '00000000';
-      const itemsComprobante = selectedArticulos.map(articulo => ({
-        codigo: articulo.Codigo,
-        descripcion: articulo.Descripcion || '',
-        cantidad: cantidadTotal(articulo),
-        precioUnitario: Number((articulo.PrecioVenta || 0).toFixed(2)),
-        subtotal: Number(((articulo.PrecioVenta || 0) * cantidadTotal(articulo)).toFixed(2))
-      }));
-      
-      // Configurar el comprobante actual
       comprobanteActual = {
         tipo: factura.DocumentoTipo,
         sucursal: factura.DocumentoSucursal,
-        numero: numeroComprobante,
+        numero: facturaData.data?.DocumentoNumero || facturaData.data?.numero || '00000000',
         fecha: factura.Fecha,
         clienteCodigo: cliente,
         clienteNombre: clienteSeleccionado.Descripcion,
         total: factura.ImporteTotal,
         vendedorCodigo: codigoVendedor,
         vendedorNombre: localStorage.getItem('botVendedorNombre') || 'Vendedor',
-        items: itemsComprobante
+        items: selectedArticulos.map(articulo => ({
+          codigo: articulo.Codigo,
+          descripcion: articulo.Descripcion || '',
+          cantidad: cantidadTotal(articulo),
+          precioUnitario: Number((articulo.PrecioVenta || 0).toFixed(2)),
+          subtotal: Number(((articulo.PrecioVenta || 0) * cantidadTotal(articulo)).toFixed(2))
+        }))
       };
-      
+
       // Mostrar el detalle del comprobante
       mostrarComprobanteDetalle = true;
-      
-      // Limpiar datos para nueva venta (se hace después de cerrar el comprobante)
-      
-      // Enviar datos a Telegram si el usuario cierra el comprobante
-      if (tg) {
-        tg.sendData(JSON.stringify({
-          tipo: factura.DocumentoTipo,
-          sucursal: factura.DocumentoSucursal,
-          numero: numeroComprobante,
-          cliente: cliente,
-          total: factura.ImporteTotal,
-          pagado: montoPagado,
-          cambio: cambio
-        }));
-      }
-      
-    } catch (err: unknown) {
+
+    } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
       error = errorMessage;
       console.error("Error completo:", err);
@@ -542,6 +604,14 @@
     cliente = nuevoCliente.Codigo;
     clienteSeleccionado = nuevoCliente;
     mostrarModalNuevoCliente = false;
+  }
+
+  // Función para manejar cambios en formas de pago
+  function handleFormasPagoChange(event: CustomEvent) {
+    const { formasPago: nuevasFormasPago, importeTotalFormasPago: nuevoTotal, saldoPendiente: nuevoSaldo } = event.detail;
+    formasPago = nuevasFormasPago;
+    importeTotalFormasPago = nuevoTotal;
+    saldoPendiente = nuevoSaldo;
   }
 
   onDestroy(() => {
@@ -622,14 +692,13 @@
     {mostrarModalCobro}
     {isLoading}
     {selectedArticulos}
-    {montoPagado}
-    {cambio}
-    setMontoPagado={v => montoPagado = v}
-    {calcularCambio}
-    cancelar={() => mostrarModalCobro = false}
-    terminar={procesarCobro}
-    clienteSeleccionado={clienteSeleccionado}
-    on:formaPagoChange={e => formaPago = e.detail}
+    {clienteSeleccionado}
+    bind:formasPago
+    bind:importeTotalFormasPago
+    bind:saldoPendiente
+    on:cancelar={() => mostrarModalCobro = false}
+    on:terminar={procesarCobro}
+    on:formasPagoChange={handleFormasPagoChange}
   />
   
   <ComprobanteDetalle

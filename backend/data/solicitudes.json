@@ -9,5 +9,16 @@
     "mensaje": "quiero probar el sistema en mi curro",
     "fechaCreacion": "2025-05-15T21:22:21.598Z",
     "estado": "pendiente"
+  },
+  {
+    "id": "1748700313809",
+    "nombre": "julian alvarez",
+    "email": "guadaparino@gmail.com",
+    "telefono": "2923564660",
+    "nombreNegocio": "juju",
+    "tipoNegocio": "restaurant",
+    "mensaje": "la araña que te araña",
+    "fechaCreacion": "2025-05-31T14:05:13.809Z",
+    "estado": "pendiente"
   }
 ]
