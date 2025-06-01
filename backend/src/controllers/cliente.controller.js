@@ -534,6 +534,28 @@ const obtenerSaldoCliente = async (req, res) => {
   }
 };
 
+// Actualizar saldo del cliente
+const actualizarSaldoCliente = async (req, res) => {
+  try {
+    const { Cliente } = req.models;
+    const cliente = await Cliente.findByPk(req.params.id);
+
+    if (!cliente) {
+      return res.status(404).json({ message: "Cliente no encontrado" });
+    }
+
+    // Actualizar solo el saldo
+    await cliente.update({
+      ImporteDeuda: parseFloat(req.body.ImporteDeuda)
+    });
+
+    return res.status(200).json(cliente);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al actualizar el saldo del cliente" });
+  }
+};
+
 module.exports = {
   getAllClientes,
   getClienteById,
@@ -542,5 +564,6 @@ module.exports = {
   toggleActivoCliente,
   getCuentasCorrientes,
   getComprobantesCliente,
-  obtenerSaldoCliente
+  obtenerSaldoCliente,
+  actualizarSaldoCliente
 };

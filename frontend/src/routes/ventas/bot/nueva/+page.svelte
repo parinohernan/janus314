@@ -341,12 +341,22 @@
     }
   }
   
-  // Función para registrar movimientos en caja
+  // Función para registrar movimientos en caja y actualizar saldo del cliente
   async function registrarMovimientosCaja(formasPago: FormaPago[], importeTotal: number) {
     try {
       console.log('Registrando movimientos en caja:', { cajaAbierta, formasPago });
       
+      let totalAplicaSaldo = 0;
+      
       for (const formaPago of formasPago) {
+        // Si la forma de pago aplica saldo, sumamos al total pero no generamos movimiento
+        if (formaPago.aplicaSaldo) {
+          console.log(`Forma de pago ${formaPago.codigo} aplica saldo: $${formaPago.importe}`);
+          totalAplicaSaldo += parseFloat(formaPago.importe.toString());
+          continue;
+        }
+
+        // Si no aplica saldo, generamos el movimiento en caja
         const movimiento = {
           cajaCabezaId: cajaAbierta.Codigo,
           tipo: 'ingreso',
@@ -380,13 +390,15 @@
         const responseData = await response.json();
         console.log('Movimiento registrado:', responseData);
       }
+
+      return totalAplicaSaldo;
     } catch (err) {
       console.error('Error al registrar movimientos:', err);
       throw err;
     }
   }
   
-  // Modificar la función enviarVenta para verificar caja abierta
+  // Función para enviar venta
   async function enviarVenta() {
     if (!cliente) {
       error = 'Debe seleccionar un cliente';
@@ -418,7 +430,7 @@
     // Mostrar el modal de cobro
     mostrarModalCobro = true;
   }
-  
+
   // Función para calcular el cambio automáticamente
   function calcularCambio(): void {
     const importeTotal = selectedArticulos.reduce((sum, a) => sum + ((a.PrecioVenta || 0) * cantidadTotal(a)), 0);
@@ -452,6 +464,43 @@
       const importeBruto = importeTotal / 1.21;
       const iva21 = importeTotal - importeBruto;
 
+      // Registrar movimientos en caja y obtener el total que aplica saldo
+      const totalAplicaSaldo = await registrarMovimientosCaja(formasPago, importeTotal);
+      console.log('Total que aplica saldo:', totalAplicaSaldo);
+
+      // Si hay formas de pago que aplican saldo, actualizar el saldo del cliente
+      if (totalAplicaSaldo > 0) {
+        try {
+          const clienteResponse = await fetchWithAuth(`/clientes/${cliente}`);
+          if (!clienteResponse.ok) {
+            throw new Error('Error al obtener datos del cliente');
+          }
+          
+          const clienteData = await clienteResponse.json();
+          console.log('Datos del cliente:', clienteData);
+          
+          // Actualizar el saldo del cliente usando el nuevo endpoint
+          const updateResponse = await fetchWithAuth(`/clientes/${cliente}/actualizarSaldo`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              ImporteDeuda: (parseFloat(clienteData.ImporteDeuda || 0) + totalAplicaSaldo).toFixed(2)
+            })
+          });
+
+          if (!updateResponse.ok) {
+            throw new Error('Error al actualizar el saldo del cliente');
+          }
+
+          console.log('Saldo del cliente actualizado');
+        } catch (error: unknown) {
+          console.error('Error al actualizar saldo del cliente:', error);
+          throw new Error(error instanceof Error ? error.message : 'Error desconocido al actualizar el saldo del cliente');
+        }
+      }
+
       // Crear objeto de factura
       const factura = {
         DocumentoTipo: 'PRF',
@@ -471,11 +520,12 @@
         BaseImponible1: Number(importeBruto.toFixed(2)),
         BaseImponible2: 0,
         ImporteTotal: Number(importeTotal.toFixed(2)),
-        ImportePagado: Number(importeTotalFormasPago.toFixed(2)),
+        ImportePagado: Number((importeTotal - totalAplicaSaldo).toFixed(2)),
         ListaPrecio: parseInt(listaPrecios),
         Observacion: formasPago.length > 1 ? 
           `Pago mixto: ${formasPago.map(fp => `${fp.descripcion}: $${fp.importe}`).join(', ')}` : '',
-        CajaNumero: cajaAbierta.Codigo
+        CajaNumero: cajaAbierta.Codigo,
+        aplicaSaldo: totalAplicaSaldo > 0
       };
 
       console.log('Enviando factura:', factura);
@@ -508,9 +558,6 @@
 
       const facturaData = await facturaResponse.json();
       console.log('Factura creada:', facturaData);
-
-      // Registrar movimientos en caja
-      await registrarMovimientosCaja(formasPago, importeTotal);
 
       success = 'Factura creada correctamente';
       mostrarModalCobro = false;

@@ -10,6 +10,7 @@ router.get("/:id", clienteController.getClienteById);
 router.post("/", clienteController.createCliente);
 router.put("/:id", clienteController.updateCliente);
 router.put("/:id/toggleActivo", clienteController.toggleActivoCliente);
+router.put("/:id/actualizarSaldo", clienteController.actualizarSaldoCliente);
 
 // Ruta para obtener el saldo del cliente
 router.get('/:codigo/saldo', clienteController.obtenerSaldoCliente);
