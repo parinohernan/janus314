@@ -55,14 +55,22 @@ exports.getAllTiposDePago = async (req, res) => {
       order: [[sortField, sortOrder]],
       limit: parseInt(limit),
       offset: parseInt(offset),
+      raw: true // Primero veamos los datos crudos
     });
+
+    // Convertir los valores manualmente
+    const tiposDePagoProcessed = tiposDePago.map(item => ({
+      ...item,
+      Activo: Number(item.Activo) === 1,
+      aplicaSaldo: Number(item.aplicaSaldo) === 1
+    }));
 
     // Enviar respuesta con metadata de paginación
     return res.status(200).json({
       totalItems: count,
       totalPages: Math.ceil(count / parseInt(limit)),
       currentPage: parseInt(page),
-      items: tiposDePago,
+      items: tiposDePagoProcessed,
     });
   } catch (error) {
     console.error("Error:", error);

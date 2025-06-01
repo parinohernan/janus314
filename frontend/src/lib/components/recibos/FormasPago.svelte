@@ -32,7 +32,7 @@
     try {
       const response = await fetchWithAuth('/tipos-pago', {
         params: {
-          limit: 100, // Traer todos los tipos de pago
+          limit: 100,
           search: '',
           field: 'Descripcion',
           order: 'ASC'
@@ -40,14 +40,21 @@
       });
       if (response.ok) {
         const data = await response.json();
+        console.log('Datos recibidos del servidor:', data);
         tiposDePago = data.items
-          .filter((item: any) => item.Activo === true)
-          .map((item: any) => ({
-            codigo: item.Codigo,
-            descripcion: item.Descripcion,
-            aplicaSaldo: item.aplicaSaldo === true
-          }));
-        console.log('Tipos de pago cargados:', tiposDePago);
+          .filter((item: any) => item.Activo)
+          .map((item: any) => {
+            console.log(`Procesando tipo de pago ${item.Codigo}:`, {
+              ...item,
+              aplicaSaldo: Number(item.aplicaSaldo) === 1
+            });
+            return {
+              codigo: item.Codigo,
+              descripcion: item.Descripcion,
+              aplicaSaldo: Number(item.aplicaSaldo) === 1
+            };
+          });
+        console.log('Tipos de pago procesados:', tiposDePago);
       } else {
         console.error('Error al cargar tipos de pago:', await response.text());
       }

@@ -22,19 +22,19 @@ const TipoDePago = sequelize.define(
       allowNull: true,
     },
     Activo: {
-      type: DataTypes.BOOLEAN,
+      type: DataTypes.TINYINT(1),
       allowNull: true,
-      defaultValue: true,
+      defaultValue: 1,
     },
     aplicaSaldo: {
-      type: DataTypes.BOOLEAN,
+      type: DataTypes.TINYINT(1),
       allowNull: true,
-      defaultValue: false,
+      defaultValue: 0,
     },
     recargoPorcentaje: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: true,
-      defaultValue: 0,
+      defaultValue: 0.00,
     },
   },
   {
