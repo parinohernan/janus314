@@ -102,8 +102,8 @@ exports.obtenerCaja = async (req, res) => {
   }
 };
 
-// Abrir nueva caja
-exports.abrirCaja = async (req, res) => {
+// Crear nueva caja
+exports.crearCaja = async (req, res) => {
   const t = await req.db.transaction();
   try {
     const { CajaCabeza, Vendedor } = req.models;
@@ -153,15 +153,15 @@ exports.abrirCaja = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Caja abierta exitosamente",
+      message: "Caja creada exitosamente",
       data: nuevaCaja,
     });
   } catch (error) {
     await t.rollback();
-    console.error("Error al abrir caja:", error);
+    console.error("Error al crear caja:", error);
     res.status(500).json({
       success: false,
-      message: "Error al abrir caja",
+      message: "Error al crear caja",
       error: error.message,
     });
   }
@@ -264,9 +264,9 @@ exports.realizarArqueo = async (req, res) => {
   try {
     const { CajaCabeza, CajaArqueoDetalle } = req.models;
     const { codigo } = req.params;
-    const { efectivoContado, diferencia, observaciones, usuarioId } = req.body;
+    const { formasPago, totalDeclarado, diferencia, observaciones, usuarioId } = req.body;
 
-    // Verificar que la caja esté abierta
+    // Verificar que la caja exista y esté abierta
     const caja = await CajaCabeza.findOne({
       where: {
         Codigo: codigo,
@@ -283,17 +283,26 @@ exports.realizarArqueo = async (req, res) => {
       });
     }
 
-    // Registrar detalle del arqueo sin cambiar el estado de la caja
-    const arqueoDetalle = await CajaArqueoDetalle.create({
-      CajaCabezaId: codigo,
-      MetodoPago: 'EFE',
-      MontoContado: efectivoContado,
-      MontoSistema: caja.SaldoTeorico,
-      Diferencia: diferencia,
-      Observaciones: observaciones,
-      UsuarioId: usuarioId,
-      FechaHora: new Date()
-    }, { transaction: t });
+    // Registrar detalle del arqueo para cada forma de pago
+    const detallesArqueo = await Promise.all(formasPago.map(async formaPago => {
+      return await CajaArqueoDetalle.create({
+        CajaCabezaId: codigo,
+        MetodoPago: formaPago.formaPago,
+        MontoContado: formaPago.totalDeclarado,
+        MontoSistema: formaPago.totalSistema,
+        Diferencia: formaPago.diferencia,
+        Observaciones: observaciones,
+        UsuarioId: usuarioId,
+        FechaHora: new Date()
+      }, { transaction: t });
+    }));
+
+    // Actualizar observaciones de la caja si hay alguna
+    if (observaciones) {
+      await caja.update({
+        Observaciones: observaciones
+      }, { transaction: t });
+    }
 
     await t.commit();
 
@@ -302,7 +311,9 @@ exports.realizarArqueo = async (req, res) => {
       message: "Arqueo realizado exitosamente",
       data: {
         caja,
-        arqueoDetalle,
+        detallesArqueo,
+        totalDeclarado,
+        diferencia
       },
     });
   } catch (error) {
@@ -441,4 +452,190 @@ exports.obtenerCajasVendedor = async (req, res) => {
       error: error.message,
     });
   }
+};
+
+// Obtener resumen de arqueo por forma de pago
+exports.obtenerResumenArqueo = async (req, res) => {
+  try {
+    const { CajaCabeza, CajaMovimientos, TipoDePago } = req.models;
+    const { codigo } = req.params;
+
+    // Verificar que la caja exista y esté abierta
+    const caja = await CajaCabeza.findOne({
+      where: {
+        Codigo: codigo,
+        Estado: 'abierta'
+      }
+    });
+
+    if (!caja) {
+      return res.status(400).json({
+        success: false,
+        message: "La caja no está abierta"
+      });
+    }
+
+    // Obtener todas las formas de pago que no aplican saldo
+    const formasPago = await TipoDePago.findAll({
+      where: {
+        aplicaSaldo: false,
+        Activo: true
+      },
+      attributes: ['Codigo', 'Descripcion']
+    });
+
+    // Obtener todos los movimientos de la caja
+    const movimientos = await CajaMovimientos.findAll({
+      where: { 
+        CajaCabezaId: codigo
+      },
+      include: [{
+        model: TipoDePago,
+        as: 'TipoPago',
+        attributes: ['Codigo', 'Descripcion', 'aplicaSaldo']
+      }]
+    });
+
+    // Calcular totales por forma de pago
+    const totalesPorFormaPago = formasPago.map(formaPago => {
+      const movimientosFormaPago = movimientos.filter(m => 
+        m.MetodoPago === formaPago.Codigo && 
+        m.TipoPago && 
+        !m.TipoPago.aplicaSaldo
+      );
+
+      const ingresos = movimientosFormaPago
+        .filter(m => m.Tipo === 'ingreso')
+        .reduce((sum, m) => sum + parseFloat(m.Importe || 0), 0);
+
+      const egresos = movimientosFormaPago
+        .filter(m => m.Tipo === 'egreso')
+        .reduce((sum, m) => sum + parseFloat(m.Importe || 0), 0);
+
+      return {
+        formaPago: formaPago.Codigo,
+        descripcion: formaPago.Descripcion,
+        totalSistema: ingresos - egresos,
+        totalDeclarado: 0, // Este valor se llenará en el frontend
+        diferencia: 0 // Este valor se calculará en el frontend
+      };
+    });
+
+    // Calcular totales generales
+    const totalSistema = totalesPorFormaPago.reduce((sum, t) => sum + t.totalSistema, 0);
+
+    res.json({
+      success: true,
+      data: {
+        cajaId: codigo,
+        saldoInicial: parseFloat(caja.SaldoInicial || 0),
+        saldoTeorico: parseFloat(caja.SaldoTeorico || 0),
+        formasPago: totalesPorFormaPago,
+        totalSistema
+      }
+    });
+
+  } catch (error) {
+    console.error("Error al obtener resumen de arqueo:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener resumen de arqueo",
+      error: error.message
+    });
+  }
+};
+
+// Listar cajas cerradas con paginación y filtros
+exports.listarCajasCerradas = async (req, res) => {
+  try {
+    const { CajaCabeza, Vendedor, CajaArqueoDetalle } = req.models;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+    const vendedorId = req.query.vendedor || null;
+    const fechaDesde = req.query.fechaDesde || null;
+    const fechaHasta = req.query.fechaHasta || null;
+
+    // Construir condiciones de filtrado
+    const whereClause = {
+      Estado: 'cerrada'
+    };
+    if (vendedorId) whereClause.VendedorId = vendedorId;
+
+    if (fechaDesde && fechaHasta) {
+      whereClause.Cierre = {
+        [Op.between]: [fechaDesde, fechaHasta],
+      };
+    } else if (fechaDesde) {
+      whereClause.Cierre = {
+        [Op.gte]: fechaDesde,
+      };
+    } else if (fechaHasta) {
+      whereClause.Cierre = {
+        [Op.lte]: fechaHasta,
+      };
+    }
+
+    const cajas = await CajaCabeza.findAndCountAll({
+      where: whereClause,
+      include: [
+        {
+          model: Vendedor,
+          as: 'Vendedor',
+          attributes: ['Codigo', 'Descripcion'],
+        },
+        {
+          model: CajaArqueoDetalle,
+          as: 'Arqueos',
+          required: false,
+          attributes: ['MetodoPago', 'MontoContado', 'MontoSistema', 'Diferencia', 'FechaHora']
+        }
+      ],
+      order: [['Cierre', 'DESC']],
+      limit,
+      offset,
+    });
+
+    // Normalizar los valores numéricos
+    const cajasNormalizadas = cajas.rows.map(caja => ({
+      ...caja.toJSON(),
+      SaldoTeorico: parseFloat(caja.SaldoTeorico || 0).toFixed(2),
+      SaldoInicial: parseFloat(caja.SaldoInicial || 0).toFixed(2),
+      SaldoCierre: caja.SaldoCierre ? parseFloat(caja.SaldoCierre).toFixed(2) : null
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        items: cajasNormalizadas,
+        meta: {
+          totalItems: cajas.count,
+          itemsPerPage: limit,
+          currentPage: page,
+          totalPages: Math.ceil(cajas.count / limit),
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Error al listar cajas cerradas:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener cajas cerradas",
+      error: error.message,
+    });
+  }
+};
+
+// Exportar todas las funciones
+module.exports = {
+  listarCajas: exports.listarCajas,
+  obtenerCaja: exports.obtenerCaja,
+  crearCaja: exports.crearCaja,
+  registrarMovimiento: exports.registrarMovimiento,
+  obtenerMovimientos: exports.obtenerMovimientos,
+  obtenerCajasVendedor: exports.obtenerCajasVendedor,
+  obtenerResumenArqueo: exports.obtenerResumenArqueo,
+  realizarArqueo: exports.realizarArqueo,
+  cerrarCaja: exports.cerrarCaja,
+  listarCajasCerradas: exports.listarCajasCerradas
 }; 

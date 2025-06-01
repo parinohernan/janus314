@@ -1,10 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const cajaController = require("../controllers/caja.controller");
-const cajaResumenController = require("../controllers/cajaResumen.controller");
+const { obtenerResumenCaja, cerrarCaja } = require("../controllers/cajaResumen.controller");
 
 // Obtener todas las cajas
 router.get("/", cajaController.listarCajas);
+
+// Obtener cajas cerradas
+router.get("/cerradas", cajaController.listarCajasCerradas);
 
 // Obtener cajas por vendedor
 router.get("/vendedor/:vendedorId", cajaController.obtenerCajasVendedor);
@@ -15,19 +18,22 @@ router.get("/:codigo/movimientos", cajaController.obtenerMovimientos);
 // Obtener una caja específica
 router.get("/:codigo", cajaController.obtenerCaja);
 
-// Crear nueva caja (apertura)
-router.post("/", cajaController.abrirCaja);
+// Crear nueva caja
+router.post("/", cajaController.crearCaja);
 
-// Registrar movimiento de caja
+// Registrar movimiento
 router.post("/movimiento", cajaController.registrarMovimiento);
+
+// Obtener resumen de arqueo por forma de pago
+router.get("/:codigo/arqueo/resumen", cajaController.obtenerResumenArqueo);
 
 // Realizar arqueo de caja
 router.post("/arqueo/:codigo", cajaController.realizarArqueo);
 
 // Obtener resumen de caja
-router.get("/:id/resumen", cajaResumenController.obtenerResumenCaja);
+router.get("/:id/resumen", obtenerResumenCaja);
 
 // Cerrar caja
-router.post("/:id/cierre", cajaResumenController.cerrarCaja);
+router.post("/:id/cierre", cerrarCaja);
 
 module.exports = router; 

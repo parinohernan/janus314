@@ -6,21 +6,36 @@
   import '../../../../../app.css';
   import LogoJano from '../../components/LogoJano.svelte';
 
+  interface FormaPagoArqueo {
+    formaPago: string;
+    descripcion: string;
+    totalSistema: number;
+    totalDeclarado: number;
+    diferencia: number;
+  }
+
+  interface ResumenArqueo {
+    cajaId: number;
+    saldoInicial: number;
+    saldoTeorico: number;
+    formasPago: FormaPagoArqueo[];
+    totalSistema: number;
+  }
+
   let loading: boolean = false;
   let error: string | null = null;
+  let success: string | null = null;
   let vendedorId: string = '';
   let cajaAbierta: any = null;
+  let resumenArqueo: ResumenArqueo | null = null;
 
   // Valores del arqueo
-  let efectivoContado: number = 0;
   let observaciones: string = '';
+  let totalDeclarado: number = 0;
+  let actualizandoDiferencia = false;
 
-  // Datos calculados
-  let saldoTeorico: number = 0;
-  let diferencia: number = 0;
-
-  // Cargar el estado de la caja al montar el componente
-  async function cargarEstadoCaja() {
+  // Cargar el estado de la caja y el resumen del arqueo
+  async function cargarDatos() {
     try {
       // Obtener el código del vendedor del localStorage
       vendedorId = localStorage.getItem('botVendedorCodigo') || '';
@@ -36,7 +51,7 @@
       const data = await response.json();
       if (data.success && data.data.length > 0) {
         cajaAbierta = data.data[0];
-        saldoTeorico = parseFloat(cajaAbierta.SaldoTeorico?.toString() || '0');
+        await cargarResumenArqueo();
       } else {
         error = "No hay una caja abierta";
         setTimeout(() => {
@@ -49,13 +64,52 @@
     }
   }
 
-  // Calcular diferencia cuando cambie el efectivo contado
-  $: {
-    diferencia = efectivoContado - saldoTeorico;
+  // Cargar resumen del arqueo
+  async function cargarResumenArqueo() {
+    try {
+      const response = await fetchWithAuth(`/cajas/${cajaAbierta.Codigo}/arqueo/resumen`);
+      const data = await response.json();
+      if (data.success) {
+        // Inicializar los valores declarados con los valores del sistema
+        data.data.formasPago = data.data.formasPago.map(fp => ({
+          ...fp,
+          totalDeclarado: fp.totalSistema,
+          diferencia: 0
+        }));
+        resumenArqueo = data.data;
+        // Calcular el total declarado inicial
+        totalDeclarado = resumenArqueo.totalSistema;
+      }
+    } catch (err) {
+      error = "Error al cargar el resumen del arqueo";
+      console.error("Error detallado:", err);
+    }
+  }
+
+  // Actualizar diferencia cuando cambie el monto declarado
+  function actualizarDiferencia(formaPago: FormaPagoArqueo) {
+    if (actualizandoDiferencia) return;
+    actualizandoDiferencia = true;
+    
+    try {
+      // Asegurarse de que totalDeclarado sea un número
+      formaPago.totalDeclarado = parseFloat(formaPago.totalDeclarado?.toString() || '0');
+      // Calcular la diferencia
+      formaPago.diferencia = formaPago.totalDeclarado - formaPago.totalSistema;
+      // Recalcular el total declarado
+      if (resumenArqueo) {
+        totalDeclarado = resumenArqueo.formasPago.reduce(
+          (sum, fp) => sum + (parseFloat(fp.totalDeclarado?.toString() || '0')), 
+          0
+        );
+      }
+    } finally {
+      actualizandoDiferencia = false;
+    }
   }
 
   async function registrarArqueo() {
-    if (!vendedorId || !cajaAbierta) {
+    if (!vendedorId || !cajaAbierta || !resumenArqueo) {
       error = "No se puede realizar el arqueo";
       return;
     }
@@ -68,9 +122,13 @@
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          cajaCabezaId: cajaAbierta.Codigo,
-          efectivoContado,
-          diferencia,
+          formasPago: resumenArqueo.formasPago.map(fp => ({
+            ...fp,
+            totalDeclarado: parseFloat(fp.totalDeclarado?.toString() || '0'),
+            diferencia: parseFloat(fp.diferencia?.toString() || '0')
+          })),
+          totalDeclarado,
+          diferencia: totalDeclarado - resumenArqueo.totalSistema,
           observaciones,
           usuarioId: vendedorId
         })
@@ -78,7 +136,12 @@
 
       const data = await response.json();
       if (data.success) {
-        goto('/ventas/bot/caja');
+        success = "Arqueo registrado exitosamente";
+        // Recargar los datos después de 2 segundos
+        setTimeout(() => {
+          success = null;
+          cargarDatos();
+        }, 2000);
       } else {
         error = data.message || "Error al registrar el arqueo";
       }
@@ -91,12 +154,11 @@
   }
 
   onMount(() => {
-    cargarEstadoCaja();
+    cargarDatos();
   });
 </script>
 
 <div class="telegram-webapp">
-  <!-- Header con título y botón volver -->
   <header class="header">
     <div class="header-content">
       <button class="btn-back" on:click={() => goto('/ventas/bot/caja')} aria-label="Volver">
@@ -109,73 +171,116 @@
     </div>
   </header>
 
-  <div class="p-4">
-    {#if error}
-      <div class="error-message p-4 mb-4" transition:fade>
-        {error}
-      </div>
-    {/if}
-
-    {#if cajaAbierta}
-      <!-- Información de Saldo Teórico -->
-      <div class="saldo-info p-4 rounded-lg bg-blue-50 mb-6">
-        <div class="text-sm text-gray-600">Saldo Teórico</div>
-        <div class="text-2xl font-bold text-blue-600">
-          ${saldoTeorico.toFixed(2)}
+  {#if loading}
+    <div class="flex justify-center items-center h-32">
+      <div class="loading-spinner"></div>
+    </div>
+  {:else if error}
+    <div class="error-message p-4 mb-4" transition:fade>
+      {error}
+    </div>
+  {:else if success}
+    <div class="success-message p-4 mb-4" transition:fade>
+      {success}
+    </div>
+  {:else if resumenArqueo}
+    <div class="arqueo-container p-4">
+      <!-- Información General -->
+      <div class="info-general bg-blue-50 p-4 rounded-lg mb-6">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <div class="text-sm text-gray-600">Saldo Inicial</div>
+            <div class="text-xl font-bold text-blue-600">
+              ${resumenArqueo.saldoInicial.toFixed(2)}
+            </div>
+          </div>
+          <div>
+            <div class="text-sm text-gray-600">Saldo Teórico</div>
+            <div class="text-xl font-bold text-blue-600">
+              ${resumenArqueo.saldoTeorico.toFixed(2)}
+            </div>
+          </div>
         </div>
       </div>
 
-      <form on:submit|preventDefault={registrarArqueo} class="space-y-4">
-        <div class="form-group">
-          <label for="efectivoContado" class="block text-sm font-medium text-gray-700 mb-1">
-            Efectivo Contado
-          </label>
-          <input
-            id="efectivoContado"
-            type="number"
-            step="0.01"
-            bind:value={efectivoContado}
-            class="w-full p-3 border rounded-lg"
-            placeholder="0.00"
-          />
-        </div>
+      <!-- Formas de Pago -->
+      <div class="formas-pago space-y-4">
+        <h3 class="text-lg font-semibold mb-3">Formas de Pago</h3>
+        
+        {#each resumenArqueo.formasPago as formaPago}
+          <div class="forma-pago bg-white p-4 rounded-lg shadow" transition:fade>
+            <div class="mb-2 font-medium">{formaPago.descripcion}</div>
+            <div class="grid grid-cols-3 gap-4">
+              <div>
+                <div class="text-sm text-gray-600">Sistema</div>
+                <div class="font-bold">${formaPago.totalSistema.toFixed(2)}</div>
+              </div>
+              <div>
+                <div class="text-sm text-gray-600">Declarado</div>
+                <input
+                  type="number"
+                  step="0.01"
+                  bind:value={formaPago.totalDeclarado}
+                  on:input={() => actualizarDiferencia(formaPago)}
+                  class="w-full p-2 border rounded"
+                />
+              </div>
+              <div>
+                <div class="text-sm text-gray-600">Diferencia</div>
+                <div class="font-bold" class:text-red-600={formaPago.diferencia < 0} class:text-green-600={formaPago.diferencia > 0}>
+                  ${formaPago.diferencia.toFixed(2)}
+                </div>
+              </div>
+            </div>
+          </div>
+        {/each}
 
-        <!-- Mostrar diferencia -->
-        <div class="diferencia-info p-4 rounded-lg mb-4" 
-          class:bg-red-50={diferencia < 0}
-          class:bg-green-50={diferencia > 0}
-          class:bg-gray-50={diferencia === 0}>
-          <div class="text-sm text-gray-600">Diferencia</div>
-          <div class="text-xl font-bold"
-            class:text-red-600={diferencia < 0}
-            class:text-green-600={diferencia > 0}
-            class:text-gray-600={diferencia === 0}>
-            ${diferencia.toFixed(2)}
+        <!-- Totales -->
+        <div class="totales bg-gray-50 p-4 rounded-lg mt-6">
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <div class="text-sm text-gray-600">Total Sistema</div>
+              <div class="text-xl font-bold">${resumenArqueo.totalSistema.toFixed(2)}</div>
+            </div>
+            <div>
+              <div class="text-sm text-gray-600">Total Declarado</div>
+              <div class="text-xl font-bold">${totalDeclarado.toFixed(2)}</div>
+            </div>
+            <div>
+              <div class="text-sm text-gray-600">Diferencia Total</div>
+              <div class="text-xl font-bold" class:text-red-600={totalDeclarado - resumenArqueo.totalSistema < 0} class:text-green-600={totalDeclarado - resumenArqueo.totalSistema > 0}>
+                ${(totalDeclarado - resumenArqueo.totalSistema).toFixed(2)}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="form-group">
-          <label for="observaciones" class="block text-sm font-medium text-gray-700 mb-1">
+        <!-- Observaciones -->
+        <div class="mt-6">
+          <label for="observaciones" class="block text-sm font-medium text-gray-700 mb-2">
             Observaciones
           </label>
           <textarea
             id="observaciones"
             bind:value={observaciones}
-            class="w-full p-3 border rounded-lg"
             rows="3"
-            placeholder="Ingrese observaciones sobre el arqueo"
+            class="w-full p-3 border rounded-lg"
+            placeholder="Ingrese observaciones sobre el arqueo..."
           ></textarea>
         </div>
 
-        <button
-          type="submit"
-          class="w-full p-4 bg-blue-500 text-white font-medium rounded-lg"
-          disabled={loading}>
-          {loading ? 'Registrando...' : 'Registrar Arqueo'}
-        </button>
-      </form>
-    {/if}
-  </div>
+        <!-- Botón de Registro -->
+        <div class="mt-6">
+          <button
+            class="w-full p-4 bg-blue-500 text-white rounded-lg font-medium"
+            on:click={registrarArqueo}
+            disabled={loading}>
+            {loading ? 'Registrando...' : 'Registrar Arqueo'}
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -224,6 +329,20 @@
     color: var(--tg-theme-text-color, #000);
   }
 
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
   .error-message {
     background-color: #fee2e2;
     border: 1px solid #ef4444;
@@ -231,12 +350,20 @@
     border-radius: 0.5rem;
   }
 
-  button:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
+  .success-message {
+    background-color: #dcfce7;
+    border: 1px solid #22c55e;
+    color: #16a34a;
+    border-radius: 0.5rem;
   }
 
-  input, textarea {
-    font-size: 16px; /* Evita zoom en iOS */
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
   }
 </style> 

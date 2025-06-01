@@ -177,7 +177,7 @@
   <!-- Header con título y botón volver -->
   <header class="header">
     <div class="header-content">
-      <button class="btn-back" on:click={() => goto('/ventas/bot/home')} aria-label="Volver">
+      <button class="btn-back" on:click={() => goto('/ventas/bot')} aria-label="Volver">
         <span class="back-icon">←</span>
       </button>
       <div class="title-container">
@@ -194,6 +194,17 @@
       </div>
     </div>
   </header>
+
+  <!-- Botón para ver cajas cerradas -->
+  <div class="mb-4">
+    <button
+      class="w-full p-4 bg-gray-100 text-gray-700 rounded-lg flex items-center justify-between"
+      on:click={() => goto('/ventas/bot/caja/cerradas')}
+    >
+      <span class="font-medium">Ver Listado de Cajas</span>
+      <span class="text-xl">→</span>
+    </button>
+  </div>
 
   <!-- Modal de Ayuda -->
   {#if showModal}
@@ -286,9 +297,19 @@
         
         {#if cajaAbierta}
           <div class="saldo-info p-4 rounded-lg bg-blue-50 mb-4">
-            <div class="text-sm text-gray-600">Saldo Actual</div>
-            <div class="text-2xl font-bold text-blue-600">
-              ${(parseFloat(cajaAbierta.SaldoTeorico?.toString() || '0')).toFixed(2)}
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <div class="text-sm text-gray-600">Saldo Inicial</div>
+                <div class="text-xl font-bold text-blue-600">
+                  ${(parseFloat(cajaAbierta.SaldoInicial?.toString() || '0')).toFixed(2)}
+                </div>
+              </div>
+              <div>
+                <div class="text-sm text-gray-600">Saldo Actual</div>
+                <div class="text-xl font-bold text-blue-600">
+                  ${(parseFloat(cajaAbierta.SaldoTeorico?.toString() || '0')).toFixed(2)}
+                </div>
+              </div>
             </div>
           </div>
 
