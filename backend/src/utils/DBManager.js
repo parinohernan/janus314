@@ -8,6 +8,7 @@ const Articulo = require('../models/articulo.model');
 const CajaCabeza = require('../models/cajaCabeza.model');
 const CajaMovimientos = require('../models/cajaMovimientos.model');
 const CajaArqueoDetalle = require('../models/cajaArqueoDetalle.model');
+const { initializeAssociations } = require('../models/cajaAssociations');
 
 class DBManager {
   constructor() {
@@ -44,24 +45,8 @@ class DBManager {
       timestamps: false,
     });
 
-    // Inicializar modelos de caja
-    CajaCabeza.init(CajaCabeza.getAttributes(), {
-      sequelize,
-      tableName: 'caja_cabeza',
-      timestamps: false,
-    });
-
-    CajaMovimientos.init(CajaMovimientos.getAttributes(), {
-      sequelize,
-      tableName: 'caja_movimientos',
-      timestamps: false,
-    });
-
-    CajaArqueoDetalle.init(CajaArqueoDetalle.getAttributes(), {
-      sequelize,
-      tableName: 'caja_arqueo_detalle',
-      timestamps: false,
-    });
+    // Inicializar modelos de caja y sus asociaciones
+    await initializeAssociations();
 
     // Establecer las asociaciones
     NotaCreditoCabeza.belongsTo(Cliente, {
@@ -72,19 +57,6 @@ class DBManager {
     NotaCreditoItem.belongsTo(Articulo, {
       foreignKey: "CodigoArticulo",
       targetKey: "Codigo",
-    });
-
-    // Asociaciones de caja
-    CajaMovimientos.belongsTo(CajaCabeza, {
-      foreignKey: 'CajaCabezaId',
-      targetKey: 'Codigo',
-      constraints: false
-    });
-
-    CajaArqueoDetalle.belongsTo(CajaCabeza, {
-      foreignKey: 'CajaCabezaId',
-      targetKey: 'Codigo',
-      constraints: false
     });
 
     console.log('✅ Modelos inicializados correctamente para la conexión');

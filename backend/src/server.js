@@ -2,8 +2,6 @@ const app = require("./app");
 const DBManager = require("./utils/DBManager");
 const masterDB = require("./config/masterDB");
 const { initializeDatabase } = require("./config/init");
-// Importar el archivo de asociaciones para definir las relaciones entre modelos
-require("./models/associations");
 
 // Puerto
 const PORT = process.env.PORT || 3000;

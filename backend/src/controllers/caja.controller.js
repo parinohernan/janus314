@@ -9,8 +9,8 @@ exports.listarCajas = async (req, res) => {
     const offset = (page - 1) * limit;
     const vendedorId = req.query.vendedor || null;
     const estado = req.query.estado || null;
-    const fechaDesde = req.query.fechaDesde || null;
-    const fechaHasta = req.query.fechaHasta || null;
+    const fechaDesde = req.query.fechaDesde ? new Date(req.query.fechaDesde + 'T00:00:00') : null;
+    const fechaHasta = req.query.fechaHasta ? new Date(req.query.fechaHasta + 'T23:59:59') : null;
 
     // Construir condiciones de filtrado
     const whereClause = {};
@@ -31,27 +31,79 @@ exports.listarCajas = async (req, res) => {
       };
     }
 
-    const cajas = await CajaCabeza.findAndCountAll({
-      where: whereClause,
-      include: [
-        {
-          model: Vendedor,
-          as: 'Vendedor',
-          attributes: ['Codigo', 'Descripcion'],
-        },
-      ],
-      order: [['Apertura', 'DESC']],
-      limit,
-      offset,
-    });
+    // Obtener el total de registros
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM caja_cabeza c
+      WHERE ${Object.keys(whereClause).map(key => {
+        if (key === 'Apertura') {
+          if (fechaDesde && fechaHasta) {
+            return `c.Apertura BETWEEN '${fechaDesde.toISOString()}' AND '${fechaHasta.toISOString()}'`;
+          } else if (fechaDesde) {
+            return `c.Apertura >= '${fechaDesde.toISOString()}'`;
+          } else {
+            return `c.Apertura <= '${fechaHasta.toISOString()}'`;
+          }
+        }
+        return `c.${key} = '${whereClause[key]}'`;
+      }).join(' AND ') || '1=1'}
+    `;
+
+    const [[{ total }]] = await req.db.query(countQuery);
+
+    console.log('Total registros:', total);
+    console.log('Página actual:', page);
+    console.log('Límite por página:', limit);
+    console.log('Total páginas:', Math.ceil(total / limit));
+
+    // Obtener las cajas con una consulta SQL directa
+    const query = `
+      SELECT 
+        c.*,
+        v.Codigo as VendedorCodigo,
+        v.Descripcion as VendedorDescripcion
+      FROM caja_cabeza c
+      LEFT JOIN t_vendedores v ON c.VendedorId = v.Codigo
+      WHERE ${Object.keys(whereClause).map(key => {
+        if (key === 'Apertura') {
+          if (fechaDesde && fechaHasta) {
+            return `c.Apertura BETWEEN '${fechaDesde.toISOString()}' AND '${fechaHasta.toISOString()}'`;
+          } else if (fechaDesde) {
+            return `c.Apertura >= '${fechaDesde.toISOString()}'`;
+          } else {
+            return `c.Apertura <= '${fechaHasta.toISOString()}'`;
+          }
+        }
+        return `c.${key} = '${whereClause[key]}'`;
+      }).join(' AND ') || '1=1'}
+      ORDER BY c.Apertura DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    const [cajas] = await req.db.query(query);
+
+    // Formatear los resultados
+    const cajasFormateadas = cajas.map(caja => ({
+      ...caja,
+      Vendedor: {
+        Codigo: caja.VendedorCodigo,
+        Descripcion: caja.VendedorDescripcion
+      }
+    }));
+
+    // Deshabilitar el caché para esta respuesta
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
 
     res.json({
-      items: cajas.rows,
+      success: true,
+      items: cajasFormateadas,
       meta: {
-        totalItems: cajas.count,
+        totalItems: total,
         itemsPerPage: limit,
         currentPage: page,
-        totalPages: Math.ceil(cajas.count / limit),
+        totalPages: Math.ceil(total / limit),
       },
     });
   } catch (error) {

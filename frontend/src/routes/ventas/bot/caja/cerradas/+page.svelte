@@ -58,8 +58,13 @@
   let vendedores: Vendedor[] = [];
   let vendedoresMap: Map<string, string> = new Map();
   let codigoVendedor: string = '1'; // Valor por defecto
-  let fechaDesde: string = new Date().toISOString().split('T')[0];
-  let fechaHasta: string = new Date().toISOString().split('T')[0];
+
+  // Obtener la fecha actual en formato YYYY-MM-DD
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  let fechaDesde: string = todayStr;
+  let fechaHasta: string = todayStr;
+
   let estado: string = '';
 
   // Función para guardar datos del vendedor en localStorage
@@ -138,20 +143,32 @@
   // Cargar cajas
   async function cargarCajas(page: number = 1) {
     loading = true;
+    error = null;
     try {
-      let url = `/cajas?page=${page}`;
+      let url = `/cajas?page=${page}&limit=10`;  // Aseguramos que siempre enviamos el límite
       if (vendedorFiltro) url += `&vendedor=${vendedorFiltro}`;
       if (fechaDesde) url += `&fechaDesde=${fechaDesde}`;
       if (fechaHasta) url += `&fechaHasta=${fechaHasta}`;
       if (estado) url += `&estado=${estado}`;
 
+      console.log('Consultando URL:', url);
       const response = await fetchWithAuth(url);
       const data = await response.json();
       
       if (data.success) {
-        cajas = data.items;
-        totalPages = data.meta.totalPages;
+        cajas = data.items || [];
+        totalPages = data.meta?.totalPages || 0;
         currentPage = page;
+        console.log('Datos recibidos:', {
+          totalItems: data.meta?.totalItems,
+          itemsPerPage: data.meta?.itemsPerPage,
+          currentPage: data.meta?.currentPage,
+          totalPages: data.meta?.totalPages,
+          items: cajas.length
+        });
+      } else {
+        error = data.message || "Error al cargar las cajas";
+        console.error("Error en la respuesta:", data);
       }
     } catch (err) {
       error = "Error al cargar las cajas";
@@ -159,6 +176,34 @@
     } finally {
       loading = false;
     }
+  }
+
+  // Función para generar array de páginas
+  function getPaginationArray() {
+    const delta = 2;
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || (i >= currentPage - delta && i <= currentPage + delta)) {
+        range.push(i);
+      }
+    }
+
+    for (let i of range) {
+      if (l) {
+        if (i - l === 2) {
+          rangeWithDots.push(l + 1);
+        } else if (i - l !== 1) {
+          rangeWithDots.push('...');
+        }
+      }
+      rangeWithDots.push(i);
+      l = i;
+    }
+
+    return rangeWithDots;
   }
 
   // Formatear fecha
@@ -422,17 +467,28 @@
     {#if totalPages > 1}
       <div class="pagination flex justify-center items-center space-x-2 mt-6">
         <button
-          class="px-4 py-2 rounded bg-gray-100"
+          class="px-4 py-2 rounded bg-gray-100 disabled:opacity-50"
           disabled={currentPage === 1}
           on:click={() => cambiarPagina(currentPage - 1)}
         >
           Anterior
         </button>
-        <span class="px-4 py-2">
-          Página {currentPage} de {totalPages}
-        </span>
+        
+        {#each getPaginationArray() as page}
+          {#if page === '...'}
+            <span class="px-3 py-2">...</span>
+          {:else}
+            <button
+              class="px-3 py-2 rounded {currentPage === page ? 'bg-blue-500 text-white' : 'bg-gray-100'}"
+              on:click={() => cambiarPagina(page)}
+            >
+              {page}
+            </button>
+          {/if}
+        {/each}
+
         <button
-          class="px-4 py-2 rounded bg-gray-100"
+          class="px-4 py-2 rounded bg-gray-100 disabled:opacity-50"
           disabled={currentPage === totalPages}
           on:click={() => cambiarPagina(currentPage + 1)}
         >
