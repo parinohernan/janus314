@@ -10,7 +10,6 @@
   import { obtenerPrecioSegunLista, fetchProductos } from '../components/utils';
   import type { Articulo, Cliente, ArticuloSeleccionado } from '../components/types';
   import type { FormaPago } from '$lib/constants/formasPago';
-  import { CODIGO_CORTO } from '$lib/constants/formasPago';
   import '../components/bot.css';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { auth } from '$lib/stores/authStore';

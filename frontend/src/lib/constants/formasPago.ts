@@ -5,6 +5,7 @@ export interface FormaPago {
   numero?: string;
   fecha?: string;
   importe: number;
+  aplicaSaldo?: boolean;
 }
 
 export interface Banco {

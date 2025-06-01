@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import Input from '$lib/components/ui/Input.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FORMAS_PAGO, BANCOS } from '$lib/constants/formasPago';
+  import { BANCOS } from '$lib/constants/formasPago';
   import type { FormaPago } from '$lib/constants/formasPago';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
   // Props
   export let formasPago: FormaPago[] = [];
@@ -17,19 +18,43 @@
     banco: '',
     numero: '',
     fecha: '',
-    importe: 0
+    importe: 0,
+    aplicaSaldo: false
   };
   let mostrarFormularioPago = false;
   let error: string | null = null;
+  let tiposDePago: { codigo: string, descripcion: string, aplicaSaldo: boolean }[] = [];
 
   // Event dispatcher
   const dispatch = createEventDispatcher();
 
-  // Obtener descripción de forma de pago
-  function getDescripcionFormaPago(codigo: string): string {
-    const formaPago = FORMAS_PAGO.find(fp => fp.codigo === codigo);
-    return formaPago ? formaPago.descripcion : '';
-  }
+  onMount(async () => {
+    try {
+      const response = await fetchWithAuth('/tipos-pago', {
+        params: {
+          limit: 100, // Traer todos los tipos de pago
+          search: '',
+          field: 'Descripcion',
+          order: 'ASC'
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        tiposDePago = data.items
+          .filter((item: any) => item.Activo === true)
+          .map((item: any) => ({
+            codigo: item.Codigo,
+            descripcion: item.Descripcion,
+            aplicaSaldo: item.aplicaSaldo === true
+          }));
+        console.log('Tipos de pago cargados:', tiposDePago);
+      } else {
+        console.error('Error al cargar tipos de pago:', await response.text());
+      }
+    } catch (err) {
+      console.error('Error al cargar tipos de pago:', err);
+    }
+  });
 
   // Obtener descripción de banco
   function getDescripcionBanco(codigo: string): string {
@@ -78,7 +103,8 @@
       banco: '',
       numero: '',
       fecha: '',
-      importe: 0
+      importe: 0,
+      aplicaSaldo: false
     };
     mostrarFormularioPago = false;
     error = null;
@@ -109,7 +135,8 @@
       banco: '',
       numero: '',
       fecha: '',
-      importe: 0
+      importe: 0,
+      aplicaSaldo: false
     };
     error = null;
   }
@@ -118,12 +145,17 @@
   function handleTipoPagoChange(event: Event) {
     const select = event.target as HTMLSelectElement;
     const codigo = select.value;
-    const formaPago = FORMAS_PAGO.find(fp => fp.codigo === codigo);
+    const tipoPago = tiposDePago.find(tp => tp.codigo === codigo);
     
-    if (formaPago) {
+    if (tipoPago) {
       nuevaFormaPago = {
-        ...formaPago,
-        importe: saldoPendiente
+        codigo: tipoPago.codigo,
+        descripcion: tipoPago.descripcion,
+        banco: '',
+        numero: '',
+        fecha: '',
+        importe: saldoPendiente,
+        aplicaSaldo: tipoPago.aplicaSaldo
       };
     }
   }
@@ -159,8 +191,8 @@
             on:change={handleTipoPagoChange}
           >
             <option value="">Seleccione un tipo</option>
-            {#each FORMAS_PAGO as fp}
-              <option value={fp.codigo}>{fp.descripcion}</option>
+            {#each tiposDePago as tp}
+              <option value={tp.codigo}>{tp.descripcion}</option>
             {/each}
           </select>
         </div>

@@ -247,6 +247,19 @@ exports.crearFactura = async (req, res) => {
       delete facturaData.ListaPrecio;
       facturaData.CodigoUsuario = "admin";
 
+      // Verificar si el tipo de pago aplica saldo
+      const { TipoDePago } = req.models;
+      const tipoPago = await TipoDePago.findOne({
+        where: { 
+          Codigo: facturaData.PagoTipo,
+          Activo: 1
+        }
+      });
+
+      if (tipoPago && tipoPago.aplicaSaldo) {
+        console.log(`Corregir saldo por importe: ${facturaData.ImporteTotal}`);
+      }
+
       // Si es cuenta corriente, el importe pagado es 0
       if (facturaData.PagoTipo === "CC") {
         facturaData.ImportePagado = 0;
