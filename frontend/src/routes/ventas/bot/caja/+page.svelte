@@ -155,7 +155,7 @@
           tipo,
           importe: parseFloat(importe.toString()),
           concepto,
-          metodoPago: 'EFE', // Efectivo por defecto
+          metodoPago: 'CO', // Efectivo por defecto
           usuarioId: vendedorId
         })
       });
@@ -177,7 +177,7 @@
   <!-- Header con título y botón volver -->
   <header class="header">
     <div class="header-content">
-      <button class="btn-back" on:click={() => goto('/ventas/bot')} aria-label="Volver">
+      <button class="btn-back" on:click={() => goto('/ventas/bot/home')} aria-label="Volver">
         <span class="back-icon">←</span>
       </button>
       <div class="title-container">

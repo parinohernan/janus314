@@ -111,26 +111,32 @@
   let saldoPendiente = 0;
   
   onMount(async () => {
-    // Verificar estado actual de autenticación
-    const authState = get(auth);
-    console.log("Estado inicial de autenticación:", authState);
-    
-    // Si no hay usuario autenticado, verificar la sesión
-    if (!authState.isAuthenticated) {
-      await auth.verifySession();
-      
-      // Verificar de nuevo después de verificar la sesión
-      const nuevoAuthState = get(auth);
-      if (nuevoAuthState.user) {
-        codigoVendedor = nuevoAuthState.user.usuario || '1';
-        guardarDatosVendedor(nuevoAuthState.user);
-      }
-    } else if (authState.user) {
-      // Guardar datos del usuario en localStorage si está autenticado
-      guardarDatosVendedor(authState.user);
-    }
-
     try {
+      // Verificar estado actual de autenticación
+      const authState = get(auth);
+      console.log("Estado inicial de autenticación:", authState);
+      
+      // Si no hay usuario autenticado, verificar la sesión
+      if (!authState.isAuthenticated) {
+        await auth.verifySession();
+        
+        // Verificar de nuevo después de verificar la sesión
+        const nuevoAuthState = get(auth);
+        if (nuevoAuthState.user) {
+          codigoVendedor = nuevoAuthState.user.usuario || '1';
+          guardarDatosVendedor(nuevoAuthState.user);
+        }
+      } else if (authState.user) {
+        // Guardar datos del usuario en localStorage si está autenticado
+        guardarDatosVendedor(authState.user);
+      }
+
+      // Verificar caja abierta inmediatamente después de obtener el código del vendedor
+      const tieneCaja = await verificarCajaAbierta();
+      if (!tieneCaja) {
+        return; // Detenemos la ejecución si no hay caja abierta, ya que se redirigirá
+      }
+
       // Inicializar el objeto de Telegram WebApp
       if (typeof window !== 'undefined' && 'Telegram' in window) {
         // Usar casting para solucionar el problema de tipos
@@ -175,9 +181,6 @@
       }
       
       isLoading = false;
-
-      // Verificar caja abierta después de obtener el código del vendedor
-      await verificarCajaAbierta();
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
       error = 'Error al cargar datos: ' + errorMessage;
@@ -331,7 +334,8 @@
         cajaAbierta = data.data[0];
         return true;
       } else {
-        error = "No hay una caja abierta para este vendedor";
+        // Redirigir a la página de apertura de caja
+        navigate('/ventas/bot/caja');
         return false;
       }
     } catch (err) {
@@ -414,8 +418,7 @@
     if (!cajaAbierta) {
       const tieneCaja = await verificarCajaAbierta();
       if (!tieneCaja) {
-        error = 'No hay una caja abierta. Debe abrir la caja antes de realizar ventas.';
-        return;
+        return; // No mostramos error aquí porque ya se manejó en verificarCajaAbierta
       }
     }
     

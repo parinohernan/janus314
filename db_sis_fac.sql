@@ -1,17 +1,4 @@
-/*
-Navicat MySQL Data Transfer
 
-Source Server         : deliveryagua
-Source Server Version : 50622
-Source Host           : localhost:3306
-Source Database       : db_sis_fac
-
-Target Server Type    : MYSQL
-Target Server Version : 50622
-File Encoding         : 65001
-
-Date: 2025-03-12 00:03:54
-*/
 
 SET FOREIGN_KEY_CHECKS=0;
 

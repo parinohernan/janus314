@@ -3,6 +3,7 @@
   import '../../../../app.css';
   import SolicitudForm from '../components/SolicitudForm.svelte';
   import { planes } from './planes.js';
+  import { goto } from '$app/navigation';
 
   let isVisible = Array(6).fill(false);
   let mostrarFormulario = false;
@@ -118,6 +119,12 @@
 </script>
 
 <div class="landing-container">
+
+  <div class="header">
+    <button class="btn-back" on:click={() => goto('/ventas/bot/home')} aria-label="Volver">
+      <span class="back-icon">←home</span>
+    </button>
+  </div>
   <!-- Hero Section -->
   <section class="hero">
     <div class="hero-content animate-on-scroll" class:visible={isVisible[0]}>
@@ -228,6 +235,12 @@
     overflow-x: hidden;
     color: var(--tg-theme-text-color, #333);
     background: var(--tg-theme-bg-color, #fff);
+  }
+
+  .header {
+    background:linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%); 
+    background: var(--tg-theme-bg-color, #fff);
+    font-size: large;
   }
 
   .hero {

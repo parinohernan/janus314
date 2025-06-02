@@ -316,7 +316,7 @@ exports.realizarArqueo = async (req, res) => {
   try {
     const { CajaCabeza, CajaArqueoDetalle } = req.models;
     const { codigo } = req.params;
-    const { formasPago, totalDeclarado, diferencia, observaciones, usuarioId } = req.body;
+    const { formasPago, totalDeclarado, diferencia, observaciones, usuarioId, cerrarCaja } = req.body;
 
     // Verificar que la caja exista y esté abierta
     const caja = await CajaCabeza.findOne({
@@ -349,9 +349,18 @@ exports.realizarArqueo = async (req, res) => {
       }, { transaction: t });
     }));
 
-    // Actualizar observaciones de la caja si hay alguna
-    if (observaciones) {
+    // Si se solicita cerrar la caja, actualizamos su estado
+    if (cerrarCaja) {
       await caja.update({
+        Estado: 'cerrada',
+        SaldoCierre: totalDeclarado,
+        Cierre: new Date(),
+        Observaciones: observaciones,
+      }, { transaction: t });
+    } else {
+      // Si no se cierra, solo actualizamos las observaciones
+      await caja.update({
+        Estado: 'en_arqueo',
         Observaciones: observaciones
       }, { transaction: t });
     }
@@ -360,7 +369,7 @@ exports.realizarArqueo = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Arqueo realizado exitosamente",
+      message: cerrarCaja ? "Arqueo realizado y caja cerrada exitosamente" : "Arqueo realizado exitosamente",
       data: {
         caja,
         detallesArqueo,
@@ -564,14 +573,31 @@ exports.obtenerResumenArqueo = async (req, res) => {
         .filter(m => m.Tipo === 'egreso')
         .reduce((sum, m) => sum + parseFloat(m.Importe || 0), 0);
 
+      // Si es tipo de pago "CO" (Contado), incluir el saldo inicial
+      const saldoInicial = formaPago.Codigo === 'CO' ? parseFloat(caja.SaldoInicial || 0) : 0;
+      const totalSistema = ingresos - egresos + saldoInicial;
+
       return {
         formaPago: formaPago.Codigo,
         descripcion: formaPago.Descripcion,
-        totalSistema: ingresos - egresos,
+        totalSistema,
+        saldoInicial: formaPago.Codigo === 'CO' ? saldoInicial : 0,
         totalDeclarado: 0, // Este valor se llenará en el frontend
         diferencia: 0 // Este valor se calculará en el frontend
       };
     });
+
+    // Asegurarse de que exista el tipo de pago "CO"
+    if (!totalesPorFormaPago.some(t => t.formaPago === 'CO')) {
+      totalesPorFormaPago.unshift({
+        formaPago: 'CO',
+        descripcion: 'Contado',
+        totalSistema: parseFloat(caja.SaldoInicial || 0),
+        saldoInicial: parseFloat(caja.SaldoInicial || 0),
+        totalDeclarado: 0,
+        diferencia: 0
+      });
+    }
 
     // Calcular totales generales
     const totalSistema = totalesPorFormaPago.reduce((sum, t) => sum + t.totalSistema, 0);
