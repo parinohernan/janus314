@@ -12,6 +12,7 @@ export default defineConfig({
 		}
 	},
 	server: {
+		host: true,
 		proxy: {
 			'/api': {
 				target: 'http://localhost:3000',
@@ -20,8 +21,8 @@ export default defineConfig({
 			}
 		},
 		allowedHosts: [
-			'078ff12b0f772e359c3c334e37c09b3b.serveo.net',
 			'janus314.osvi.lat',
+			'jano.janus314.com.ar',
 			'api.janus314.osvi.lat',
 			'localhost'
 		]

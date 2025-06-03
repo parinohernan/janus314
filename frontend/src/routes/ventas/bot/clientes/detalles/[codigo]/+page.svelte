@@ -12,8 +12,8 @@
   let cliente = data.cliente || {};
   let loading = false;
   let error = '';
-  let saldoActual = 0;
-  let ultimasFacturas = [];
+  let saldoActual = data.cliente.ImporteDeuda || 0;
+  let ultimasFacturas : any = [];
 
   // Cargar información adicional
   async function cargarInformacionAdicional() {
@@ -21,17 +21,16 @@
       loading = true;
       error = '';
       
-      // Cargar saldo actual
-      const responseSaldo = await fetchWithAuth(`/clientes/${cliente.Codigo}/saldo`);
-      if (responseSaldo.ok) {
-        const saldoData = await responseSaldo.json();
-        saldoActual = saldoData.saldo || 0;
-      }
-
+      // // Cargar saldo actual
+      // const responseSaldo = await fetchWithAuth(`/clientes/${cliente.Codigo}/saldo`);
+      // if (responseSaldo.ok) {
+      //   const saldoData = await responseSaldo.json();
+      //   saldoActual = saldoData.importeDeuda || 0;
+      // }
+      // const responseSaldo = data.cliente.ImporteDeuda;
       // Cargar últimas facturas
-      const responseFacturas = await fetchWithAuth(`/facturas`, {
+      const responseFacturas = await fetchWithAuth(`/clientes/${cliente.Codigo}/comprobantes`, {
         params: {
-          clienteCodigo: cliente.Codigo,
           limit: 5,
           page: 1
         }
@@ -176,24 +175,25 @@
     
     <!-- Sección de últimas facturas -->
     <section class="detail-section">
-      <h2>Últimas Facturas</h2>
+      <h2>Últimos Comprobantes</h2>
       
       {#if ultimasFacturas.length > 0}
         <div class="facturas-list">
-          {#each ultimasFacturas as factura}
+          {#each ultimasFacturas as comprobante}
             <div class="factura-item">
               <div class="factura-info">
-                <div class="factura-numero">
-                  {factura.DocumentoTipo}-{factura.DocumentoSucursal}-{factura.DocumentoNumero}
-                </div>
-                <div class="factura-fecha">{formatearFecha(factura.Fecha)}</div>
+                <div class="factura-numero">{comprobante.Detalle}</div>
+                <div class="factura-fecha">{formatearFecha(comprobante.Fecha)}</div>
               </div>
-              <div class="factura-monto">{formatearMonto(factura.ImporteTotal)}</div>
+              <div class="factura-montos">
+                <div class="monto-debito">{formatearMonto(comprobante.Debitos)}</div>
+                <div class="monto-credito" class:negativo={comprobante.Creditos < 0}>{formatearMonto(comprobante.Creditos)}</div>
+              </div>
             </div>
           {/each}
         </div>
       {:else}
-        <p class="no-data">No hay facturas recientes</p>
+        <p class="no-data">No hay comprobantes recientes</p>
       {/if}
     </section>
   </div>
@@ -384,6 +384,7 @@
     padding: 12px;
     background-color: var(--tg-theme-bg-color, #fff);
     border-radius: 6px;
+    border: 1px solid var(--tg-theme-hint-color, #eee);
   }
   
   .factura-info {
@@ -394,6 +395,7 @@
   
   .factura-numero {
     font-weight: 500;
+    color: var(--tg-theme-text-color, #000);
   }
   
   .factura-fecha {
@@ -401,10 +403,31 @@
     color: var(--tg-theme-hint-color, #777);
   }
   
-  .factura-monto {
-    font-weight: 500;
-    color: var(--tg-theme-button-color, #2481cc);
+  .factura-montos {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
   }
+  
+  .monto-debito {
+    font-weight: 500;
+    color: var(--tg-theme-text-color, #000);
+  }
+
+  .monto-credito {
+    font-weight: 500;
+    color:  #3b6fce;
+  }
+  
+  /* .monto-saldo {
+    font-size: 0.9rem;
+    color: #388e3c;
+  }
+   */
+  /* .monto-saldo.negativo {
+    color: #f44336;
+  } */
   
   .no-data {
     text-align: center;

@@ -353,7 +353,7 @@ const getCuentasCorrientes = async (req, res) => {
 // Obtener comprobantes de un cliente
 const getComprobantesCliente = async (req, res) => {
   try {
-    const { Cliente, Factura, NotaCredito, NotaDebito, Recibo } = req.models;
+    const { Cliente, FacturaCabeza, NotaCredito, NotaDebito, Recibo } = req.models;
     const { id } = req.params;
     const { page = 1, limit = 10 } = req.query;
     
@@ -364,8 +364,9 @@ const getComprobantesCliente = async (req, res) => {
     }
 
     let comprobantes = [];
-    //obtener facturas
-    const facturas = await Factura.findAll({
+    
+    // Obtener facturas
+    const facturas = await FacturaCabeza.findAll({
       where: { ClienteCodigo: id },
       attributes: [
         'Fecha',
@@ -376,23 +377,23 @@ const getComprobantesCliente = async (req, res) => {
         'ImportePagado',
         'PagoTipo'
       ],
+      order: [['Fecha', 'DESC']],
       raw: true
     });
-    // Formatear los datos de las facturas
-    comprobantes = facturas.map(factura => (factura.PagoTipo === 'CC' ? {
+
+    // Formatear facturas
+    const facturasFormateadas = facturas.map(factura => ({
       Fecha: factura.Fecha,
       Detalle: `${factura.DocumentoTipo} - ${factura.DocumentoSucursal} - ${factura.DocumentoNumero}`,
       Debitos: factura.ImporteTotal,
-      Creditos: 0,
-      Saldo: factura.ImporteTotal
-    } : {
-      Fecha: factura.Fecha,
-      Detalle: `${factura.DocumentoTipo} - ${factura.DocumentoSucursal} - ${factura.DocumentoNumero}`,
-      Debitos: factura.ImportePagado || 0,
-      Creditos: factura.ImporteTotal || 0,
-      Saldo: 0
+      Creditos: factura.ImportePagado,
+      Saldo: factura.PagoTipo === 'CC' ? 
+        factura.ImporteTotal : 
+        (factura.ImporteTotal - factura.ImportePagado),
+      TipoComprobante: 'FAC'
     }));
-    //obtener notas de credito
+
+    // Obtener notas de crédito
     const notasCredito = await NotaCredito.findAll({
       where: { CodigoCliente: id },
       attributes: [
@@ -403,47 +404,51 @@ const getComprobantesCliente = async (req, res) => {
         'ImporteTotal',
         'ImporteUtilizado'
       ],
+      order: [['Fecha', 'DESC']],
       raw: true
     });
-    // Formatear los datos de las notas de credito
-    const notasCreditoFormateadas = notasCredito.map(nota => ('CO' !== 'CC' ? {//asumo que todass son CC ya que todavia no existe el tipo de pago en las notas de credito
+
+    // Formatear notas de crédito
+    const notasCreditoFormateadas = notasCredito.map(nota => ({
       Fecha: nota.Fecha,
       Detalle: `${nota.DocumentoTipo} - ${nota.DocumentoSucursal} - ${nota.DocumentoNumero}`,
       Debitos: nota.ImporteUtilizado,
       Creditos: nota.ImporteTotal,
-      Saldo: -1 * nota.ImporteTotal + nota.ImporteUtilizado
-    } : {
-      Fecha: nota.Fecha,
-      Detalle: `${nota.DocumentoTipo} - ${nota.DocumentoSucursal} - ${nota.DocumentoNumero}`,
-      Debitos: nota.ImporteUtilizado,
-      Creditos: nota.ImporteTotal + nota.ImporteUtilizado,
-      Saldo: 0
+      Saldo: -1 * nota.ImporteTotal + nota.ImporteUtilizado,
+      TipoComprobante: 'NC'
     }));
 
-    //obtener notas de debito
+    // Obtener notas de débito
     const notasDebito = await NotaDebito.findAll({
       where: { ClienteCodigo: id },
       attributes: [
         'Fecha',
-        'DocumentoTipo',  
+        'DocumentoTipo',
         'DocumentoSucursal',
         'DocumentoNumero',
         'ImporteTotal',
         'ImportePagado'
       ],
+      order: [['Fecha', 'DESC']],
       raw: true
     });
-    // Formatear los datos de las notas de debito
+
+    // Formatear notas de débito
     const notasDebitoFormateadas = notasDebito.map(nota => ({
       Fecha: nota.Fecha,
       Detalle: `${nota.DocumentoTipo} - ${nota.DocumentoSucursal} - ${nota.DocumentoNumero}`,
       Debitos: nota.ImporteTotal || 0,
-      Creditos: 0, 
-      Saldo: (nota.ImporteTotal || 0) 
+      Creditos: 0,
+      Saldo: nota.ImporteTotal || 0,
+      TipoComprobante: 'ND'
     }));
-    // obtener los recibos
+
+    // Obtener recibos
     const recibos = await Recibo.findAll({
-      where: { ClienteCodigo: id ,FechaAnulacion: null},
+      where: { 
+        ClienteCodigo: id,
+        FechaAnulacion: null
+      },
       attributes: [
         'Fecha',
         'DocumentoTipo',
@@ -451,27 +456,36 @@ const getComprobantesCliente = async (req, res) => {
         'DocumentoNumero',
         'ImporteTotal'
       ],
+      order: [['Fecha', 'DESC']],
       raw: true
     });
-    // Formatear los datos de los recibos
+
+    // Formatear recibos
     const recibosFormateados = recibos.map(recibo => ({
       Fecha: recibo.Fecha,
       Detalle: `${recibo.DocumentoTipo} - ${recibo.DocumentoSucursal} - ${recibo.DocumentoNumero}`,
       Debitos: 0,
-      Creditos: recibo.ImporteTotal, 
-      Saldo: -1 * recibo.ImporteTotal
+      Creditos: recibo.ImporteTotal,
+      Saldo: -1 * recibo.ImporteTotal,
+      TipoComprobante: 'REC'
     }));
-    //agregar recibos,notas de credito y debito al array de comprobantes
 
-    comprobantes = [...comprobantes, ...notasCreditoFormateadas, ...notasDebitoFormateadas, ...recibosFormateados]; 
+    // Combinar todos los comprobantes
+    comprobantes = [
+      ...facturasFormateadas,
+      ...notasCreditoFormateadas,
+      ...notasDebitoFormateadas,
+      ...recibosFormateados
+    ];
 
-    //ordenar por fecha descendente
+    // Ordenar por fecha descendente
     comprobantes.sort((a, b) => new Date(b.Fecha) - new Date(a.Fecha));
-    //acumular los saldos, desde el final hasta la primer linea saldo de linea x = saldo (x) + saldo (x+1)
+
+    // Calcular saldos acumulados
+    let saldoAcumulado = 0;
     for (let i = comprobantes.length - 1; i >= 0; i--) {
-      if (i < comprobantes.length - 1) {
-        comprobantes[i].Saldo = comprobantes[i].Saldo + comprobantes[i + 1].Saldo;
-      }
+      saldoAcumulado += comprobantes[i].Saldo;
+      comprobantes[i].Saldo = saldoAcumulado;
     }
 
     // Implementar paginación
@@ -491,8 +505,10 @@ const getComprobantesCliente = async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Error al obtener los comprobantes del cliente" });
+    console.error("Error en getComprobantesCliente:", error);
+    return res.status(500).json({ 
+      message: "Error al obtener los comprobantes del cliente"
+    });
   }
 };
 

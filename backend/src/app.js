@@ -56,6 +56,7 @@ const corsOptions = {
     'http://localhost:5173', 
     'https://janus314.osvi.lat', 
     'https://janus314-api.osvi.lat',
+    'https://jano.janus314.com.ar',
     'https://web.telegram.org'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

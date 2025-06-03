@@ -83,7 +83,7 @@
       
       try {
         // Obtener todos los vendedores desde la API
-        const responseVendedores = await fetchWithAuth('/api/vendedores');
+        const responseVendedores = await fetchWithAuth('/vendedores');
         if (!responseVendedores.ok) {
           throw new Error(`Error al cargar vendedores: ${responseVendedores.status}`);
         }
