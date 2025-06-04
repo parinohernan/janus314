@@ -41,15 +41,15 @@
     background: rgba(0,0,0,0.7);
     z-index: 100;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: center;
   }
   
   .modal-content {
     background: var(--tg-theme-bg-color, #fff);
-    width: 90%;
-    max-width: 400px;
-    border-radius: 8px;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 16px 16px 0 0;
     max-height: 80vh;
     overflow: hidden;
     display: flex;
@@ -62,12 +62,15 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px;
-    border-bottom: 1px solid #eee;
+    padding: 16px;
+    border-bottom: 1px solid var(--tg-theme-hint-color, #eee);
+    background: var(--tg-theme-secondary-bg-color, #f5f5f5);
   }
   
   .modal-header h3 {
     margin: 0;
+    font-size: 1.2rem;
+    color: var(--tg-theme-text-color, #000);
   }
   
   .modal-close {
@@ -75,33 +78,52 @@
     border: none;
     font-size: 24px;
     cursor: pointer;
+    color: var(--tg-theme-hint-color, #999);
+    padding: 8px;
+    margin: -8px;
   }
   
   .cliente-busqueda {
-    padding: 12px;
+    padding: 16px;
     border: none;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--tg-theme-hint-color, #eee);
     width: 100%;
+    font-size: 1rem;
+    background: var(--tg-theme-bg-color, #fff);
+    color: var(--tg-theme-text-color, #000);
+  }
+  
+  .cliente-busqueda::placeholder {
+    color: var(--tg-theme-hint-color, #999);
   }
   
   .clientes-lista {
     overflow-y: auto;
-    max-height: 60vh;
+    max-height: calc(80vh - 120px);
+    padding: 8px 0;
+    -webkit-overflow-scrolling: touch;
   }
   
   .cliente-item {
-    padding: 12px;
-    border-bottom: 1px solid #eee;
+    padding: 16px;
+    border: none;
     cursor: pointer;
     width: 100%;
     text-align: left;
     background: none;
-    border: none;
-    border-bottom: 1px solid #eee;
-    font-size: 1em;
+    font-size: 1rem;
+    color: var(--tg-theme-text-color, #000);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
   
-  .cliente-item:hover {
+  .cliente-item strong {
+    font-size: 1.1rem;
+    color: var(--tg-theme-text-color, #000);
+  }
+  
+  .cliente-item:active {
     background: var(--tg-theme-secondary-bg-color, #f5f5f5);
   }
   
@@ -115,5 +137,18 @@
     border: none;
     z-index: 101;
     cursor: default;
+  }
+
+  @media (min-width: 768px) {
+    .modal-overlay {
+      align-items: center;
+    }
+
+    .modal-content {
+      width: 90%;
+      max-width: 400px;
+      border-radius: 16px;
+      margin: 0 auto;
+    }
   }
 </style> 

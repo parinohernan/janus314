@@ -129,7 +129,7 @@
   <!-- Breadcrumbs personalizados -->
   <Breadcrumbs 
     customPath={[
-      { label: 'Home', path: '/ventas/bot' },
+      { label: 'Home', path: '/ventas/bot/home' },
       { label: 'Productos', path: '/ventas/bot/productos' }
     ]}
   />
