@@ -31,5 +31,27 @@
     "mensaje": "Sopas deliciosas ",
     "fechaCreacion": "2025-06-03T14:33:42.608Z",
     "estado": "pendiente"
+  },
+  {
+    "id": "1749068033246",
+    "nombre": "Seba",
+    "email": "sebamasaguer@gmail.com",
+    "telefono": "3874677270",
+    "nombreNegocio": "Saltadev",
+    "tipoNegocio": "restaurant",
+    "mensaje": "Dame acceso",
+    "fechaCreacion": "2025-06-04T20:13:53.246Z",
+    "estado": "pendiente"
+  },
+  {
+    "id": "1749068035184",
+    "nombre": "Seba",
+    "email": "sebamasaguer@gmail.com",
+    "telefono": "3874677270",
+    "nombreNegocio": "Saltadev",
+    "tipoNegocio": "restaurant",
+    "mensaje": "Dame acceso",
+    "fechaCreacion": "2025-06-04T20:13:55.184Z",
+    "estado": "pendiente"
   }
 ]
