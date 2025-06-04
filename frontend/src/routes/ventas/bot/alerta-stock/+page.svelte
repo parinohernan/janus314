@@ -32,7 +32,7 @@
   // Función para cargar la lista de proveedores
   async function cargarProveedores() {
     try {
-      const response = await fetchWithAuth('/api/proveedores?activo=1');
+      const response = await fetchWithAuth('/proveedores?activo=1');
       
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -70,7 +70,7 @@
       }
       
       const response = await fetchWithAuth(
-        `/api/articulos/stock-bajo?page=${currentPage}&limit=${itemsPerPage}&search=${searchTerm}&field=${orderField}&order=${orderDirection}&proveedor=${proveedorSeleccionado}`
+        `/articulos/stock-bajo?page=${currentPage}&limit=${itemsPerPage}&search=${searchTerm}&field=${orderField}&order=${orderDirection}&proveedor=${proveedorSeleccionado}`
       );
       
       if (!response.ok) {
