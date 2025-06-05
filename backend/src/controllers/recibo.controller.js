@@ -5,7 +5,7 @@ const sequelize = require('../config/database');
 // Obtener todos los recibos (con filtros y paginación)
 exports.getAllRecibos = async (req, res) => {
   try {
-    const { Recibo } = req.models;
+    const { ReciboCabeza, Cliente } = req.models;
     const {
       page = 1,
       limit = 10,
@@ -38,12 +38,23 @@ exports.getAllRecibos = async (req, res) => {
     const sortField = validFields.includes(field) ? field : 'Fecha';
     const sortOrder = order === 'ASC' ? 'ASC' : 'DESC';
 
+    // Establecer la asociación temporalmente
+    ReciboCabeza.belongsTo(Cliente, {
+      foreignKey: 'ClienteCodigo',
+      as: 'ClienteRelacion'
+    });
+
     // Primero hacemos la consulta sin includes para el conteo
-    const count = await Recibo.count({ where: whereClause });
+    const count = await ReciboCabeza.count({ where: whereClause });
 
     // Luego hacemos la consulta con includes para los datos
-    const recibos = await Recibo.findAll({
+    const recibos = await ReciboCabeza.findAll({
       where: whereClause,
+      include: [{
+        model: Cliente,
+        as: 'ClienteRelacion',
+        attributes: ['Descripcion', 'NombreFantasia']
+      }],
       order: [
         [sortField, sortOrder],
         ['DocumentoSucursal', sortOrder],

@@ -241,6 +241,14 @@
       route: '/ventas/bot/caja',
     },
     {
+      label: 'recibos',
+      value: 'recibos',
+      icon: '🧾',
+      displayValue: 0,
+      targetValue: 0,
+      route: '/ventas/bot/recibos'
+    },
+    {
       label: 'Sobre Nosotros',
       value: 'Jano miniPOS',
       icon: 'ℹ️',
