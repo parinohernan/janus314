@@ -111,7 +111,7 @@
 
     <!-- Próximamente -->
     <section class="coming-soon">
-      <h2>Próximamente</h2>
+      <h2>Ademas</h2>
       <div class="features-grid animate-on-scroll" class:visible={isVisible[5]}>
         <div class="feature future">
           <h4>🔜 Control de Caja</h4>

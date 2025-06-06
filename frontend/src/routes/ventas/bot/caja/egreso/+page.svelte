@@ -77,7 +77,7 @@
           tipo: 'egreso',
           importe,
           concepto,
-          metodoPago: 'EFE',
+          metodoPago: 'CO',
           usuarioId: vendedorId
         })
       });

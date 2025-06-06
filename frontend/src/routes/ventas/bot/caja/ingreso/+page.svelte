@@ -77,7 +77,7 @@
           tipo: 'ingreso',
           importe,
           concepto,
-          metodoPago: 'EFE',
+          metodoPago: 'CO',
           usuarioId: vendedorId
         })
       });

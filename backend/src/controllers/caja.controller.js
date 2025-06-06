@@ -237,7 +237,7 @@ exports.registrarMovimiento = async (req, res) => {
       tipoDocumento,
       usuarioId,
     } = req.body;
-
+    
     if (!cajaCabezaId) {
       await t.rollback();
       return res.status(400).json({

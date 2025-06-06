@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import '../components/bot.css';
@@ -34,16 +34,11 @@
   let recibos: Recibo[] = [];
   let loading = true;
   let error: string | null = null;
-  let mostrarModalNuevo = false;
 
   // Paginación
   let currentPage = 1;
   let totalPages = 1;
   let itemsPerPage = 10;
-
-  let modalCloseButton: HTMLButtonElement;
-  let modalWrapper: HTMLDivElement;
-  let previousActiveElement: Element | null = null;
 
   // Cargar recibos
   async function cargarRecibos() {
@@ -96,33 +91,9 @@
     goto('/ventas/bot/home');
   }
 
-  // Función para manejar eventos de teclado del modal
-  function manejarTeclaModal(event: KeyboardEvent) {
-    if (!mostrarModalNuevo) return;
-    
-    if (event.key === 'Escape') {
-      cerrarModal();
-    }
-  }
-
-  // Función para abrir el modal
+  // Función para ir a nuevo recibo
   function abrirModal() {
-    previousActiveElement = document.activeElement;
-    mostrarModalNuevo = true;
-    // El foco se establecerá después de que el modal se renderice
-    setTimeout(() => {
-      modalWrapper?.focus();
-      modalCloseButton?.focus();
-    }, 0);
-  }
-
-  // Función para cerrar el modal
-  function cerrarModal() {
-    mostrarModalNuevo = false;
-    // Devolver el foco al elemento anterior
-    if (previousActiveElement instanceof HTMLElement) {
-      previousActiveElement.focus();
-    }
+    goto('/ventas/bot/recibos/nuevo');
   }
 
   onMount(() => {
@@ -218,46 +189,6 @@
         </button>
       </div>
     {/if}
-  {/if}
-
-  <!-- Modal Nuevo Recibo -->
-  {#if mostrarModalNuevo}
-    <!-- svelte-ignore a11y-click-events-have-key-events -->
-    <div 
-      class="modal-overlay"
-      on:click={cerrarModal}
-      role="presentation"
-    >
-      <div
-        class="modal-wrapper"
-        role="dialog"
-        aria-labelledby="modal-title"
-        aria-modal="true"
-        tabindex="-1"
-        bind:this={modalWrapper}
-      >
-        <div class="modal-interactive-layer" on:click|stopPropagation>
-          <article 
-            class="modal-content"
-            role="document"
-          >
-            <header class="modal-header">
-              <h3 id="modal-title">Nuevo Recibo</h3>
-              <button 
-                type="button"
-                class="modal-close" 
-                on:click={cerrarModal}
-                aria-label="Cerrar modal"
-                bind:this={modalCloseButton}
-              >×</button>
-            </header>
-            <div class="modal-body">
-              <p>Funcionalidad en desarrollo...</p>
-            </div>
-          </article>
-        </div>
-      </div>
-    </div>
   {/if}
 </div>
 
@@ -470,59 +401,4 @@
     font-size: 0.9rem;
     color: var(--tg-theme-hint-color, #777);
   }
-
-  /* Estilos del Modal */
-  .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.7);
-    z-index: 100;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-  }
-
-  .modal-wrapper {
-    width: 100%;
-    outline: none;
-  }
-
-  .modal-interactive-layer {
-    width: 100%;
-  }
-
-  .modal-content {
-    background: var(--tg-theme-bg-color, #fff);
-    width: 100%;
-    border-radius: 16px 16px 0 0;
-    padding: 16px;
-    position: relative;
-  }
-
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-  }
-
-  .modal-close {
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    color: var(--tg-theme-hint-color, #777);
-    padding: 4px;
-  }
-
-  .modal-body {
-    padding: 16px 0;
-    text-align: center;
-    color: var(--tg-theme-hint-color, #777);
-  }
-</style>
-
-<svelte:window on:keydown={manejarTeclaModal} /> 
+</style> 
