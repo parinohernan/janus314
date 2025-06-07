@@ -16,17 +16,19 @@
 	let esMiniWebTelegram = $derived($page.url.pathname.includes('/ventas/bot/'));
 	
 	onMount(async () => {
-		// Solo verificar autenticación si no estamos en una ruta del bot
-		if (!esMiniWebTelegram) {
-			const isAuthenticated = await auth.verifySession();
-			if (!isAuthenticated && $page.url.pathname !== '/login') {
-				goto('/login');
-			}
-		} else {
-			// Si es una ruta del bot y no hay token, configurar uno temporal
+		// Si es una ruta del bot, configurar el token temporal y no verificar autenticación
+		if (esMiniWebTelegram) {
 			if (typeof localStorage !== 'undefined' && !localStorage.getItem('authToken')) {
 				localStorage.setItem('authToken', 'bot-telegram-token-temporal');
 			}
+			isLoading = false;
+			return;
+		}
+		
+		// Para rutas normales, verificar autenticación
+		const isAuthenticated = await auth.verifySession();
+		if (!isAuthenticated && $page.url.pathname !== '/login') {
+			goto('/login');
 		}
 		isLoading = false;
 	});
@@ -60,26 +62,30 @@
 </script>
 
 {#if isLoading}
-	<div class="flex items-center justify-center h-screen">
-		<div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+	<div class="flex items-center justify-center min-h-screen">
+		<div class="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
 	</div>
 {:else}
-	<div class="min-h-screen flex flex-col">
-		{#if !$page.url.pathname.includes('/ventas/bot/')}
-			<MainBar />
-			<Navbar />
-		{/if}
-		<main class="flex-grow container mx-auto px-4 py-6">
-			{@render children()}
-		</main>
-		{#if !$page.url.pathname.includes('/ventas/bot/')}
-			<footer class="bg-gray-800 text-white text-center py-4 text-sm">
-				<div class="flex items-center justify-center">
-					<img src="/janus314.png" alt="janus314" class="w-10 h-10 rotate-180">
-					<span>janus314 - sistema de gestión comercial &copy; 2025</span>
-					<img src="/janus314.png" alt="janus314" class="w-10 h-10">
-				</div>
-			</footer>
-		{/if}
-	</div>
+	{#if !esMiniWebTelegram}
+		<MainBar />
+		<Navbar />
+	{/if}
+	<main class="{esMiniWebTelegram ? '' : 'container mx-auto px-4 py-8'}">
+		{@render children()}
+	</main>
+	{#if !$page.url.pathname.includes('/ventas/bot/')}
+		<footer class="bg-gray-800 text-white text-center py-4 text-sm">
+			<div class="flex items-center justify-center">
+				<img src="/janus314.png" alt="janus314" class="w-10 h-10 rotate-180">
+				<span>janus314 - sistema de gestión comercial &copy; 2025</span>
+				<img src="/janus314.png" alt="janus314" class="w-10 h-10">
+			</div>
+		</footer>
+	{/if}
 {/if}
+
+<style>
+	:global(html) {
+		background-color: var(--tg-theme-bg-color, #ffffff);
+	}
+</style>

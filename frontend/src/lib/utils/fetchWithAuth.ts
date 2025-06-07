@@ -2,6 +2,7 @@ import { get } from 'svelte/store';
 import { auth } from '$lib/stores/authStore';
 import { PUBLIC_API_URL } from '$env/static/public';
 import { browser } from '$app/environment';
+import { page } from '$app/stores';
 
 export const ssr = false;
 
@@ -9,16 +10,16 @@ interface FetchOptions extends RequestInit {
   params?: Record<string, string | number | boolean>;
 }
 
-// Cache para el token - Aumentamos duración para mejorar rendimiento
+// Cache para el token
 let tokenCache: string | null = null;
 let lastTokenCheck = 0;
-const TOKEN_CACHE_DURATION = 30 * 60 * 1000; // 30 minutos en lugar de 5
+const TOKEN_CACHE_DURATION = 30 * 60 * 1000; // 30 minutos
 
-// Cache para reducir llamadas a headers repetidos
+// Cache para headers
 const headerCache: Record<string, HeadersInit> = {};
 
 /**
- * Obtiene el token de autenticación, usando caché para evitar accesos frecuentes al store/localStorage
+ * Obtiene el token de autenticación
  */
 function getAuthToken(): string | null {
   const now = Date.now();
@@ -28,7 +29,18 @@ function getAuthToken(): string | null {
     return tokenCache;
   }
   
-  // Intentar obtener el token del store
+  // Verificar si estamos en una ruta del bot
+  const currentPath = browser ? window.location.pathname : '';
+  const esMiniWebTelegram = currentPath.includes('/ventas/bot/');
+  
+  if (esMiniWebTelegram) {
+    // Para rutas del bot, usar el token temporal
+    tokenCache = 'bot-telegram-token-temporal';
+    lastTokenCheck = now;
+    return tokenCache;
+  }
+  
+  // Para rutas normales, intentar obtener el token del store
   const authState = get(auth);
   let token = authState.token;
   
@@ -46,8 +58,6 @@ function getAuthToken(): string | null {
 
 /**
  * Genera headers con token para las peticiones
- * @param token Token de autenticación
- * @returns Headers para fetch
  */
 function getAuthHeaders(token: string): HeadersInit {
   // Usar caché de headers si ya existe para este token
@@ -70,9 +80,6 @@ function getAuthHeaders(token: string): HeadersInit {
 
 /**
  * Helper para hacer peticiones HTTP autenticadas
- * @param endpoint - Endpoint relativo (sin el PUBLIC_API_URL)
- * @param options - Opciones de fetch
- * @returns Response
  */
 export async function fetchWithAuth(endpoint: string, options: FetchOptions = {}) {
   try {
@@ -87,14 +94,12 @@ export async function fetchWithAuth(endpoint: string, options: FetchOptions = {}
     let url: string;
     
     if (endpoint.startsWith(PUBLIC_API_URL)) {
-      // Si el endpoint ya incluye la URL base completa, usarlo tal cual
       url = endpoint;
     } else {
-      // Si es una ruta relativa, combinarla con la URL base
       url = `${PUBLIC_API_URL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
     }
 
-    // Construir la URL con los parámetros de consulta si existen
+    // Construir la URL con los parámetros de consulta
     if (options.params) {
       const searchParams = new URLSearchParams();
       Object.entries(options.params).forEach(([key, value]) => {
@@ -112,7 +117,7 @@ export async function fetchWithAuth(endpoint: string, options: FetchOptions = {}
     const response = await fetch(url, {
       ...options,
       headers,
-      redirect: 'manual', // Evitar redirecciones automáticas
+      redirect: 'manual',
       mode: 'cors'
     });
 
@@ -128,8 +133,14 @@ export async function fetchWithAuth(endpoint: string, options: FetchOptions = {}
       }
     }
 
-    if (!response.ok) {
-      throw new Error(`Error en la petición: ${response.status} ${response.statusText}`);
+    // Para rutas del bot, no redirigir al login en caso de error de autenticación
+    const currentPath = browser ? window.location.pathname : '';
+    const esMiniWebTelegram = currentPath.includes('/ventas/bot/');
+
+    if (!response.ok && response.status === 401 && !esMiniWebTelegram) {
+      // Solo redirigir al login si no estamos en una ruta del bot
+      window.location.href = '/login';
+      throw new Error('Sesión expirada');
     }
 
     return response;

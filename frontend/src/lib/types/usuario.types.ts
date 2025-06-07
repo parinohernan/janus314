@@ -11,6 +11,11 @@ export interface Usuario {
 	fechaCreacion: string;
 	ultimoAcceso?: string | null;
 	codigoVendedor?: string;
+	empresa?: {
+		id: string;
+		nombre: string;
+		baseDatos: string;
+	} | null;
 }
 
 /**
