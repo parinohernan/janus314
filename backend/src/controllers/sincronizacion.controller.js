@@ -671,7 +671,7 @@ exports.descargarPreventas = async (req, res) => {
     // Por ahora solo actualizamos la fecha de última descarga
     await Configuracion.update(
       { ValorConfig: new Date().toISOString() },
-      { where: { Codigo: 'PreventaUltimaDescarga' } }
+        { where: { Codigo: 'PreventaUltimaDescarga' } }
     );
 
     res.json({
@@ -681,12 +681,12 @@ exports.descargarPreventas = async (req, res) => {
 
   } catch (error) {
     console.error('Error al descargar preventas:', error);
-    res.status(500).json({
+    res.status(500).json({ 
       success: false,
       message: 'Error al descargar preventas',
       error: error.message
-    });
+     });
   }
-};
+}; 
 
 module.exports = exports; 

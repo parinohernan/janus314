@@ -60,7 +60,7 @@
       }
     } catch (err) {
       console.error('Error al cargar tipos de pago:', err);
-    }
+  }
   });
 
   // Obtener descripción de banco

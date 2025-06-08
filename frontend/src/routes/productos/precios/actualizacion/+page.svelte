@@ -3,6 +3,7 @@
   import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
   import MultiSelect from '$lib/components/ui/MultiSelect.svelte';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
   // Interfaces
   interface Proveedor {
@@ -45,8 +46,8 @@
     try {
       loading = true;
       const [proveedoresRes, rubrosRes] = await Promise.all([
-        fetch(`${PUBLIC_API_URL}/proveedores?limit=500`),
-        fetch(`${PUBLIC_API_URL}/rubros?limit=500`)
+        fetchWithAuth(`${PUBLIC_API_URL}/proveedores?limit=500`),
+        fetchWithAuth(`${PUBLIC_API_URL}/rubros?limit=500`)
       ]);
 
       if (!proveedoresRes.ok || !rubrosRes.ok) {
@@ -87,7 +88,7 @@
         params.append('rubros', rubrosSeleccionados.join(','));
       }
 
-      const response = await fetch(`${PUBLIC_API_URL}/articulos?${params}&limit=1000`);
+      const response = await fetchWithAuth(`${PUBLIC_API_URL}/articulos?${params}&limit=1000`);
       if (!response.ok) throw new Error('Error al buscar artículos');
 
       const data = await response.json();
@@ -111,7 +112,7 @@
       loading = true;
       error = null;
 
-      const response = await fetch(`${PUBLIC_API_URL}/articulos/actualizar-precios`, {
+      const response = await fetchWithAuth(`${PUBLIC_API_URL}/articulos/actualizar-precios`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
