@@ -47,9 +47,13 @@ function getAuthToken(): string | null {
 /**
  * Genera headers con token para las peticiones
  * @param token Token de autenticación
+ * @param options Opciones de fetch
  * @returns Headers para fetch
  */
-function getAuthHeaders(token: string): HeadersInit {
+function getAuthHeaders(token: string, options?: FetchOptions): HeadersInit {
+  // Si hay un FormData en el body, no establecer Content-Type
+  const isFormData = options?.body instanceof FormData;
+  
   // Usar caché de headers si ya existe para este token
   if (headerCache[token]) {
     return headerCache[token];
@@ -57,10 +61,14 @@ function getAuthHeaders(token: string): HeadersInit {
   
   const headers = {
     'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json',
     'Accept': 'application/json',
     'Origin': 'https://janus314.osvi.lat'
   };
+
+  // Solo agregar Content-Type si no es FormData
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
   
   // Guardar en caché
   headerCache[token] = headers;
@@ -106,8 +114,8 @@ export async function fetchWithAuth(endpoint: string, options: FetchOptions = {}
     // Asegurarse de que la URL no termine con /
     url = url.replace(/\/+$/, '');
 
-    // Obtener headers cacheados
-    const headers = getAuthHeaders(token);
+    // Obtener headers considerando el tipo de body
+    const headers = getAuthHeaders(token, options);
 
     const response = await fetch(url, {
       ...options,

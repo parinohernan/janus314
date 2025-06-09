@@ -57,20 +57,26 @@ const corsOptions = {
     'https://janus314.osvi.lat', 
     'https://janus314-api.osvi.lat',
     'https://jano.janus314.com.ar',
-    'https://web.telegram.org'
+    'https://web.telegram.org',
+    'http://jano.janus314.com.ar'  // Agregamos también la versión HTTP
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  credentials: true,
+  maxAge: 86400 // 24 horas
 };
 
-// Middleware
+// Seguridad HTTP con configuración para recursos externos
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
-})); // Seguridad HTTP con configuración para recursos externos
-app.use(cors(corsOptions)); // Habilitar CORS con opciones específicas
-app.use(express.json()); // Parsear JSON
-app.use(express.urlencoded({ extended: true }));
+}));
+
+// Habilitar CORS con opciones específicas
+app.use(cors(corsOptions));
+
+// Middleware para manejar diferentes tipos de contenido
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Rutas
 app.use('/api/auth', authRoutes);

@@ -1,4 +1,30 @@
 const { Op } = require("sequelize");
+const XLSX = require("xlsx");
+const multer = require('multer');
+const path = require('path');
+
+// Configurar multer
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, '/tmp/');
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  fileFilter: function (req, file, cb) {
+    if (!file.originalname.match(/\.(xls|xlsx)$/)) {
+      return cb(new Error('Solo se permiten archivos Excel'));
+    }
+    cb(null, true);
+  },
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB
+  }
+}).single('archivo');
 
 // Obtener todos los artículos (con filtros y paginación)
 exports.getAllArticulos = async (req, res) => {
@@ -467,5 +493,213 @@ exports.getStockBajo = async (req, res) => {
   } catch (error) {
     console.error("Error al obtener artículos con stock bajo:", error);
     return res.status(500).json({ message: "Error al obtener los artículos con stock bajo" });
+  }
+};
+
+// Procesar lista de precios desde Excel
+exports.procesarListaPrecios = async (req, res) => {
+  try {
+    const { Articulo } = req.models;
+    
+    // Log detallado de la solicitud
+    console.log('\n=== Inicio de procesamiento de lista de precios ===');
+    console.log('Headers completos:', req.headers);
+    console.log('Method:', req.method);
+    console.log('URL:', req.url);
+    console.log('Body:', req.body);
+    console.log('File:', req.file);
+    
+    // Verificar si hay archivo
+    if (!req.file) {
+      console.log('No se encontró archivo en la solicitud');
+      return res.status(400).json({ 
+        message: "No se ha proporcionado ningún archivo"
+      });
+    }
+
+    // Verificar datos del formulario
+    const formData = {
+      proveedorCodigo: req.body.proveedorCodigo,
+      columnaCodigoArticulo: req.body.columnaCodigoArticulo,
+      columnaPrecioCosto: req.body.columnaPrecioCosto,
+      porcentajeAjuste: req.body.porcentajeAjuste
+    };
+
+    console.log('Datos del formulario:', formData);
+
+    // Validar datos requeridos
+    if (!formData.proveedorCodigo) {
+      return res.status(400).json({ 
+        message: "El código de proveedor es requerido"
+      });
+    }
+
+    if (!formData.columnaCodigoArticulo) {
+      return res.status(400).json({ 
+        message: "La columna de código de artículo es requerida"
+      });
+    }
+
+    if (!formData.columnaPrecioCosto) {
+      return res.status(400).json({ 
+        message: "La columna de precio de costo es requerida"
+      });
+    }
+
+    let workbook;
+    try {
+      console.log('Intentando leer archivo Excel desde:', req.file.path);
+      workbook = XLSX.readFile(req.file.path);
+    } catch (err) {
+      console.error('Error al leer archivo Excel:', err);
+      return res.status(400).json({ 
+        message: "Error al leer el archivo Excel. Asegúrese de que es un archivo Excel válido.",
+        error: err.message
+      });
+    }
+
+    if (!workbook.SheetNames.length) {
+      return res.status(400).json({ message: "El archivo Excel no contiene hojas" });
+    }
+
+    console.log('Hojas disponibles:', workbook.SheetNames);
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const datos = XLSX.utils.sheet_to_json(worksheet);
+
+    if (!datos || datos.length === 0) {
+      return res.status(400).json({ message: "El archivo Excel está vacío o no tiene el formato esperado" });
+    }
+
+    console.log('Primera fila del Excel:', datos[0]);
+    console.log('Columnas disponibles:', Object.keys(datos[0]));
+
+    // Verificar que las columnas existan en el Excel
+    if (!datos.length || !(formData.columnaCodigoArticulo in datos[0])) {
+      return res.status(400).json({ 
+        message: `La columna "${formData.columnaCodigoArticulo}" no existe en el archivo Excel`,
+        columnasDisponibles: Object.keys(datos[0])
+      });
+    }
+
+    if (!(formData.columnaPrecioCosto in datos[0])) {
+      return res.status(400).json({ 
+        message: `La columna "${formData.columnaPrecioCosto}" no existe en el archivo Excel`,
+        columnasDisponibles: Object.keys(datos[0])
+      });
+    }
+
+    // Obtener los códigos de artículos del Excel
+    const codigosArticulos = datos
+      .map(row => row[formData.columnaCodigoArticulo]?.toString().trim())
+      .filter(Boolean);
+
+    console.log(`Códigos de artículos encontrados: ${codigosArticulos.length}`);
+
+    if (codigosArticulos.length === 0) {
+      return res.status(400).json({ message: "No se encontraron códigos de artículos válidos en el archivo" });
+    }
+
+    // Buscar artículos en la base de datos usando ProveedorArticuloCodigo
+    const articulos = await Articulo.findAll({
+      where: {
+        ProveedorArticuloCodigo: { [Op.in]: codigosArticulos },
+        ProveedorCodigo: formData.proveedorCodigo
+      }
+    });
+
+    console.log(`Artículos encontrados en la base de datos: ${articulos.length}`);
+
+    if (articulos.length === 0) {
+      return res.status(400).json({ 
+        message: "No se encontraron artículos en la base de datos que coincidan con los códigos del archivo y el proveedor seleccionado" 
+      });
+    }
+
+    // Crear mapa de precios del Excel
+    const preciosExcel = {};
+    datos.forEach(row => {
+      const codigo = row[formData.columnaCodigoArticulo]?.toString().trim();
+      const precio = parseFloat(row[formData.columnaPrecioCosto]);
+      if (codigo && !isNaN(precio)) {
+        preciosExcel[codigo] = precio;
+      }
+    });
+
+    // Preparar lista de artículos para actualizar usando ProveedorArticuloCodigo
+    const articulosParaActualizar = articulos.map(articulo => {
+      const precioCostoNuevo = preciosExcel[articulo.ProveedorArticuloCodigo];
+      const precioCostoAjustado = precioCostoNuevo * (1 + (parseFloat(formData.porcentajeAjuste) || 0) / 100);
+      
+      return {
+        Codigo: articulo.Codigo,
+        Descripcion: articulo.Descripcion,
+        PrecioCostoActual: articulo.PrecioCosto,
+        PrecioCostoNuevo: precioCostoAjustado,
+        Incluir: true
+      };
+    }).filter(a => !isNaN(a.PrecioCostoNuevo));
+
+    console.log(`Artículos preparados para actualizar: ${articulosParaActualizar.length}`);
+
+    if (articulosParaActualizar.length === 0) {
+      return res.status(400).json({ message: "No se encontraron precios válidos para actualizar" });
+    }
+
+    return res.status(200).json({
+      articulos: articulosParaActualizar
+    });
+
+  } catch (error) {
+    console.error("Error al procesar lista de precios:", error);
+    return res.status(500).json({ 
+      message: "Error al procesar la lista de precios",
+      error: error.message 
+    });
+  }
+};
+
+// Actualizar precios desde lista
+exports.actualizarPreciosLista = async (req, res) => {
+  try {
+    const { Articulo } = req.models;
+    // Obtener la conexión de la empresa
+    const connection = req.db;
+    
+    // Crear transacción usando la conexión de la empresa específica
+    const transaction = await connection.transaction();
+    
+    try {
+      const { articulos } = req.body;
+
+      if (!articulos || !Array.isArray(articulos) || articulos.length === 0) {
+        return res.status(400).json({ message: "Debe proporcionar una lista de artículos" });
+      }
+
+      // Actualizar cada artículo
+      for (const articuloData of articulos) {
+        const articulo = await Articulo.findByPk(articuloData.Codigo, { transaction });
+        
+        if (articulo) {
+          await articulo.update({
+            PrecioCosto: articuloData.PrecioCostoNuevo,
+            PrecioCostoMasImp: articuloData.PrecioCostoNuevo * (1 + (articulo.PorcentajeIVA1 || 0) / 100)
+          }, { transaction });
+        }
+      }
+
+      await transaction.commit();
+
+      return res.status(200).json({
+        message: "Precios actualizados correctamente",
+        articulosActualizados: articulos.length
+      });
+
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error al actualizar precios desde lista:", error);
+    return res.status(500).json({ message: "Error al actualizar los precios" });
   }
 };
