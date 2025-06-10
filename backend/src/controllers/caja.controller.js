@@ -360,7 +360,7 @@ exports.realizarArqueo = async (req, res) => {
     } else {
       // Si no se cierra, solo actualizamos las observaciones
       await caja.update({
-        Estado: 'en_arqueo',
+        Estado: 'abierta',
         Observaciones: observaciones
       }, { transaction: t });
     }

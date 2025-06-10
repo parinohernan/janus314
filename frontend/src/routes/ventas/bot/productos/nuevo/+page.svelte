@@ -117,9 +117,22 @@
     producto.PrecioCostoSinIva = calcularPrecioSinIva(producto.PrecioCostoConIva, producto.PorcentajeIva1);
   }
 
+  // Calcular precio de lista 1 cuando cambien los valores relacionados
+  $: precioLista1 = calcularPrecioLista1(
+    producto.PrecioCostoSinIva,
+    producto.PorcentajeIva1,
+    producto.PrecioLista1
+  );
+
   // Calcular precio de costo sin IVA
   function calcularPrecioSinIva(precioConIva: number, porcentajeIva: number): number {
     return precioConIva / (1 + (porcentajeIva / 100));
+  }
+
+  // Función para calcular el precio de lista 1
+  function calcularPrecioLista1(costoSinIva: number, iva: number, incremento: number): number {
+    const costoConIva = costoSinIva * (1 + (iva / 100));
+    return costoConIva * (1 + (incremento / 100));
   }
 
   // Cargar datos para los selects
@@ -705,7 +718,7 @@
             />
           </div>
           
-          <div class="form-group">
+          <!-- <div class="form-group">
             <label for="porcentajeIva2">
               Porcentaje IVA 2
               <span class="disabled-field">(Se genera automáticamente)</span>
@@ -716,11 +729,11 @@
               bind:value={producto.PorcentajeIva2} 
               disabled
             />
-          </div>
+          </div> -->
           
           <div class="form-group">
             <label for="precioLista1">
-              Porcentaje Lista 1
+              Incremento en lista 1
             </label>
             <input 
               type="number" 
@@ -733,6 +746,20 @@
           </div>
           
           <div class="form-group">
+            <label for="precioCalculadoLista1">
+              Precio Final Lista 1
+              <span class="disabled-field">(Costo + IVA + Incremento)</span>
+            </label>
+            <input 
+              type="number" 
+              id="precioCalculadoLista1" 
+              value={precioLista1.toFixed(2)}
+              readonly
+              class="precio-calculado"
+            />
+          </div>
+          
+          <!-- <div class="form-group">
             <label for="precioLista2">
               Porcentaje Lista 2
             </label>
@@ -786,7 +813,7 @@
               min="0"
               step="1"
             />
-          </div>
+          </div> -->
           
           <div class="form-group">
             <label for="porcentajeVendedor">
@@ -1395,5 +1422,11 @@
     justify-content: flex-end;
     gap: 12px;
     margin-top: 24px;
+  }
+  
+  .precio-calculado {
+    background-color: var(--tg-theme-secondary-bg-color, #f5f5f5);
+    color: var(--tg-theme-text-color, #000);
+    font-weight: bold;
   }
 </style> 

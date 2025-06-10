@@ -241,8 +241,8 @@
       route: '/ventas/bot/caja',
     },
     {
-      label: 'recibos',
-      value: 'recibos',
+      label: 'Recibos',
+      value: 'Recibos',
       icon: '🧾',
       displayValue: 0,
       targetValue: 0,

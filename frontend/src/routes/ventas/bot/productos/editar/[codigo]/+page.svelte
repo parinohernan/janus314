@@ -74,6 +74,19 @@
     return precioConIva / (1 + (porcentajeIva / 100));
   }
 
+  // Calcular precio de lista 1 cuando cambien los valores relacionados
+  $: precioLista1 = calcularPrecioLista1(
+    producto.PrecioCostoSinIva,
+    producto.PorcentajeIva1,
+    producto.Lista1
+  );
+
+  // Función para calcular el precio de lista 1
+  function calcularPrecioLista1(costoSinIva: number, iva: number, incremento: number): number {
+    const costoConIva = costoSinIva * (1 + (iva / 100));
+    return costoConIva * (1 + (incremento / 100));
+  }
+
   // Cargar datos para los selects
   async function cargarDatosSelects() {
     try {
@@ -343,7 +356,10 @@
           </div>
           
           <div class="form-group">
-            <label for="precio-sin-iva">Precio de Costo (sin IVA)</label>
+            <label for="precio-sin-iva">
+              Precio de Costo (sin IVA)
+              <span class="disabled-field">(Se calcula automáticamente)</span>
+            </label>
             <input 
               type="number" 
               id="precio-sin-iva" 
@@ -355,57 +371,27 @@
           </div>
           
           <div class="form-group">
-            <label for="lista1">Lista 1 (%)</label>
+            <label for="lista1">Incremento en lista 1</label>
             <input 
               type="number" 
               id="lista1" 
               bind:value={producto.Lista1}
               min="0"
-              step="0.01"
+              step="1"
             />
           </div>
-          
+
           <div class="form-group">
-            <label for="lista2">Lista 2 (%)</label>
+            <label for="precioCalculadoLista1">
+              Precio Final Lista 1
+              <span class="disabled-field">(Costo + IVA + Incremento)</span>
+            </label>
             <input 
               type="number" 
-              id="lista2" 
-              bind:value={producto.Lista2}
-              min="0"
-              step="0.01"
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="lista3">Lista 3 (%)</label>
-            <input 
-              type="number" 
-              id="lista3" 
-              bind:value={producto.Lista3}
-              min="0"
-              step="0.01"
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="lista4">Lista 4 (%)</label>
-            <input 
-              type="number" 
-              id="lista4" 
-              bind:value={producto.Lista4}
-              min="0"
-              step="0.01"
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="lista5">Lista 5 (%)</label>
-            <input 
-              type="number" 
-              id="lista5" 
-              bind:value={producto.Lista5}
-              min="0"
-              step="0.01"
+              id="precioCalculadoLista1" 
+              value={precioLista1.toFixed(2)}
+              readonly
+              class="precio-calculado"
             />
           </div>
         </div>
@@ -648,5 +634,11 @@
     .btn-prev, .btn-next, .btn-submit {
       width: 100%;
     }
+  }
+  
+  .precio-calculado {
+    background-color: var(--tg-theme-secondary-bg-color, #f5f5f5);
+    color: var(--tg-theme-text-color, #000);
+    font-weight: bold;
   }
 </style> 

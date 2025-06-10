@@ -71,14 +71,16 @@
       const data = await response.json();
       if (data.success) {
         // Inicializar los valores declarados con los valores del sistema
-        data.data.formasPago = data.data.formasPago.map(fp => ({
+        data.data.formasPago = data.data.formasPago.map((fp: FormaPagoArqueo) => ({
           ...fp,
           totalDeclarado: fp.totalSistema,
           diferencia: 0
         }));
         resumenArqueo = data.data;
         // Calcular el total declarado inicial
-        totalDeclarado = resumenArqueo.totalSistema;
+        if (resumenArqueo) {
+          totalDeclarado = resumenArqueo.totalSistema;
+        }
       }
     } catch (err) {
       error = "Error al cargar el resumen del arqueo";
@@ -99,7 +101,7 @@
       // Recalcular el total declarado
       if (resumenArqueo) {
         totalDeclarado = resumenArqueo.formasPago.reduce(
-          (sum, fp) => sum + (parseFloat(fp.totalDeclarado?.toString() || '0')), 
+          (sum, fp: FormaPagoArqueo) => sum + (parseFloat(fp.totalDeclarado?.toString() || '0')), 
           0
         );
       }
@@ -359,11 +361,13 @@
 
   input[type="number"] {
     -moz-appearance: textfield;
+    appearance: textfield;
   }
 
   input[type="number"]::-webkit-outer-spin-button,
   input[type="number"]::-webkit-inner-spin-button {
     -webkit-appearance: none;
+    appearance: none;
     margin: 0;
   }
 </style> 
