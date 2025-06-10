@@ -4,24 +4,43 @@
   import { goto } from '$app/navigation';
   import { PUBLIC_API_URL } from '$env/static/public';
   import { debounce } from 'lodash-es'; // Necesitarás instalar: npm install lodash-es
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  
+  interface Rubro {
+    Codigo: string;
+    Descripcion: string;
+  }
+
+  interface Filters {
+    search: string;
+    field: string;
+    order: 'ASC' | 'DESC';
+  }
+
+  interface Pagination {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    limit: number;
+  }
   
   // Estado de filtros y paginación
-  let filters = {
+  let filters: Filters = {
     search: '',
     field: 'Descripcion',
     order: 'ASC'
   };
   
-  let pagination = {
+  let pagination: Pagination = {
     currentPage: 1,
     totalPages: 1,
     totalItems: 0,
     limit: 10
   };
   
-  let rubros = [];
+  let rubros: Rubro[] = [];
   let loading = true;
-  let error = null;
+  let error: string | null = null;
   
   // Función para cargar datos con los filtros actuales
   const loadRubros = async () => {
@@ -29,18 +48,16 @@
       loading = true;
       error = null;
       
-      // Construir URL con parámetros de búsqueda y paginación
-      const params = new URLSearchParams({
-        page: pagination.currentPage.toString(),
-        limit: pagination.limit.toString(),
+      // Construir parámetros de búsqueda y paginación
+      const params = {
+        page: pagination.currentPage,
+        limit: pagination.limit,
         search: filters.search,
         field: filters.field,
         order: filters.order
-      });
+      };
       
-      const response = await fetch(`${PUBLIC_API_URL}/rubros?${params}`);
-      if (!response.ok) throw new Error('Error al cargar los rubros');
-      
+      const response = await fetchWithAuth('/rubros', { params });
       const data = await response.json();
       
       // Actualizar estado con datos y metadata de paginación
@@ -52,8 +69,8 @@
         limit: pagination.limit
       };
       
-    } catch (err) {
-      error = err.message;
+    } catch (err: unknown) {
+      error = err instanceof Error ? err.message : 'Error desconocido';
       console.error('Error cargando rubros:', err);
     } finally {
       loading = false;
@@ -67,13 +84,14 @@
   }, 300);
   
   // Manejar cambios en el campo de búsqueda
-  const handleSearchChange = (e) => {
-    filters.search = e.target.value;
+  const handleSearchChange = (e: Event) => {
+    const target = e.target as HTMLInputElement;
+    filters.search = target.value;
     debouncedSearch();
   };
   
   // Manejar cambios en el campo de ordenamiento
-  const handleSortChange = (field) => {
+  const handleSortChange = (field: string) => {
     if (filters.field === field) {
       // Invertir orden si hacemos clic en el mismo campo
       filters.order = filters.order === 'ASC' ? 'DESC' : 'ASC';
@@ -85,21 +103,21 @@
   };
   
   // Cambiar de página
-  const goToPage = (page) => {
+  const goToPage = (page: number) => {
     if (page < 1 || page > pagination.totalPages) return;
     pagination.currentPage = page;
     loadRubros();
   };
   
-  const handleEdit = (id) => {
+  const handleEdit = (id: string) => {
     goto(`/rubros/${id}`);
   };
   
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('¿Está seguro que desea eliminar este rubro?')) return;
     
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/rubros/${id}`, {
+      const response = await fetchWithAuth(`/rubros/${id}`, {
         method: 'DELETE'
       });
       
@@ -107,8 +125,8 @@
       
       // Recargar la tabla después de eliminar
       loadRubros();
-    } catch (err) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Error desconocido');
     }
   };
   
@@ -148,6 +166,7 @@
             <button 
               class="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
               on:click={() => { filters.search = ''; debouncedSearch(); }}
+              aria-label="Limpiar búsqueda"
             >
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />

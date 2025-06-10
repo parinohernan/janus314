@@ -54,24 +54,22 @@ function getAuthHeaders(token: string, options?: FetchOptions): HeadersInit {
   // Si hay un FormData en el body, no establecer Content-Type
   const isFormData = options?.body instanceof FormData;
   
-  // Usar caché de headers si ya existe para este token
-  if (headerCache[token]) {
-    return headerCache[token];
-  }
-  
-  const headers = {
+  // Crear headers base
+  const headers: Record<string, string> = {
     'Authorization': `Bearer ${token}`,
     'Accept': 'application/json',
-    'Origin': 'https://janus314.osvi.lat'
+    'Origin': window.location.origin
   };
 
-  // Solo agregar Content-Type si no es FormData
+  // Agregar Content-Type si no es FormData
   if (!isFormData) {
     headers['Content-Type'] = 'application/json';
   }
   
-  // Guardar en caché
-  headerCache[token] = headers;
+  // Combinar con headers personalizados si existen
+  if (options?.headers) {
+    Object.assign(headers, options.headers);
+  }
   
   return headers;
 }
@@ -117,32 +115,29 @@ export async function fetchWithAuth(endpoint: string, options: FetchOptions = {}
     // Obtener headers considerando el tipo de body
     const headers = getAuthHeaders(token, options);
 
+    console.log('🚀 Enviando petición:', {
+      url,
+      method: options.method,
+      headers,
+      body: options.body
+    });
+
     const response = await fetch(url, {
       ...options,
       headers,
-      redirect: 'manual', // Evitar redirecciones automáticas
+      credentials: 'include',
       mode: 'cors'
     });
 
-    // Si hay una redirección, hacer la petición a la nueva URL
-    if (response.type === 'opaqueredirect') {
-      const redirectUrl = response.headers.get('Location');
-      if (redirectUrl) {
-        return fetch(redirectUrl, {
-          ...options,
-          headers,
-          mode: 'cors'
-        });
-      }
-    }
-
-    if (!response.ok) {
-      throw new Error(`Error en la petición: ${response.status} ${response.statusText}`);
-    }
+    console.log('📥 Respuesta recibida:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries())
+    });
 
     return response;
   } catch (error) {
-    console.error('Error en fetchWithAuth:', error);
+    console.error('❌ Error en fetchWithAuth:', error);
     throw error;
   }
 } 

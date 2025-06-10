@@ -1,6 +1,7 @@
 const { Op } = require("sequelize");
 const sequelize = require("sequelize");
 const pool = require("../config/database");
+const { v4: uuidv4 } = require('uuid');
 
 // Obtener todos los clientes (con filtros y paginación)
 const getAllClientes = async (req, res) => {
@@ -121,74 +122,44 @@ const getClienteById = async (req, res) => {
   }
 };
 
+// Función auxiliar para generar código único de 8 caracteres
+function generarCodigoUnico() {
+  // Usar los primeros 8 caracteres de un UUID v4 (sin guiones)
+  return uuidv4().replace(/-/g, '').substring(0, 8).toUpperCase();
+}
+
 // Crear nuevo cliente
 const createCliente = async (req, res) => {
   try {
     const { Cliente } = req.models;
-    // Validar campos obligatorios
-    if (!req.body.Codigo || !req.body.Descripcion) {
-      return res.status(400).json({
-        message: "Los campos Código y Descripción son obligatorios",
-      });
-    }
-
-    // Verificar si ya existe un cliente con ese código
-    const existingCliente = await Cliente.findByPk(req.body.Codigo);
-    if (existingCliente) {
-      return res.status(400).json({
-        message: "Ya existe un cliente con ese código",
-      });
-    }
-
-    // Procesar los datos para manejar correctamente campos vacíos que son claves foráneas
     const clienteData = { ...req.body };
 
-    // Convertir cadenas vacías a NULL para campos que son claves foráneas
-    if (clienteData.CategoriaIva === "") {
-      clienteData.CategoriaIva = null;
+    // Validar campos obligatorios
+    if (!clienteData.Descripcion) {
+      return res.status(400).json({ message: "La razón social es obligatoria" });
+    }
+    if (!clienteData.CategoriaIva) {
+      return res.status(400).json({ message: "La categoría de IVA es obligatoria" });
+    }
+    if (!clienteData.Cuit || clienteData.Cuit.length !== 11) {
+      return res.status(400).json({ message: "El CUIT es obligatorio y debe tener 11 dígitos" });
     }
 
-    if (clienteData.CodigoVendedor === "") {
-      clienteData.CodigoVendedor = null;
-    }
+    // Generar código único
+    let codigoGenerado;
+    let clienteExistente;
+    do {
+      codigoGenerado = generarCodigoUnico();
+      clienteExistente = await Cliente.findByPk(codigoGenerado);
+    } while (clienteExistente); // Repetir si el código ya existe
 
-    if (clienteData.CondicionVentaCodigo === "") {
-      clienteData.CondicionVentaCodigo = null;
-    }
+    // Asignar el código generado
+    clienteData.Codigo = codigoGenerado;
 
-    if (clienteData.TransporteCodigo === "") {
-      clienteData.TransporteCodigo = null;
-    }
-
-    if (clienteData.CanalCodigo === "") {
-      clienteData.CanalCodigo = null;
-    }
-
-    // Formatear fechas si vienen como cadenas vacías
-    if (clienteData.FechaDeAlta === "") {
-      clienteData.FechaDeAlta = null;
-    }
-
-    if (clienteData.FechaDeBaja === "") {
-      clienteData.FechaDeBaja = null;
-    }
-
-    // Crear el cliente con los datos procesados
     const nuevoCliente = await Cliente.create(clienteData);
-
     return res.status(201).json(nuevoCliente);
   } catch (error) {
-    console.error(error);
-
-    // Si hay un error de clave foránea, proporcionar un mensaje más específico
-    if (error.name === "SequelizeForeignKeyConstraintError") {
-      return res.status(400).json({
-        message: `Error de clave foránea: No existe el valor proporcionado en la tabla ${
-          error.table
-        } para el campo ${error.fields.join(", ")}`,
-      });
-    }
-
+    console.error('Error al crear cliente:', error);
     return res.status(500).json({ message: "Error al crear el cliente" });
   }
 };

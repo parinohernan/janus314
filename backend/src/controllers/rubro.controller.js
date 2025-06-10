@@ -111,16 +111,27 @@ exports.updateRubro = async (req, res) => {
     const { Rubro } = req.models;
     
     const { Descripcion, RubroGrupoCodigo } = req.body;
+    console.log('📝 Datos recibidos:', { Descripcion, RubroGrupoCodigo });
+    
     const rubro = await Rubro.findByPk(req.params.id);
+    console.log('🔍 Rubro encontrado:', rubro?.toJSON());
 
     if (!rubro) {
       return res.status(404).json({ message: "Rubro no encontrado" });
     }
 
-    await rubro.update({ Descripcion, RubroGrupoCodigo });
+    console.log('⚡ Actualizando rubro...');
+    await rubro.update({ 
+      Descripcion, 
+      RubroGrupoCodigo: RubroGrupoCodigo || null 
+    }, {
+      logging: console.log // Mostrar la consulta SQL
+    });
+    
+    console.log('✅ Rubro actualizado:', rubro.toJSON());
     return res.status(200).json(rubro);
   } catch (error) {
-    console.error(error);
+    console.error('❌ Error al actualizar rubro:', error);
     return res.status(500).json({ message: "Error al actualizar el rubro" });
   }
 };

@@ -12,7 +12,6 @@
 
   // Estado para los datos del cliente
   let cliente = {
-    Codigo: '',
     Descripcion: '', // Razón Social
     NombreFantasia: '',
     CategoriaIva: '',
@@ -65,10 +64,6 @@
     
     if (currentStep === 1) {
       // Validar datos principales
-      if (!cliente.Codigo) {
-        error = 'El código del cliente es obligatorio';
-        return false;
-      }
       if (!cliente.Descripcion) {
         error = 'La razón social es obligatoria';
         return false;
@@ -225,18 +220,6 @@
     <!-- Paso 1: Datos Principales -->
     {#if currentStep === 1}
       <div class="form-step">
-        <div class="form-group">
-          <label for="codigo">Código <span class="required">*</span></label>
-          <input 
-            type="text" 
-            id="codigo" 
-            bind:value={cliente.Codigo} 
-            placeholder="Ingrese el código del cliente"
-            maxlength="8"
-            required
-          />
-        </div>
-        
         <div class="form-group">
           <label for="razonSocial">Razón Social <span class="required">*</span></label>
           <input 

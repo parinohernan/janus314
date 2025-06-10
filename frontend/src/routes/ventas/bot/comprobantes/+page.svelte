@@ -412,7 +412,7 @@
     
     mensaje += `\n*Total: ${formatearImporte(comprobante.ImporteTotal)}*\n\n`;
     mensaje += `Muchas gracias por su compra.`;
-    mensaje += `\n* www.janus314.com.ar *`;
+    mensaje += `\n* https://jano.janus314.com.ar/ventas/bot/minimonster *`;
     
     return mensaje;
   }

@@ -2,8 +2,9 @@
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import Button from '$lib/components/ui/Button.svelte';
   import { PUBLIC_API_URL } from '$env/static/public';
+  import Button from '$lib/components/ui/Button.svelte';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   
   interface Rubro {
     Codigo: string;
@@ -19,66 +20,76 @@
   
   let loading = false;
   let error: string | null = null;
+  let success: string | null = null;
   let isEditing = $page.params.id !== 'nuevo';
   
   onMount(async () => {
     if (isEditing) {
       try {
         loading = true;
-        const response = await fetch(`${PUBLIC_API_URL}/rubros/${$page.params.id}`);
+        const response = await fetchWithAuth(`/rubros/${$page.params.id}`);
         if (!response.ok) throw new Error('Error al cargar el rubro');
         rubro = await response.json();
       } catch (err: unknown) {
-        if (err instanceof Error) {
-          error = err.message;
-        } else {
-          error = 'Error desconocido';
-        }
+        console.error('Error:', err);
+        error = err instanceof Error ? err.message : 'Error al cargar el rubro';
       } finally {
         loading = false;
       }
     }
   });
   
-  const handleSubmit = async () => {
+  async function handleSubmit() {
     try {
       loading = true;
+      error = null;
+      success = null;
       
-      const url = isEditing 
-        ? `${PUBLIC_API_URL}/rubros/${$page.params.id}`
-        : `${PUBLIC_API_URL}/rubros`;
-        
       const method = isEditing ? 'PUT' : 'POST';
+      const url = isEditing ? `/rubros/${$page.params.id}` : '/rubros';
       
-      console.log('Enviando datos:', rubro);
-      console.log('Método:', method);
+      const datos = isEditing 
+        ? {
+            Descripcion: rubro.Descripcion,
+            RubroGrupoCodigo: rubro.RubroGrupoCodigo || null
+          }
+        : rubro;
+
+      console.log('Enviando datos:', datos);
       console.log('URL:', url);
+      console.log('Método:', method);
       
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method,
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(rubro)
+        body: JSON.stringify(datos)
       });
       
+      console.log('Respuesta status:', response.status);
+      const responseData = await response.json();
+      console.log('Respuesta data:', responseData);
+      
       if (!response.ok) {
-        const data = await response.json();
-        console.error('Error respuesta:', data);
-        throw new Error(data.message || 'Error al guardar el rubro');
+        throw new Error(responseData.message || 'Error al guardar el rubro');
       }
       
-      const resultado = await response.json();
-      console.log('Respuesta exitosa:', resultado);
-      
-      goto('/rubros');
-    } catch (err) {
-      error = err.message;
-      console.error('Error completo:', err);
+      success = 'Rubro guardado correctamente';
+      setTimeout(() => {
+        goto('/rubros');
+      }, 1500);
+    } catch (err: unknown) {
+      console.error('Error:', err);
+      error = err instanceof Error ? err.message : 'Error al guardar el rubro';
     } finally {
       loading = false;
     }
-  };
+  }
+  
+  function handleCancel() {
+    goto('/rubros');
+  }
 </script>
 
 <svelte:head>
@@ -86,17 +97,23 @@
 </svelte:head>
 
 <div class="container mx-auto p-4">
-  <div class="max-w-md mx-auto bg-white p-6 rounded-lg shadow-md">
+  <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
     <h1 class="text-2xl font-bold mb-6">{isEditing ? 'Editar' : 'Nuevo'} Rubro</h1>
     
     {#if error}
       <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-        <p>{error}</p>
+        {error}
       </div>
     {/if}
     
-    <form on:submit|preventDefault={handleSubmit}>
-      <div class="mb-4">
+    {#if success}
+      <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+        {success}
+      </div>
+    {/if}
+    
+    <form on:submit|preventDefault={handleSubmit} class="space-y-4">
+      <div>
         <label for="codigo" class="block text-sm font-medium text-gray-700 mb-1">
           Código *
         </label>
@@ -111,7 +128,7 @@
         />
       </div>
       
-      <div class="mb-4">
+      <div>
         <label for="descripcion" class="block text-sm font-medium text-gray-700 mb-1">
           Descripción *
         </label>
@@ -138,21 +155,12 @@
         />
       </div>
       
-      <div class="flex justify-between">
-        <Button
-          variant="secondary"
-          type="button"
-          on:click={() => goto('/rubros')}
-          disabled={loading}
-        >
-          Cancelar
-        </Button>
-        <Button
-          variant="primary"
-          type="submit"
-          disabled={loading}
-        >
+      <div class="flex gap-4 pt-4">
+        <Button type="submit" disabled={loading}>
           {loading ? 'Guardando...' : 'Guardar'}
+        </Button>
+        <Button type="button" variant="secondary" on:click={handleCancel}>
+          Cancelar
         </Button>
       </div>
     </form>
