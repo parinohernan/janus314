@@ -198,7 +198,7 @@ exports.getReciboById = async (req, res) => {
 // Crear un nuevo recibo
 exports.createRecibo = async (req, res) => {
   try {
-    const { Recibo, ReciboItem, ReciboValor, NotaCreditoCabeza, NotaDebitoCabeza, FacturaCabeza, Cliente } = req.models;
+    const { Recibo, ReciboItem, ReciboValor, NotaCreditoCabeza, NotaDebitoCabeza, FacturaCabeza, Cliente, CajaCabeza, CajaMovimientos } = req.models;
     
     // Obtener la instancia de sequelize desde cualquier modelo
     const sequelize = Recibo.sequelize;
@@ -217,13 +217,31 @@ exports.createRecibo = async (req, res) => {
       DocumentosCredito,
       FormasPago,
       ImporteTotal,
+      VendedorCodigo
     } = req.body;
 
     // Validar datos requeridos
-    if (!DocumentoTipo || !DocumentoSucursal || !DocumentoNumero || !Fecha || !CodigoCliente) {
+    if (!DocumentoTipo || !DocumentoSucursal || !DocumentoNumero || !Fecha || !CodigoCliente || !VendedorCodigo) {
       return res.status(400).json({
         success: false,
         message: 'Faltan datos requeridos'
+      });
+    }
+
+    // Verificar que el vendedor tenga una caja abierta
+    const cajaAbierta = await CajaCabeza.findOne({
+      where: {
+        VendedorId: VendedorCodigo,
+        Estado: 'abierta'
+      },
+      transaction: t
+    });
+
+    if (!cajaAbierta) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'El vendedor no tiene una caja abierta'
       });
     }
 
@@ -275,8 +293,34 @@ exports.createRecibo = async (req, res) => {
       await actualizarDocumentosCredito(documentosCreditoMapeados, {DocumentoTipo, DocumentoSucursal, DocumentoNumero}, t);
       console.log("Documentos de crédito actualizados correctamente");
 
-      // 4. Actualizar número de control
-      console.log("Paso 4: Actualizando número de control...");
+      // 4. Registrar movimientos en caja
+      console.log("Paso 4: Registrando movimientos en caja...");
+      for (const formaPago of FormasPago) {
+        await CajaMovimientos.create({
+          CajaCabezaId: cajaAbierta.Codigo,
+          Tipo: 'ingreso',
+          Importe: formaPago.Importe,
+          Concepto: `Recibo ${DocumentoTipo}-${DocumentoSucursal}-${DocumentoNumero}`,
+          MetodoPago: formaPago.Codigo,
+          Referencia: formaPago.Numero || null,
+          Banco: formaPago.Banco || null,
+          ValorFecha: formaPago.Fecha || new Date(),
+          DocumentoAsociado: `${DocumentoTipo}-${DocumentoSucursal}-${DocumentoNumero}`,
+          TipoDocumento: 'REC',
+          FechaHora: new Date(),
+          UsuarioId: VendedorCodigo
+        }, { transaction: t });
+      }
+
+      // 5. Actualizar saldo teórico de la caja
+      const totalFormasPago = FormasPago.reduce((total, formaPago) => total + formaPago.Importe, 0);
+      await cajaAbierta.update({
+        SaldoTeorico: parseFloat(cajaAbierta.SaldoTeorico || 0) + totalFormasPago
+      }, { transaction: t });
+      console.log("Movimientos de caja registrados correctamente");
+
+      // 6. Actualizar número de control
+      console.log("Paso 6: Actualizando número de control...");
       try {
         await NumerosControlController.actualizarNumeroDirecto(
           DocumentoTipo,
@@ -297,12 +341,9 @@ exports.createRecibo = async (req, res) => {
         });
       }
 
-      // 5. Actualizar la deuda del cliente
-      console.log("Paso 5: Actualizando deuda del cliente...");
+      // 7. Actualizar la deuda del cliente
+      console.log("Paso 7: Actualizando deuda del cliente...");
       try {
-        // Calcular el total de las formas de pago
-        const totalFormasPago = FormasPago.reduce((total, formaPago) => total + formaPago.Importe, 0);
-        
         // Obtener el cliente
         const cliente = await Cliente.findByPk(CodigoCliente, { transaction: t });
         

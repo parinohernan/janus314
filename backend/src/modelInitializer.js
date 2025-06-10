@@ -1,9 +1,37 @@
 const { DataTypes } = require('sequelize');
+const CajaCabeza = require('./models/cajaCabeza.model');
+const CajaMovimientos = require('./models/cajaMovimientos.model');
 
 const initializeModels = (sequelize) => {
   console.log('Iniciando inicialización de modelos...');
   
   // ... modelos existentes ...
+
+  // Inicializar modelos de caja
+  CajaCabeza.init(CajaCabeza.getAttributes(), {
+    sequelize,
+    modelName: 'CajaCabeza',
+    tableName: 'caja_cabeza',
+    timestamps: true
+  });
+
+  CajaMovimientos.init(CajaMovimientos.getAttributes(), {
+    sequelize,
+    modelName: 'CajaMovimientos',
+    tableName: 'caja_movimientos',
+    timestamps: true
+  });
+
+  // Establecer relaciones de caja
+  CajaCabeza.hasMany(CajaMovimientos, {
+    foreignKey: 'CajaCabezaId',
+    as: 'Movimientos'
+  });
+
+  CajaMovimientos.belongsTo(CajaCabeza, {
+    foreignKey: 'CajaCabezaId',
+    as: 'Caja'
+  });
 
   // Definir modelo Cliente
   const Cliente = sequelize.define('Cliente', {
@@ -311,6 +339,8 @@ const initializeModels = (sequelize) => {
     ReciboItem,
     ReciboValor,
     ReciboCabeza,
+    CajaCabeza,
+    CajaMovimientos,
     // Otros modelos necesarios
     Articulo,
     Proveedor,

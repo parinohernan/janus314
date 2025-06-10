@@ -33,6 +33,9 @@
   let importeTotalFormasPago = 0;
   let saldoPendiente = 0;
 
+  // Código del vendedor
+  let codigoVendedor: string = '';
+
   // Datos del recibo
   let recibo = {
     DocumentoTipo: 'RCF',
@@ -181,6 +184,11 @@
       return;
     }
 
+    if (!codigoVendedor) {
+      error = 'No se encontró el código del vendedor';
+      return;
+    }
+
     loading = true;
     error = null;
 
@@ -189,6 +197,7 @@
         ...recibo,
         DocumentoNumero: recibo.DocumentoNumero.toString().padStart(8, '0'),
         CodigoCliente: clienteSeleccionado.Codigo,
+        VendedorCodigo: codigoVendedor,
         DocumentosDeuda: documentosSeleccionados.map(doc => ({
           DocumentoTipo: doc.DocumentoTipo,
           DocumentoSucursal: doc.DocumentoSucursal,
@@ -233,8 +242,17 @@
 
   onMount(async () => {
     try {
+      // Obtener sucursal
       recibo.DocumentoSucursal = await EmpresaService.obtenerSucursal();
+      
+      // Obtener próximo número
       await obtenerProximoNumero();
+      
+      // Obtener código del vendedor del localStorage
+      codigoVendedor = localStorage.getItem('botVendedorCodigo') || '';
+      if (!codigoVendedor) {
+        error = 'No se encontró el código del vendedor';
+      }
     } catch (err) {
       console.error('Error cargando datos iniciales:', err);
       error = err instanceof Error ? err.message : 'Error desconocido';
