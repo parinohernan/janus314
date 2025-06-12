@@ -57,7 +57,7 @@ exports.generarFacturaPDF = async (req, res) => {
         'DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 
         'CodigoArticulo', 'Cantidad', 'ImporteCosto', 'PrecioLista', 
         'PorcentajeBonificado', 'ImporteBonificado', 'PrecioUnitario', 
-        'DocumentoLiqTipo', 'DocumentoLiqSucursal', 'DocumentoLiqNumero', 
+        'DocumentoLiqTipo', 'DocumentoSucursal', 'DocumentoLiqNumero', 
         'LiqFecha', 'es_merma'
       ],
       raw: true,
@@ -82,17 +82,16 @@ exports.generarFacturaPDF = async (req, res) => {
 
     // Combinar los items con la información de artículos
     const itemsConArticulos = items.map((item) => {
-      const itemData = item.get({ plain: true });
-      const articulo = itemData.Articulo || {};
-      const subtotal = itemData.Cantidad * itemData.PrecioUnitario;
+      const articulo = articulosPorCodigo[item.CodigoArticulo] || {};
+      const subtotal = item.Cantidad * item.PrecioUnitario;
       const porcentajeIva = articulo.PorcentajeIVA1 || 0;
       const importeIva = subtotal * (porcentajeIva / 100);
       
       return {
-        ...itemData,
+        ...item,
         Descripcion: articulo.Descripcion || '',
         UnidadVenta: articulo.UnidadVenta || '',
-        PrecioUnitario: itemData.PrecioUnitario || articulo.Lista1 || 0,
+        PrecioUnitario: item.PrecioUnitario || articulo.Lista1 || 0,
         PorcentajeIVA1: articulo.PorcentajeIVA1 || 0,
         PorcentajeIVA2: articulo.PorcentajeIVA2 || 0,
         Total: subtotal,

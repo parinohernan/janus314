@@ -73,10 +73,11 @@ exports.obtenerEstadoCompleto = async (req, res) => {
       });
     }
 
+    // Obtener punto de venta de la query string
+    const puntoVenta = req.query.puntoVenta || empresa.Sucursal || "3";
+
     // Obtener estado del servidor
-    const estadoUrl = buildArcaUrl(empresa.arcaendpoint, 'api/astrial/estado-servidor');
-    console.log("**********endpoint estado:", estadoUrl);
-    
+    const estadoUrl = buildArcaUrl(empresa.arcaendpoint, 'api/afip/test');
     const estadoResponse = await fetch(estadoUrl);
     const estadoData = await estadoResponse.json();
 
@@ -93,25 +94,37 @@ exports.obtenerEstadoCompleto = async (req, res) => {
     const ultimosComprobantes = await Promise.all(
       tiposComprobantes.map(async (tipo) => {
         try {
-          const comprobanteUrl = buildArcaUrl(empresa.arcaendpoint, 'api/astrial/ultimo-comprobante');
+          // Mapear el tipo de comprobante a su código numérico
+          const tipoComprobanteMap = {
+            'FCA': 1,
+            'FCB': 6,
+            'FCC': 11,
+            'NCA': 3,
+            'NCB': 8,
+            'NCC': 13
+          };
+
+          const tipoComprobante = tipoComprobanteMap[tipo.tipo] || 1;
+          
+          const comprobanteUrl = buildArcaUrl(
+            empresa.arcaendpoint, 
+            `api/afip/ultimo-comprobante?puntoVenta=${puntoVenta}&tipoComprobante=${tipoComprobante}`
+          );
+
           const response = await fetch(comprobanteUrl, {
-            method: "POST",
+            method: "GET",
             headers: {
               "Content-Type": "application/json",
               Authorization: req.headers.authorization || "",
-            },
-            body: JSON.stringify({
-              tipo: tipo.tipo,
-              puntoVenta: "0001" // TODO: Obtener de la configuración de la empresa
-            }),
+            }
           });
 
           if (!response.ok) {
             return {
               tipo: tipo.tipo,
               descripcion: tipo.descripcion,
-              ultimoNumero: "Error",
-              puntoVenta: "0001"
+              ultimoComprobante: "Error",
+              puntoVenta: puntoVenta.toString().padStart(4, '0')
             };
           }
 
@@ -119,16 +132,16 @@ exports.obtenerEstadoCompleto = async (req, res) => {
           return {
             tipo: tipo.tipo,
             descripcion: tipo.descripcion,
-            ultimoNumero: data.ultimoNumero || "0",
-            puntoVenta: "0001"
+            ultimoComprobante: data.ultimoComprobante || "0",
+            puntoVenta: puntoVenta.toString().padStart(4, '0')
           };
         } catch (error) {
           console.error(`Error al obtener último comprobante para ${tipo.tipo}:`, error);
           return {
             tipo: tipo.tipo,
             descripcion: tipo.descripcion,
-            ultimoNumero: "Error",
-            puntoVenta: "0001"
+            ultimoComprobante: "Error",
+            puntoVenta: puntoVenta.toString().padStart(4, '0')
           };
         }
       })

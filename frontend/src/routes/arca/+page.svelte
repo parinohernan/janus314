@@ -45,7 +45,10 @@
 			loading = true;
 			error = null;
 			await cargarDatosEmpresa();
-			estadoArca = await AfipService.obtenerEstadoArca();
+			if (!sucursal) {
+				throw new Error('No se pudo obtener la sucursal');
+			}
+			estadoArca = await AfipService.obtenerEstadoArca(sucursal);
 		} catch (err) {
 			console.error('Error al cargar estado de ARCA:', err);
 			error = err instanceof Error ? err.message : 'Error desconocido';
@@ -127,7 +130,7 @@
 										{comprobante?.puntoVenta || '-'}
 									</td>
 									<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-										{comprobante?.ultimoNumero || '-'}
+										{comprobante?.ultimoComprobante || '-'}
 									</td>
 								</tr>
 							{/each}

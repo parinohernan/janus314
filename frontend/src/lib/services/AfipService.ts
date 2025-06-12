@@ -4,7 +4,7 @@ import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 export interface UltimoComprobante {
 	tipo: string;
 	descripcion: string;
-	ultimoNumero: string;
+	ultimoComprobante: string | number;
 	puntoVenta: string;
 }
 
@@ -82,11 +82,12 @@ export class AfipService {
 
 	/**
 	 * Verifica el estado del servidor de AFIP y obtiene los últimos comprobantes
+	 * @param puntoVenta Punto de venta (sucursal) a consultar
 	 * @returns Estado del servidor y últimos comprobantes
 	 */
-	public static async obtenerEstadoArca(): Promise<EstadoArca> {
+	public static async obtenerEstadoArca(puntoVenta: string): Promise<EstadoArca> {
 		try {
-			const response = await fetchWithAuth(`/afip/estado-completo`);
+			const response = await fetchWithAuth(`/afip/estado-completo?puntoVenta=${puntoVenta}`);
 
 			if (!response.ok) {
 				throw new Error('Error al obtener estado de ARCA');

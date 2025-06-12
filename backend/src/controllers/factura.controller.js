@@ -105,12 +105,21 @@ exports.obtenerFactura = async (req, res) => {
     const { FacturaCabeza, Cliente, FacturaItem, Articulo } = req.models;
     const { tipo, sucursal, numero } = req.params;
 
+    console.log("Parámetros de búsqueda:", {
+      tipo,
+      sucursal,
+      numero,
+      tipoFormateado: tipo.padStart(3, ' '),
+      sucursalFormateado: sucursal.padStart(4, '0'),
+      numeroFormateado: numero.padStart(8, '0')
+    });
+
     // Obtener encabezado
     const factura = await FacturaCabeza.findOne({
       where: {
-        DocumentoTipo: tipo,
-        DocumentoSucursal: sucursal,
-        DocumentoNumero: numero,
+        DocumentoTipo: tipo.padStart(3, ' '),
+        DocumentoSucursal: sucursal.padStart(4, '0'),
+        DocumentoNumero: numero.padStart(8, '0'),
       },
       include: [
         {
@@ -120,13 +129,25 @@ exports.obtenerFactura = async (req, res) => {
       ],
     });
 
+    console.log("Resultado de la consulta:", factura ? "Factura encontrada" : "Factura no encontrada");
+
     if (!factura) {
+      // Intentar buscar la factura sin el join para ver si existe
+      const facturaSimple = await FacturaCabeza.findOne({
+        where: {
+          DocumentoTipo: tipo.padStart(3, ' '),
+          DocumentoSucursal: sucursal.padStart(4, '0'),
+          DocumentoNumero: numero.padStart(8, '0'),
+        },
+        raw: true
+      });
+
+      console.log("Búsqueda simple:", facturaSimple ? "Factura encontrada" : "Factura no encontrada");
+
       return res.status(404).json({
         success: false,
         message: "Factura no encontrada",
       });
-    } else {
-      console.log("factura", factura);
     }
 
     // Convertir factura a un objeto plano para poder modificarlo
@@ -143,9 +164,9 @@ exports.obtenerFactura = async (req, res) => {
     // Obtener items sin usar la asociación
     const items = await FacturaItem.findAll({
       where: {
-        DocumentoTipo: tipo,
-        DocumentoSucursal: sucursal,
-        DocumentoNumero: numero,
+        DocumentoTipo: tipo.padStart(3, ' '),
+        DocumentoSucursal: sucursal.padStart(4, '0'),
+        DocumentoNumero: numero.padStart(8, '0'),
       },
       attributes: [
         'DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 
@@ -157,6 +178,8 @@ exports.obtenerFactura = async (req, res) => {
       raw: true,
     });
 
+    console.log("Items encontrados:", items.length);
+
     // Obtener los códigos de artículos para buscarlos
     const codigosArticulos = items.map((item) => item.CodigoArticulo);
 
@@ -167,6 +190,8 @@ exports.obtenerFactura = async (req, res) => {
       },
       raw: true,
     });
+
+    console.log("Artículos encontrados:", articulos.length);
 
     // Crear un mapa de artículos por código para facilitar la búsqueda
     const articulosPorCodigo = {};
@@ -184,13 +209,12 @@ exports.obtenerFactura = async (req, res) => {
         Descripcion: articulo?.Descripcion || 'Artículo no encontrado',
       };
     });
-    // console.log("itemsConArticulos", itemsConArticulos.length);
+
     res.json({
       success: true,
       data: {
         encabezado: facturaPlana,
         items: itemsConArticulos,
-        // articulos: articulos,
       },
     });
   } catch (error) {
