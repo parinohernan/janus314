@@ -22,7 +22,7 @@
       label: 'General',
       submenus: [
         { label: 'Mi Empresa', url: '/empresa' },
-        // { label: 'Usuarios', url: '/usuarios' },
+        { label: 'Estado ARCA', url: '/arca' },
         { label: 'Localidades', url: '/localidades' },
         { label: 'Provincias', url: '/provincias' },
         // { label: 'Rutas', url: '/rutas' },

@@ -10,6 +10,7 @@
   export let formasPago: FormaPago[] = [];
   export let importeTotalFormasPago = 0;
   export let saldoPendiente = 0;
+  export let incluirFormasAplicaSaldo = false;
 
   // Estado local
   let nuevaFormaPago: FormaPago = {
@@ -42,7 +43,11 @@
         const data = await response.json();
         console.log('Datos recibidos del servidor:', data);
         tiposDePago = data.items
-          .filter((item: any) => item.Activo)
+          .filter((item: any) => {
+            const isActivo = item.Activo;
+            const aplicaSaldo = Number(item.aplicaSaldo) === 1;
+            return isActivo && (incluirFormasAplicaSaldo ? true : !aplicaSaldo);
+          })
           .map((item: any) => {
             console.log(`Procesando tipo de pago ${item.Codigo}:`, {
               ...item,
@@ -60,7 +65,7 @@
       }
     } catch (err) {
       console.error('Error al cargar tipos de pago:', err);
-  }
+    }
   });
 
   // Obtener descripción de banco

@@ -35,6 +35,11 @@ const initEmpresa = () => {
       allowNull: false,
       defaultValue: 3306
     },
+    arcaendpoint: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: 'http://localhost:3301/api/astrial'
+    },
     estado: {
       type: DataTypes.ENUM('activo', 'inactivo'),
       defaultValue: 'activo',

@@ -1,4 +1,18 @@
 import { PUBLIC_API_URL } from '$env/static/public';
+import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+
+export interface UltimoComprobante {
+	tipo: string;
+	descripcion: string;
+	ultimoNumero: string;
+	puntoVenta: string;
+}
+
+export interface EstadoArca {
+	disponible: boolean;
+	mensaje: string;
+	ultimosComprobantes: UltimoComprobante[];
+}
 
 export class AfipService {
 	/**
@@ -14,11 +28,8 @@ export class AfipService {
 			const tipoAfip = this.mapearTipoDocumento(tipo);
 			// Llamar al endpoint de nuestro backend (que actúa como proxy)
 			console.log('Llamando al endpoint de nuestro backend...');
-			const response = await fetch(`${PUBLIC_API_URL}/arca/grabar-cae`, {
+			const response = await fetchWithAuth(`/afip/grabar-cae`, {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
 				body: JSON.stringify({
 					tipo: tipo,
 					puntoVenta,
@@ -70,30 +81,58 @@ export class AfipService {
 	}
 
 	/**
-	 * Verifica el estado del servidor de AFIP
-	 * @returns Estado del servidor
+	 * Verifica el estado del servidor de AFIP y obtiene los últimos comprobantes
+	 * @returns Estado del servidor y últimos comprobantes
 	 */
-	public static async verificarEstadoServidor() {
+	public static async obtenerEstadoArca(): Promise<EstadoArca> {
 		try {
-			const response = await fetch(`${PUBLIC_API_URL}/arca/estado`);
+			const response = await fetchWithAuth(`/afip/estado-completo`);
 
 			if (!response.ok) {
-				return {
-					disponible: false,
-					mensaje: 'Error al conectar con el servidor de AFIP'
-				};
+				throw new Error('Error al obtener estado de ARCA');
 			}
 
 			const data = await response.json();
 			return {
 				disponible: data.disponible,
-				mensaje: data.mensaje || 'Servidor AFIP disponible'
+				mensaje: data.mensaje || 'Servidor ARCA disponible',
+				ultimosComprobantes: data.ultimosComprobantes || []
 			};
 		} catch (error) {
+			console.error('Error al obtener estado de ARCA:', error);
 			return {
 				disponible: false,
-				mensaje: 'Error de conexión con servidor AFIP'
+				mensaje: 'Error de conexión con servidor ARCA',
+				ultimosComprobantes: []
 			};
+		}
+	}
+
+	/**
+	 * Obtiene el último número de comprobante para un tipo específico
+	 * @param tipo Tipo de comprobante (FCA, FCB, etc)
+	 * @param puntoVenta Punto de venta
+	 * @returns Último número de comprobante
+	 */
+	public static async obtenerUltimoComprobante(tipo: string, puntoVenta: string): Promise<string> {
+		try {
+			const response = await fetchWithAuth(`/afip/ultimo-comprobante`, {
+				method: 'POST',
+				body: JSON.stringify({
+					tipo,
+					puntoVenta
+				})
+			});
+
+			if (!response.ok) {
+				throw new Error('Error al obtener último comprobante');
+			}
+
+			const data = await response.json();
+			return data.ultimoNumero;
+		} catch (error) {
+			console.error('Error al obtener último comprobante:', error);
+			throw error;
 		}
 	}
 }

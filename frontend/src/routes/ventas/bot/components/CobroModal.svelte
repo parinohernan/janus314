@@ -78,6 +78,7 @@
           bind:formasPago
           bind:importeTotalFormasPago
           bind:saldoPendiente
+          incluirFormasAplicaSaldo={true}
           on:change={handleFormasPagoChange}
                 />
               </div>

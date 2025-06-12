@@ -383,6 +383,7 @@
           bind:formasPago
           bind:importeTotalFormasPago
           bind:saldoPendiente
+          incluirFormasAplicaSaldo={false}
           on:change={({ detail }) => {
             formasPago = detail.formasPago;
             importeTotalFormasPago = detail.importeTotalFormasPago;

@@ -34,7 +34,7 @@
     // factura.tipo = factura.DocumentoTipo;
     // factura.puntoVenta = factura.DocumentoSucursal;
     // factura.numero = factura.DocumentoNumero;
-    console.log('Solndo CAE... t', factura);
+    console.log('Solicitando CAE... t', factura);
     try {
       // Obtener CAE del servicio
       const result = await AfipService.obtenerCae(
