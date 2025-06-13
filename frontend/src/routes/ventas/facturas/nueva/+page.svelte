@@ -14,12 +14,16 @@
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   // import { formatDateOnly } from '$lib/utils/dateUtils';
   // Modelo de factura
+
+  const hoy = new Date();
+hoy.setHours(hoy.getHours() - 3);
+const fechaFormateada = hoy.toISOString().substring(0, 10);
   let sucursalActual = '0001';
   let factura = {
     DocumentoTipo: 'FCB',
     DocumentoSucursal: sucursalActual,
     DocumentoNumero: '',
-    Fecha: new Date().toISOString().substring(0, 10),
+    Fecha: fechaFormateada,// esto es la fecha de hoy
     ClienteCodigo: '',
     Cliente: null as Cliente | null,
     ListaPrecio: '1',
@@ -42,7 +46,7 @@
     VendedorCodigo: '',
     Vendedor: null as { value: string, label: string } | null,
   };
-  
+  console.log("fecha de hoy", new Date().toISOString().substring(0, 10));
   // Estados para selectores
   let tiposDocumento: {value: string, label: string}[] = [];
   

@@ -115,12 +115,12 @@ export async function fetchWithAuth(endpoint: string, options: FetchOptions = {}
     // Obtener headers considerando el tipo de body
     const headers = getAuthHeaders(token, options);
 
-    console.log('🚀 Enviando petición:', {
-      url,
-      method: options.method,
-      headers,
-      body: options.body
-    });
+    // console.log('🚀 Enviando petición:', {
+    //   url,
+    //   method: options.method,
+    //   headers,
+    //   body: options.body
+    // });
 
     const response = await fetch(url, {
       ...options,
@@ -129,11 +129,11 @@ export async function fetchWithAuth(endpoint: string, options: FetchOptions = {}
       mode: 'cors'
     });
 
-    console.log('📥 Respuesta recibida:', {
-      status: response.status,
-      statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries())
-    });
+    // console.log('📥 Respuesta recibida:', {
+    //   status: response.status,
+    //   statusText: response.statusText,
+    //   headers: Object.fromEntries(response.headers.entries())
+    // });
 
     return response;
   } catch (error) {

@@ -6,11 +6,10 @@
 export function formatDate(dateString: string): string {
 	if (!dateString) return '';
 	try {
-		// Crear una fecha en GMT
-		const date = new Date(dateString);
-		// Ajustar a GMT-3
-		const localDate = new Date(date.getTime() - (3 * 60 * 60 * 1000));
-		return localDate.toLocaleDateString('es-AR', {
+		// Crear una fecha y ajustar a GMT-3
+		const [year, month, day] = dateString.split('-').map(Number);
+		const date = new Date(year, month - 1, day);
+		return date.toLocaleDateString('es-AR', {
 			day: '2-digit',
 			month: '2-digit',
 			year: 'numeric'

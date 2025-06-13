@@ -61,6 +61,7 @@
   
   // Configurar fecha actual para los filtros
   const hoy = new Date();
+  hoy.setHours(hoy.getHours() - 3);
   const fechaFormateada = hoy.toISOString().substring(0, 10);
   
   // Filtros

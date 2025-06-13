@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
   import Select from '$lib/components/ui/Select.svelte';
@@ -9,6 +9,8 @@
   import FormasPago from '$lib/components/recibos/FormasPago.svelte';
   import { goto } from '$app/navigation';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { auth } from '$lib/stores/authStore';
+  import { get } from 'svelte/store';
 
   // Estado del formulario
   let loading = false;
@@ -16,6 +18,21 @@
   let success = false;
   let successMessage = '';
   let showCancelConfirm = false;
+  let codigoVendedor: string = '1'; // Valor por defecto
+
+  // Suscripción al store de autenticación
+  let unsubscribe = auth.subscribe((state) => {
+    if (state.user) {
+      codigoVendedor = state.user.usuario || '1';
+    }
+  });
+
+  // Limpiar suscripción cuando el componente se destruye
+  onDestroy(() => {
+    if (unsubscribe) {
+      unsubscribe();
+    }
+  });
 
   // Estado de clientes
   let loadingClientes = false;
@@ -244,11 +261,14 @@
   }
 
   // Datos del recibo
+  const hoy = new Date();
+  hoy.setHours(hoy.getHours() - 3);
+  const fechaFormateada = hoy.toISOString().substring(0, 10);
   let recibo = {
     DocumentoTipo: 'RCF',
     DocumentoSucursal: '',
     DocumentoNumero: '',
-    Fecha: new Date().toISOString().split('T')[0],
+    Fecha: fechaFormateada,
     ClienteId: '',
     Observaciones: ''
   };
@@ -432,6 +452,7 @@
         ...recibo,
         DocumentoNumero : recibo.DocumentoNumero.toString().padStart(8, '0'),
         CodigoCliente: clienteSeleccionado.Codigo,
+        VendedorCodigo: codigoVendedor,
         DocumentosDeuda: documentosSeleccionados.map(doc => {
           const key = getDocumentoKey(doc);
           return {

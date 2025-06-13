@@ -245,6 +245,38 @@ exports.createRecibo = async (req, res) => {
       });
     }
 
+    // Verificar que las facturas existan antes de proceder
+    if (DocumentosDeuda && DocumentosDeuda.length > 0) {
+      for (const doc of DocumentosDeuda) {
+        const factura = await FacturaCabeza.findOne({
+          where: {
+            DocumentoTipo: doc.DocumentoTipo,
+            DocumentoSucursal: doc.DocumentoSucursal,
+            DocumentoNumero: doc.DocumentoNumero
+          },
+          transaction: t
+        });
+
+        if (!factura) {
+          await t.rollback();
+          return res.status(400).json({
+            success: false,
+            message: `La factura ${doc.DocumentoTipo}-${doc.DocumentoSucursal}-${doc.DocumentoNumero} no existe`
+          });
+        }
+
+        // Verificar el saldo pendiente
+        const saldoPendiente = factura.ImporteTotal - (factura.ImportePagado || 0);
+        if (doc.Importe > saldoPendiente) {
+          await t.rollback();
+          return res.status(400).json({
+            success: false,
+            message: `El importe a pagar (${doc.Importe}) excede el saldo pendiente (${saldoPendiente}) de la factura ${doc.DocumentoTipo}-${doc.DocumentoSucursal}-${doc.DocumentoNumero}`
+          });
+        }
+      }
+    }
+
     // Mapear los documentos de deuda para evitar conflictos de nombres
     const documentosDeudaMapeados = DocumentosDeuda.map(doc => ({
       DocDeudaDocumentoTipo: doc.DocumentoTipo,
@@ -273,6 +305,7 @@ exports.createRecibo = async (req, res) => {
         Observaciones,
         FormasPago,
         ImporteTotal,
+        VendedorCodigo,
         t,
         { Recibo, ReciboValor }
       );
@@ -408,8 +441,17 @@ async function actualizarDocumentosDeuda(documentosDeuda, {DocumentoTipo, Docume
     return;
   }
   console.log("***********Recibo numero***********", DocumentoTipo, DocumentoSucursal, DocumentoNumero);
+  console.log("Documentos de deuda a procesar:", documentosDeuda);
+
   for (const doc of documentosDeuda) {
     const { DocDeudaDocumentoTipo, DocDeudaDocumentoSucursal, DocDeudaDocumentoNumero, DocDeudaImporte } = doc;
+    console.log("Procesando documento:", {
+      tipo: DocDeudaDocumentoTipo,
+      sucursal: DocDeudaDocumentoSucursal,
+      numero: DocDeudaDocumentoNumero,
+      importe: DocDeudaImporte
+    });
+
     // Obtener el documento de deuda según su tipo
     let documentoDeuda;
     
@@ -425,11 +467,18 @@ async function actualizarDocumentosDeuda(documentosDeuda, {DocumentoTipo, Docume
       });
       
       if (!documentoDeuda) {
+        console.error("Factura no encontrada:", {
+          tipo: DocDeudaDocumentoTipo,
+          sucursal: DocDeudaDocumentoSucursal,
+          numero: DocDeudaDocumentoNumero
+        });
         throw new Error(`Factura no encontrada: ${DocDeudaDocumentoTipo}-${DocDeudaDocumentoSucursal}-${DocDeudaDocumentoNumero}`);
       }
       
       // Verificar que el importe no exceda el saldo pendiente
       const saldoPendiente = documentoDeuda.ImporteTotal - (documentoDeuda.ImportePagado || 0);
+      console.log("Saldo pendiente de la factura:", saldoPendiente);
+      
       if (DocDeudaImporte > saldoPendiente) {
         throw new Error(`El importe a pagar (${DocDeudaImporte}) excede el saldo pendiente (${saldoPendiente}) de la factura ${DocDeudaDocumentoTipo}-${DocDeudaDocumentoSucursal}-${DocDeudaDocumentoNumero}`);
       }
@@ -441,6 +490,7 @@ async function actualizarDocumentosDeuda(documentosDeuda, {DocumentoTipo, Docume
         },
         { transaction }
       );
+      console.log("Factura actualizada correctamente");
     } else if (DocDeudaDocumentoTipo === 'NDF' || DocDeudaDocumentoTipo === 'NDA' || DocDeudaDocumentoTipo === 'NDC' || DocDeudaDocumentoTipo === 'NDB') {
       // Es una nota de débito
       documentoDeuda = await NotaDebitoCabeza.findOne({
@@ -453,11 +503,18 @@ async function actualizarDocumentosDeuda(documentosDeuda, {DocumentoTipo, Docume
       });
       
       if (!documentoDeuda) {
+        console.error("Nota de débito no encontrada:", {
+          tipo: DocDeudaDocumentoTipo,
+          sucursal: DocDeudaDocumentoSucursal,
+          numero: DocDeudaDocumentoNumero
+        });
         throw new Error(`Nota de débito no encontrada: ${DocDeudaDocumentoTipo}-${DocDeudaDocumentoSucursal}-${DocDeudaDocumentoNumero}`);
       }
       
       // Verificar que el importe no exceda el saldo pendiente
       const saldoPendiente = documentoDeuda.ImporteTotal - (documentoDeuda.ImportePagado || 0);
+      console.log("Saldo pendiente de la nota de débito:", saldoPendiente);
+      
       if (DocDeudaImporte > saldoPendiente) {
         throw new Error(`El importe a pagar (${DocDeudaImporte}) excede el saldo pendiente (${saldoPendiente}) de la nota de débito ${DocDeudaDocumentoTipo}-${DocDeudaDocumentoSucursal}-${DocDeudaDocumentoNumero}`);
       }
@@ -469,6 +526,7 @@ async function actualizarDocumentosDeuda(documentosDeuda, {DocumentoTipo, Docume
         },
         { transaction }
       );
+      console.log("Nota de débito actualizada correctamente");
     } else {
       throw new Error(`Tipo de documento no soportado: ${DocDeudaDocumentoTipo}`);
     }
@@ -509,6 +567,7 @@ async function actualizarDocumentosDeuda(documentosDeuda, {DocumentoTipo, Docume
           ImportePagado: DocDeudaImporte
         }, { transaction });
       }
+      console.log("Registro en recibositems actualizado correctamente");
     } catch (error) {
       console.error("Error al insertar/actualizar en recibositems:", error);
       throw error;
@@ -608,6 +667,7 @@ async function grabarReciboYFormasPago(
   Observaciones,
   FormasPago,
   ImporteTotal,
+  VendedorCodigo,
   transaction,
   models
 ) {
@@ -619,10 +679,11 @@ async function grabarReciboYFormasPago(
     DocumentoSucursal,
     DocumentoNumero,
     Fecha,
-    Total: 0,
-    ImporteTotal,
     ClienteCodigo: CodigoCliente,
-    Estado: 'A' // Activo
+    Observaciones,
+    ImporteTotal,
+    VendedorCodigo,
+    FechaAnulacion: null
   }, { transaction });
 
   console.log("_____________________formas de pago", FormasPago);

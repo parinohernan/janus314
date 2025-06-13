@@ -249,24 +249,13 @@ exports.crearFactura = async (req, res) => {
     const t = await connection.transaction();
     
     try {
-      // Ajuste de zona horaria: si viene una fecha en facturaData, la ajustamos a GMT-3
-      if (facturaData.Fecha) {
-        // Parseamos la fecha que llega
-        const fechaOriginal = new Date(facturaData.Fecha);
-        
-        // Ajustamos la fecha a GMT-3
-        const fechaLocal = new Date(fechaOriginal);
-        fechaLocal.setHours(fechaLocal.getHours() - 3);
-        
-        // Formateamos la fecha como YYYY-MM-DD
-        facturaData.Fecha = fechaLocal.toISOString().split('T')[0];
-        console.log('Fecha ajustada para zona horaria GMT-3:', facturaData.Fecha);
+      // Usar la fecha exacta que viene del frontend
+      if (!facturaData.Fecha) {
+        // Si no viene fecha, usar la fecha actual
+        facturaData.Fecha = new Date().toISOString().split('T')[0];
+        console.log('Usando fecha actual:', facturaData.Fecha);
       } else {
-        // Si no viene fecha, creamos una fecha actual en GMT-3
-        const ahora = new Date();
-        ahora.setHours(ahora.getHours() - 3);
-        facturaData.Fecha = ahora.toISOString().split('T')[0];
-        console.log('Fecha actual ajustada para zona horaria GMT-3:', facturaData.Fecha);
+        console.log('Usando fecha del frontend:', facturaData.Fecha);
       }
       
       // completo los campos necesarios con los nombres adecuados
