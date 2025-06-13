@@ -17,30 +17,19 @@ const FacturaService = {
    */
   async crearFactura(facturaData, transaction, models, connection = null) {
     // Validar datos de la factura
-    const validacion = FacturaValidator.validarFactura(facturaData);
-    if (!validacion.isValid) {
-      throw new Error(
-        `Datos de factura inválidos: ${validacion.errors.join(", ")}`
-      );
-    }
-
-    // Si no se proporcionan los modelos, usar los modelos globales (para compatibilidad)
-    const { FacturaCabeza, FacturaItem, Articulo, MovimientoStock, NumerosControl, Cliente } = models || {};
-
-    // Si no hay transacción, crear una nueva
-    const shouldCreateTransaction = !transaction;
+    const { FacturaCabeza, FacturaItem, NumerosControl, Articulo, MovimientoStock } = models;
     const t = transaction || await connection.transaction();
+    const shouldCreateTransaction = !transaction;
 
     try {
       // Si no se proporcionó un número, obtener el siguiente disponible
       if (!facturaData.DocumentoNumero) {
-        facturaData.DocumentoNumero =
-          await NumeroControlService.obtenerYActualizarNumero(
-            facturaData.DocumentoTipo,
-            facturaData.DocumentoSucursal,
-            t,
-            NumerosControl
-          );
+        facturaData.DocumentoNumero = await NumeroControlService.obtenerYActualizarNumero(
+          facturaData.DocumentoTipo,
+          facturaData.DocumentoSucursal,
+          t,
+          NumerosControl
+        );
       }
 
       // Corregir el código del vendedor si viene en formato objeto
@@ -59,7 +48,7 @@ const FacturaService = {
       const facturaCabeza = await FacturaCabeza.create(
         {
           ...facturaData,
-          DocumentoNumero: facturaData.DocumentoNumero.toString().padStart(8, "0")
+          DocumentoNumero: facturaData.DocumentoNumero
         },
         { transaction: t }
       );
@@ -69,7 +58,7 @@ const FacturaService = {
         facturaData.Items,
         facturaData.DocumentoTipo,
         facturaData.DocumentoSucursal,
-        facturaData.DocumentoNumero.toString().padStart(8, "0"),
+        facturaData.DocumentoNumero,
         t,
         FacturaItem
       );
@@ -91,11 +80,10 @@ const FacturaService = {
       }
 
       return {
-        ...facturaCabeza.get({ plain: true }),
-        Items: facturaItems.map((item) => item.get({ plain: true })),
+        factura: facturaCabeza,
+        items: facturaItems
       };
     } catch (error) {
-      // Solo hacer rollback si creamos la transacción aquí
       if (shouldCreateTransaction) {
         await t.rollback();
       }

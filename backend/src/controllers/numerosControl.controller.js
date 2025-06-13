@@ -260,11 +260,17 @@ exports.actualizarNumeroDirecto = async (tipo, sucursal, importe, transaction, m
       throw new Error('Número de control no encontrado');
     }
 
+    // Obtener el número actual antes de incrementarlo
+    const numeroActual = numeroControl.NumeroProximo;
+
     // Incrementar el número próximo y acumular el importe
     await numeroControl.update({
-      NumeroProximo: numeroControl.NumeroProximo + 1,
+      NumeroProximo: numeroActual + 1,
       ImporteAcumulado: parseFloat(numeroControl.ImporteAcumulado) + parseFloat(importe || 0)
     }, { transaction });
+
+    // Devolver el número actual (sin incrementar)
+    return numeroActual.toString().padStart(8, '0');
 
   } catch (error) {
     console.error('Error al actualizar número de control:', error);

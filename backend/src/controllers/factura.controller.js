@@ -51,6 +51,15 @@ exports.listarFacturas = async (req, res) => {
     // Consulta con join a cliente
     const facturas = await FacturaCabeza.findAndCountAll({
       where: whereClause,
+      attributes: [
+        'DocumentoTipo',
+        'DocumentoSucursal',
+        'DocumentoNumero',
+        'Fecha',
+        'ImporteTotal',
+        'FechaAnulacion',
+        'afip_cae'
+      ],
       include: [
         {
           model: Cliente,
