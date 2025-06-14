@@ -98,3 +98,31 @@ export const formatCurrency = (amount: number): string => {
 		minimumFractionDigits: 2
 	}).format(amount);
 }
+
+/**
+ * Formatea una fecha y hora en formato legible
+ * @param dateString Fecha en formato ISO o string de fecha
+ * @returns Fecha y hora formateada en formato DD-MM-YYYY HH:mm
+ */
+export function formatDateTime(dateString: string): string {
+	if (!dateString) return '';
+	console.log("dateString", dateString);
+	try {
+		// Crear una fecha
+		const date = new Date(dateString);
+		
+		// Formatear fecha
+		const day = date.getDate().toString().padStart(2, '0');
+		const month = (date.getMonth() + 1).toString().padStart(2, '0');
+		const year = date.getFullYear();
+		
+		// Formatear hora
+		const hours = date.getHours().toString().padStart(2, '0');
+		const minutes = date.getMinutes().toString().padStart(2, '0');
+		
+		return `${day}-${month}-${year} ${hours}:${minutes}`;
+	} catch (error) {
+		console.error('Error al formatear fecha y hora:', error);
+		return dateString;
+	}
+}

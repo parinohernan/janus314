@@ -62,6 +62,34 @@ exports.listarPreventas = async (req, res) => {
           attributes: ["Codigo", "Descripcion"],
         },
       ],
+      attributes: [
+        "DocumentoTipo",
+        "DocumentoSucursal",
+        "DocumentoNumero",
+        "Fecha",
+        "ClienteCodigo",
+        "VendedorCodigo",
+        "PagoTipo",
+        "ImporteBruto",
+        "PorcentajeBonificacion",
+        "ImporteBonificado",
+        "ImporteNeto",
+        "ImporteAdicional",
+        "ImporteIva1",
+        "ImporteIva2",
+        "ImporteTotal",
+        "ImportePagado",
+        "PorcentajeIva1",
+        "PorcentajeIva2",
+        "ListaNumero",
+        "FechaAnulacion",
+        "Observacion",
+        "FacturaTipo",
+        "FacturaSucursal",
+        "FacturaNumero",
+        "FechaEntrega",
+        "FechaHoraEnvio"
+      ],
       order: [
         ["Fecha", "DESC"],
         ["DocumentoSucursal", "DESC"],
@@ -75,10 +103,26 @@ exports.listarPreventas = async (req, res) => {
     const totalItems = preventas.count;
     const totalPages = Math.ceil(totalItems / limit);
 
+    // Formatear las fechas en los resultados
+    const preventasFormateadas = preventas.rows.map(preventa => {
+      const preventaJson = preventa.toJSON();
+      if (preventaJson.Fecha) {
+        const fecha = new Date(preventaJson.Fecha);
+        fecha.setHours(fecha.getHours() + 3); // Ajustar a zona horaria local
+        preventaJson.Fecha = fecha.toISOString();
+      }
+      if (preventaJson.FechaHoraEnvio) {
+        const fechaEnvio = new Date(preventaJson.FechaHoraEnvio);
+        fechaEnvio.setHours(fechaEnvio.getHours() + 3); // Ajustar a zona horaria local
+        preventaJson.FechaHoraEnvio = fechaEnvio.toISOString();
+      }
+      return preventaJson;
+    });
+
     res.status(200).json({
       success: true,
       message: "Preventas obtenidas correctamente",
-      data: preventas.rows,
+      data: preventasFormateadas,
       meta: {
         totalItems,
         totalPages,
@@ -189,7 +233,7 @@ exports.obtenerPreventa = async (req, res) => {
 exports.crearPreventa = async (req, res) => {
   // Iniciar transacción
   console.log("crearPreventa", req.body);
-  const { PreventaCabeza, PreventaItem } = req.models;
+  const { PreventaCabeza, PreventaItem, Cliente, Vendedor } = req.models;
   const t = await req.db.transaction();
 
   try {
@@ -210,36 +254,35 @@ exports.crearPreventa = async (req, res) => {
       });
     }
 
-    // Si no viene número, obtener el siguiente
-    if (!preventaData.DocumentoNumero) {
-      preventaData.PagoTipo = "CC";
-      // preventaData.ListaPrecio = preventaData.PrecioLista;
-      try {
-        // Usar el método actualizarNumeroDirecto con los parámetros correctos
-        const resultado = await numerosControlController.actualizarNumeroDirecto(
-          preventaData.DocumentoTipo,
-          preventaData.DocumentoSucursal,
-          preventaData.ImporteTotal || 0,
-          t,
-          req.models
-        );
-        preventaData.DocumentoNumero = resultado.toString().padStart(8, "0");
-      } catch (error) {
-        await t.rollback();
-        return res.status(500).json({
-          success: false,
-          message: "Error al obtener número de preventa",
-          error: error.message,
-        });
-      }
+    // Obtener nuevo número de control
+    preventaData.PagoTipo = "CC";
+    try {
+      const numeroInfo = await numerosControlController.actualizarNumeroDirecto(
+        preventaData.DocumentoTipo,
+        preventaData.DocumentoSucursal,
+        preventaData.ImporteTotal || 0,
+        t,
+        req.models
+      );
+      preventaData.DocumentoNumero = numeroInfo.toString().padStart(8, "0");
+    } catch (error) {
+      await t.rollback();
+      return res.status(500).json({
+        success: false,
+        message: "Error al obtener número de preventa",
+        error: error.message,
+      });
     }
 
     // Establecer fecha si no viene
     if (!preventaData.Fecha) {
-      preventaData.Fecha = new Date();
+      const hoy = new Date();
+      hoy.setHours(hoy.getHours() - 3);
+      preventaData.Fecha = hoy;
     }
     preventaData.ListaNumero = preventaData.ListaPrecio;
     console.log("preventaData", preventaData);
+
     // Crear preventa (cabecera)
     const preventaCreada = await PreventaCabeza.create(preventaData, {
       transaction: t,
@@ -287,7 +330,9 @@ exports.crearPreventa = async (req, res) => {
     });
   } catch (error) {
     // Aseguramos el rollback en caso de cualquier error
-    await t.rollback();
+    if (t && !t.finished) {
+      await t.rollback();
+    }
     console.error("Error al crear preventa:", error);
     res.status(500).json({
       success: false,

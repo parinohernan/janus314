@@ -154,11 +154,13 @@ const PreventaCabeza = sequelize.define(
 PreventaCabeza.belongsTo(Cliente, {
   foreignKey: "ClienteCodigo",
   targetKey: "Codigo",
+  as: "Cliente"
 });
 
 PreventaCabeza.belongsTo(Vendedor, {
   foreignKey: "VendedorCodigo",
   targetKey: "Codigo",
+  as: "Vendedor"
 });
 
 module.exports = PreventaCabeza;

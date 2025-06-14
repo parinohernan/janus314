@@ -690,6 +690,20 @@
 				{/if}
 			</div>
 		</div>
+		
+		<!-- Campo de observación -->
+		<div class="grid grid-cols-1 gap-4 mb-4">
+			<div>
+				<label for="observacion" class="block text-sm font-medium text-gray-700 mb-1">Observación</label>
+				<textarea
+					id="observacion"
+					bind:value={observacion}
+					rows="3"
+					class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+					placeholder="Ingrese una observación para la preventa..."
+				></textarea>
+			</div>
+		</div>
 	</div>
 	
 	<!-- Artículos -->

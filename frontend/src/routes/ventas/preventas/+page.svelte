@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-	import { formatDate } from '$lib/utils/dateUtils';
+	import { formatDate, formatDateTime } from '$lib/utils/dateUtils';
 	import { PreventaService } from '$lib/services/PreventaService';
 	import type { PreventaCabeza, PreventaFiltros, PreventaItem, Preventa } from '$lib/types';
 	import { goto } from '$app/navigation';
@@ -63,6 +63,7 @@
 			totalItems = resultado.meta.totalItems;
 			totalPages = resultado.meta.totalPages;
 			// Limpiar selecciones al cambiar la página
+			console.log("preventas", preventas);
 			selectedPreventas = [];
 			selectedAll = false;
 		} catch (err) {
@@ -687,7 +688,7 @@
 								{preventa.DocumentoSucursal}-{preventa.DocumentoNumero}
 							</td>
 							<td class="px-3 py-4 whitespace-nowrap">
-								{formatDate(preventa.Fecha)}
+								{formatDateTime(preventa.Fecha)}
 							</td>
 							<td class="px-3 py-4 whitespace-nowrap">
 								{preventa.Cliente?.Descripcion || 'No especificado'}
