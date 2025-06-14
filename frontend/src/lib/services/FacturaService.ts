@@ -159,7 +159,7 @@ export class FacturaService {
 			if (!responseData.success || !responseData.data) {
 				throw new Error('Respuesta del servidor inválida');
 			}
-
+			console.log("_____________responseData", responseData);
 			return {
 				success: true,
 				data: responseData.data

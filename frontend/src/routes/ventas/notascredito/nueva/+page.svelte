@@ -198,7 +198,6 @@
         factura.numero
       );
       
-      
       if (resultado.success && resultado.data) {
         const { data } = resultado;
         
@@ -209,19 +208,18 @@
           numero: factura.numero
         };
         
-        // Copiar items de la factura
+        // Copiar items de la factura con la estructura correcta
         notaCredito.Items = data.items.map((item: any) => ({
-          CodigoArticulo: item.CodigoArticulo,
-          Descripcion: item.Articulo?.Descripcion || item.Descripcion,
-          Cantidad: item.Cantidad,
-          PrecioUnitario: item.PrecioUnitario,
-          PorcentajeBonificacion: item.PorcentajeBonificado || 0,
-          PorcentajeIva: item.PorcentajeIVA1,
-          PrecioUnitarioConIva: item.PrecioUnitario * (1 + item.PorcentajeIVA1 / 100),
-          Total: item.Cantidad * item.PrecioUnitario,
-          TotalConIva: item.Cantidad * item.PrecioUnitario * (1 + item.PorcentajeIVA1 / 100),
+          CodigoArticulo: item.CodigoArticulo || item.codigoArticulo,
+          Descripcion: item.Descripcion || item.descripcion || item.Articulo?.Descripcion,
+          Cantidad: item.Cantidad || item.cantidad,
+          PrecioUnitario: item.PrecioUnitario || item.precioUnitario,
+          PorcentajeBonificacion: item.PorcentajeBonificado || item.porcentajeBonificado || 0,
+          PorcentajeIva: item.PorcentajeIVA1 || item.porcentajeIva1 || 21,
+          PrecioUnitarioConIva: (item.PrecioUnitario || item.precioUnitario) * (1 + (item.PorcentajeIVA1 || item.porcentajeIva1 || 21) / 100),
+          Total: (item.Cantidad || item.cantidad) * (item.PrecioUnitario || item.precioUnitario),
+          TotalConIva: (item.Cantidad || item.cantidad) * (item.PrecioUnitario || item.precioUnitario) * (1 + (item.PorcentajeIVA1 || item.porcentajeIva1 || 21) / 100),
           enEdicion: false
-
         }));
         
         // Actualizar búsqueda y limpiar opciones

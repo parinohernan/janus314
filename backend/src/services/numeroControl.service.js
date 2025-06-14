@@ -17,7 +17,7 @@ const NumeroControlService = {
         throw new Error("Debe proporcionar el modelo NumerosControl de la empresa específica");
       }
       
-      // Obtener registro actual usando el modelo dinámico de la empresa
+      // Obtener registro actual usando el modelo dinámico de la empresa con bloqueo
       const numeroControl = await NumeroControl.findOne({
         where: {
           Codigo: tipo,
@@ -35,13 +35,16 @@ const NumeroControlService = {
 
       // Obtener el número actual
       const numeroActual = numeroControl.NumeroProximo;
-
-      // Actualizar para el próximo
-      await numeroControl.update(
+      // Actualizar para el próximo usando una consulta SQL directa para asegurar atomicidad
+      await NumeroControl.sequelize.query(
+        `UPDATE t_numeroscontrol 
+         SET NumeroProximo = NumeroProximo + 1 
+         WHERE Codigo = ? AND Sucursal = ?`,
         {
-          NumeroProximo: numeroActual + 1,
-        },
-        { transaction }
+          replacements: [tipo, sucursal],
+          type: NumeroControl.sequelize.QueryTypes.UPDATE,
+          transaction
+        }
       );
 
       // Formatear el número para que tenga 8 dígitos

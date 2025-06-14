@@ -1,5 +1,6 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/database");
+const Articulo = require("./articulo.model");
 
 const FacturaItem = sequelize.define(
   "FacturaItem",
@@ -23,12 +24,16 @@ const FacturaItem = sequelize.define(
       defaultValue: "",
     },
     CodigoArticulo: {
-      type: DataTypes.STRING(13),
-      allowNull: true,
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      references: {
+        model: Articulo,
+        key: "Codigo"
+      }
     },
     Cantidad: {
       type: DataTypes.DOUBLE(15, 2),
-      allowNull: true,
+      allowNull: false,
     },
     ImporteCosto: {
       type: DataTypes.DOUBLE(15, 3),
@@ -52,7 +57,7 @@ const FacturaItem = sequelize.define(
     },
     PrecioUnitario: {
       type: DataTypes.DOUBLE(15, 2),
-      allowNull: true,
+      allowNull: false,
     },
     DocumentoLiqTipo: {
       type: DataTypes.STRING(3),
@@ -85,5 +90,11 @@ const FacturaItem = sequelize.define(
     ],
   }
 );
+
+// Definir la relación con Articulo
+FacturaItem.belongsTo(Articulo, {
+  foreignKey: "CodigoArticulo",
+  targetKey: "Codigo"
+});
 
 module.exports = FacturaItem;

@@ -20,7 +20,7 @@ const FacturaService = {
     const { FacturaCabeza, FacturaItem, NumerosControl, Articulo, MovimientoStock } = models;
     const t = transaction || await connection.transaction();
     const shouldCreateTransaction = !transaction;
-
+    // console.log("facturaData", facturaData);
     try {
       // Si no se proporcionó un número, obtener el siguiente disponible
       if (!facturaData.DocumentoNumero) {
@@ -54,6 +54,7 @@ const FacturaService = {
       );
 
       // Crear items de factura con el número formateado
+      console.log("facturaData.Items", facturaData.Items);
       const facturaItems = await this.crearItemsFactura(
         facturaData.Items,
         facturaData.DocumentoTipo,
@@ -118,22 +119,37 @@ const FacturaService = {
    * @param {Object} FacturaItem - Modelo a utilizar (dinámico)
    * @returns {Array} - Items de factura creados
    */
-  async crearItemsFactura(items, tipo, sucursal, numero, transaction, FacturaItem) {
+  async crearItemsFactura(
+    items,
+    documentoTipo,
+    documentoSucursal,
+    documentoNumero,
+    transaction,
+    FacturaItem
+  ) {
     try {
-      const itemsToCreate = items.map(item => ({
-        DocumentoTipo: tipo,
-        DocumentoSucursal: sucursal,
-        DocumentoNumero: numero,
-        CodigoArticulo: item.CodigoArticulo,
-        Cantidad: item.Cantidad,
-        PrecioLista: item.PrecioLista || item.PrecioUnitario,
-        PorcentajeBonificado: item.PorcentajeBonificado || 0,
-        ImporteBonificado: item.ImporteBonificado || 0,
-        PrecioUnitario: item.PrecioUnitario,
-        ImporteCosto: item.ImporteCosto || 0
-      }));
+      // Preparar items con sus claves primarias y asegurar que ArticuloCodigo no sea nulo
+      const itemsConPK = items.map((item) => {
+        if (!item.ArticuloCodigo) {
+          throw new Error(`El artículo ${item.Descripcion || 'sin descripción'} no tiene código asignado`);
+        }
+        
+        return {
+          DocumentoTipo: documentoTipo,
+          DocumentoSucursal: documentoSucursal,
+          DocumentoNumero: documentoNumero,
+          CodigoArticulo: item.ArticuloCodigo,
+          Cantidad: item.Cantidad || 0,
+          PrecioLista: item.PrecioLista || item.PrecioUnitario || 0,
+          PorcentajeBonificado: item.PorcentajeBonificado || 0,
+          ImporteBonificado: item.ImporteBonificado || 0,
+          PrecioUnitario: item.PrecioUnitario || 0,
+          ImporteCosto: item.ImporteCosto || 0
+        };
+      });
 
-      return await FacturaItem.bulkCreate(itemsToCreate, { transaction });
+      // Crear todos los items
+      return await FacturaItem.bulkCreate(itemsConPK, { transaction });
     } catch (error) {
       console.error("Error al crear items de factura:", error);
       throw error;

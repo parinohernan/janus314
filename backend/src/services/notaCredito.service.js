@@ -4,6 +4,7 @@ const NotaCreditoValidator = require("./notaCreditoValidator.service");
 const StockService = require("./stock.service");
 const NumeroControlService = require("./numeroControl.service");
 const TransactionService = require("./transaction.service");
+const Cliente = require("../models/cliente.model");
 
 /**
  * Servicio para gestionar las operaciones de notas de crédito
@@ -27,20 +28,20 @@ const NotaCreditoService = {
     // Definir los modelos para esta conexión
     const NotaCreditoCabezaEmpresa = dbConnection.model('NotaCreditoCabeza');
     const NotaCreditoItemEmpresa = dbConnection.model('NotaCreditoItem');
+    const ClienteEmpresa = dbConnection.model('Cliente');
+    const NumerosControlEmpresa = dbConnection.model('NumerosControl');
 
     // Ejecutar todo el proceso en una transacción
     return await TransactionService.ejecutarEnTransaccion(
       async (transaction) => {
-        // Si no se proporcionó un número, obtener el siguiente disponible
-        if (!notaCreditoData.DocumentoNumero) {
-          notaCreditoData.DocumentoNumero =
-            await NumeroControlService.obtenerYActualizarNumero(
-              notaCreditoData.DocumentoTipo,
-              notaCreditoData.DocumentoSucursal,
-              transaction,
-              dbConnection
-            );
-        }
+        // Siempre obtener un nuevo número de control
+        notaCreditoData.DocumentoNumero =
+          await NumeroControlService.obtenerYActualizarNumero(
+            notaCreditoData.DocumentoTipo,
+            notaCreditoData.DocumentoSucursal,
+            transaction,
+            NumerosControlEmpresa
+          );
 
         // Corregir campos si es necesario
         if (
@@ -52,6 +53,30 @@ const NotaCreditoService = {
         } else {
           notaCreditoData.CodigoVendedor =
             notaCreditoData.VendedorCodigo || "1";
+        }
+
+        // Si el tipo de pago es CC, actualizar el saldo del cliente
+        if (notaCreditoData.FormaPagoCodigo === "CC") {
+          // Buscar el cliente
+          const cliente = await ClienteEmpresa.findOne({
+            where: { Codigo: notaCreditoData.CodigoCliente },
+            transaction
+          });
+
+          if (!cliente) {
+            throw new Error("Cliente no encontrado");
+          }
+
+          // Actualizar el saldo del cliente (restar el importe total)
+          await ClienteEmpresa.update(
+            { 
+              ImporteDeuda: dbConnection.literal(`COALESCE(ImporteDeuda, 0) - ${parseFloat(notaCreditoData.ImporteTotal) || 0}`)
+            },
+            { 
+              where: { Codigo: notaCreditoData.CodigoCliente },
+              transaction 
+            }
+          );
         }
 
         // Crear cabecera de nota de crédito
@@ -80,7 +105,7 @@ const NotaCreditoService = {
             notaCreditoData.DocumentoNumero,
             notaCreditoData.Fecha,
             transaction,
-            dbConnection
+            { Articulo: dbConnection.model('Articulo') }
           );
         }
 

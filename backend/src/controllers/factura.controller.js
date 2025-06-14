@@ -117,18 +117,15 @@ exports.obtenerFactura = async (req, res) => {
     console.log("Parámetros de búsqueda:", {
       tipo,
       sucursal,
-      numero,
-      tipoFormateado: tipo.padStart(3, ' '),
-      sucursalFormateado: sucursal.padStart(4, '0'),
-      numeroFormateado: numero.padStart(8, '0')
+      numero
     });
 
     // Obtener encabezado
     const factura = await FacturaCabeza.findOne({
       where: {
-        DocumentoTipo: tipo.padStart(3, ' '),
-        DocumentoSucursal: sucursal.padStart(4, '0'),
-        DocumentoNumero: numero.padStart(8, '0'),
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero
       },
       include: [
         {
@@ -138,100 +135,81 @@ exports.obtenerFactura = async (req, res) => {
       ],
     });
 
-    console.log("Resultado de la consulta:", factura ? "Factura encontrada" : "Factura no encontrada");
-
     if (!factura) {
-      // Intentar buscar la factura sin el join para ver si existe
-      const facturaSimple = await FacturaCabeza.findOne({
-        where: {
-          DocumentoTipo: tipo.padStart(3, ' '),
-          DocumentoSucursal: sucursal.padStart(4, '0'),
-          DocumentoNumero: numero.padStart(8, '0'),
-        },
-        raw: true
-      });
-
-      console.log("Búsqueda simple:", facturaSimple ? "Factura encontrada" : "Factura no encontrada");
-
       return res.status(404).json({
         success: false,
         message: "Factura no encontrada",
       });
     }
 
-    // Convertir factura a un objeto plano para poder modificarlo
+    // Convertir factura a un objeto plano
     const facturaPlana = factura.toJSON();
     
-    // Ajustar la fecha para que sea consistente (formato YYYY-MM-DD)
+    // Ajustar la fecha para que sea consistente
     if (facturaPlana.Fecha) {
       const fechaObj = new Date(facturaPlana.Fecha);
       facturaPlana.FechaFormateada = fechaObj.toISOString().split('T')[0];
-      console.log('Fecha original:', facturaPlana.Fecha);
-      console.log('Fecha formateada:', facturaPlana.FechaFormateada);
     }
 
-    // Obtener items sin usar la asociación
+    // Obtener items con la información del artículo
     const items = await FacturaItem.findAll({
       where: {
-        DocumentoTipo: tipo.padStart(3, ' '),
-        DocumentoSucursal: sucursal.padStart(4, '0'),
-        DocumentoNumero: numero.padStart(8, '0'),
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero
       },
       attributes: [
-        'DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 
-        'CodigoArticulo', 'Cantidad', 'ImporteCosto', 'PrecioLista', 
-        'PorcentajeBonificado', 'ImporteBonificado', 'PrecioUnitario', 
-        'DocumentoLiqTipo', 'DocumentoLiqSucursal', 'DocumentoLiqNumero', 
-        'LiqFecha', 'es_merma'
+        'DocumentoTipo',
+        'DocumentoSucursal',
+        'DocumentoNumero',
+        'CodigoArticulo',
+        'Cantidad',
+        'PrecioLista',
+        'PorcentajeBonificado',
+        'ImporteBonificado',
+        'PrecioUnitario',
+        'ImporteCosto'
       ],
-      raw: true,
+      include: [{
+        model: Articulo,
+        required: false,
+        attributes: ['Codigo', 'Descripcion', 'PorcentajeIVA1', 'PorcentajeIVA2']
+      }]
     });
 
-    console.log("Items encontrados:", items.length);
+    console.log("Items encontrados:", items);
 
-    // Obtener los códigos de artículos para buscarlos
-    const codigosArticulos = items.map((item) => item.CodigoArticulo);
-
-    // Buscar los artículos correspondientes
-    const articulos = await Articulo.findAll({
-      where: {
-        Codigo: codigosArticulos,
-      },
-      raw: true,
-    });
-
-    console.log("Artículos encontrados:", articulos.length);
-
-    // Crear un mapa de artículos por código para facilitar la búsqueda
-    const articulosPorCodigo = {};
-    articulos.forEach((articulo) => {
-      articulosPorCodigo[articulo.Codigo] = articulo;
-    });
-
-    // Combinar los items con la información de artículos
-    const itemsConArticulos = items.map((item) => {
-      const articulo = articulosPorCodigo[item.CodigoArticulo] || null;
+    // Mapear los items para incluir la información necesaria
+    const itemsMapeados = items.map(item => {
+      const itemData = item.toJSON();
       return {
-        ...item,
-        PorcentajeIVA1: articulo?.PorcentajeIVA1 || 0,
-        PorcentajeIVA2: articulo?.PorcentajeIVA2 || 0,
-        Descripcion: articulo?.Descripcion || 'Artículo no encontrado',
+        CodigoArticulo: itemData.CodigoArticulo || '',
+        Descripcion: itemData.Articulo?.Descripcion || 'Artículo no encontrado',
+        Cantidad: itemData.Cantidad || 0,
+        PrecioUnitario: itemData.PrecioUnitario || 0,
+        PorcentajeBonificado: itemData.PorcentajeBonificado || 0,
+        PorcentajeIva: itemData.Articulo?.PorcentajeIVA1 || 21,
+        PrecioUnitarioConIva: (itemData.PrecioUnitario || 0) * (1 + (itemData.Articulo?.PorcentajeIVA1 || 21) / 100),
+        Total: (itemData.Cantidad || 0) * (itemData.PrecioUnitario || 0),
+        TotalConIva: (itemData.Cantidad || 0) * (itemData.PrecioUnitario || 0) * (1 + (itemData.Articulo?.PorcentajeIVA1 || 21) / 100)
       };
     });
+
+    console.log("Items mapeados:", itemsMapeados);
 
     res.json({
       success: true,
       data: {
         encabezado: facturaPlana,
-        items: itemsConArticulos,
-      },
+        items: itemsMapeados
+      }
     });
   } catch (error) {
     console.error("Error al obtener detalle de factura:", error);
     res.status(500).json({
       success: false,
       message: "Error al obtener detalle de factura",
-      error: error.message,
+      error: error.message
     });
   }
 };
