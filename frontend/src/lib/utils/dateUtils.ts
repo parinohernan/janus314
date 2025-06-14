@@ -106,7 +106,7 @@ export const formatCurrency = (amount: number): string => {
  */
 export function formatDateTime(dateString: string): string {
 	if (!dateString) return '';
-	console.log("dateString", dateString);
+	// console.log("dateString", dateString);
 	try {
 		// Crear una fecha
 		const date = new Date(dateString);
