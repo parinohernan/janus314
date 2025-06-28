@@ -3,6 +3,8 @@ const PreventaItem = require("../models/preventaItem.model");
 const Articulo = require("../models/articulo.model");
 const Cliente = require("../models/cliente.model");
 const Vendedor = require("../models/vendedor.model");
+const Proveedor = require("../models/proveedor.model");
+const Rubro = require("../models/rubro.model");
 const sequelize = require("../config/database");
 const { Op } = require("sequelize");
 const numerosControlController = require("./numerosControl.controller");
@@ -608,4 +610,211 @@ exports.actualizarPreventa = async (req, res) => {
       error: error.message,
     });
   }
+};
+
+// Nuevo método para obtener resumen de preventas seleccionadas
+exports.obtenerResumenPreventas = async (req, res) => {
+    try {
+        const { preventas, ordenarPor = 'codigo' } = req.body; // Array de objetos con {numero, sucursal} y opción de ordenamiento
+        
+        console.log('🔍 Datos recibidos en el backend:', req.body);
+        console.log('🔍 Array de preventas:', preventas);
+        console.log('🔍 Ordenar por:', ordenarPor);
+        
+        if (!preventas || !Array.isArray(preventas) || preventas.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Se requiere un array de preventas con número y sucursal'
+            });
+        }
+
+        // Usar los modelos dinámicos inicializados para esta empresa
+        const { PreventaItem, Articulo, PreventaCabeza, Proveedor, Rubro } = req.models;
+        
+        console.log('🔍 Modelos disponibles:', Object.keys(req.models));
+        
+        // Primero, vamos a ver qué preventas existen en la base de datos
+        const preventasExistentes = await PreventaCabeza.findAll({
+            attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero'],
+            limit: 10
+        });
+        
+        console.log('🔍 Preventas existentes en la BD (primeras 10):', preventasExistentes.map(p => `${p.DocumentoTipo}-${p.DocumentoSucursal}-${p.DocumentoNumero}`));
+        
+        // Array para almacenar todos los ítems de las preventas
+        let todosLosItems = [];
+        let totalPreventas = 0;
+        let totalArticulos = 0;
+
+        // Procesar cada preventa
+        for (const preventa of preventas) {
+            const { numero, sucursal } = preventa;
+            
+            console.log(`🔍 Buscando preventa: ${sucursal}-${numero}`);
+            
+            // Primero, verificar si la preventa existe en la tabla cabeza
+            const preventaCabeza = await PreventaCabeza.findOne({
+                where: {
+                    DocumentoNumero: numero,
+                    DocumentoSucursal: sucursal
+                },
+                attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero']
+            });
+            
+            if (preventaCabeza) {
+                console.log(`✅ Preventa encontrada en cabeza: ${preventaCabeza.DocumentoTipo}-${preventaCabeza.DocumentoSucursal}-${preventaCabeza.DocumentoNumero}`);
+                
+                // Ahora buscar los ítems usando el tipo correcto con relaciones
+                const items = await PreventaItem.findAll({
+                    where: {
+                        DocumentoTipo: preventaCabeza.DocumentoTipo,
+                        DocumentoSucursal: preventaCabeza.DocumentoSucursal,
+                        DocumentoNumero: preventaCabeza.DocumentoNumero
+                    },
+                    include: [
+                        {
+                            model: Articulo,
+                            attributes: ['Codigo', 'Descripcion', 'RubroCodigo'],
+                            include: [
+                                {
+                                    model: Proveedor,
+                                    attributes: ['Codigo', 'Descripcion'],
+                                    as: 'Proveedor'
+                                },
+                                {
+                                    model: Rubro,
+                                    attributes: ['Codigo', 'Descripcion'],
+                                    as: 'Rubro'
+                                }
+                            ]
+                        }
+                    ]
+                });
+
+                console.log(`🔍 Items encontrados para ${sucursal}-${numero}:`, items.length);
+
+                if (items.length > 0) {
+                    totalPreventas++;
+                    totalArticulos += items.length;
+                    
+                    // Convertir a formato plano para procesamiento
+                    const itemsPlano = items.map(item => ({
+                        CodigoArticulo: item.CodigoArticulo,
+                        Cantidad: item.Cantidad,
+                        Descripcion: item.Articulo?.Descripcion || 'Sin descripción',
+                        ProveedorCodigo: item.Articulo?.Proveedor?.Codigo || '',
+                        ProveedorDescripcion: item.Articulo?.Proveedor?.Descripcion || 'Sin proveedor',
+                        RubroCodigo: item.Articulo?.Rubro?.Codigo || '',
+                        RubroDescripcion: item.Articulo?.Rubro?.Descripcion || 'Sin rubro',
+                        DocumentoTipo: preventaCabeza.DocumentoTipo,
+                        DocumentoSucursal: preventaCabeza.DocumentoSucursal,
+                        DocumentoNumero: preventaCabeza.DocumentoNumero
+                    }));
+                    
+                    console.log(`🔍 Items plano para ${sucursal}-${numero}:`, itemsPlano);
+                    
+                    todosLosItems.push(...itemsPlano);
+                } else {
+                    console.log(`⚠️ No se encontraron ítems para la preventa ${sucursal}-${numero}`);
+                }
+            } else {
+                console.log(`❌ Preventa no encontrada en cabeza: ${sucursal}-${numero}`);
+            }
+        }
+
+        console.log('🔍 Total de items encontrados:', todosLosItems.length);
+
+        // Agrupar ítems por código y sumar cantidades
+        const itemsAgrupados = {};
+        const preventasPorArticulo = {}; // Contador de preventas por artículo
+        
+        todosLosItems.forEach(item => {
+            const codigo = item.CodigoArticulo;
+            if (!itemsAgrupados[codigo]) {
+                itemsAgrupados[codigo] = {
+                    codigo: codigo,
+                    descripcion: item.Descripcion,
+                    proveedorCodigo: item.ProveedorCodigo,
+                    proveedorDescripcion: item.ProveedorDescripcion,
+                    rubroCodigo: item.RubroCodigo,
+                    rubroDescripcion: item.RubroDescripcion,
+                    cantidad: 0,
+                    preventas: new Set() // Usar Set para evitar duplicados
+                };
+            }
+            itemsAgrupados[codigo].cantidad += parseFloat(item.Cantidad) || 0;
+            
+            // Agregar la preventa actual al Set (se usará para contar preventas únicas)
+            const preventaKey = `${item.DocumentoTipo}-${item.DocumentoSucursal}-${item.DocumentoNumero}`;
+            itemsAgrupados[codigo].preventas.add(preventaKey);
+        });
+
+        // Convertir a array y ordenar según el criterio especificado
+        let itemsResumen = Object.values(itemsAgrupados)
+            .map(item => ({
+                codigo: item.codigo,
+                descripcion: item.descripcion,
+                proveedorCodigo: item.proveedorCodigo,
+                proveedorDescripcion: item.proveedorDescripcion,
+                rubroCodigo: item.rubroCodigo,
+                rubroDescripcion: item.rubroDescripcion,
+                cantidad: item.cantidad,
+                preventas: item.preventas.size // Contar preventas únicas
+            }));
+
+        // Aplicar ordenamiento según el criterio
+        switch (ordenarPor) {
+            case 'proveedor':
+                itemsResumen.sort((a, b) => {
+                    const proveedorA = a.proveedorDescripcion || 'Sin proveedor';
+                    const proveedorB = b.proveedorDescripcion || 'Sin proveedor';
+                    return proveedorA.localeCompare(proveedorB);
+                });
+                break;
+            case 'rubro':
+                itemsResumen.sort((a, b) => {
+                    const rubroA = a.rubroDescripcion || 'Sin rubro';
+                    const rubroB = b.rubroDescripcion || 'Sin rubro';
+                    return rubroA.localeCompare(rubroB);
+                });
+                break;
+            case 'descripcion':
+                itemsResumen.sort((a, b) => a.descripcion.localeCompare(b.descripcion));
+                break;
+            case 'cantidad':
+                itemsResumen.sort((a, b) => b.cantidad - a.cantidad); // Mayor cantidad primero
+                break;
+            default: // 'codigo' por defecto
+                itemsResumen.sort((a, b) => a.codigo.localeCompare(b.codigo));
+                break;
+        }
+
+        // Calcular total de cantidad
+        const totalCantidad = itemsResumen.reduce((sum, item) => sum + item.cantidad, 0);
+
+        const resumen = {
+            encabezado: {
+                cantidadPreventas: totalPreventas,
+                cantidadArticulos: totalArticulos,
+                totalCantidad: totalCantidad,
+                ordenadoPor: ordenarPor
+            },
+            items: itemsResumen
+        };
+
+        console.log('📊 Resumen final:', resumen);
+
+        res.json({
+            success: true,
+            data: resumen
+        });
+
+    } catch (error) {
+        console.error('Error al obtener resumen de preventas:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error interno del servidor',
+            error: error.message
+        });
+    }
 };

@@ -25,27 +25,31 @@
 	let preventasDetalle: Preventa[] = [];
 	let loadingInforme = false;
 	
+	// Variable para ordenamiento del resumen
+	let ordenamientoResumen: 'codigo' | 'descripcion' | 'proveedor' | 'rubro' | 'cantidad' = 'codigo';
+	
 	// Paginación
 	let currentPage = 1;
 	let totalPages = 0;
-	let itemsPerPage = 10;
+	let itemsPerPage = 100;
 	let totalItems = 0;
 	
 	// Filtros
 	let filtros: PreventaFiltros = {
 		cliente: '',
-		tipo: '',
 		vendedor: '',
 		fechaDesde: '',
 		fechaHasta: '',
 		pendientes: true
 	};
-	let filtrosVisibles = false;
 	let resumenVisible = false;
 	
 	// Variables para almacenar el cliente y vendedor seleccionados
 	let clienteSeleccionado: any = null;
 	let vendedorSeleccionado: any = null;
+	
+	// Variable para controlar la carga asíncrona del selector de vendedor
+	let vendedorSelectorReady = false;
 	
 	// Cargar preventas al montar el componente
 	onMount(() => {
@@ -66,6 +70,13 @@
 			console.log("preventas", preventas);
 			selectedPreventas = [];
 			selectedAll = false;
+			
+			// Activar el selector de vendedor después de cargar las preventas
+			if (!vendedorSelectorReady) {
+				setTimeout(() => {
+					vendedorSelectorReady = true;
+				}, 100); // Pequeño delay para asegurar que las preventas se han renderizado
+			}
 		} catch (err) {
 			console.error('Error al cargar preventas:', err);
 			error = err instanceof Error ? err.message : 'Error desconocido';
@@ -91,7 +102,6 @@
 	function limpiarFiltros() {
 		filtros = {
 			cliente: '',
-			tipo: '',
 			vendedor: '',
 			fechaDesde: '',
 			fechaHasta: '',
@@ -177,16 +187,94 @@
 	}
 	
 	// Obtener resumen de preventas
-	function generarResumen() {
+	async function generarResumen() {
 		if (selectedPreventas.length === 0) {
 			alert('Seleccione al menos una preventa para generar el resumen');
 			return;
 		}
 		
-		resumenVisible = true;
-		// Aquí se podría implementar la lógica para mostrar el resumen
-		// Podría ser un modal, o navegar a otra ruta con los IDs seleccionados
-		alert(`Generando resumen de ${selectedPreventas.length} preventas seleccionadas`);
+		loadingInforme = true;
+		
+		try {
+			// Preparar los datos de las preventas seleccionadas
+			const preventasData = selectedPreventas.map(preventaId => {
+				const [tipo, sucursal, numero] = preventaId.split('-');
+				return { numero, sucursal };
+			});
+			
+			console.log('🔍 Datos de preventas a enviar:', preventasData);
+			console.log('🔍 Preventas seleccionadas:', selectedPreventas);
+			console.log('🔍 Ordenamiento:', ordenamientoResumen);
+			
+			// Llamar al nuevo endpoint con ordenamiento
+			const resultado = await PreventaService.obtenerResumenPreventas(preventasData, ordenamientoResumen);
+			
+			console.log('📥 Respuesta del servidor:', resultado);
+			
+			if (resultado.success) {
+				const resumen = resultado.data;
+				
+				console.log('📊 Datos del resumen:', resumen);
+				
+				// Generar texto del informe
+				let texto = "RESUMEN DE PREVENTAS SELECCIONADAS\n";
+				texto += "=====================================\n\n";
+				texto += `CANTIDAD DE PREVENTAS: ${resumen.encabezado.cantidadPreventas}\n`;
+				texto += `CANTIDAD DE ARTÍCULOS: ${resumen.encabezado.cantidadArticulos}\n`;
+				texto += `TOTAL DE CANTIDAD: ${resumen.encabezado.totalCantidad}\n`;
+				texto += `ORDENADO POR: ${getOrdenamientoTexto(resumen.encabezado.ordenadoPor)}\n\n`;
+				texto += "DETALLE DE ARTÍCULOS:\n";
+				texto += "===================\n";
+				texto += "CANTIDAD  DESCRIPCIÓN                                    CÓDIGO    PREV\n";
+				texto += "==================================================================\n";
+				
+				// Listar cada ítem
+				let currentGroup = '';
+				for (const item of resumen.items) {
+					// Agregar separador si cambia el grupo (para rubro o proveedor)
+					if (ordenamientoResumen === 'rubro' || ordenamientoResumen === 'proveedor') {
+						const groupKey = ordenamientoResumen === 'rubro' ? item.rubroDescripcion : item.proveedorDescripcion;
+						if (groupKey !== currentGroup) {
+							currentGroup = groupKey;
+							texto += "\n";
+							texto += `${"=".repeat(70)}\n`;
+							texto += `${ordenamientoResumen === 'rubro' ? 'RUBRO' : 'PROVEEDOR'}: ${groupKey}\n`;
+							texto += `${"=".repeat(70)}\n\n`;
+						}
+					}
+					
+					const cantidad = item.cantidad.toString().padStart(6);
+					const descripcion = item.descripcion.padEnd(53);
+					const codigo = item.codigo.padEnd(10);
+					const preventas = item.preventas || 1; // Cantidad de preventas donde aparece
+					
+					texto += `${cantidad}  ${descripcion} ${codigo} ${preventas}\n`;
+				}
+				
+				informeTitle = "Resumen de Preventas";
+				informeText = texto;
+				showInformeModal = true;
+			} else {
+				alert('Error al generar el resumen: ' + (resultado.message || 'Error desconocido'));
+			}
+		} catch (err) {
+			console.error('Error al generar resumen:', err);
+			alert(`Error al generar resumen: ${err instanceof Error ? err.message : 'Error desconocido'}`);
+		} finally {
+			loadingInforme = false;
+		}
+	}
+	
+	// Función auxiliar para obtener texto del ordenamiento
+	function getOrdenamientoTexto(orden: string): string {
+		switch (orden) {
+			case 'codigo': return 'Código';
+			case 'descripcion': return 'Descripción';
+			case 'proveedor': return 'Proveedor';
+			case 'rubro': return 'Rubro';
+			case 'cantidad': return 'Cantidad (mayor a menor)';
+			default: return 'Código';
+		}
 	}
 	
 	// Calcular totales para el resumen
@@ -280,141 +368,31 @@
 			showInformeModal = true;
 		}
 	}
-	
-	// Función para generar informe resumido
-	async function generarInformeResumido() {
-		if (await cargarDetallesPreventas()) {
-			// Agrupar ítems por código y sumar cantidades
-			const itemsSumados = new Map();
-			
-			// Recorrer todas las preventas e ítems
-			for (const preventa of preventasDetalle) {
-				for (const item of preventa.items) {
-					const codigo = item.CodigoArticulo;
-					const cantidad = item.Cantidad || 0;
-					const descripcion = item.Articulo?.Descripcion || 'Sin descripción';
-					
-					if (itemsSumados.has(codigo)) {
-						// Actualizar cantidad si ya existe
-						const itemExistente = itemsSumados.get(codigo);
-						itemExistente.cantidad += cantidad;
-					} else {
-						// Agregar nuevo ítem si no existe
-						itemsSumados.set(codigo, {
-							codigo,
-							descripcion,
-							cantidad
-						});
-					}
-				}
-			}
-			
-			// Convertir el mapa a un array y ordenarlo por código
-			const itemsArray = Array.from(itemsSumados.values())
-				.sort((a, b) => a.codigo.localeCompare(b.codigo));
-			
-			// Generar texto del informe
-			let texto = "RESUMEN DE ARTÍCULOS EN PREVENTAS SELECCIONADAS\n";
-			texto += "-----------------------------------------------\n";
-			texto += "CANT.  DESCRIPCIÓN                     CÓDIGO\n";
-			texto += "-----------------------------------------------\n";
-			
-			// Listar cada ítem sumado
-			for (const [index, item] of itemsArray.entries()) {
-				const numeroItem = (index + 1).toString().padStart(2, '0');
-				const cantidad = item.cantidad.toString().padEnd(6);
-				const descripcion = item.descripcion.padEnd(30);
-				const codigo = item.codigo;
-				
-				texto += `${numeroItem}. ${cantidad} ${descripcion} ${codigo}\n`;
-			}
-			
-			// Agregar total de ítems al final
-			const totalCantidad = itemsArray.reduce((sum, item) => sum + item.cantidad, 0);
-			texto += "-----------------------------------------------\n";
-			texto += `TOTAL ARTÍCULOS: ${totalCantidad}\n`;
-			
-			informeTitle = "Informe Resumido de Preventas";
-			informeText = texto;
-			showInformeModal = true;
-		}
-	}
 </script>
 
 <div class="container mx-auto px-4 py-6">
 	<h1 class="text-2xl font-bold mb-6">Listado de Preventas</h1>
 	
-	<!-- Botones de acción -->
-	<div class="flex flex-wrap items-center justify-between mb-6">
-		<div class="flex flex-wrap items-center space-x-2 mb-2">
-			<Button 
-				variant="secondary" 
-				on:click={() => filtrosVisibles = !filtrosVisibles}
-			>
-				{filtrosVisibles ? 'Ocultar filtros' : 'Mostrar filtros'}
-			</Button>
-			
-			<!-- Botón de resumen ahora es menú desplegable -->
-			<div class="relative inline-block text-left">
-				<Button 
-					variant="primary"
-					on:click={generarResumen}
-				>
-					Resumen
-				</Button>
+	<!-- Filtros siempre visibles -->
+	<div class="bg-white rounded-lg shadow-md p-4 mb-6">
+		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 mb-4">
+			<!-- Selector de cliente usando EntitySelector -->
+			<div>
+				<EntitySelector
+					label="Cliente"
+					placeholder="Buscar cliente..."
+					apiEndpoint="/clientes"
+					valueField="Codigo"
+					labelField="Descripcion"
+					initialValue={filtros.cliente}
+					minSearchLength={3}
+					on:select={handleClienteSelect}
+				/>
 			</div>
 			
-			<!-- Nuevos botones para informes -->
-			<div class="ml-2 flex space-x-2">
-				<Button 
-					variant="secondary"
-					on:click={generarInformeDetallado}
-					disabled={selectedPreventas.length === 0 || loadingInforme}
-				>
-					Informe Detallado
-				</Button>
-				
-				<Button 
-					variant="secondary"
-					on:click={generarInformeResumido}
-					disabled={selectedPreventas.length === 0 || loadingInforme}
-				>
-					Informe Resumido
-				</Button>
-			</div>
-			
-			<Button variant="primary" on:click={() => goto('/ventas/preventas/nueva')}>
-			  Nueva Preventa
-			</Button>
-		</div>
-		
-		<!-- Mostrar cantidad seleccionada -->
-		{#if selectedPreventas.length > 0}
-			<div class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-md text-sm">
-				{selectedPreventas.length} preventas seleccionadas
-			</div>
-		{/if}
-	</div>
-	<!-- Filtros -->
-	{#if filtrosVisibles}
-		<div class="bg-white rounded-lg shadow-md p-4 mb-6">
-			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-				<!-- Selector de cliente usando EntitySelector -->
-				<div>
-					<EntitySelector
-						label="Cliente"
-						placeholder="Buscar cliente..."
-						apiEndpoint="/clientes"
-						valueField="Codigo"
-						labelField="Descripcion"
-						initialValue={filtros.cliente}
-						minSearchLength={3}
-						on:select={handleClienteSelect}
-					/>
-				</div>
-				
-				<!-- Selector de vendedor usando EntitySelector -->
-				<div>
+			<!-- Selector de vendedor usando EntitySelector -->
+			<div>
+				{#if vendedorSelectorReady}
 					<EntitySelector
 						label="Vendedor"
 						placeholder="Buscar vendedor..."
@@ -425,55 +403,104 @@
 						minSearchLength={0}
 						on:select={handleVendedorSelect}
 					/>
-				</div>
-				
-				<div>
-					<label for="filtroTipo" class="block text-sm font-medium text-gray-700">Tipo</label>
-					<select 
-						id="filtroTipo" 
-						bind:value={filtros.tipo}
-						class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-					>
-						<option value="">Todos</option>
-						<option value="PPV">Preventa</option>
-						<option value="PRE">Presupuesto</option>
-					</select>
-				</div>
-				
-				<div>
-					<label for="filtroFechaDesde" class="block text-sm font-medium text-gray-700">Fecha desde</label>
-					<input 
-						type="date" 
-						id="filtroFechaDesde" 
-						bind:value={filtros.fechaDesde}
-						class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-					/>
-				</div>
-				
-				<div>
-					<label for="filtroFechaHasta" class="block text-sm font-medium text-gray-700">Fecha hasta</label>
-					<input 
-						type="date" 
-						id="filtroFechaHasta" 
-						bind:value={filtros.fechaHasta}
-						class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-					/>
-				</div>
-				
-				<div class="flex items-end">
-					<label class="inline-flex items-center">
-						<input type="checkbox" bind:checked={filtros.pendientes} class="form-checkbox h-5 w-5 text-indigo-600">
-						<span class="ml-2 text-gray-700">Solo pendientes</span>
-					</label>
-				</div>
+				{:else}
+					<label for="filtroVendedor" class="block text-sm font-medium text-gray-700">Vendedor</label>
+					<div class="mt-1 flex items-center space-x-2">
+						<div class="flex-1 border border-gray-300 rounded-md shadow-sm p-2 bg-gray-50 text-gray-500">
+							Cargando vendedores...
+						</div>
+						<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
+					</div>
+				{/if}
 			</div>
 			
-			<div class="mt-4 flex justify-end space-x-2">
-				<Button variant="secondary" on:click={limpiarFiltros}>Limpiar</Button>
-				<Button variant="primary" on:click={aplicarFiltros}>Aplicar</Button>
+			<div>
+				<label for="filtroFechaDesde" class="block text-sm font-medium text-gray-700">Fecha desde</label>
+				<input 
+					type="date" 
+					id="filtroFechaDesde" 
+					bind:value={filtros.fechaDesde}
+					class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+				/>
+			</div>
+			
+			<div>
+				<label for="filtroFechaHasta" class="block text-sm font-medium text-gray-700">Fecha hasta</label>
+				<input 
+					type="date" 
+					id="filtroFechaHasta" 
+					bind:value={filtros.fechaHasta}
+					class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+				/>
+			</div>
+			
+			<div class="flex items-end">
+				<label class="inline-flex items-center">
+					<input type="checkbox" bind:checked={filtros.pendientes} class="form-checkbox h-5 w-5 text-indigo-600">
+					<span class="ml-2 text-gray-700">Solo pendientes</span>
+				</label>
 			</div>
 		</div>
-	{/if}
+		
+		<div class="flex justify-between items-center">
+			<div class="flex space-x-2">
+				<Button variant="secondary" on:click={limpiarFiltros}>Limpiar Filtros</Button>
+				<Button variant="primary" on:click={aplicarFiltros}>Aplicar Filtros</Button>
+			</div>
+			
+			<Button variant="primary" on:click={() => goto('/ventas/preventas/nueva')}>
+				Nueva Preventa
+			</Button>
+		</div>
+	</div>
+	
+	<!-- Barra de acciones y selección -->
+	<div class="flex flex-wrap items-center justify-between mb-6">
+		<div class="flex flex-wrap items-center space-x-4">
+			<!-- Botón de resumen -->
+			<Button 
+				variant="primary"
+				on:click={generarResumen}
+				disabled={selectedPreventas.length === 0 || loadingInforme}
+			>
+				Resumen
+			</Button>
+			
+			<!-- Botón de informe detallado -->
+			<Button 
+				variant="secondary"
+				on:click={generarInformeDetallado}
+				disabled={selectedPreventas.length === 0 || loadingInforme}
+			>
+				Informe Detallado
+			</Button>
+			
+			<!-- Selector de ordenamiento para resúmenes -->
+			{#if selectedPreventas.length > 0}
+				<div class="flex items-center space-x-2">
+					<label for="ordenamiento" class="text-sm font-medium text-gray-700">Ordenar por:</label>
+					<select 
+						id="ordenamiento" 
+						bind:value={ordenamientoResumen}
+						class="border border-gray-300 rounded-md shadow-sm p-2 text-sm"
+					>
+						<option value="codigo">Código</option>
+						<option value="descripcion">Descripción</option>
+						<option value="proveedor">Proveedor</option>
+						<option value="rubro">Rubro</option>
+						<option value="cantidad">Cantidad</option>
+					</select>
+				</div>
+			{/if}
+		</div>
+		
+		<!-- Mostrar cantidad seleccionada -->
+		{#if selectedPreventas.length > 0}
+			<div class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-md text-sm font-medium">
+				{selectedPreventas.length} preventas seleccionadas
+			</div>
+		{/if}
+	</div>
 	
 	<!-- Resumen de preventas (visible cuando se solicita) -->
 	{#if resumenVisible}
@@ -535,6 +562,13 @@
 				</div>
 				
 				<div class="px-4 py-3 border-t border-gray-200 flex justify-end space-x-3">
+					<Button 
+						variant="secondary" 
+						on:click={() => showInformeModal = false}
+					>
+						Cerrar
+					</Button>
+					
 					<Button 
 						variant="secondary" 
 						on:click={() => {
@@ -768,10 +802,11 @@
 							on:change={() => { currentPage = 1; cargarPreventas(); }}
 							class="border border-gray-300 rounded-md text-sm p-1"
 						>
-							<option value="5">5</option>
-							<option value="10">10</option>
-							<option value="25">25</option>
+							<option value="100">100</option>
 							<option value="50">50</option>
+							<option value="25">25</option>
+							<option value="10">10</option>
+							<option value="5">5</option>
 						</select>
 					</div>
 				</div>

@@ -72,7 +72,6 @@ export interface Preventa {
  */
 export interface PreventaFiltros {
 	cliente?: string;
-	tipo?: string;
 	vendedor?: string;
 	fechaDesde?: string;
 	fechaHasta?: string;

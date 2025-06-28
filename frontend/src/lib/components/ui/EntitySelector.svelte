@@ -68,7 +68,8 @@
   async function searchItems() {
     if (timeoutId) clearTimeout(timeoutId);
     
-    if (searchTerm.length < minSearchLength) {
+    // Si minSearchLength es 0 y el campo está vacío, no hacer búsqueda
+    if (searchTerm.length < minSearchLength && minSearchLength > 0) {
       options = [];
       return;
     }
@@ -77,7 +78,11 @@
       try {
         loading = true;
         const params = new URLSearchParams();
-        params.append(searchParam, searchTerm);
+        
+        // Solo agregar el parámetro de búsqueda si hay un término de búsqueda
+        if (searchTerm.trim()) {
+          params.append(searchParam, searchTerm);
+        }
         
         const response = await fetchWithAuth(`${apiEndpoint}?${params}`);
         
@@ -95,6 +100,13 @@
         loading = false;
       }
     }, 300);
+  }
+  
+  // Cargar todas las opciones cuando se hace focus y minSearchLength es 0
+  async function loadAllOptions() {
+    if (minSearchLength === 0 && !searchTerm.trim()) {
+      await searchItems();
+    }
   }
   
   // Seleccionar un elemento
@@ -143,7 +155,11 @@
     if (!isOpen) {
       if (event.key === 'ArrowDown' || event.key === 'Enter') {
         event.preventDefault();
-        isOpen = true;
+        if (minSearchLength === 0) {
+          loadAllOptions();
+        } else {
+          isOpen = true;
+        }
       }
       return;
     }
@@ -179,7 +195,13 @@
       type="text"
       bind:value={searchTerm}
       on:input={searchItems}
-      on:focus={() => searchTerm && options.length > 0 && (isOpen = true)}
+      on:focus={() => {
+        if (minSearchLength === 0) {
+          loadAllOptions();
+        } else if (searchTerm && options.length > 0) {
+          isOpen = true;
+        }
+      }}
       on:keydown={handleKeydown}
       bind:this={inputElement}
       placeholder={placeholder}

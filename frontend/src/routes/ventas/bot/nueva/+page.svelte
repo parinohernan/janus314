@@ -467,9 +467,18 @@
       const importeBruto = importeTotal / 1.21;
       const iva21 = importeTotal - importeBruto;
 
-      // Registrar movimientos en caja y obtener el total que aplica saldo
-      const totalAplicaSaldo = await registrarMovimientosCaja(formasPago, importeTotal);
-      console.log('Total que aplica saldo:', totalAplicaSaldo);
+      // Separar formas de pago que aplican saldo y las que no
+      const formasPagoAplicaSaldo = formasPago.filter(fp => fp.aplicaSaldo);
+      const formasPagoNoAplicaSaldo = formasPago.filter(fp => !fp.aplicaSaldo);
+      
+      // Calcular totales
+      const totalAplicaSaldo = formasPagoAplicaSaldo.reduce((sum, fp) => sum + parseFloat(fp.importe.toString()), 0);
+      const totalNoAplicaSaldo = formasPagoNoAplicaSaldo.reduce((sum, fp) => sum + parseFloat(fp.importe.toString()), 0);
+
+      // Registrar movimientos en caja solo para formas de pago que no aplican saldo
+      if (formasPagoNoAplicaSaldo.length > 0) {
+        await registrarMovimientosCaja(formasPagoNoAplicaSaldo, totalNoAplicaSaldo);
+      }
 
       // Si hay formas de pago que aplican saldo, actualizar el saldo del cliente
       if (totalAplicaSaldo > 0) {
@@ -480,9 +489,8 @@
           }
           
           const clienteData = await clienteResponse.json();
-          console.log('Datos del cliente:', clienteData);
           
-          // Actualizar el saldo del cliente usando el nuevo endpoint
+          // Actualizar el saldo del cliente
           const updateResponse = await fetchWithAuth(`/clientes/${cliente}/actualizarSaldo`, {
             method: 'PUT',
             headers: {
@@ -496,8 +504,6 @@
           if (!updateResponse.ok) {
             throw new Error('Error al actualizar el saldo del cliente');
           }
-
-          console.log('Saldo del cliente actualizado');
         } catch (error: unknown) {
           console.error('Error al actualizar saldo del cliente:', error);
           throw new Error(error instanceof Error ? error.message : 'Error desconocido al actualizar el saldo del cliente');
@@ -523,15 +529,13 @@
         BaseImponible1: Number(importeBruto.toFixed(2)),
         BaseImponible2: 0,
         ImporteTotal: Number(importeTotal.toFixed(2)),
-        ImportePagado: Number((importeTotal - totalAplicaSaldo).toFixed(2)),
+        ImportePagado: Number(totalNoAplicaSaldo.toFixed(2)),
         ListaPrecio: parseInt(listaPrecios),
         Observacion: formasPago.length > 1 ? 
           `Pago mixto: ${formasPago.map(fp => `${fp.descripcion}: $${fp.importe}`).join(', ')}` : '',
         CajaNumero: cajaAbierta.Codigo,
         aplicaSaldo: totalAplicaSaldo > 0
       };
-
-      console.log('Enviando factura:', factura);
 
       // Crear la factura
       const facturaResponse = await fetchWithAuth('/telegram/facturas', {
@@ -560,7 +564,60 @@
       }
 
       const facturaData = await facturaResponse.json();
-      console.log('Factura creada:', facturaData);
+
+      // Si hay formas de pago que no aplican saldo, generar nota de crédito interna
+      if (totalNoAplicaSaldo > 0) {
+        try {
+          const notaCredito = {
+            DocumentoTipo: 'NCF',
+            DocumentoSucursal: '0100',
+            DocumentoNumero: '00000000',
+            Fecha: new Date().toISOString().split('T')[0],
+            ClienteCodigo: cliente,
+            Vendedor: codigoVendedor.replace(/^0+/, ''),
+            ImporteBruto: Number((totalNoAplicaSaldo / 1.21).toFixed(2)),
+            PorcentajeBonificacion: 0,
+            ImporteBonificado: 0,
+            ImporteNeto: Number((totalNoAplicaSaldo / 1.21).toFixed(2)),
+            ImporteAdicional: 0,
+            ImporteIva1: Number((totalNoAplicaSaldo - (totalNoAplicaSaldo / 1.21)).toFixed(2)),
+            ImporteIva2: 0,
+            BaseImponible1: Number((totalNoAplicaSaldo / 1.21).toFixed(2)),
+            BaseImponible2: 0,
+            ImporteTotal: Number(totalNoAplicaSaldo.toFixed(2)),
+            Observacion: `Nota de crédito interna por pago de factura ${facturaData.data?.DocumentoNumero || facturaData.data?.numero}`,
+            CajaNumero: cajaAbierta.Codigo,
+            Items: [{
+              CodigoArticulo: '999999',
+              Descripcion: 'Pago de factura',
+              Cantidad: 1,
+              PrecioUnitario: Number(totalNoAplicaSaldo.toFixed(2)),
+              PrecioLista: Number(totalNoAplicaSaldo.toFixed(2)),
+              PorcentajeBonificado: 0,
+              ImporteBonificado: 0,
+              PorcentajeIva: 21
+            }]
+          };
+
+          const notaCreditoResponse = await fetchWithAuth('/telegram/notas-credito', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(notaCredito)
+          });
+
+          if (!notaCreditoResponse.ok) {
+            console.error('Error al crear nota de crédito:', await notaCreditoResponse.text());
+            // No lanzamos error aquí para no interrumpir el flujo
+            // pero registramos el error para debugging
+          }
+        } catch (error) {
+          console.error('Error al procesar nota de crédito:', error);
+          // No lanzamos error aquí para no interrumpir el flujo
+          // pero registramos el error para debugging
+        }
+      }
 
       success = 'Factura creada correctamente';
       mostrarModalCobro = false;
@@ -569,7 +626,7 @@
       comprobanteActual = {
         tipo: factura.DocumentoTipo,
         sucursal: factura.DocumentoSucursal,
-        numero: facturaData.data?.DocumentoNumero || facturaData.data?.numero || '00000000',
+        numero: factura.DocumentoNumero,
         fecha: factura.Fecha,
         clienteCodigo: cliente,
         clienteNombre: clienteSeleccionado.Descripcion,

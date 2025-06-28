@@ -592,4 +592,164 @@ exports.crearProducto = async (req, res) => {
       error: error.message
     });
   }
+};
+
+// Endpoint para crear nota de crédito desde Telegram
+exports.crearNotaCredito = async (req, res) => {
+  console.log("===========Telegram en crearNotaCredito:", req.body);
+  try {
+    const notaCreditoData = req.body;
+    
+    // Validar datos mínimos requeridos
+    if (!notaCreditoData.ClienteCodigo) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "El código de cliente es obligatorio" 
+      });
+    }
+    
+    if (!notaCreditoData.Items || !Array.isArray(notaCreditoData.Items) || notaCreditoData.Items.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Debe incluir al menos un artículo" 
+      });
+    }
+    
+    // Usar la transacción de la conexión de empresa
+    const t = await req.db.transaction();
+    
+    try {
+      // Obtener próximo número de comprobante si no viene
+      if (!notaCreditoData.DocumentoNumero || notaCreditoData.DocumentoNumero === "00000000") {
+        try {
+          // Obtener el próximo número usando el controlador de números de control
+          if (req.services && req.services.numeroControlService) {
+            const numeroData = await req.services.numeroControlService.obtenerYActualizarNumero(
+              notaCreditoData.DocumentoTipo,
+              notaCreditoData.DocumentoSucursal
+            );
+            notaCreditoData.DocumentoNumero = numeroData.numeroFormateado;
+          } else {
+            // Fallback al método directo
+            const numeroControl = await req.db.query(
+              "SELECT NumeroProximo FROM t_numeroscontrol WHERE Codigo = ? AND Sucursal = ?",
+              {
+                replacements: [notaCreditoData.DocumentoTipo, notaCreditoData.DocumentoSucursal],
+                type: req.db.QueryTypes.SELECT,
+                transaction: t
+              }
+            );
+            
+            if (numeroControl && numeroControl.length > 0) {
+              notaCreditoData.DocumentoNumero = numeroControl[0].NumeroProximo.toString().padStart(8, "0");
+
+              // Incrementar el número
+              await req.db.query(
+                "UPDATE t_numeroscontrol SET NumeroProximo = NumeroProximo + 1 WHERE Codigo = ? AND Sucursal = ?",
+                {
+                  replacements: [notaCreditoData.DocumentoTipo, notaCreditoData.DocumentoSucursal],
+                  type: req.db.QueryTypes.UPDATE,
+                  transaction: t
+                }
+              );
+            }
+          }
+        } catch (error) {
+          console.error("Error al obtener próximo número:", error);
+          throw error;
+        }
+      }
+      
+      // Obtener modelos desde req.models
+      const { NotaCredito, NotaCreditoItem, Articulo } = req.models;
+      let fechaBsAs = new Date();
+      // Ajustar a GMT-3 (Argentina)
+      fechaBsAs.setHours(fechaBsAs.getHours() - 3);
+      // Establecer al mediodía para evitar problemas con cambios de día
+      fechaBsAs.setHours(12, 0, 0, 0);
+      fechaBsAs = fechaBsAs.toISOString().split('T')[0];
+      
+      // Preparar datos para creación de nota de crédito
+      const notaCreditoCabeza = {
+        DocumentoTipo: notaCreditoData.DocumentoTipo,
+        DocumentoSucursal: notaCreditoData.DocumentoSucursal,
+        DocumentoNumero: notaCreditoData.DocumentoNumero,
+        Fecha: fechaBsAs,
+        ClienteCodigo: notaCreditoData.ClienteCodigo,
+        VendedorCodigo: notaCreditoData.Vendedor,
+        ImporteBruto: notaCreditoData.ImporteBruto,
+        PorcentajeBonificacion: notaCreditoData.PorcentajeBonificacion || 0,
+        ImporteBonificado: notaCreditoData.ImporteBonificado || 0,
+        ImporteNeto: notaCreditoData.ImporteNeto,
+        ImporteAdicional: notaCreditoData.ImporteAdicional || 0,
+        ImporteIva1: notaCreditoData.ImporteIva1,
+        ImporteIva2: notaCreditoData.ImporteIva2 || 0,
+        BaseImponible1: notaCreditoData.BaseImponible1,
+        BaseImponible2: notaCreditoData.BaseImponible2 || 0,
+        ImporteTotal: notaCreditoData.ImporteTotal,
+        PorcentajeIva1: 21,
+        PorcentajeIva2: 10.5,
+        Observacion: notaCreditoData.Observacion || '',
+        CodigoUsuario: 'admin',
+        CajaNumero: notaCreditoData.CajaNumero
+      };
+      
+      // Crear nota de crédito cabeza
+      const nuevaNotaCredito = await NotaCredito.create(notaCreditoCabeza, { transaction: t });
+      
+      // Crear items de nota de crédito
+      for (const item of notaCreditoData.Items) {
+        // Buscar el artículo en la base de datos
+        const articulo = await Articulo.findOne({
+          where: { Codigo: item.CodigoArticulo },
+          transaction: t
+        });
+        
+        if (!articulo) {
+          console.warn(`Artículo no encontrado: ${item.CodigoArticulo}`);
+        }
+        
+        // Crear item de nota de crédito
+        await NotaCreditoItem.create({
+          DocumentoTipo: notaCreditoData.DocumentoTipo,
+          DocumentoSucursal: notaCreditoData.DocumentoSucursal,
+          DocumentoNumero: notaCreditoData.DocumentoNumero,
+          CodigoArticulo: item.CodigoArticulo,
+          Cantidad: item.Cantidad,
+          PrecioLista: item.PrecioLista || item.PrecioUnitario,
+          PorcentajeBonificado: item.PorcentajeBonificado || 0,
+          ImporteBonificado: item.ImporteBonificado || 0,
+          PrecioUnitario: item.PrecioUnitario,
+          ImporteCosto: articulo ? (articulo.PrecioCosto * item.Cantidad) : 0
+        }, { transaction: t });
+      }
+      
+      // Confirmar transacción
+      await t.commit();
+      
+      res.status(201).json({
+        success: true,
+        message: "Nota de crédito creada correctamente desde Telegram",
+        data: {
+          DocumentoTipo: nuevaNotaCredito.DocumentoTipo,
+          DocumentoSucursal: nuevaNotaCredito.DocumentoSucursal,
+          DocumentoNumero: nuevaNotaCredito.DocumentoNumero,
+          ImporteTotal: nuevaNotaCredito.ImporteTotal
+        }
+      });
+      
+    } catch (error) {
+      await t.rollback();
+      console.error("Error al crear nota de crédito desde Telegram:", error);
+      throw error;
+    }
+    
+  } catch (error) {
+    console.error("Error al crear nota de crédito desde Telegram:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al crear nota de crédito desde Telegram",
+      error: error.message
+    });
+  }
 }; 

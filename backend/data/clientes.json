@@ -4,8 +4,8 @@
       "nombre": "Mi reino",
       "bd": "db_sis_fac",
       "usuario": "Admin",
-      "password": "45tr14l",
-      "host": "192.168.1.101",
+      "password": "",
+      "host": "192.168.1.106",
       "port": 3306,
       "empresa":"Test S.A."
 

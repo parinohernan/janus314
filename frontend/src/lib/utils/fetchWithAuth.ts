@@ -25,22 +25,36 @@ function getAuthToken(): string | null {
   
   // Si el caché es válido, retornar el token cacheado
   if (tokenCache && (now - lastTokenCheck) < TOKEN_CACHE_DURATION) {
+    console.log('Usando token cacheado');
     return tokenCache;
   }
   
   // Intentar obtener el token del store
   const authState = get(auth);
+  console.log('Estado de autenticación:', authState);
   let token = authState.token;
   
   // Si no hay token en el store, intentar obtenerlo del localStorage
   if (!token && browser) {
     token = localStorage.getItem('authToken');
+    console.log('Token obtenido del localStorage:', token);
+  }
+  
+  // Si aún no hay token, intentar verificar la sesión
+  if (!token && browser) {
+    console.log('No hay token, intentando verificar sesión...');
+    auth.verifySession().then(() => {
+      const newAuthState = get(auth);
+      token = newAuthState.token;
+      console.log('Nuevo estado de autenticación después de verificar:', newAuthState);
+    });
   }
   
   // Actualizar caché
   tokenCache = token;
   lastTokenCheck = now;
   
+  console.log('Token final:', token);
   return token;
 }
 

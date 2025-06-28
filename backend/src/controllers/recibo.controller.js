@@ -1,6 +1,7 @@
 const NumerosControlController = require('../controllers/numerosControl.controller');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
+const jwt = require('jsonwebtoken');
 
 // Obtener todos los recibos (con filtros y paginación)
 exports.getAllRecibos = async (req, res) => {
@@ -238,11 +239,33 @@ exports.createRecibo = async (req, res) => {
       });
     }
 
+    // Obtener el vendedor del token de autenticación
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      await t.rollback();
+      return res.status(401).json({
+        success: false,
+        message: 'No se proporcionó token de autenticación'
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    const vendedorCodigo = decodedToken.userId;
+
+    if (!vendedorCodigo) {
+      await t.rollback();
+      return res.status(401).json({
+        success: false,
+        message: 'Token inválido o sin información de vendedor'
+      });
+    }
+
     // Verificar que el vendedor tenga una caja abierta
     const cajaAbierta = await CajaCabeza.findOne({
       where: {
-        VendedorId: VendedorCodigo,
-        Estado: 'abierta'
+        VendedorId: vendedorCodigo,
+        Cierre: null
       },
       transaction: t
     });
@@ -798,6 +821,9 @@ exports.updateRecibo = async (req, res) => {
 // Anular un recibo
 exports.anularRecibo = async (req, res) => {
   try {
+    console.log('Iniciando anulación de recibo');
+    console.log('Headers:', req.headers);
+    
     const { 
       Recibo, 
       ReciboValor, 
@@ -805,178 +831,266 @@ exports.anularRecibo = async (req, res) => {
       Cliente, 
       FacturaCabeza, 
       NotaDebito, 
-      NotaCreditoCabeza 
+      NotaCreditoCabeza,
+      CajaCabeza,
+      CajaMovimientos 
     } = req.models;
 
     // Obtener la instancia de sequelize desde cualquier modelo
     const sequelize = Recibo.sequelize;
-    const transaction = await sequelize.transaction();
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { tipo, sucursal, numero } = req.params;
+      console.log('Parámetros:', { tipo, sucursal, numero });
+      
+      // Obtener el vendedor del token de autenticación
+      const authHeader = req.headers.authorization;
+      console.log('Header de autorización:', authHeader);
+      
+      if (!authHeader) {
+        console.log('No se proporcionó token de autenticación');
+        await transaction.rollback();
+        return res.status(401).json({
+          success: false,
+          message: 'No se proporcionó token de autenticación'
+        });
+      }
+
+      const token = authHeader.split(' ')[1];
+      console.log('Token extraído:', token);
+      
+      try {
+        const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+        console.log('Token decodificado:', decodedToken);
+        
+        const vendedorCodigo = decodedToken.userId;
+        console.log('Código de vendedor:', vendedorCodigo);
+
+        if (!vendedorCodigo) {
+          console.log('Token inválido o sin información de vendedor');
+          await transaction.rollback();
+          return res.status(401).json({
+            success: false,
+            message: 'Token inválido o sin información de vendedor'
+          });
+        }
     
-    try {
-      const { tipo, sucursal, numero } = req.params;
-      
-      const recibo = await Recibo.findOne({
-        where: {
-          DocumentoTipo: tipo,
-          DocumentoSucursal: sucursal,
-          DocumentoNumero: numero
-        },
-        transaction
-      });
-      
-      if (!recibo) {
-        await transaction.rollback();
-        return res.status(404).json({ message: 'Recibo no encontrado' });
-      }
-      
-      if (recibo.FechaAnulacion) {
-        await transaction.rollback();
-        return res.status(400).json({ message: 'El recibo ya está anulado' });
-      }
-      
-      // Obtener los valores (formas de pago) del recibo
-      const valores = await ReciboValor.findAll({
-        where: {
-          DocumentoTipo: tipo,
-          DocumentoSucursal: sucursal,
-          DocumentoNumero: numero
-        },
-        transaction
-      });
-      
-      // Obtener los documentos de crédito utilizados
-      const documentosCredito = await ReciboValor.findAll({
-        where: {
-          DocumentoTipo: tipo,
-          DocumentoSucursal: sucursal,
-          DocumentoNumero: numero,
-          ValorCodigo: {
-            [Op.in]: ['NCF', 'NCA', 'NCB', 'NCC'] // Filtrar todos los tipos de notas de crédito
-          }
-        },
-        transaction
-      });
-      
-      // Obtener los documentos de deuda asociados al recibo
-      const documentosDeuda = await ReciboItem.findAll({
-        where: {
-          DocumentoTipo: tipo,
-          DocumentoSucursal: sucursal,
-          DocumentoNumero: numero
-        },
-        transaction
-      });
-      
-      // Obtener el cliente
-      const cliente = await Cliente.findByPk(recibo.ClienteCodigo, { transaction });
-      
-      if (!cliente) {
-        await transaction.rollback();
-        throw new Error(`Cliente no encontrado: ${recibo.ClienteCodigo}`);
-      }
-      
-      // 1. Actualizar el importe de deuda del cliente (sumar el total de valores)
-      const totalValores = valores.reduce((total, valor) => total + valor.ValorImporte, 0);
-      
-      await cliente.update(
-        { 
-          ImporteDeuda: (cliente.ImporteDeuda || 0) + totalValores 
-        },
-        { transaction }
-      );
-      
-      // 2. Actualizar los documentos de deuda (restar el importe pagado)
-      for (const doc of documentosDeuda) {
-        // Determinar el tipo de documento de deuda
-        if (doc.FacturaTipo === 'PRF' || doc.FacturaTipo === 'FCA' || doc.FacturaTipo === 'FCB' || doc.FacturaTipo === 'FCC') {
-          // Es una factura
-          const factura = await FacturaCabeza.findOne({
-            where: {
-              DocumentoTipo: doc.FacturaTipo,
-              DocumentoSucursal: doc.FacturaSucursal,
-              DocumentoNumero: doc.FacturaNumero
-            },
-            transaction
-          });
-          
-          if (factura) {
-            await factura.update(
-              { 
-                ImportePagado: (factura.ImportePagado || 0) - doc.ImportePagado 
-              },
-              { transaction }
-            );
-          }
-        } else if (doc.FacturaTipo === 'NDF' || doc.FacturaTipo === 'NDA' || doc.FacturaTipo === 'NDC' || doc.FacturaTipo === 'NDB') {
-          // Es una nota de débito
-          const notaDebito = await NotaDebito.findOne({
-            where: {
-              DocumentoTipo: doc.FacturaTipo,
-              DocumentoSucursal: doc.FacturaSucursal,
-              DocumentoNumero: doc.FacturaNumero
-            },
-            transaction
-          });
-          
-          if (notaDebito) {
-            await notaDebito.update(
-              { 
-                ImportePagado: (notaDebito.ImportePagado || 0) - doc.ImportePagado 
-              },
-              { transaction }
-            );
-          }
-        }
-      }
-      
-      // 3. Actualizar el importe utilizado de las notas de crédito y el saldo no aplicado
-      if (documentosCredito.length > 0) {
-        // Calcular el total de notas de crédito
-        const totalNotasCredito = documentosCredito.reduce((total, doc) => total + doc.ValorImporte, 0);
-        
-        // Actualizar el saldo no aplicado del cliente
-        await cliente.update(
-          { 
-            SaldoNTCNoAplicado: (cliente.SaldoNTCNoAplicado || 0) + totalNotasCredito 
+    const recibo = await Recibo.findOne({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero
           },
-          { transaction }
-        );
-        
-        // Actualizar cada nota de crédito
-        for (const doc of documentosCredito) {
-          const notaCredito = await NotaCreditoCabeza.findOne({
-            where: {
-              DocumentoTipo: doc.ValorCodigo,
-              DocumentoSucursal: doc.ValorSucursal,
-              DocumentoNumero: doc.ValorNumero
-            },
-            transaction
-          });
-          
-          if (notaCredito) {
-            // Restar el importe utilizado
-            await notaCredito.update(
-              { 
-                ImporteUtilizado: (notaCredito.ImporteUtilizado || 0) - doc.ValorImporte 
+          transaction
+    });
+    
+    if (!recibo) {
+          console.log('Recibo no encontrado');
+          await transaction.rollback();
+      return res.status(404).json({ message: 'Recibo no encontrado' });
+    }
+    
+    if (recibo.FechaAnulacion) {
+          console.log('El recibo ya está anulado');
+          await transaction.rollback();
+      return res.status(400).json({ message: 'El recibo ya está anulado' });
+    }
+    
+    // Obtener los valores (formas de pago) del recibo
+    const valores = await ReciboValor.findAll({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero
+      },
+      transaction
+    });
+    
+        console.log('Valores encontrados:', valores);
+
+        // Revertir el uso de notas de crédito
+        for (const valor of valores) {
+          if (['NCF', 'NCA', 'NCB', 'NCC'].includes(valor.ValorCodigo)) {
+            console.log('Procesando nota de crédito:', valor.toJSON());
+            
+            const notaCredito = await NotaCreditoCabeza.findOne({
+              where: {
+                DocumentoTipo: valor.ValorCodigo,
+                DocumentoSucursal: valor.ValorSucursal,
+                DocumentoNumero: valor.ValorNumero
               },
-              { transaction }
-            );
+              transaction
+            });
+
+            if (notaCredito) {
+              console.log('Actualizando nota de crédito:', {
+                tipo: notaCredito.DocumentoTipo,
+                sucursal: notaCredito.DocumentoSucursal,
+                numero: notaCredito.DocumentoNumero,
+                importeUtilizadoActual: notaCredito.ImporteUtilizado,
+                importeARevertir: valor.ValorImporte,
+                nuevoImporteUtilizado: parseFloat(notaCredito.ImporteUtilizado || 0) - parseFloat(valor.ValorImporte)
+              });
+
+              await notaCredito.update({
+                ImporteUtilizado: parseFloat(notaCredito.ImporteUtilizado || 0) - parseFloat(valor.ValorImporte)
+              }, { transaction });
+            }
           }
         }
+
+        // Obtener los items del recibo (facturas asociadas)
+        const items = await ReciboItem.findAll({
+          where: {
+            DocumentoTipo: tipo,
+            DocumentoSucursal: sucursal,
+            DocumentoNumero: numero
+          },
+          transaction
+        });
+
+        console.log('Items encontrados:', items);
+
+        // Revertir los pagos de las facturas
+        for (const item of items) {
+          console.log('Procesando item:', item.toJSON());
+          
+          if (['PRF', 'FCA', 'FCB', 'FCC'].includes(item.FacturaTipo)) {
+            // Es una factura
+            const factura = await FacturaCabeza.findOne({
+              where: {
+                DocumentoTipo: item.FacturaTipo,
+                DocumentoSucursal: item.FacturaSucursal,
+                DocumentoNumero: item.FacturaNumero
+              },
+              transaction
+            });
+
+            if (factura) {
+              console.log('Actualizando factura:', {
+                tipo: factura.DocumentoTipo,
+                sucursal: factura.DocumentoSucursal,
+                numero: factura.DocumentoNumero,
+                importePagadoActual: factura.ImportePagado,
+                importeARevertir: item.ImportePagado,
+                nuevoImportePagado: parseFloat(factura.ImportePagado || 0) - parseFloat(item.ImportePagado)
+              });
+
+              await factura.update({
+                ImportePagado: parseFloat(factura.ImportePagado || 0) - parseFloat(item.ImportePagado)
+              }, { transaction });
+            }
+          } else if (['NDF', 'NDA', 'NDC', 'NDB'].includes(item.FacturaTipo)) {
+            // Es una nota de débito
+            const notaDebito = await NotaDebito.findOne({
+              where: {
+                DocumentoTipo: item.FacturaTipo,
+                DocumentoSucursal: item.FacturaSucursal,
+                DocumentoNumero: item.FacturaNumero
+              },
+              transaction
+            });
+
+            if (notaDebito) {
+              console.log('Actualizando nota de débito:', {
+                tipo: notaDebito.DocumentoTipo,
+                sucursal: notaDebito.DocumentoSucursal,
+                numero: notaDebito.DocumentoNumero,
+                importePagadoActual: notaDebito.ImportePagado,
+                importeARevertir: item.ImportePagado,
+                nuevoImportePagado: parseFloat(notaDebito.ImportePagado || 0) - parseFloat(item.ImportePagado)
+              });
+
+              await notaDebito.update({
+                ImportePagado: parseFloat(notaDebito.ImportePagado || 0) - parseFloat(item.ImportePagado)
+              }, { transaction });
+            }
+          }
+        }
+
+        // Verificar si hay una caja abierta para el vendedor
+        const cajaAbierta = await CajaCabeza.findOne({
+      where: {
+            VendedorId: vendedorCodigo,
+            Cierre: null
+      },
+      transaction
+    });
+    
+        if (!cajaAbierta) {
+          console.log('No hay caja abierta para el vendedor');
+          await transaction.rollback();
+          return res.status(400).json({
+            success: false,
+            message: 'No hay una caja abierta para el vendedor'
+          });
+        }
+
+        // 3. Generar movimientos de caja para cancelar los ingresos
+        for (const valor of valores) {
+          // Solo generar movimiento para formas de pago que no aplican saldo
+          if (!['SAL', 'SALDO'].includes(valor.ValorCodigo)) {
+            const movimiento = {
+              CajaCabezaId: cajaAbierta.Codigo,
+              Tipo: 'egreso',
+              Importe: valor.ValorImporte,
+              Concepto: `Anulación de recibo ${recibo.DocumentoSucursal}-${recibo.DocumentoNumero} - ${valor.ValorDescripcion || 'Sin descripción'}`,
+              MetodoPago: valor.ValorCodigo,
+              Referencia: valor.ValorNumero || null,
+              Banco: valor.ValorBanco || null,
+              ValorFecha: valor.ValorFecha || new Date().toISOString().split('T')[0],
+              DocumentoAsociado: recibo.DocumentoNumero,
+              TipoDocumento: recibo.DocumentoTipo,
+              UsuarioId: vendedorCodigo
+            };
+
+            console.log('Creando movimiento de caja:', movimiento);
+            await CajaMovimientos.create(movimiento, { transaction });
+          }
+        }
+        
+        // Actualizar el saldo teórico de la caja
+        const totalEgreso = valores.reduce((total, valor) => {
+          if (!['SAL', 'SALDO'].includes(valor.ValorCodigo)) {
+            return total + parseFloat(valor.ValorImporte);
+          }
+          return total;
+        }, 0);
+
+        console.log('Actualizando saldo de caja:', {
+          cajaId: cajaAbierta.Codigo,
+          saldoActual: cajaAbierta.SaldoTeorico,
+          egreso: totalEgreso,
+          nuevoSaldo: parseFloat(cajaAbierta.SaldoTeorico || 0) - totalEgreso
+        });
+
+        await cajaAbierta.update({
+          SaldoTeorico: parseFloat(cajaAbierta.SaldoTeorico || 0) - totalEgreso
+        }, { transaction });
+    
+    // 4. Marcar el recibo como anulado
+    await recibo.update({
+      FechaAnulacion: new Date()
+    }, { transaction });
+    
+    await transaction.commit();
+        console.log('Recibo anulado exitosamente');
+    
+    return res.status(200).json({
+      message: 'Recibo anulado correctamente'
+    });
+      } catch (jwtError) {
+        console.error('Error verificando token:', jwtError);
+        await transaction.rollback();
+        return res.status(401).json({
+          success: false,
+          message: 'Token inválido o expirado'
+        });
       }
-      
-      // 4. Marcar el recibo como anulado
-      await recibo.update({
-        FechaAnulacion: new Date()
-      }, { transaction });
-      
-      await transaction.commit();
-      
-      return res.status(200).json({
-        message: 'Recibo anulado correctamente'
-      });
-    } catch (error) {
-      await transaction.rollback();
+  } catch (error) {
+      console.error('Error en la transacción:', error);
+    await transaction.rollback();
       throw error;
     }
   } catch (error) {

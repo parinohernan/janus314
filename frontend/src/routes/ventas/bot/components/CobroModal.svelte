@@ -54,25 +54,46 @@
 </script>
 
 {#if mostrarModalCobro}
-  <div class="modal-overlay" on:click|self={handleCancelar}>
-    <div class="modal-content" on:click|stopPropagation>
+  <div 
+    class="modal-overlay" 
+    role="presentation"
+  >
+    <div 
+      class="modal-content" 
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+      tabindex="-1"
+    >
       <div class="modal-header">
-        <h2>Cobro de Venta</h2>
-        <button class="btn-close" on:click={handleCancelar}>×</button>
+        <h2 id="modal-title">Cobro de Venta</h2>
+        <button 
+          class="btn-close" 
+          on:click={handleCancelar}
+          on:keydown={(e) => e.key === 'Escape' && handleCancelar()}
+          aria-label="Cerrar modal"
+          type="button"
+        >×</button>
       </div>
 
       <div class="modal-body">
         <div class="cliente-info">
           <strong>Cliente:</strong> {clienteSeleccionado.Descripcion}
-              </div>
+        </div>
 
         <div class="total-info">
           <strong>Total a Cobrar:</strong> ${importeTotal.toFixed(2)}
-          </div>
+        </div>
 
-        <div class="saldo-info" class:pendiente={saldoPendiente > 0} class:completo={saldoPendiente === 0}>
+        <div 
+          class="saldo-info" 
+          class:pendiente={saldoPendiente > 0} 
+          class:completo={saldoPendiente === 0}
+          role="status"
+          aria-live="polite"
+        >
           <strong>Saldo Pendiente:</strong> ${saldoPendiente.toFixed(2)}
-              </div>
+        </div>
 
         <FormasPago
           bind:formasPago
@@ -80,21 +101,25 @@
           bind:saldoPendiente
           incluirFormasAplicaSaldo={true}
           on:change={handleFormasPagoChange}
-                />
-              </div>
+        />
+      </div>
 
       <div class="modal-footer">
         <button 
           class="btn-cancelar" 
           on:click={handleCancelar}
+          on:keydown={(e) => e.key === 'Escape' && handleCancelar()}
           disabled={isLoading}
+          type="button"
         >
           Cancelar
         </button>
         <button 
           class="btn-terminar" 
           on:click={handleTerminar}
+          on:keydown={(e) => e.key === 'Enter' && handleTerminar()}
           disabled={isLoading || saldoPendiente > 0 || formasPago.length === 0}
+          type="button"
         >
           {isLoading ? 'Procesando...' : 'Terminar Venta'}
         </button>
@@ -125,6 +150,7 @@
     max-width: 600px;
     max-height: 90vh;
     overflow-y: auto;
+    outline: none; /* Para el foco del tabindex */
   }
   
   .modal-header {
@@ -146,6 +172,21 @@
     cursor: pointer;
     padding: 0;
     color: #666;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  .btn-close:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .btn-close:focus {
+    outline: 2px solid #2481cc;
+    outline-offset: 2px;
   }
   
   .modal-body {
@@ -184,6 +225,7 @@
     border-radius: 4px;
     cursor: pointer;
     font-weight: bold;
+    min-width: 100px;
   }
 
   .btn-cancelar {
@@ -200,5 +242,11 @@
   .btn-terminar:disabled {
     opacity: 0.7;
     cursor: not-allowed;
+  }
+
+  .btn-cancelar:focus,
+  .btn-terminar:focus {
+    outline: 2px solid #2481cc;
+    outline-offset: 2px;
   }
 </style> 

@@ -19,7 +19,6 @@ export class PreventaService {
 
 			if (filtros) {
 				if (filtros.cliente) params.cliente = filtros.cliente;
-				if (filtros.tipo) params.tipo = filtros.tipo;
 				if (filtros.vendedor) params.vendedor = filtros.vendedor;
 				if (filtros.fechaDesde) params.fechaDesde = filtros.fechaDesde;
 				if (filtros.fechaHasta) params.fechaHasta = filtros.fechaHasta;
@@ -171,6 +170,30 @@ export class PreventaService {
 			return await response.json();
 		} catch (error) {
 			console.error('Error en PreventaService.actualizarPreventa:', error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Obtiene el resumen de preventas seleccionadas
+	 */
+	public static async obtenerResumenPreventas(
+		preventas: Array<{numero: string, sucursal: string}>, 
+		ordenarPor: 'codigo' | 'descripcion' | 'proveedor' | 'rubro' | 'cantidad' = 'codigo'
+	) {
+		try {
+			const response = await fetchWithAuth('/preventas/resumen', {
+				method: 'POST',
+				body: JSON.stringify({ preventas, ordenarPor })
+			});
+
+			if (!response.ok) {
+				throw new Error(`Error al obtener resumen de preventas: ${response.statusText}`);
+			}
+
+			return await response.json();
+		} catch (error) {
+			console.error('Error en PreventaService.obtenerResumenPreventas:', error);
 			throw error;
 		}
 	}

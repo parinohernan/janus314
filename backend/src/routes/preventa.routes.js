@@ -26,4 +26,7 @@ router.put(
   preventaController.facturarPreventa
 );
 
+// Ruta para obtener resumen de preventas seleccionadas
+router.post('/resumen', preventaController.obtenerResumenPreventas);
+
 module.exports = router;

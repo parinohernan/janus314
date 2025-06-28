@@ -33,6 +33,8 @@ function createAuthStore() {
     subscribe,
     login: async (credentials: { usuario: string; password: string; empresa?: string }) => {
       try {
+        console.log('Iniciando login con credenciales:', credentials);
+        
         // En modo local, verificar credenciales por defecto
         if (authConfig.mode === 'local') {
           if (credentials.usuario === DEFAULT_CREDENTIALS.usuario && 
@@ -47,24 +49,30 @@ function createAuthStore() {
               fechaCreacion: new Date().toISOString()
             };
 
+            const mockToken = 'mock-token-local';
+            console.log('Login local exitoso, token:', mockToken);
+
             update(state => ({
               ...state,
               user: mockUser,
               isAuthenticated: true,
-              token: 'mock-token-local',
+              token: mockToken,
               empresa: null
             }));
 
             if (browser) {
-              localStorage.setItem('authToken', 'mock-token-local');
+              localStorage.setItem('authToken', mockToken);
+              console.log('Token guardado en localStorage');
             }
-            return { user: mockUser, token: 'mock-token-local' };
+            return { user: mockUser, token: mockToken };
           }
           throw new Error('Credenciales inválidas');
         }
 
         // En modo online, hacer la llamada al servidor
         const endpoint = `${PUBLIC_API_URL}${authConfig.endpoints.online.login}`;
+        console.log('Haciendo login online en:', endpoint);
+        
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -74,6 +82,7 @@ function createAuthStore() {
         if (!response.ok) throw new Error('Error de autenticación');
 
         const data = await response.json();
+        console.log('Respuesta del servidor:', data);
         
         update(state => ({
           ...state,
@@ -85,17 +94,22 @@ function createAuthStore() {
 
         if (browser && data.token) {
           localStorage.setItem('authToken', data.token);
+          console.log('Token guardado en localStorage');
         }
 
         return data;
       } catch (error) {
+        console.error('Error en login:', error);
         throw error;
       }
     },
     logout: async () => {
+      console.log('Iniciando logout');
+      
       if (authConfig.mode === 'local') {
         if (browser) {
           localStorage.removeItem('authToken');
+          console.log('Token eliminado del localStorage');
         }
         set({
           user: null,
@@ -109,16 +123,20 @@ function createAuthStore() {
       const endpoint = `${PUBLIC_API_URL}${authConfig.endpoints.online.logout}`;
       try {
         if (browser) {
+          const token = localStorage.getItem('authToken');
+          console.log('Haciendo logout online con token:', token);
+          
           await fetch(endpoint, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+              'Authorization': `Bearer ${token}`
             }
           });
         }
       } finally {
         if (browser) {
           localStorage.removeItem('authToken');
+          console.log('Token eliminado del localStorage');
         }
         set({
           user: null,
@@ -129,12 +147,17 @@ function createAuthStore() {
       }
     },
     verifySession: async () => {
+      console.log('Verificando sesión');
+      
       if (!browser) {
+        console.log('No es navegador, retornando false');
         return false;
       }
 
       if (authConfig.mode === 'local') {
         const token = localStorage.getItem('authToken');
+        console.log('Modo local, token en localStorage:', token);
+        
         if (token === 'mock-token-local') {
           const mockUser: Usuario = {
             id: '1',
@@ -154,16 +177,25 @@ function createAuthStore() {
             empresa: null
           }));
 
+          console.log('Sesión local verificada exitosamente');
           return true;
         }
+        console.log('No hay token local válido');
         return false;
       }
 
       try {
         const token = localStorage.getItem('authToken');
-        if (!token) return false;
+        console.log('Token en localStorage:', token);
+        
+        if (!token) {
+          console.log('No hay token en localStorage');
+          return false;
+        }
 
         const endpoint = `${PUBLIC_API_URL}${authConfig.endpoints.online.verify}`;
+        console.log('Verificando sesión online en:', endpoint);
+        
         const response = await fetch(endpoint, {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -171,11 +203,13 @@ function createAuthStore() {
         });
 
         if (!response.ok) {
+          console.log('Verificación fallida:', response.status);
           localStorage.removeItem('authToken');
           return false;
         }
 
         const data = await response.json();
+        console.log('Respuesta de verificación:', data);
         
         update(state => ({
           ...state,
@@ -185,8 +219,10 @@ function createAuthStore() {
           empresa: data.empresa || null
         }));
 
+        console.log('Sesión verificada exitosamente');
         return true;
-      } catch {
+      } catch (error) {
+        console.error('Error verificando sesión:', error);
         if (browser) {
           localStorage.removeItem('authToken');
         }
