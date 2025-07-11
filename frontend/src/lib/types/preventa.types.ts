@@ -72,7 +72,7 @@ export interface Preventa {
  */
 export interface PreventaFiltros {
 	cliente?: string;
-	vendedor?: string;
+	vendedores?: string[]; // Cambiado a array para múltiples vendedores
 	fechaDesde?: string;
 	fechaHasta?: string;
 	pendientes?: boolean;

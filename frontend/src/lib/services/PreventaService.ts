@@ -19,7 +19,9 @@ export class PreventaService {
 
 			if (filtros) {
 				if (filtros.cliente) params.cliente = filtros.cliente;
-				if (filtros.vendedor) params.vendedor = filtros.vendedor;
+				if (filtros.vendedores && filtros.vendedores.length > 0) {
+					params.vendedores = filtros.vendedores.join(',');
+				}
 				if (filtros.fechaDesde) params.fechaDesde = filtros.fechaDesde;
 				if (filtros.fechaHasta) params.fechaHasta = filtros.fechaHasta;
 				if (filtros.pendientes) params.pendientes = true;

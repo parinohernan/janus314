@@ -8,6 +8,7 @@
 	import { ClienteService } from '$lib/services/ClienteService';
 	import { VendedorService } from '$lib/services/VendedorService';
 	import EntitySelector from '$lib/components/ui/EntitySelector.svelte';
+	import MultiSelect from '$lib/components/ui/MultiSelect.svelte';
 	
 	// Estado
 	let preventas: PreventaCabeza[] = [];
@@ -37,7 +38,7 @@
 	// Filtros
 	let filtros: PreventaFiltros = {
 		cliente: '',
-		vendedor: '',
+		vendedores: [], // Cambiado a array para múltiples vendedores
 		fechaDesde: '',
 		fechaHasta: '',
 		pendientes: true
@@ -46,15 +47,40 @@
 	
 	// Variables para almacenar el cliente y vendedor seleccionados
 	let clienteSeleccionado: any = null;
-	let vendedorSeleccionado: any = null;
+	let vendedores: any[] = []; // Array de vendedores disponibles
+	let vendedoresSeleccionados: string[] = []; // Array de códigos de vendedores seleccionados
 	
 	// Variable para controlar la carga asíncrona del selector de vendedor
 	let vendedorSelectorReady = false;
 	
+	// Reactive statement para actualizar filtros cuando cambien los vendedores seleccionados
+	$: if (vendedorSelectorReady && vendedoresSeleccionados) {
+		filtros.vendedores = [...vendedoresSeleccionados];
+	}
+	
 	// Cargar preventas al montar el componente
 	onMount(() => {
 		cargarPreventas();
+		cargarVendedores();
 	});
+	
+	// Función para cargar vendedores
+	async function cargarVendedores() {
+		try {
+			const vendedoresOptions = await VendedorService.obtenerVendedoresActivos();
+			// Convertir las opciones al formato que espera el MultiSelect
+			vendedores = vendedoresOptions.map(option => ({
+				Codigo: option.value,
+				Descripcion: option.label
+			}));
+			// Activar el selector de vendedor después de cargar los vendedores
+			vendedorSelectorReady = true;
+		} catch (err) {
+			console.error('Error al cargar vendedores:', err);
+			// Activar el selector incluso si hay error para que no se quede bloqueado
+			vendedorSelectorReady = true;
+		}
+	}
 	
 	// Función para cargar preventas usando el servicio
 	async function cargarPreventas() {
@@ -67,16 +93,9 @@
 			totalItems = resultado.meta.totalItems;
 			totalPages = resultado.meta.totalPages;
 			// Limpiar selecciones al cambiar la página
-			console.log("preventas", preventas);
+			console.log("%%%%preventas", preventas);
 			selectedPreventas = [];
 			selectedAll = false;
-			
-			// Activar el selector de vendedor después de cargar las preventas
-			if (!vendedorSelectorReady) {
-				setTimeout(() => {
-					vendedorSelectorReady = true;
-				}, 100); // Pequeño delay para asegurar que las preventas se han renderizado
-			}
 		} catch (err) {
 			console.error('Error al cargar preventas:', err);
 			error = err instanceof Error ? err.message : 'Error desconocido';
@@ -94,6 +113,8 @@
 	
 	// Aplicar filtros
 	function aplicarFiltros() {
+		// Actualizar filtros con los vendedores seleccionados
+		filtros.vendedores = [...vendedoresSeleccionados]; // Crear una copia del array
 		currentPage = 1; // Resetear a primera página
 		cargarPreventas();
 	}
@@ -102,11 +123,12 @@
 	function limpiarFiltros() {
 		filtros = {
 			cliente: '',
-			vendedor: '',
+			vendedores: [],
 			fechaDesde: '',
 			fechaHasta: '',
 			pendientes: true
 		};
+		vendedoresSeleccionados = [];
 		currentPage = 1;
 		cargarPreventas();
 	}
@@ -302,10 +324,7 @@
 		filtros.cliente = event.detail.value;
 	}
 	
-	// Función para manejar la selección de vendedor
-	function handleVendedorSelect(event: CustomEvent) {
-		filtros.vendedor = event.detail.value;
-	}
+
 	
 	// Función para cargar los detalles de las preventas seleccionadas
 	async function cargarDetallesPreventas() {
@@ -390,28 +409,18 @@
 				/>
 			</div>
 			
-			<!-- Selector de vendedor usando EntitySelector -->
+			<!-- Selector múltiple de vendedores usando MultiSelect -->
 			<div>
-				{#if vendedorSelectorReady}
-					<EntitySelector
-						label="Vendedor"
-						placeholder="Buscar vendedor..."
-						apiEndpoint="/vendedores"
-						valueField="Codigo"
-						labelField="Descripcion"
-						initialValue={filtros.vendedor}
-						minSearchLength={0}
-						on:select={handleVendedorSelect}
-					/>
-				{:else}
-					<label for="filtroVendedor" class="block text-sm font-medium text-gray-700">Vendedor</label>
-					<div class="mt-1 flex items-center space-x-2">
-						<div class="flex-1 border border-gray-300 rounded-md shadow-sm p-2 bg-gray-50 text-gray-500">
-							Cargando vendedores...
-						</div>
-						<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
-					</div>
-				{/if}
+				<label for="vendedores-select" class="block text-sm font-medium text-gray-700 mb-2">
+					Vendedores
+				</label>
+				<MultiSelect
+					items={vendedores}
+					bind:selectedValues={vendedoresSeleccionados}
+					labelField="Descripcion"
+					valueField="Codigo"
+					placeholder="Seleccione vendedores..."
+				/>
 			</div>
 			
 			<div>

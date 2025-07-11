@@ -20,7 +20,7 @@ exports.listarPreventas = async (req, res) => {
     const offset = (page - 1) * limit;
     const tipo = req.query.tipo || null;
     const clienteCodigo = req.query.cliente || null;
-    const vendedorCodigo = req.query.vendedor || null;
+    const vendedores = req.query.vendedores || null;
     const fechaDesde = req.query.fechaDesde || null;
     const fechaHasta = req.query.fechaHasta || null;
     const pendientes = req.query.pendientes === "true";
@@ -29,7 +29,13 @@ exports.listarPreventas = async (req, res) => {
     const whereClause = {};
     if (tipo) whereClause.DocumentoTipo = tipo;
     if (clienteCodigo) whereClause.ClienteCodigo = clienteCodigo;
-    if (vendedorCodigo) whereClause.VendedorCodigo = vendedorCodigo;
+    if (vendedores) {
+      // Manejar múltiples vendedores separados por coma
+      const vendedoresArray = vendedores.split(',').map(v => v.trim());
+      whereClause.VendedorCodigo = {
+        [Op.in]: vendedoresArray
+      };
+    }
 
     // Filtro para preventas pendientes (no anuladas y no facturadas)
     if (pendientes) {
