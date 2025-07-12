@@ -16,7 +16,7 @@ function renderItemsList(doc, items, y, options = {}) {
       PrecioUnitario: item.PrecioUnitario || 0,
       Cantidad: item.Cantidad || 0,
       Descuento: item.PorcentajeBonificado || 0,
-      Subtotal: item.Total,
+      Subtotal: item.Total || (item.Cantidad * item.PrecioUnitario) || 0,
     };
   });
 

@@ -8,6 +8,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
 	
 	let { children } = $props();
 	let isLoading = $state(true);
@@ -29,6 +30,20 @@
 			}
 		}
 		isLoading = false;
+	});
+	
+	// Effect para manejar cambios en la autenticación
+	$effect(() => {
+		if (browser && !isLoading && !esMiniWebTelegram) {
+			const token = localStorage.getItem('authToken');
+			if (!$auth.isAuthenticated && token && $page.url.pathname !== '/login') {
+				// Si hay token pero no está autenticado, verificar la sesión
+				auth.verifySession();
+			} else if (!$auth.isAuthenticated && !token && $page.url.pathname !== '/login') {
+				// Si no hay token y no está autenticado, redirigir a login
+				goto('/login');
+			}
+		}
 	});
 	
 	beforeNavigate(({ from, to, cancel }) => {

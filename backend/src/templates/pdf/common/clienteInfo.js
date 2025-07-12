@@ -13,7 +13,7 @@ function renderClienteInfo(doc, factura, y) {
   doc.fontSize(12)
     .text(`Cliente: ${factura.Cliente ? factura.Cliente.Descripcion : "N/A"}`)
     .text(`Domicilio: ${factura.Cliente ? factura.Cliente.Calle : "N/A"}`)
-    .text(`Categoria IVA: ${getCategoriaTxt(factura.Cliente.CategoriaIva)}`);
+    .text(`Categoria IVA: ${factura.Cliente && factura.Cliente.CategoriaIva ? getCategoriaTxt(factura.Cliente.CategoriaIva) : "N/A"}`);
 
   // Línea separadora
   doc.strokeColor("#000000").moveTo(20, doc.y).lineTo(580, doc.y).stroke();
@@ -24,7 +24,7 @@ function renderClienteInfo(doc, factura, y) {
   doc.fontSize(12)
     .text(' ')
     .text(`Localidad: ${factura.Cliente ? factura.Cliente.Localidad : "N/A"}`)
-    .text(formatearCuit(factura.Cliente.Cuit));
+    .text(factura.Cliente && factura.Cliente.Cuit ? formatearCuit(factura.Cliente.Cuit) : "CUIT: N/A");
 
   // Columna derecha  
   doc.x = 440;
@@ -32,7 +32,7 @@ function renderClienteInfo(doc, factura, y) {
   doc.fontSize(12)
     .text(' ')
     .text(`Pago: ${getTipoPagoTxt(factura.PagoTipo)}`)
-    .text(`Lista: ${factura.ListaNumero}`);
+    .text(`Lista: ${factura.ListaNumero || "N/A"}`);
 
   return doc.y+10;
 }

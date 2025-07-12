@@ -25,6 +25,8 @@ exports.generarFacturaPDF = async (req, res) => {
   try {
     const { tipo, sucursal, numero } = req.params;
     
+    console.log(`Generando PDF para factura: ${tipo}-${sucursal}-${numero}`);
+    
     // Obtener los modelos dinámicos de la empresa actual
     const { FacturaCabeza, FacturaItem, Cliente, Articulo, DatosEmpresa } = req.models;
 
@@ -39,12 +41,16 @@ exports.generarFacturaPDF = async (req, res) => {
       raw: false,
     });
 
+    console.log('Factura encontrada:', factura ? 'Sí' : 'No');
+
     if (!factura) {
       return res.status(404).json({
         success: false,
         message: "Factura no encontrada",
       });
     }
+
+    console.log('Cliente encontrado:', factura.Cliente ? 'Sí' : 'No');
 
     // Obtener ítems de la factura
     const items = await FacturaItem.findAll({
@@ -63,6 +69,8 @@ exports.generarFacturaPDF = async (req, res) => {
       raw: true,
     });
 
+    console.log('Items encontrados:', items.length);
+
     // Obtener códigos de artículos para buscarlos
     const codigosArticulos = items.map((item) => item.CodigoArticulo);
 
@@ -73,6 +81,8 @@ exports.generarFacturaPDF = async (req, res) => {
       },
       raw: true,
     });
+
+    console.log('Artículos encontrados:', articulos.length);
 
     // Crear un mapa de artículos por código para facilitar la búsqueda
     const articulosPorCodigo = {};
@@ -101,12 +111,15 @@ exports.generarFacturaPDF = async (req, res) => {
 
     // Obtener datos de la empresa
     const datosEmpresa = await DatosEmpresa.findOne();
+    console.log('Datos de empresa encontrados:', datosEmpresa ? 'Sí' : 'No');
+    
     if (!datosEmpresa) {
       return res.status(404).json({
         success: false,
         message: "Datos de empresa no encontrados",
       });
     }
+    
     // Asignar datos de empresa a la factura para la plantilla
     factura.Empresa = datosEmpresa;
     
@@ -114,6 +127,8 @@ exports.generarFacturaPDF = async (req, res) => {
     if (factura.Empresa.InicioActividades) {
       factura.Empresa.InicioActividades = new Date(factura.Empresa.InicioActividades);
     }
+
+    console.log('Iniciando generación del PDF...');
 
     // Crear documento PDF
     const doc = new PDFDocument(docFacturaA4);
@@ -130,20 +145,25 @@ exports.generarFacturaPDF = async (req, res) => {
 
     // Aplicar plantilla adecuada según tipo de documento
     if (tipo === "FCA" || tipo === "NCA" || tipo === "NDA") {
+      console.log('Aplicando plantilla Factura A...');
       await renderFacturaA(doc, { factura, items: itemsConArticulos });
     } else if (tipo === "FCB" || tipo === "NCB" || tipo === "NDB") {
+      console.log('Aplicando plantilla Factura B...');
       await renderFacturaB(doc, { factura, items: itemsConArticulos });
     } else if (tipo === "PRF") {
+      console.log('Aplicando plantilla Prefactura...');
       await renderPrefactura(doc, { prefactura: factura, items: itemsConArticulos });
     } else {
       // Si el tipo no está entre los soportados, mostrar mensaje
       doc.fontSize(20).text("Tipo de documento no soportado", 100, 100);
     }
 
+    console.log('Finalizando documento PDF...');
     // Finalizar documento
     doc.end();
   } catch (error) {
     console.error("Error generando PDF:", error);
+    console.error("Stack trace:", error.stack);
     res.status(500).json({
       success: false,
       message: "Error al generar PDF",

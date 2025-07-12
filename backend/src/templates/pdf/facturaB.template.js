@@ -29,8 +29,9 @@ async function renderFacturaB(doc, data) {
       companyEmail: factura.Empresa.Email,
       companyLocalidad: factura.Empresa.Localidad,
       companyIngresosBrutos: factura.Empresa.IngresosBrutos,
-      companyInicioActividades:
-        factura.Empresa.InicioActividades.toLocaleDateString("es-AR"),
+      companyInicioActividades: factura.Empresa.InicioActividades 
+        ? factura.Empresa.InicioActividades.toLocaleDateString("es-AR")
+        : "No especificado",
       title: "B",
       documentType: "B",
       documentNumber: `${factura.DocumentoSucursal}-${factura.DocumentoNumero}`,

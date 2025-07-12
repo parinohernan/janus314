@@ -106,6 +106,42 @@ export class EmpresaService {
 	}
 
 	/**
+	 * Actualiza los datos de la empresa
+	 */
+	public static async actualizarDatos(datos: DatosEmpresa): Promise<DatosEmpresa> {
+		try {
+			console.log('Actualizando datos de empresa:', datos);
+			console.log('URL de la petición:', `${PUBLIC_API_URL}/datos-empresa`);
+			
+			const response = await fetchWithAuth('/datos-empresa', {
+				method: 'PUT',
+				body: JSON.stringify(datos)
+			});
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				console.error('Error en la respuesta de actualización:', {
+					status: response.status,
+					statusText: response.statusText,
+					body: errorText
+				});
+				throw new Error(`Error al actualizar datos de empresa: ${response.status} ${response.statusText}`);
+			}
+
+			const responseData = await response.json();
+			console.log('Datos actualizados exitosamente:', responseData);
+
+			// Actualizar el caché con los nuevos datos
+			this.datosCache = (responseData.data || responseData || datos) as DatosEmpresa;
+
+			return this.datosCache;
+		} catch (error) {
+			console.error('Error en actualizarDatos:', error);
+			throw error;
+		}
+	}
+
+	/**
 	 * Limpia la caché de datos
 	 */
 	public static limpiarCache(): void {

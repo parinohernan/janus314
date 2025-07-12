@@ -41,7 +41,7 @@ async function renderElectronicInfo(doc, factura, yTotales) {
     doc.y = yTotales + 80;
     doc.fontSize(8);
     doc.text(
-      factura.afip_cae
+      factura.afip_cae && factura.afip_cae_vencimiento
         ? `CAE: ${factura.afip_cae} - Vto: ${new Date(
             factura.afip_cae_vencimiento
           ).toLocaleDateString("es-AR")}`

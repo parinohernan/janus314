@@ -14,7 +14,7 @@ async function generarDatosQR(factura) {
     const tipoComprobante = mapearTipoComprobante(factura.DocumentoTipo);
 
     // Determinar el tipo de documento del receptor
-    const tipoDocReceptor = factura.Cliente.CategoriaIva === "I" ? 80 : 96; // 80=CUIT, 96=DNI
+    const tipoDocReceptor = factura.Cliente && factura.Cliente.CategoriaIva === "I" ? 80 : 96; // 80=CUIT, 96=DNI
 
     // Construir objeto JSON según especificaciones
     const datosQR = {
@@ -28,7 +28,7 @@ async function generarDatosQR(factura) {
       moneda: "PES", // Moneda (PES para pesos argentinos)
       ctz: 1, // Cotización (1 para pesos)
       tipoDocRec: tipoDocReceptor, // Tipo de documento del receptor
-      nroDocRec: factura.Cliente.Cuit.replace(/[-]/g, ""), // Documento receptor sin guiones
+      nroDocRec: factura.Cliente && factura.Cliente.Cuit ? factura.Cliente.Cuit.replace(/[-]/g, "") : "00000000000", // Documento receptor sin guiones
       tipoCodAut: "E", // E para CAE, A para CAEA
       codAut: factura.afip_cae, // Código de autorización (CAE)
     };

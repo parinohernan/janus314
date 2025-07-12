@@ -40,20 +40,10 @@
     successMessage = null;
 
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/datos-empresa`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(datosEmpresa)
-      });
-
-      if (!response.ok) {
-        throw new Error('Error al actualizar los datos');
-      }
-
+      // Usar el método del servicio que maneja la autenticación
+      await EmpresaService.actualizarDatos(datosEmpresa);
+      
       successMessage = 'Datos actualizados correctamente';
-      EmpresaService.limpiarCache(); // Limpiar caché para próximas consultas
     } catch (err) {
       error = err instanceof Error ? err.message : 'Error al guardar los datos';
     } finally {
