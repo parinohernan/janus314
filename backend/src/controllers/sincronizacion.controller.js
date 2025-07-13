@@ -298,25 +298,19 @@ exports.verificarConexion = async (req, res) => {
 };
 
 // Función para eliminar artículos
-const eliminarArticulos = async (transaction, baseDatosPreventa) => {
-  console.log(`Eliminando artículos de la tabla t_articulos en la base de datos ${baseDatosPreventa}...`);
-  await sequelize.query(`DELETE FROM ${baseDatosPreventa}.t_articulos`, { 
-    transaction,
-    replacements: [baseDatosPreventa]
-  });
+const eliminarArticulos = async (preventasSequelize) => {
+  console.log('Eliminando artículos de la tabla t_articulos en la base de datos de preventas...');
+  await preventasSequelize.query(`DELETE FROM t_articulos`);
   console.log('Eliminación de artículos completada');
 };
 
 // Función para copiar artículos
-const copiarArticulos = async (transaction, baseDatosPreventa) => {
-  // console.log(`Copiando artículos desde la tabla t_articulos de db_sis_fac a la tabla t_articulos de la base de datos ${baseDatosPreventa}...`);
+const copiarArticulos = async (empresaSequelize, preventasSequelize) => {
+  console.log('Copiando artículos desde la empresa específica a la base de datos de preventas...');
   
-  // Primero, ver la estructura de la tabla de origen
-  // const estructura = await sequelize.query('DESCRIBE t_articulos', { transaction });
-  // console.log('Estructura de la tabla origen:', estructura[0]);
-
-  await sequelize.query(`
-    INSERT INTO ${baseDatosPreventa}.t_articulos (
+  // Obtener artículos activos de la empresa específica
+  const articulos = await empresaSequelize.query(`
+    SELECT 
       Codigo, 
       Descripcion, 
       Existencia, 
@@ -339,137 +333,174 @@ const copiarArticulos = async (transaction, baseDatosPreventa) => {
       Iva2SobreNeto, 
       PorcentajeVendedor, 
       DescuentoXCantidad
-    )
-    SELECT 
-      Codigo, 
-      Descripcion, 
-      Existencia,
-      ExistenciaMinima,
-      ExistenciaMaxima,
-      PrecioCostoMasImp,
-      PorcentajeIVA1,
-      PorcentajeIVA2,
-      PrecioCosto,
-      UnidadVenta,
-      Lista1,
-      Lista2,
-      Lista3,
-      Lista4,
-      Lista5,
-      ProveedorCodigo,
-      RubroCodigo,
-      Peso,
-      SiempreSeDescarga,
-      Iva2SobreNeto,
-      PorcentajeVendedor,
-      DescuentoXCantidad
     FROM t_articulos
     WHERE Activo = 1
-  `, { 
-    transaction,
-    replacements: [baseDatosPreventa]
-  });
-  // console.log('Copia de artículos completada');
+  `, { type: empresaSequelize.QueryTypes.SELECT });
+
+  // Insertar en la base de datos de preventas
+  if (articulos.length > 0) {
+    const values = articulos.map(articulo => `(
+      '${articulo.Codigo || ''}',
+      '${(articulo.Descripcion || '').replace(/'/g, "''")}',
+      ${articulo.Existencia || 0},
+      ${articulo.ExistenciaMinima || 0},
+      ${articulo.ExistenciaMaxima || 0},
+      ${articulo.PrecioCostoMasImp || 0},
+      ${articulo.PorcentajeIVA1 || 0},
+      ${articulo.PorcentajeIVA2 || 0},
+      ${articulo.PrecioCosto || 0},
+      '${articulo.UnidadVenta || ''}',
+      ${articulo.Lista1 || 0},
+      ${articulo.Lista2 || 0},
+      ${articulo.Lista3 || 0},
+      ${articulo.Lista4 || 0},
+      ${articulo.Lista5 || 0},
+      '${articulo.ProveedorCodigo || ''}',
+      '${articulo.RubroCodigo || ''}',
+      ${articulo.Peso || 0},
+      ${articulo.SiempreSeDescarga ? 1 : 0},
+      ${articulo.Iva2SobreNeto ? 1 : 0},
+      ${articulo.PorcentajeVendedor || 0},
+      ${articulo.DescuentoXCantidad || 0}
+    )`).join(',');
+
+    await preventasSequelize.query(`
+      INSERT INTO t_articulos (
+        Codigo, 
+        Descripcion, 
+        Existencia, 
+        ExistenciaMinima, 
+        ExistenciaMaxima, 
+        PrecioCostoMasImp, 
+        PorcentajeIVA1, 
+        PorcentajeIVA2, 
+        PrecioCosto, 
+        UnidadVenta, 
+        Lista1, 
+        Lista2, 
+        Lista3, 
+        Lista4, 
+        Lista5, 
+        ProveedorCodigo, 
+        RubroCodigo, 
+        Peso, 
+        SiempreSeDescarga, 
+        Iva2SobreNeto, 
+        PorcentajeVendedor, 
+        DescuentoXCantidad
+      ) VALUES ${values}
+    `);
+  }
+  
+  console.log(`Copia de artículos completada: ${articulos.length} artículos copiados`);
 };
 
 // Función para eliminar clientes
-const eliminarClientes = async (transaction, baseDatosPreventa) => {
-  console.log(`Eliminando clientes de la tabla t_clientes en la base de datos ${baseDatosPreventa}...`);
-  await sequelize.query(`DELETE FROM ${baseDatosPreventa}.t_clientes`, {
-    transaction,
-    replacements: [baseDatosPreventa]
-  });
+const eliminarClientes = async (preventasSequelize) => {
+  console.log('Eliminando clientes de la tabla t_clientes en la base de datos de preventas...');
+  await preventasSequelize.query(`DELETE FROM t_clientes`);
   console.log('Eliminación de clientes completada');
 };
 
 // Función para copiar clientes
-const copiarClientes = async (transaction, baseDatosPreventa) => {
-  console.log(`Copiando clientes desde la tabla t_clientes de db_sis_fac a la tabla t_clientes de la base de datos ${baseDatosPreventa}...`);
-  // Mapea las columnas de db_sis_fac.t_clientes a preventas.t_clientes
-  await sequelize.query(`
-    INSERT INTO ${baseDatosPreventa}.t_clientes (
+const copiarClientes = async (empresaSequelize, preventasSequelize) => {
+  console.log('Copiando clientes desde la empresa específica a la base de datos de preventas...');
+  
+  // Obtener clientes activos de la empresa específica
+  const clientes = await empresaSequelize.query(`
+    SELECT 
       Codigo, Descripcion, Cuit, Calle, Numero, Piso, Departamento, CodigoPostal, 
       Localidad, Telefono, Mail, ContactoComercial, CategoriaIva, ListaPrecio, 
       ImporteDeuda, CodigoVendedor, Actualizado, SaldoNTCNoAplicado, LimiteCredito
-    )
-    SELECT 
-      Codigo,        -- Fuente: Codigo
-      Descripcion,   -- Fuente: Descripcion
-      Cuit,          -- Fuente: Cuit
-      Calle ,        -- Fuente: Calle
-      Numero,        -- Fuente: Numero
-      Piso,          -- Fuente: Piso
-      Departamento,  -- Fuente: Departamento
-      CodigoPostal,  -- Fuente: CodigoPostal
-      Localidad,     -- Fuente: Localidad
-      Telefono,      -- Fuente: Telefono
-      Mail,          -- Fuente: Mail
-      ContactoComercial, -- Fuente: ContactoComercial
-      CategoriaIva,  -- Fuente: CategoriaIva
-      ListaPrecio,   -- Fuente: ListaPrecio
-      ImporteDeuda,  -- Fuente: ImporteDeuda
-      CodigoVendedor, -- Fuente: CodigoVendedor
-      Actualizado,   -- Fuente: Actualizado
-      SaldoNTCNoAplicado, -- Fuente: SaldoNTCNoAplicado
-      LimiteCredito  -- Fuente: LimiteCredito
     FROM t_clientes
     WHERE Activo = 1
-  `, {
-    transaction,
-    replacements: [baseDatosPreventa]
-  });
-  console.log('Copia de clientes completada');
+  `, { type: empresaSequelize.QueryTypes.SELECT });
+
+  // Insertar en la base de datos de preventas
+  if (clientes.length > 0) {
+    const values = clientes.map(cliente => `(
+      '${cliente.Codigo || ''}',
+      '${(cliente.Descripcion || '').replace(/'/g, "''")}',
+      '${cliente.Cuit || ''}',
+      '${(cliente.Calle || '').replace(/'/g, "''")}',
+      '${cliente.Numero || ''}',
+      '${cliente.Piso || ''}',
+      '${cliente.Departamento || ''}',
+      '${cliente.CodigoPostal || ''}',
+      '${(cliente.Localidad || '').replace(/'/g, "''")}',
+      '${cliente.Telefono || ''}',
+      '${cliente.Mail || ''}',
+      '${(cliente.ContactoComercial || '').replace(/'/g, "''")}',
+      '${cliente.CategoriaIva || ''}',
+      ${cliente.ListaPrecio || 1},
+      ${cliente.ImporteDeuda || 0},
+      '${cliente.CodigoVendedor || ''}',
+      ${cliente.Actualizado ? 1 : 0},
+      ${cliente.SaldoNTCNoAplicado || 0},
+      ${cliente.LimiteCredito || 0}
+    )`).join(',');
+
+    await preventasSequelize.query(`
+      INSERT INTO t_clientes (
+        Codigo, Descripcion, Cuit, Calle, Numero, Piso, Departamento, CodigoPostal, 
+        Localidad, Telefono, Mail, ContactoComercial, CategoriaIva, ListaPrecio, 
+        ImporteDeuda, CodigoVendedor, Actualizado, SaldoNTCNoAplicado, LimiteCredito
+      ) VALUES ${values}
+    `);
+  }
+  
+  console.log(`Copia de clientes completada: ${clientes.length} clientes copiados`);
 };
 
 // Función para eliminar vendedores
-const eliminarVendedores = async (transaction, baseDatosPreventa) => {
-  console.log(`Eliminando vendedores de la tabla t_vendedores en la base de datos ${baseDatosPreventa}...`);
-  await sequelize.query(`DELETE FROM ${baseDatosPreventa}.t_vendedores`, {
-    transaction,
-    replacements: [baseDatosPreventa]
-  });
+const eliminarVendedores = async (preventasSequelize) => {
+  console.log('Eliminando vendedores de la tabla t_vendedores en la base de datos de preventas...');
+  await preventasSequelize.query(`DELETE FROM t_vendedores`);
   console.log('Eliminación de vendedores completada');
 };
 
 // Función para copiar vendedores
-const copiarVendedores = async (transaction, baseDatosPreventa) => {
-  console.log(`Copiando vendedores desde la tabla t_vendedores de db_sis_fac a la tabla t_vendedores de la base de datos ${baseDatosPreventa}...`);
-  // Mapea las columnas de db_sis_fac.t_vendedores a preventas.t_vendedores
-  // Asume que la tabla origen tiene 'Nombre' que mapea a 'Descripcion'
-  // Establece 'Clave' como NULL por defecto
-  await sequelize.query(`
-    INSERT INTO ${baseDatosPreventa}.t_vendedores (
-      Codigo, 
-      Descripcion, 
-      Clave
-    )
+const copiarVendedores = async (empresaSequelize, preventasSequelize) => {
+  console.log('Copiando vendedores desde la empresa específica a la base de datos de preventas...');
+  
+  // Obtener vendedores activos de la empresa específica
+  const vendedores = await empresaSequelize.query(`
     SELECT 
       Codigo, 
       Descripcion,
       Clave
     FROM t_vendedores
     WHERE Activo = 1
-  `, {
-    transaction,
-    replacements: [baseDatosPreventa]
-  });
-  console.log('Copia de vendedores completada');
+  `, { type: empresaSequelize.QueryTypes.SELECT });
+
+  // Insertar en la base de datos de preventas
+  if (vendedores.length > 0) {
+    const values = vendedores.map(vendedor => `(
+      '${vendedor.Codigo || ''}',
+      '${(vendedor.Descripcion || '').replace(/'/g, "''")}',
+      '${vendedor.Clave || ''}'
+    )`).join(',');
+
+    await preventasSequelize.query(`
+      INSERT INTO t_vendedores (
+        Codigo, 
+        Descripcion, 
+        Clave
+      ) VALUES ${values}
+    `);
+  }
+  
+  console.log(`Copia de vendedores completada: ${vendedores.length} vendedores copiados`);
 };
 
 // Actualizar artículos
 exports.actualizarArticulos = async (req, res) => {
-  let transaction;
+  let preventasSequelize = null;
   try {
-    // console.log('Iniciando actualización de artículos...');
+    console.log('Iniciando actualización de artículos...');
     
-    // Primero, ver todos los códigos disponibles
-    const todosLosCodigos = await Configuracion.findAll({
-      attributes: ['Codigo', 'Descripcion'],
-      raw: true
-    });
-    // console.log('Códigos de configuración disponibles:', todosLosCodigos.length);
-    
-    // Obtener la configuración de la base de datos de preventa
+    // Obtener la configuración de la base de datos de preventa usando el modelo
+    const { Configuracion } = req.models;
     const configuraciones = await Configuracion.findAll({
       where: {
         Codigo: [
@@ -489,50 +520,72 @@ exports.actualizarArticulos = async (req, res) => {
     // Verificar que la configuración esté completa
     if (!config.PreventasServidor || !config.PreventasBaseDeDatos || 
         !config.PreventaUsuario || !config.PreventaContraseña) {
-      // console.log('Configuración incompleta:', config);
       throw new Error('Configuración incompleta para la base de datos de preventa');
     }
 
-    // console.log('Configuración verificada:', config);
-    // console.log('Configuración verificada, iniciando transacción...');
-    transaction = await sequelize.transaction();
+    // Crear conexión directa a la base de datos de preventas
+    const { Sequelize } = require('sequelize');
+    preventasSequelize = new Sequelize(
+      config.PreventasBaseDeDatos,
+      config.PreventaUsuario,
+      config.PreventaContraseña,
+      {
+        host: config.PreventasServidor,
+        port: 3306,
+        dialect: 'mysql',
+        logging: false,
+        pool: {
+          max: 1,
+          min: 0,
+          acquire: 30000,
+          idle: 10000
+        }
+      }
+    );
+
+    // Probar la conexión
+    await preventasSequelize.authenticate();
+    console.log('✅ Conexión a base de datos de preventas establecida');
 
     try {
-      await eliminarArticulos(transaction, config.PreventasBaseDeDatos);
-      await copiarArticulos(transaction, config.PreventasBaseDeDatos);
+      await eliminarArticulos(preventasSequelize);
+      await copiarArticulos(req.db, preventasSequelize);
 
-      // console.log('Confirmando transacción...');
-      await transaction.commit();
-
-      // console.log('Actualización de artículos completada');
+      console.log('Actualización de artículos completada');
       res.json({
+        success: true,
         message: 'Artículos actualizados correctamente',
         data: {
           actualizado: true
         }
       });
     } catch (error) {
-      console.error('Error durante la transacción:', error);
-      if (transaction) {
-        console.log('Realizando rollback...');
-        await transaction.rollback();
-      }
+      console.error('Error durante la actualización:', error);
       throw error;
     }
   } catch (error) {
     console.error('Error al actualizar artículos:', error);
     res.status(500).json({ 
+      success: false,
       error: 'Error al actualizar artículos: ' + error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
+  } finally {
+    // Cerrar la conexión de preventas
+    if (preventasSequelize) {
+      await preventasSequelize.close();
+    }
   }
 };
 
 // Actualizar clientes
 exports.actualizarClientes = async (req, res) => {
-  let transaction;
+  let preventasSequelize = null;
   try {
-    // Obtener la configuración de la base de datos de preventa
+    console.log('Iniciando actualización de clientes...');
+    
+    // Obtener la configuración de la base de datos de preventa usando el modelo
+    const { Configuracion } = req.models;
     const configuraciones = await Configuracion.findAll({
       where: {
         Codigo: [
@@ -555,43 +608,71 @@ exports.actualizarClientes = async (req, res) => {
       throw new Error('Configuración incompleta para la base de datos de preventa');
     }
 
-    transaction = await sequelize.transaction();
+    // Crear conexión directa a la base de datos de preventas
+    const { Sequelize } = require('sequelize');
+    preventasSequelize = new Sequelize(
+      config.PreventasBaseDeDatos,
+      config.PreventaUsuario,
+      config.PreventaContraseña,
+      {
+        host: config.PreventasServidor,
+        port: 3306,
+        dialect: 'mysql',
+        logging: false,
+        pool: {
+          max: 1,
+          min: 0,
+          acquire: 30000,
+          idle: 10000
+        }
+      }
+    );
+
+    // Probar la conexión
+    await preventasSequelize.authenticate();
+    console.log('✅ Conexión a base de datos de preventas establecida');
 
     try {
-      await eliminarClientes(transaction, config.PreventasBaseDeDatos);
-      await copiarClientes(transaction, config.PreventasBaseDeDatos);
-      await eliminarVendedores(transaction, config.PreventasBaseDeDatos);
-      await copiarVendedores(transaction, config.PreventasBaseDeDatos);
+      await eliminarClientes(preventasSequelize);
+      await copiarClientes(req.db, preventasSequelize);
+      await eliminarVendedores(preventasSequelize);
+      await copiarVendedores(req.db, preventasSequelize);
 
-      await transaction.commit();
-
+      console.log('Actualización de clientes y vendedores completada');
       res.json({
-        message: 'Clientes actualizados correctamente',
+        success: true,
+        message: 'Clientes y vendedores actualizados correctamente',
         data: {
           actualizado: true
         }
       });
     } catch (error) {
-      console.error('Error durante la transacción de clientes:', error);
-      if (transaction) {
-        await transaction.rollback();
-      }
+      console.error('Error durante la actualización:', error);
       throw error;
     }
   } catch (error) {
     console.error('Error al actualizar clientes:', error);
     res.status(500).json({ 
+      success: false,
       error: 'Error al actualizar clientes: ' + error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
+  } finally {
+    // Cerrar la conexión de preventas
+    if (preventasSequelize) {
+      await preventasSequelize.close();
+    }
   }
 };
 
 // Actualizar vendedores
 exports.actualizarVendedores = async (req, res) => {
-  let transaction;
+  let preventasSequelize = null;
   try {
-    // Obtener la configuración de la base de datos de preventa
+    console.log('Iniciando actualización de vendedores...');
+    
+    // Obtener la configuración de la base de datos de preventa usando el modelo
+    const { Configuracion } = req.models;
     const configuraciones = await Configuracion.findAll({
       where: {
         Codigo: [
@@ -614,33 +695,58 @@ exports.actualizarVendedores = async (req, res) => {
       throw new Error('Configuración incompleta para la base de datos de preventa');
     }
 
-    transaction = await sequelize.transaction();
+    // Crear conexión directa a la base de datos de preventas
+    const { Sequelize } = require('sequelize');
+    preventasSequelize = new Sequelize(
+      config.PreventasBaseDeDatos,
+      config.PreventaUsuario,
+      config.PreventaContraseña,
+      {
+        host: config.PreventasServidor,
+        port: 3306,
+        dialect: 'mysql',
+        logging: false,
+        pool: {
+          max: 1,
+          min: 0,
+          acquire: 30000,
+          idle: 10000
+        }
+      }
+    );
+
+    // Probar la conexión
+    await preventasSequelize.authenticate();
+    console.log('✅ Conexión a base de datos de preventas establecida');
 
     try {
-      await eliminarVendedores(transaction, config.PreventasBaseDeDatos);
-      await copiarVendedores(transaction, config.PreventasBaseDeDatos);
+      await eliminarVendedores(preventasSequelize);
+      await copiarVendedores(req.db, preventasSequelize);
 
-      await transaction.commit();
-
+      console.log('Actualización de vendedores completada');
       res.json({
+        success: true,
         message: 'Vendedores actualizados correctamente',
         data: {
           actualizado: true
         }
       });
     } catch (error) {
-      console.error('Error durante la transacción de vendedores:', error);
-      if (transaction) {
-        await transaction.rollback();
-      }
+      console.error('Error durante la actualización:', error);
       throw error;
     }
   } catch (error) {
     console.error('Error al actualizar vendedores:', error);
     res.status(500).json({ 
+      success: false,
       error: 'Error al actualizar vendedores: ' + error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
+  } finally {
+    // Cerrar la conexión de preventas
+    if (preventasSequelize) {
+      await preventasSequelize.close();
+    }
   }
 };
 
@@ -648,9 +754,16 @@ exports.actualizarVendedores = async (req, res) => {
 exports.finalizarActualizacion = async (req, res) => {
   try {
     const fechaActual = new Date().toISOString();
-    await Configuracion.actualizar('PreventaUltimaActualizacion', fechaActual);
+    
+    // Actualizar la configuración en la empresa específica usando el modelo
+    const { Configuracion } = req.models;
+    await Configuracion.upsert({
+      Codigo: 'PreventaUltimaActualizacion',
+      ValorConfig: fechaActual
+    });
 
     res.json({
+      success: true,
       message: 'Actualización finalizada correctamente',
       data: {
         ultimaActualizacion: fechaActual
@@ -658,7 +771,10 @@ exports.finalizarActualizacion = async (req, res) => {
     });
   } catch (error) {
     console.error('Error al finalizar actualización:', error);
-    res.status(500).json({ error: 'Error al finalizar actualización' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Error al finalizar actualización: ' + error.message 
+    });
   }
 };
 
