@@ -18,16 +18,16 @@ function renderClienteInfo(doc, factura, y) {
   // Línea separadora
   doc.strokeColor("#000000").moveTo(20, doc.y).lineTo(580, doc.y).stroke();
 
-  // Columna central
-  doc.x = 270;
+  // Columna central - más espacio para localidad
+  doc.x = 250;
   doc.y = y;
   doc.fontSize(12)
     .text(' ')
     .text(`Localidad: ${factura.Cliente ? factura.Cliente.Localidad : "N/A"}`)
     .text(factura.Cliente && factura.Cliente.Cuit ? formatearCuit(factura.Cliente.Cuit) : "CUIT: N/A");
 
-  // Columna derecha  
-  doc.x = 440;
+  // Columna derecha - movida 6 caracteres más a la derecha
+  doc.x = 460;
   doc.y = y;
   doc.fontSize(12)
     .text(' ')

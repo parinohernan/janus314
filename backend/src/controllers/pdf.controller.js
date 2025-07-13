@@ -103,6 +103,8 @@ exports.generarFacturaPDF = async (req, res) => {
         Descripcion: articulo.Descripcion || '',
         UnidadVenta: articulo.UnidadVenta || '',
         PrecioUnitario: item.PrecioUnitario || articulo.Lista1 || 0,
+        PrecioLista: item.PrecioLista || articulo.Lista1 || 0,
+        PorcentajeBonificacion: item.PorcentajeBonificacion || 0,
         PorcentajeIVA1: articulo.PorcentajeIVA1 || 0,
         PorcentajeIVA2: articulo.PorcentajeIVA2 || 0,
         Total: subtotal,

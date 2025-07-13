@@ -20,7 +20,7 @@ hoy.setHours(hoy.getHours() - 3);
 const fechaFormateada = hoy.toISOString().substring(0, 10);
   let sucursalActual = '0001';
   let factura = {
-    DocumentoTipo: 'FCB',
+    DocumentoTipo: '',
     DocumentoSucursal: sucursalActual,
     DocumentoNumero: '',
     Fecha: fechaFormateada,// esto es la fecha de hoy
@@ -100,6 +100,17 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   // Control de límite de artículos
   let cantidadMaximaItems = 0;
   let cargandoConfiguracion = true;
+  
+  // Variables para comparación de precios de preventa
+  let mostrarModalPrecios = false;
+  let itemsConPreciosDiferentes: Array<{
+    item: ItemFactura;
+    precioPreventa: number;
+    precioActual: number;
+    diferencia: number;
+    porcentajeDiferencia: number;
+  }> = [];
+  let usarPreciosActuales = false;
   
   // Función asíncrona para inicializar la sucursal
   async function inicializarSucursal() {
@@ -219,13 +230,12 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     // Según la categoría IVA, añadir opciones
     if (categoriaIva === 'I' || categoriaIva === 'M') {
       tiposDocumento.push({ value: 'FCA', label: 'Factura A' });
-      factura.DocumentoTipo = 'FCA'; // Seleccionar FCA por defecto
     } else if (categoriaIva === 'F' || categoriaIva === 'E') {
       tiposDocumento.push({ value: 'FCB', label: 'Factura B' });
-      factura.DocumentoTipo = 'FCB'; // Seleccionar FCB por defecto
-    } else {
-      factura.DocumentoTipo = 'PRF'; // Seleccionar PRF por defecto
     }
+    
+    // No establecer automáticamente el tipo de documento, dejar que el usuario elija
+    factura.DocumentoTipo = '';
   };
   
   // Obtener próximo número de comprobante
@@ -619,10 +629,18 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     return null;
   };
 
+  const validarTipoDocumento = () => {
+    if (!factura.DocumentoTipo) {
+      return "Debe seleccionar un tipo de documento";
+    }
+    return null;
+  };
+
   // Función principal de validación
   const validarFactura = () => {
     const validaciones = [
       validarCliente(),
+      validarTipoDocumento(),
       validarItems(),
       validarFormaPago()
     ];
@@ -821,6 +839,32 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     }
   }
 
+  // Función para comparar precios de preventa con precios actuales
+  function compararPrecios(item: any, articuloActualizado: Articulo): {
+    precioPreventa: number;
+    precioActual: number;
+    diferencia: number;
+    porcentajeDiferencia: number;
+  } {
+    // El precio de la preventa viene con IVA incluido, lo quitamos para comparar
+    const precioPreventaConIva = item.PrecioLista || 0;
+    const porcentajeIva = item.Articulo.PorcentajeIva1 || 21;
+    const precioPreventa = precioPreventaConIva / (1 + porcentajeIva / 100);
+    
+    // El precio actual viene sin IVA
+    const precioActual = obtenerPrecioSegunLista(articuloActualizado, factura.ListaPrecio);
+    
+    const diferencia = precioActual - precioPreventa;
+    const porcentajeDiferencia = precioPreventa > 0 ? (diferencia / precioPreventa) * 100 : 0;
+    
+    return {
+      precioPreventa,
+      precioActual,
+      diferencia,
+      porcentajeDiferencia
+    };
+  }
+
   // Función para cargar la preventa desde la API
   async function cargarPreventa() {
     try {
@@ -868,6 +912,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
         if (preventaCargada.items && preventaCargada.items.length > 0) {
           // Limpiar items actuales
           factura.Items = [];
+          itemsConPreciosDiferentes = [];
           
           // Agregar items de la preventa
           for (const item of preventaCargada.items) {
@@ -878,14 +923,30 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                 const articuloActualizado = await response.json();
                 console.log("Artículo actualizado:", articuloActualizado.Descripcion);
                 
+                // Comparar precios
+                const comparacion = compararPrecios(item, articuloActualizado);
+                
+                // Si hay diferencia significativa (más del 1%), agregar a la lista
+                if (Math.abs(comparacion.porcentajeDiferencia) > 1) {
+                  itemsConPreciosDiferentes.push({
+                    item: null as any, // Se asignará después
+                    ...comparacion
+                  });
+                }
+                
                 // Crear nuevo item para la factura con la existencia actualizada
+                // El precio de la preventa viene con IVA incluido, lo quitamos
+                const precioPreventaConIva = item.PrecioLista || 0;
+                const porcentajeIva = item.Articulo.PorcentajeIva1 || 21;
+                const precioPreventaSinIva = precioPreventaConIva / (1 + porcentajeIva / 100);
+                
                 const facturaItem: ItemFactura = {
                   ArticuloCodigo: item.CodigoArticulo,
                   Descripcion: item.Articulo.Descripcion,
                   Cantidad: item.Cantidad || 0,
-                  PrecioLista: item.PrecioLista || 0,
+                  PrecioLista: precioPreventaSinIva,
                   PorcentajeBonificacion: item.PorcentajeBonificacion || 0,
-                  PrecioUnitario: (item.PrecioLista || 0) * (1 - (item.PorcentajeBonificacion || 0) / 100),
+                  PrecioUnitario: precioPreventaSinIva * (1 - (item.PorcentajeBonificacion || 0) / 100),
                   PorcentajeIva: item.Articulo.PorcentajeIva1 || 21,
                   PrecioUnitarioConIva: 0,
                   Total: 0,
@@ -896,6 +957,14 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                 // Calcular precio con IVA y total
                 facturaItem.PrecioUnitarioConIva = Number(facturaItem.PrecioUnitario) * (1 + Number(facturaItem.PorcentajeIva) / 100);
                 facturaItem.Total = Number(facturaItem.PrecioUnitarioConIva) * Number(facturaItem.Cantidad);
+                
+                // Asignar el item a la comparación
+                if (itemsConPreciosDiferentes.length > 0) {
+                  const ultimaComparacion = itemsConPreciosDiferentes[itemsConPreciosDiferentes.length - 1];
+                  if (ultimaComparacion.item === null) {
+                    ultimaComparacion.item = facturaItem;
+                  }
+                }
                 
                 // Verificar si hay stock insuficiente
                 const existencia = facturaItem.Existencia ?? 0;
@@ -908,13 +977,18 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
               } catch (error) {
                 console.error('Error al obtener datos actualizados del artículo:', error);
                 // Si falla la obtención del artículo actualizado, usar los datos de la preventa
+                // El precio de la preventa viene con IVA incluido, lo quitamos
+                const precioPreventaConIva = item.PrecioLista || 0;
+                const porcentajeIva = item.Articulo.PorcentajeIva1 || 21;
+                const precioPreventaSinIva = precioPreventaConIva / (1 + porcentajeIva / 100);
+                
                 const facturaItem: ItemFactura = {
                   ArticuloCodigo: item.CodigoArticulo,
                   Descripcion: item.Articulo.Descripcion,
                   Cantidad: item.Cantidad || 0,
-                  PrecioLista: item.PrecioLista || 0,
+                  PrecioLista: precioPreventaSinIva,
                   PorcentajeBonificacion: item.PorcentajeBonificacion || 0,
-                  PrecioUnitario: (item.PrecioLista || 0) * (1 - (item.PorcentajeBonificacion || 0) / 100),
+                  PrecioUnitario: precioPreventaSinIva * (1 - (item.PorcentajeBonificacion || 0) / 100),
                   PorcentajeIva: item.Articulo.PorcentajeIva1 || 21,
                   PrecioUnitarioConIva: 0,
                   Total: 0,
@@ -932,6 +1006,11 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
             }
           }
           
+          // Si hay precios diferentes, mostrar el modal
+          if (itemsConPreciosDiferentes.length > 0) {
+            mostrarModalPrecios = true;
+          }
+          
           // Recalcular totales
           recalcularTotales();
         }
@@ -942,6 +1021,37 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     } finally {
       loading = false;
     }
+  }
+
+  // Función para aplicar precios actuales a los items
+  function aplicarPreciosActuales() {
+    itemsConPreciosDiferentes.forEach(comparacion => {
+      const item = comparacion.item;
+      if (item) {
+        // Actualizar precio de lista con el precio actual (sin IVA)
+        item.PrecioLista = comparacion.precioActual;
+        // Recalcular precio unitario
+        item.PrecioUnitario = comparacion.precioActual * (1 - (item.PorcentajeBonificacion || 0) / 100);
+        // Recalcular precio con IVA
+        item.PrecioUnitarioConIva = Number(item.PrecioUnitario) * (1 + Number(item.PorcentajeIva) / 100);
+        // Recalcular total
+        item.Total = Number(item.PrecioUnitarioConIva) * Number(item.Cantidad);
+      }
+    });
+    
+    // Recalcular totales de la factura
+    recalcularTotales();
+    
+    // Cerrar modal
+    mostrarModalPrecios = false;
+    itemsConPreciosDiferentes = [];
+  }
+
+  // Función para mantener precios de preventa
+  function mantenerPreciosPreventa() {
+    // Simplemente cerrar el modal, los precios ya están cargados de la preventa
+    mostrarModalPrecios = false;
+    itemsConPreciosDiferentes = [];
   }
 
   // Función para guardar la factura
@@ -1081,7 +1191,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
       {#if mostrarEncabezadoCompleto}
         <!-- Tipo de Documento - aumentado a col-span-4 -->
         <div class="lg:col-span-4">
-          <label for="tipoDocumento" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento</label>
+          <label for="tipoDocumento" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
           <div class="flex space-x-2">
             <select 
               id="tipoDocumento" 
@@ -1089,6 +1199,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
               on:change={obtenerProximoNumero}
               class="w-2/5 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
+              <option value="">Seleccionar tipo</option>
               {#each tiposDocumento as tipo}
                 <option value={tipo.value}>{tipo.label}</option>
               {/each}
@@ -1492,6 +1603,79 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     </div>
   {/if}
 </div> 
+
+<!-- Modal de comparación de precios -->
+{#if mostrarModalPrecios}
+  <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+      <div class="mt-3">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-medium text-gray-900">Diferencias de Precios Detectadas</h3>
+          <button 
+            on:click={mantenerPreciosPreventa}
+            class="text-gray-400 hover:text-gray-600"
+            aria-label="Cerrar modal de comparación de precios"
+          >
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+        
+        <div class="mb-4">
+          <p class="text-sm text-gray-600">
+            Se detectaron diferencias entre los precios de la preventa y los precios actuales. 
+            Puede elegir usar los precios actuales o mantener los de la preventa.
+          </p>
+        </div>
+        
+        <div class="max-h-96 overflow-y-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Artículo</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Preventa</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Actual</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Diferencia</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">%</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              {#each itemsConPreciosDiferentes as comparacion}
+                <tr class={comparacion.diferencia > 0 ? 'bg-red-50' : 'bg-green-50'}>
+                  <td class="px-4 py-3 text-sm text-gray-900">
+                    {comparacion.item?.Descripcion || 'Artículo'}
+                  </td>
+                  <td class="px-4 py-3 text-sm text-right text-gray-900">
+                    ${comparacion.precioPreventa.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td class="px-4 py-3 text-sm text-right text-gray-900">
+                    ${comparacion.precioActual.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td class="px-4 py-3 text-sm text-right font-medium {comparacion.diferencia > 0 ? 'text-red-600' : 'text-green-600'}">
+                    {comparacion.diferencia > 0 ? '+' : ''}${comparacion.diferencia.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td class="px-4 py-3 text-sm text-right font-medium {comparacion.diferencia > 0 ? 'text-red-600' : 'text-green-600'}">
+                    {comparacion.diferencia > 0 ? '+' : ''}{comparacion.porcentajeDiferencia.toFixed(1)}%
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="flex justify-end space-x-3 mt-6">
+          <Button variant="secondary" on:click={mantenerPreciosPreventa}>
+            Mantener Precios de Preventa
+          </Button>
+          <Button variant="primary" on:click={aplicarPreciosActuales}>
+            Usar Precios Actuales
+          </Button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <!-- Al final del HTML, añadir el componente modal: -->
 <CaeModal 

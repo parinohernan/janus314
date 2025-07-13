@@ -1,5 +1,5 @@
 const renderClienteInfo = require("./common/clienteInfo.js");
-const renderItemsListConIva = require("./common/itemsListConIva.js");
+const renderItemsListPrefactura = require("./common/itemsListPrefactura.js");
 const path = require("path");
 
 /**
@@ -46,9 +46,9 @@ async function renderPrefactura(doc, data) {
     let y = 80;
     y = renderClienteInfo(doc, prefactura, y);
     
-    // Tabla de items con IVA individual
+    // Tabla de items con descuentos para prefactura
     y=110
-    y = renderItemsListConIva(doc, items, y, interlineado);
+    y = renderItemsListPrefactura(doc, items, y, interlineado);
 
     // me posiciono en la parte de los totales
     //y = 660;
@@ -60,10 +60,13 @@ async function renderPrefactura(doc, data) {
     // Totales
     doc.font("Helvetica");
 
+    // Calcular subtotal como suma de los totales de los items (con IVA incluido)
+    const subtotal = items.reduce((sum, item) => sum + (item.TotalConIva || 0), 0);
+    
     if (true || prefactura.ImporteBonificado && prefactura.ImporteBonificado > 0) {
       doc.text("Subtotal:", xTotales, y, { width: 90, align: "right" });
       doc.text(
-        prefactura.ImporteBruto ? prefactura.ImporteBruto.toFixed(2) : "0.00",
+        subtotal.toFixed(2),
         xTotales + 90,
         y,
         { width: 70, align: "right" }
