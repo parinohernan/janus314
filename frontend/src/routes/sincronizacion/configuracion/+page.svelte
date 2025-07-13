@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { PUBLIC_API_URL } from '$env/static/public';
   import { fade } from 'svelte/transition';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
   interface Configuracion {
     servidor: string;
@@ -24,7 +24,7 @@
 
   onMount(async () => {
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/sincronizacion/configuracion`);
+      const response = await fetchWithAuth('/sincronizacion/configuracion');
       if (!response.ok) throw new Error('Error al cargar la configuración');
       
       const data = await response.json();
@@ -49,11 +49,8 @@
     successMessage = null;
 
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/sincronizacion/configuracion`, {
+      const response = await fetchWithAuth('/sincronizacion/configuracion', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(configuracion)
       });
 

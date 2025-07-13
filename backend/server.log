@@ -1,0 +1,311 @@
+nohup: no se tendrá en cuenta la entrada
+=== Datos de conexión base de datos maestra ===
+Host: 192.168.1.106
+Base de datos: janus314empresas
+Usuario: root
+==========================================
+=== Configuración de conexión por defecto ===
+Host: 192.168.1.106
+Base de datos: janus314empresas
+Usuario: root
+=========================================
+*** Router de sincronización cargado ***
+(node:151740) [SEQUELIZE0006] DeprecationWarning: This database engine version is not supported, please update your database server. More information https://github.com/sequelize/sequelize/blob/main/ENGINE.md
+(Use `node --trace-deprecation ...` to show where the warning was created)
+✅ Conexión a base de datos maestra establecida correctamente.
+Base de datos maestra inicializada correctamente
+Servidor escuchando en el puerto 3330
+[32minfo[39m: Request completada {"duration":27,"ip":"::1","method":"HEAD","service":"janus314-backend","status":200,"timestamp":"2025-07-12T21:15:01.451Z","url":"/","userAgent":"curl/8.5.0"}
+****** Obtuvimos credenciales de la empresa: TEST S.A.
+=== Datos de conexión para empresa ===
+ID Empresa: 1
+Nombre Empresa: TEST S.A.
+Host: 192.168.1.106
+Puerto: 3306
+Base de datos: db_sis_fac
+Usuario: root
+===================================
+(node:151740) [SEQUELIZE0002] DeprecationWarning: The logging-option should be either a function or false. Default: console.log
+Executing (default): SELECT 1+1 AS result
+✅ Conexión establecida exitosamente para empresa: TEST S.A.
+Iniciando inicialización de modelos y asociaciones...
+Inicializando modelo CajaCabeza...
+✅ Modelo CajaCabeza inicializado
+Inicializando modelo CajaMovimientos...
+✅ Modelo CajaMovimientos inicializado
+Inicializando modelo CajaArqueoDetalle...
+✅ Modelo CajaArqueoDetalle inicializado
+Estableciendo asociaciones...
+✅ Asociaciones inicializadas correctamente
+✅ Modelos inicializados correctamente para la conexión
+Executing (default): SELECT * FROM t_vendedores WHERE codigo = '1' AND activo = 1 AND clave = '1234' LIMIT 1
+[32minfo[39m: Evento de autenticación {"empresaId":"1","event":"login","service":"janus314-backend","success":true,"timestamp":"2025-07-12T21:21:42.411Z","userId":"1"}
+[32minfo[39m: Request completada {"duration":471,"ip":"::ffff:127.0.0.1","method":"POST","service":"janus314-backend","status":200,"timestamp":"2025-07-12T21:21:42.424Z","url":"/api/auth/online/login","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+[32minfo[39m: Request completada {"duration":2,"ip":"::ffff:127.0.0.1","method":"POST","service":"janus314-backend","status":200,"timestamp":"2025-07-12T21:21:47.456Z","url":"/api/auth/online/logout","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+****** Obtuvimos credenciales de la empresa: otarolaTest
+=== Datos de conexión para empresa ===
+ID Empresa: 8
+Nombre Empresa: otarolaTest
+Host: 192.168.1.106
+Puerto: 3306
+Base de datos: otarolatest
+Usuario: root
+===================================
+Executing (default): SELECT 1+1 AS result
+✅ Conexión establecida exitosamente para empresa: otarolaTest
+Iniciando inicialización de modelos y asociaciones...
+Estableciendo asociaciones...
+Error al inicializar asociaciones: AssociationError [SequelizeAssociationError]: You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.
+    at new Association (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/base.js:13:13)
+    at new BelongsTo (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/belongs-to.js:25:5)
+    at CajaCabeza.<anonymous> (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/mixin.js:70:25)
+    at initializeAssociations (/home/hernan/dev/janus314_v0/janus314/backend/src/models/cajaAssociations.js:87:16)
+    at DBManager.initModels (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:83:11)
+    at DBManager.getConnectionWithConfig (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:178:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/hernan/dev/janus314_v0/janus314/backend/src/routes/auth.routes.js:44:23
+❌ Error al obtener conexión para empresa 8: AssociationError [SequelizeAssociationError]: You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.
+    at new Association (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/base.js:13:13)
+    at new BelongsTo (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/belongs-to.js:25:5)
+    at CajaCabeza.<anonymous> (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/mixin.js:70:25)
+    at initializeAssociations (/home/hernan/dev/janus314_v0/janus314/backend/src/models/cajaAssociations.js:87:16)
+    at DBManager.initModels (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:83:11)
+    at DBManager.getConnectionWithConfig (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:178:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/hernan/dev/janus314_v0/janus314/backend/src/routes/auth.routes.js:44:23
+Error en login: AssociationError [SequelizeAssociationError]: You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.
+    at new Association (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/base.js:13:13)
+    at new BelongsTo (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/belongs-to.js:25:5)
+    at CajaCabeza.<anonymous> (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/mixin.js:70:25)
+    at initializeAssociations (/home/hernan/dev/janus314_v0/janus314/backend/src/models/cajaAssociations.js:87:16)
+    at DBManager.initModels (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:83:11)
+    at DBManager.getConnectionWithConfig (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:178:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/hernan/dev/janus314_v0/janus314/backend/src/routes/auth.routes.js:44:23
+[32minfo[39m: Evento de autenticación {"error":"You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.","event":"login","service":"janus314-backend","success":false,"timestamp":"2025-07-12T21:21:52.035Z","userId":"1"}
+[32minfo[39m: Request completada {"duration":64,"ip":"::ffff:127.0.0.1","method":"POST","service":"janus314-backend","status":500,"timestamp":"2025-07-12T21:21:52.037Z","url":"/api/auth/online/login","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+****** Obtuvimos credenciales de la empresa: TEST S.A.
+Executing (default): SELECT * FROM t_vendedores WHERE codigo = '1' AND activo = 1 AND clave = '1234' LIMIT 1
+[32minfo[39m: Evento de autenticación {"empresaId":"1","event":"login","service":"janus314-backend","success":true,"timestamp":"2025-07-12T21:21:57.959Z","userId":"1"}
+[32minfo[39m: Request completada {"duration":52,"ip":"::ffff:127.0.0.1","method":"POST","service":"janus314-backend","status":200,"timestamp":"2025-07-12T21:21:57.962Z","url":"/api/auth/online/login","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+[32minfo[39m: Request completada {"duration":1,"ip":"::ffff:127.0.0.1","method":"POST","service":"janus314-backend","status":200,"timestamp":"2025-07-12T21:22:01.615Z","url":"/api/auth/online/logout","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+****** Obtuvimos credenciales de la empresa: Otarola
+=== Datos de conexión para empresa ===
+ID Empresa: 2
+Nombre Empresa: Otarola
+Host: 34.69.193.228
+Puerto: 3306
+Base de datos: db_sis_fac
+Usuario: admin_remoto
+===================================
+Executing (default): SELECT 1+1 AS result
+✅ Conexión establecida exitosamente para empresa: Otarola
+Iniciando inicialización de modelos y asociaciones...
+Estableciendo asociaciones...
+Error al inicializar asociaciones: AssociationError [SequelizeAssociationError]: You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.
+    at new Association (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/base.js:13:13)
+    at new BelongsTo (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/belongs-to.js:25:5)
+    at CajaCabeza.<anonymous> (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/mixin.js:70:25)
+    at initializeAssociations (/home/hernan/dev/janus314_v0/janus314/backend/src/models/cajaAssociations.js:87:16)
+    at DBManager.initModels (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:83:11)
+    at DBManager.getConnectionWithConfig (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:178:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/hernan/dev/janus314_v0/janus314/backend/src/routes/auth.routes.js:44:23
+❌ Error al obtener conexión para empresa 2: AssociationError [SequelizeAssociationError]: You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.
+    at new Association (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/base.js:13:13)
+    at new BelongsTo (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/belongs-to.js:25:5)
+    at CajaCabeza.<anonymous> (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/mixin.js:70:25)
+    at initializeAssociations (/home/hernan/dev/janus314_v0/janus314/backend/src/models/cajaAssociations.js:87:16)
+    at DBManager.initModels (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:83:11)
+    at DBManager.getConnectionWithConfig (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:178:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/hernan/dev/janus314_v0/janus314/backend/src/routes/auth.routes.js:44:23
+Error en login: AssociationError [SequelizeAssociationError]: You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.
+    at new Association (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/base.js:13:13)
+    at new BelongsTo (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/belongs-to.js:25:5)
+    at CajaCabeza.<anonymous> (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/mixin.js:70:25)
+    at initializeAssociations (/home/hernan/dev/janus314_v0/janus314/backend/src/models/cajaAssociations.js:87:16)
+    at DBManager.initModels (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:83:11)
+    at DBManager.getConnectionWithConfig (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:178:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/hernan/dev/janus314_v0/janus314/backend/src/routes/auth.routes.js:44:23
+[32minfo[39m: Evento de autenticación {"error":"You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.","event":"login","service":"janus314-backend","success":false,"timestamp":"2025-07-12T21:22:07.833Z","userId":"1"}
+[32minfo[39m: Request completada {"duration":1790,"ip":"::ffff:127.0.0.1","method":"POST","service":"janus314-backend","status":500,"timestamp":"2025-07-12T21:22:07.842Z","url":"/api/auth/online/login","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+****** Obtuvimos credenciales de la empresa: TEST S.A.
+Executing (default): SELECT * FROM t_vendedores WHERE codigo = '2' AND activo = 1 AND clave = '1910' LIMIT 1
+[32minfo[39m: Evento de autenticación {"empresaId":"1","event":"login","service":"janus314-backend","success":true,"timestamp":"2025-07-12T21:22:45.867Z","userId":"2"}
+[32minfo[39m: Request completada {"duration":174,"ip":"::ffff:127.0.0.1","method":"POST","service":"janus314-backend","status":200,"timestamp":"2025-07-12T21:22:45.876Z","url":"/api/auth/online/login","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+[32minfo[39m: Request completada {"duration":5,"ip":"::ffff:127.0.0.1","method":"POST","service":"janus314-backend","status":200,"timestamp":"2025-07-12T21:22:48.540Z","url":"/api/auth/online/logout","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+****** Obtuvimos credenciales de la empresa: otarolaTest
+=== Datos de conexión para empresa ===
+ID Empresa: 8
+Nombre Empresa: otarolaTest
+Host: 192.168.1.106
+Puerto: 3306
+Base de datos: otarolatest
+Usuario: root
+===================================
+Executing (default): SELECT 1+1 AS result
+✅ Conexión establecida exitosamente para empresa: otarolaTest
+Iniciando inicialización de modelos y asociaciones...
+Estableciendo asociaciones...
+Error al inicializar asociaciones: AssociationError [SequelizeAssociationError]: You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.
+    at new Association (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/base.js:13:13)
+    at new BelongsTo (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/belongs-to.js:25:5)
+    at CajaCabeza.<anonymous> (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/mixin.js:70:25)
+    at initializeAssociations (/home/hernan/dev/janus314_v0/janus314/backend/src/models/cajaAssociations.js:87:16)
+    at DBManager.initModels (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:83:11)
+    at DBManager.getConnectionWithConfig (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:178:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/hernan/dev/janus314_v0/janus314/backend/src/routes/auth.routes.js:44:23
+❌ Error al obtener conexión para empresa 8: AssociationError [SequelizeAssociationError]: You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.
+    at new Association (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/base.js:13:13)
+    at new BelongsTo (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/belongs-to.js:25:5)
+    at CajaCabeza.<anonymous> (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/mixin.js:70:25)
+    at initializeAssociations (/home/hernan/dev/janus314_v0/janus314/backend/src/models/cajaAssociations.js:87:16)
+    at DBManager.initModels (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:83:11)
+    at DBManager.getConnectionWithConfig (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:178:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/hernan/dev/janus314_v0/janus314/backend/src/routes/auth.routes.js:44:23
+Error en login: AssociationError [SequelizeAssociationError]: You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.
+    at new Association (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/base.js:13:13)
+    at new BelongsTo (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/belongs-to.js:25:5)
+    at CajaCabeza.<anonymous> (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/mixin.js:70:25)
+    at initializeAssociations (/home/hernan/dev/janus314_v0/janus314/backend/src/models/cajaAssociations.js:87:16)
+    at DBManager.initModels (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:83:11)
+    at DBManager.getConnectionWithConfig (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:178:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/hernan/dev/janus314_v0/janus314/backend/src/routes/auth.routes.js:44:23
+[32minfo[39m: Evento de autenticación {"error":"You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.","event":"login","service":"janus314-backend","success":false,"timestamp":"2025-07-12T21:23:05.543Z","userId":"1"}
+[32minfo[39m: Request completada {"duration":237,"ip":"::ffff:127.0.0.1","method":"POST","service":"janus314-backend","status":500,"timestamp":"2025-07-12T21:23:05.545Z","url":"/api/auth/online/login","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+****** Obtuvimos credenciales de la empresa: TEST S.A.
+Executing (default): SELECT * FROM t_vendedores WHERE codigo = '1' AND activo = 1 AND clave = '1234' LIMIT 1
+[32minfo[39m: Evento de autenticación {"empresaId":"1","event":"login","service":"janus314-backend","success":true,"timestamp":"2025-07-12T21:36:05.510Z","userId":"1"}
+[32minfo[39m: Request completada {"duration":47,"ip":"::ffff:127.0.0.1","method":"POST","service":"janus314-backend","status":200,"timestamp":"2025-07-12T21:36:05.513Z","url":"/api/auth/online/login","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+[32minfo[39m: Request completada {"duration":2,"ip":"::ffff:127.0.0.1","method":"POST","service":"janus314-backend","status":200,"timestamp":"2025-07-12T21:36:08.682Z","url":"/api/auth/online/logout","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+****** Obtuvimos credenciales de la empresa: Otarola
+=== Datos de conexión para empresa ===
+ID Empresa: 2
+Nombre Empresa: Otarola
+Host: 34.69.193.228
+Puerto: 3306
+Base de datos: db_sis_fac
+Usuario: admin_remoto
+===================================
+Executing (default): SELECT 1+1 AS result
+✅ Conexión establecida exitosamente para empresa: Otarola
+Iniciando inicialización de modelos y asociaciones...
+Estableciendo asociaciones...
+Error al inicializar asociaciones: AssociationError [SequelizeAssociationError]: You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.
+    at new Association (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/base.js:13:13)
+    at new BelongsTo (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/belongs-to.js:25:5)
+    at CajaCabeza.<anonymous> (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/mixin.js:70:25)
+    at initializeAssociations (/home/hernan/dev/janus314_v0/janus314/backend/src/models/cajaAssociations.js:87:16)
+    at DBManager.initModels (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:83:11)
+    at DBManager.getConnectionWithConfig (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:178:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/hernan/dev/janus314_v0/janus314/backend/src/routes/auth.routes.js:44:23
+❌ Error al obtener conexión para empresa 2: AssociationError [SequelizeAssociationError]: You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.
+    at new Association (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/base.js:13:13)
+    at new BelongsTo (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/belongs-to.js:25:5)
+    at CajaCabeza.<anonymous> (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/mixin.js:70:25)
+    at initializeAssociations (/home/hernan/dev/janus314_v0/janus314/backend/src/models/cajaAssociations.js:87:16)
+    at DBManager.initModels (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:83:11)
+    at DBManager.getConnectionWithConfig (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:178:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/hernan/dev/janus314_v0/janus314/backend/src/routes/auth.routes.js:44:23
+Error en login: AssociationError [SequelizeAssociationError]: You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.
+    at new Association (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/base.js:13:13)
+    at new BelongsTo (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/belongs-to.js:25:5)
+    at CajaCabeza.<anonymous> (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/mixin.js:70:25)
+    at initializeAssociations (/home/hernan/dev/janus314_v0/janus314/backend/src/models/cajaAssociations.js:87:16)
+    at DBManager.initModels (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:83:11)
+    at DBManager.getConnectionWithConfig (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:178:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/hernan/dev/janus314_v0/janus314/backend/src/routes/auth.routes.js:44:23
+[32minfo[39m: Evento de autenticación {"error":"You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.","event":"login","service":"janus314-backend","success":false,"timestamp":"2025-07-12T21:36:14.499Z","userId":"1"}
+[32minfo[39m: Request completada {"duration":1782,"ip":"::ffff:127.0.0.1","method":"POST","service":"janus314-backend","status":500,"timestamp":"2025-07-12T21:36:14.507Z","url":"/api/auth/online/login","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+****** Obtuvimos credenciales de la empresa: otarolaTest
+=== Datos de conexión para empresa ===
+ID Empresa: 8
+Nombre Empresa: otarolaTest
+Host: 192.168.1.106
+Puerto: 3306
+Base de datos: otarolatest
+Usuario: root
+===================================
+Executing (default): SELECT 1+1 AS result
+✅ Conexión establecida exitosamente para empresa: otarolaTest
+Iniciando inicialización de modelos y asociaciones...
+Estableciendo asociaciones...
+Error al inicializar asociaciones: AssociationError [SequelizeAssociationError]: You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.
+    at new Association (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/base.js:13:13)
+    at new BelongsTo (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/belongs-to.js:25:5)
+    at CajaCabeza.<anonymous> (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/mixin.js:70:25)
+    at initializeAssociations (/home/hernan/dev/janus314_v0/janus314/backend/src/models/cajaAssociations.js:87:16)
+    at DBManager.initModels (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:83:11)
+    at DBManager.getConnectionWithConfig (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:178:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/hernan/dev/janus314_v0/janus314/backend/src/routes/auth.routes.js:44:23
+❌ Error al obtener conexión para empresa 8: AssociationError [SequelizeAssociationError]: You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.
+    at new Association (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/base.js:13:13)
+    at new BelongsTo (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/belongs-to.js:25:5)
+    at CajaCabeza.<anonymous> (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/mixin.js:70:25)
+    at initializeAssociations (/home/hernan/dev/janus314_v0/janus314/backend/src/models/cajaAssociations.js:87:16)
+    at DBManager.initModels (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:83:11)
+    at DBManager.getConnectionWithConfig (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:178:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/hernan/dev/janus314_v0/janus314/backend/src/routes/auth.routes.js:44:23
+Error en login: AssociationError [SequelizeAssociationError]: You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.
+    at new Association (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/base.js:13:13)
+    at new BelongsTo (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/belongs-to.js:25:5)
+    at CajaCabeza.<anonymous> (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/mixin.js:70:25)
+    at initializeAssociations (/home/hernan/dev/janus314_v0/janus314/backend/src/models/cajaAssociations.js:87:16)
+    at DBManager.initModels (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:83:11)
+    at DBManager.getConnectionWithConfig (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:178:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/hernan/dev/janus314_v0/janus314/backend/src/routes/auth.routes.js:44:23
+[32minfo[39m: Evento de autenticación {"error":"You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.","event":"login","service":"janus314-backend","success":false,"timestamp":"2025-07-12T21:36:24.123Z","userId":"1"}
+[32minfo[39m: Request completada {"duration":124,"ip":"::ffff:127.0.0.1","method":"POST","service":"janus314-backend","status":500,"timestamp":"2025-07-12T21:36:24.130Z","url":"/api/auth/online/login","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}
+****** Obtuvimos credenciales de la empresa: Otarola
+=== Datos de conexión para empresa ===
+ID Empresa: 2
+Nombre Empresa: Otarola
+Host: 34.69.193.228
+Puerto: 3306
+Base de datos: db_sis_fac
+Usuario: admin_remoto
+===================================
+Executing (default): SELECT 1+1 AS result
+✅ Conexión establecida exitosamente para empresa: Otarola
+Iniciando inicialización de modelos y asociaciones...
+Estableciendo asociaciones...
+Error al inicializar asociaciones: AssociationError [SequelizeAssociationError]: You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.
+    at new Association (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/base.js:13:13)
+    at new BelongsTo (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/belongs-to.js:25:5)
+    at CajaCabeza.<anonymous> (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/mixin.js:70:25)
+    at initializeAssociations (/home/hernan/dev/janus314_v0/janus314/backend/src/models/cajaAssociations.js:87:16)
+    at DBManager.initModels (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:83:11)
+    at DBManager.getConnectionWithConfig (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:178:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/hernan/dev/janus314_v0/janus314/backend/src/routes/auth.routes.js:44:23
+❌ Error al obtener conexión para empresa 2: AssociationError [SequelizeAssociationError]: You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.
+    at new Association (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/base.js:13:13)
+    at new BelongsTo (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/belongs-to.js:25:5)
+    at CajaCabeza.<anonymous> (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/mixin.js:70:25)
+    at initializeAssociations (/home/hernan/dev/janus314_v0/janus314/backend/src/models/cajaAssociations.js:87:16)
+    at DBManager.initModels (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:83:11)
+    at DBManager.getConnectionWithConfig (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:178:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/hernan/dev/janus314_v0/janus314/backend/src/routes/auth.routes.js:44:23
+Error en login: AssociationError [SequelizeAssociationError]: You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.
+    at new Association (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/base.js:13:13)
+    at new BelongsTo (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/belongs-to.js:25:5)
+    at CajaCabeza.<anonymous> (/home/hernan/dev/janus314_v0/janus314/backend/node_modules/sequelize/lib/associations/mixin.js:70:25)
+    at initializeAssociations (/home/hernan/dev/janus314_v0/janus314/backend/src/models/cajaAssociations.js:87:16)
+    at DBManager.initModels (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:83:11)
+    at DBManager.getConnectionWithConfig (/home/hernan/dev/janus314_v0/janus314/backend/src/utils/DBManager.js:178:18)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/hernan/dev/janus314_v0/janus314/backend/src/routes/auth.routes.js:44:23
+[32minfo[39m: Evento de autenticación {"error":"You have used the alias Vendedor in two separate associations. Aliased associations must have unique aliases.","event":"login","service":"janus314-backend","success":false,"timestamp":"2025-07-12T21:36:38.613Z","userId":"2"}
+[32minfo[39m: Request completada {"duration":1725,"ip":"::ffff:127.0.0.1","method":"POST","service":"janus314-backend","status":500,"timestamp":"2025-07-12T21:36:38.614Z","url":"/api/auth/online/login","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"}

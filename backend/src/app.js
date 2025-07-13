@@ -147,6 +147,33 @@ app.get("/", (req, res) => {
   res.json({ message: "API de Gestión Comercial funcionando correctamente" });
 });
 
+// Ruta de prueba para logos (sin autenticación)
+app.get("/test-logo", require('./controllers/pdf.controller').probarLogo);
+
+// Ruta de prueba temporal para factura sin autenticación
+app.get("/test-factura/:tipo/:sucursal/:numero", async (req, res) => {
+  try {
+    const { tipo, sucursal, numero } = req.params;
+    
+    // Simular una conexión de empresa para pruebas
+    const DBManager = require('./utils/DBManager');
+    const connection = await DBManager.getConnection('8'); // ID de otarolaTest
+    req.db = connection;
+    req.models = connection.models;
+    
+    // Llamar al controlador de PDF
+    const pdfController = require('./controllers/pdf.controller');
+    await pdfController.generarFacturaPDF(req, res);
+  } catch (error) {
+    console.error('Error en test-factura:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al generar PDF de prueba',
+      error: error.message
+    });
+  }
+});
+
 // Manejo de rutas no encontradas
 app.use((req, res) => {
   res.status(404).json({

@@ -1,12 +1,11 @@
 const { Model, DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
 const CajaCabeza = require('./cajaCabeza.model');
 const CajaMovimientos = require('./cajaMovimientos.model');
 const CajaArqueoDetalle = require('./cajaArqueoDetalle.model');
 const Vendedor = require('./vendedor.model');
 const TipoDePago = require('./tipoDePago.model');
 
-async function initializeAssociations() {
+async function initializeAssociations(sequelize) {
   try {
     console.log('Iniciando inicialización de modelos y asociaciones...');
 
@@ -81,25 +80,84 @@ async function initializeAssociations() {
       console.log('✅ Modelo CajaArqueoDetalle inicializado');
     }
 
+    // Inicializar TipoDePago si no está inicializado
+    if (!TipoDePago.sequelize) {
+      console.log('Inicializando modelo TipoDePago...');
+      TipoDePago.init(TipoDePago.getAttributes(), {
+        sequelize,
+        modelName: 'TipoDePago',
+        tableName: 't_tiposdepago',
+        timestamps: false
+      });
+      console.log('✅ Modelo TipoDePago inicializado');
+    }
+
     console.log('Estableciendo asociaciones...');
 
-    // Asociaciones CajaCabeza
-    CajaCabeza.belongsTo(Vendedor, { 
-      foreignKey: 'VendedorId', 
-      as: 'Vendedor',
-      targetKey: 'Codigo'
-    });
+    // Verificar si las asociaciones ya están definidas antes de crearlas
+    const associations = CajaCabeza.associations || {};
+    const hasCajaVendedorAssociation = Object.values(associations).some(assoc => assoc.as === 'CajaVendedor');
 
-    // Asociaciones CajaMovimientos
-    CajaMovimientos.belongsTo(CajaCabeza, { 
-      foreignKey: 'CajaCabezaId', 
-      as: 'Caja' 
-    });
+    if (!hasCajaVendedorAssociation) {
+      // Asociaciones CajaCabeza
+      CajaCabeza.belongsTo(Vendedor, { 
+        foreignKey: 'VendedorId', 
+        as: 'CajaVendedor',
+        targetKey: 'Codigo'
+      });
+    }
 
-    CajaArqueoDetalle.belongsTo(CajaCabeza, { 
-      foreignKey: 'CajaCabezaId', 
-      as: 'Caja' 
-    });
+    // Verificar si las asociaciones de CajaMovimientos ya están definidas
+    const cajaMovimientosAssociations = CajaMovimientos.associations || {};
+    const hasCajaAssociation = Object.values(cajaMovimientosAssociations).some(assoc => assoc.as === 'Caja');
+
+    if (!hasCajaAssociation) {
+      // Asociaciones CajaMovimientos
+      CajaMovimientos.belongsTo(CajaCabeza, { 
+        foreignKey: 'CajaCabezaId', 
+        as: 'Caja' 
+      });
+    }
+
+    // Verificar si las asociaciones de CajaArqueoDetalle ya están definidas
+    const cajaArqueoAssociations = CajaArqueoDetalle.associations || {};
+    const hasArqueoCajaAssociation = Object.values(cajaArqueoAssociations).some(assoc => assoc.as === 'Caja');
+
+    if (!hasArqueoCajaAssociation) {
+      CajaArqueoDetalle.belongsTo(CajaCabeza, { 
+        foreignKey: 'CajaCabezaId', 
+        as: 'Caja' 
+      });
+    }
+
+    // Verificar y agregar asociaciones con TipoDePago
+    const hasTipoPagoAssociation = Object.values(cajaMovimientosAssociations).some(assoc => assoc.as === 'TipoPago');
+    if (!hasTipoPagoAssociation) {
+      CajaMovimientos.belongsTo(TipoDePago, {
+        foreignKey: "MetodoPago",
+        targetKey: "Codigo",
+        as: "TipoPago"
+      });
+    }
+
+    const hasArqueoTipoPagoAssociation = Object.values(cajaArqueoAssociations).some(assoc => assoc.as === 'TipoPago');
+    if (!hasArqueoTipoPagoAssociation) {
+      CajaArqueoDetalle.belongsTo(TipoDePago, {
+        foreignKey: "MetodoPago",
+        targetKey: "Codigo",
+        as: "TipoPago"
+      });
+    }
+
+    // Verificar y agregar asociación de CajaMovimientos con Vendedor
+    const hasUsuarioAssociation = Object.values(cajaMovimientosAssociations).some(assoc => assoc.as === 'Usuario');
+    if (!hasUsuarioAssociation) {
+      CajaMovimientos.belongsTo(Vendedor, {
+        foreignKey: "UsuarioId",
+        targetKey: "Codigo",
+        as: "Usuario"
+      });
+    }
 
     console.log('✅ Asociaciones inicializadas correctamente');
   } catch (error) {

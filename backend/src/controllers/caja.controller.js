@@ -127,7 +127,7 @@ exports.obtenerCaja = async (req, res) => {
       include: [
         {
           model: Vendedor,
-          as: 'Vendedor',
+          as: 'CajaVendedor',
           attributes: ['Codigo', 'Descripcion'],
         },
       ],
@@ -659,7 +659,7 @@ exports.listarCajasCerradas = async (req, res) => {
       include: [
         {
           model: Vendedor,
-          as: 'Vendedor',
+          as: 'CajaVendedor',
           attributes: ['Codigo', 'Descripcion'],
         },
         {

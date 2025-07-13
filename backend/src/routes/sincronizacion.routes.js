@@ -4,6 +4,10 @@ const sincronizacionController = require('../controllers/sincronizacion.controll
 
 console.log('*** Router de sincronización cargado ***'); // Log general
 
+// Rutas para configuración
+router.get('/configuracion', sincronizacionController.getConfiguracion);
+router.put('/configuracion', sincronizacionController.saveConfiguracion);
+
 // Rutas para el estado de actualización
 router.get('/estado-actualizacion', sincronizacionController.getEstadoActualizacion);
 router.get('/estado-descarga', sincronizacionController.getEstadoDescarga);

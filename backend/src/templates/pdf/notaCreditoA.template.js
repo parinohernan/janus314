@@ -1,9 +1,22 @@
 const { formatearNumero, formatearFecha } = require("../../utils/formatters");
 const { generarCodigoBarrasAfip } = require("../../utils/afipUtils");
 
-async function renderNotaCreditoA(doc, { factura: notaCredito, items }) {
+async function renderNotaCreditoA(doc, { factura: notaCredito, items, logoPath }) {
   // Configuración inicial
   doc.font("Helvetica");
+
+  // Agregar logo de la empresa si está disponible
+  if (logoPath) {
+    try {
+      doc.image(logoPath, 20, 20, {
+        width: 60,
+        height: 60,
+        resolution: 300
+      });
+    } catch (error) {
+      console.error("Error al cargar el logo en nota de crédito A:", error);
+    }
+  }
 
   // Encabezado
   doc.fontSize(20).text("NOTA DE CRÉDITO A", { align: "center" });

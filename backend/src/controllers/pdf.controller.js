@@ -19,6 +19,7 @@ const renderNotaCreditoF = require("../templates/pdf/notaCreditoF.template.js");
 // const NotaCreditoCabeza = require("../models/notaCreditoCabeza.model");
 // const NotaCreditoItem = require("../models/notaCreditoItem.model");
 // const datosEmpresaController = require("../controllers/datosEmpresa.controller");
+const logoManager = require("../utils/logoManager");
 const docFacturaA4 = { margin: 42.5, size: "A4" }; // 1.5cm = 42.5 puntos (1cm = 28.35 puntos)
 // Función para generar PDF de factura
 exports.generarFacturaPDF = async (req, res) => {
@@ -128,6 +129,11 @@ exports.generarFacturaPDF = async (req, res) => {
       factura.Empresa.InicioActividades = new Date(factura.Empresa.InicioActividades);
     }
 
+    // Preparar el logo de la empresa usando el LogoManager
+    console.log('🖼️ Configurando logo de empresa...');
+    const logoPath = await logoManager.getLogoPath(datosEmpresa.LogoURL);
+    console.log('✅ Logo configurado:', logoPath);
+
     console.log('Iniciando generación del PDF...');
 
     // Crear documento PDF
@@ -146,13 +152,13 @@ exports.generarFacturaPDF = async (req, res) => {
     // Aplicar plantilla adecuada según tipo de documento
     if (tipo === "FCA" || tipo === "NCA" || tipo === "NDA") {
       console.log('Aplicando plantilla Factura A...');
-      await renderFacturaA(doc, { factura, items: itemsConArticulos });
+      await renderFacturaA(doc, { factura, items: itemsConArticulos, logoPath });
     } else if (tipo === "FCB" || tipo === "NCB" || tipo === "NDB") {
       console.log('Aplicando plantilla Factura B...');
-      await renderFacturaB(doc, { factura, items: itemsConArticulos });
+      await renderFacturaB(doc, { factura, items: itemsConArticulos, logoPath });
     } else if (tipo === "PRF") {
       console.log('Aplicando plantilla Prefactura...');
-      await renderPrefactura(doc, { prefactura: factura, items: itemsConArticulos });
+      await renderPrefactura(doc, { prefactura: factura, items: itemsConArticulos, logoPath });
     } else {
       // Si el tipo no está entre los soportados, mostrar mensaje
       doc.fontSize(20).text("Tipo de documento no soportado", 100, 100);
@@ -256,7 +262,6 @@ function generarContenidoPDF(doc, factura, items) {
   // Items
   let y = itemsTableTop;
   items.forEach((item, i) => {
-    const articulo = item.Articulo || { Descripcion: "Artículo no encontrado" };
     const cantidad = item.Cantidad || 0;
     const precioUnitario = item.PrecioUnitario || 0;
     const subtotal = cantidad * precioUnitario;
@@ -283,7 +288,7 @@ function generarContenidoPDF(doc, factura, items) {
     }
 
     doc.text(item.CodigoArticulo || "", 50, y, { width: 80 });
-    doc.text(articulo.Descripcion || "", 130, y, { width: 200 });
+    doc.text(item.Descripcion || "", 130, y, { width: 200 });
     doc.text(cantidad.toString(), 330, y, { width: 40, align: "right" });
     doc.text(precioUnitario.toFixed(2), 370, y, { width: 70, align: "right" });
     doc.text(subtotal.toFixed(2), 440, y, { width: 70, align: "right" });
@@ -343,6 +348,80 @@ function generarContenidoPDF(doc, factura, items) {
     }
   }
 }
+
+// Endpoint de prueba para verificar el logo
+exports.probarLogo = async (req, res) => {
+  try {
+    console.log('🧪 Iniciando prueba de logo...');
+    
+    // Crear documento PDF
+    const doc = new PDFDocument(docFacturaA4);
+
+    // Configurar respuesta HTTP
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="prueba-logo.pdf"`);
+
+    // Pipe PDF a la respuesta
+    doc.pipe(res);
+
+    // Probar diferentes tipos de logo
+    const pruebasLogo = [
+      { nombre: "Logo por defecto", url: null },
+      { nombre: "Logo local existente", url: "logoempresa.png" },
+      { nombre: "Logo desde URL (ejemplo)", url: "https://via.placeholder.com/200x200/0066cc/ffffff?text=LOGO" }
+    ];
+
+    let y = 50;
+    doc.fontSize(16).text("Prueba de LogoManager", 50, y);
+    y += 30;
+
+    for (let i = 0; i < pruebasLogo.length; i++) {
+      const prueba = pruebasLogo[i];
+      console.log(`🖼️ Probando ${prueba.nombre}:`, prueba.url || 'null');
+      
+      doc.fontSize(12).text(`${i + 1}. ${prueba.nombre}`, 50, y);
+      doc.fontSize(10).text(`URL: ${prueba.url || 'null'}`, 50, y + 15);
+      
+      try {
+        const logoPath = await logoManager.getLogoPath(prueba.url);
+        doc.fontSize(10).text(`Ruta final: ${logoPath}`, 50, y + 30);
+        
+        // Verificar si el archivo existe
+        const existe = fs.existsSync(logoPath);
+        doc.fontSize(10).text(`Existe: ${existe ? 'Sí' : 'No'}`, 50, y + 45);
+        
+        if (existe) {
+          try {
+            doc.image(logoPath, 50, y + 60, {
+              width: 100,
+              height: 100
+            });
+            console.log(`✅ ${prueba.nombre} cargado exitosamente`);
+            doc.fontSize(10).text(`✅ Cargado exitosamente`, 50, y + 170);
+          } catch (error) {
+            console.error(`❌ Error cargando ${prueba.nombre}:`, error);
+            doc.fontSize(10).text(`❌ Error: ${error.message}`, 50, y + 60);
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Error obteniendo ${prueba.nombre}:`, error);
+        doc.fontSize(10).text(`❌ Error: ${error.message}`, 50, y + 30);
+      }
+      
+      y += 200;
+    }
+
+    // Finalizar documento
+    doc.end();
+  } catch (error) {
+    console.error("Error en prueba de logo:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error en prueba de logo",
+      error: error.message,
+    });
+  }
+};
 
 // Agregar el método para generar PDF de nota de crédito
 exports.generarNotaCreditoPDF = async (req, res) => {
@@ -424,6 +503,11 @@ exports.generarNotaCreditoPDF = async (req, res) => {
       notaCredito.Empresa.InicioActividades = new Date(notaCredito.Empresa.InicioActividades);
     }
 
+    // Preparar el logo de la empresa usando el LogoManager
+    console.log('🖼️ Configurando logo de empresa para nota de crédito...');
+    const logoPath = await logoManager.getLogoPath(datosEmpresa.LogoURL);
+    console.log('✅ Logo configurado para nota de crédito:', logoPath);
+
     // Crear documento PDF
     const doc = new PDFDocument(docFacturaA4);
 
@@ -442,22 +526,26 @@ exports.generarNotaCreditoPDF = async (req, res) => {
       await renderNotaCreditoA(doc, {
         factura: notaCredito,
         items: itemsConArticulos,
+        logoPath,
       });
     } else if (tipo === "NCB") {
       await renderNotaCreditoB(doc, {
         factura: notaCredito,
         items: itemsConArticulos,
+        logoPath,
       });
     } else if (tipo === "NCC") {
       // await renderNotaCreditoC(doc, {
       //   factura: notaCredito,
       //   items: itemsConArticulos,
+      //   logoPath,
       // });
       doc.fontSize(20).text("Tipo de nota de crédito no soportado", 100, 100);
     } else if (tipo === "NCF") {
       await renderNotaCreditoF(doc, {
         factura: notaCredito,
         items: itemsConArticulos,
+        logoPath,
       });
     } else {
       doc.fontSize(20).text("Tipo de nota de crédito no soportado", 100, 100);

@@ -10,6 +10,13 @@ const CajaMovimientos = require('../models/cajaMovimientos.model');
 const CajaArqueoDetalle = require('../models/cajaArqueoDetalle.model');
 const { initializeAssociations } = require('../models/cajaAssociations');
 
+// NUEVO: importar modelos de factura y dependencias
+const FacturaCabezaDef = require('../models/facturaCabeza.model');
+const FacturaItemDef = require('../models/facturaItem.model');
+const UsuarioDef = require('../models/usuario.model');
+const VendedorDef = require('../models/vendedor.model');
+const ConfiguracionDef = require('../models/configuracion.model');
+
 class DBManager {
   constructor() {
     if (DBManager.instance) {
@@ -45,8 +52,35 @@ class DBManager {
       timestamps: false,
     });
 
+    // NUEVO: inicializar modelos de factura y dependencias
+    UsuarioDef.init(UsuarioDef.getAttributes(), {
+      sequelize,
+      tableName: 't_usuarios',
+      timestamps: false,
+    });
+    VendedorDef.init(VendedorDef.getAttributes(), {
+      sequelize,
+      tableName: 't_vendedores',
+      timestamps: false,
+    });
+    FacturaCabezaDef.init(FacturaCabezaDef.getAttributes(), {
+      sequelize,
+      tableName: 'facturacabeza',
+      timestamps: false,
+    });
+    FacturaItemDef.init(FacturaItemDef.getAttributes(), {
+      sequelize,
+      tableName: 'facturaitems',
+      timestamps: false,
+    });
+    ConfiguracionDef.init(ConfiguracionDef.getAttributes(), {
+      sequelize,
+      tableName: 't_configuracion',
+      timestamps: false,
+    });
+
     // Inicializar modelos de caja y sus asociaciones
-    await initializeAssociations();
+    await initializeAssociations(sequelize);
 
     // Establecer las asociaciones
     NotaCreditoCabeza.belongsTo(Cliente, {
@@ -59,6 +93,27 @@ class DBManager {
       targetKey: "Codigo",
     });
 
+    // NUEVO: asociaciones de factura
+    FacturaCabezaDef.belongsTo(Cliente, {
+      foreignKey: "ClienteCodigo",
+      targetKey: "Codigo",
+    });
+    FacturaCabezaDef.belongsTo(UsuarioDef, {
+      foreignKey: "CodigoUsuario",
+      targetKey: "Codigo",
+    });
+    FacturaCabezaDef.belongsTo(VendedorDef, {
+      foreignKey: "VendedorCodigo",
+      targetKey: "Codigo",
+    });
+    FacturaCabezaDef.hasMany(FacturaItemDef, {
+      foreignKey: ["DocumentoTipo", "DocumentoSucursal", "DocumentoNumero"]
+    });
+    FacturaItemDef.belongsTo(Articulo, {
+      foreignKey: "CodigoArticulo",
+      targetKey: "Codigo"
+    });
+
     console.log('✅ Modelos inicializados correctamente para la conexión');
 
     // Retornar los modelos inicializados
@@ -69,7 +124,13 @@ class DBManager {
       Articulo,
       CajaCabeza,
       CajaMovimientos,
-      CajaArqueoDetalle
+      CajaArqueoDetalle,
+      // NUEVO:
+      FacturaCabeza: FacturaCabezaDef,
+      FacturaItem: FacturaItemDef,
+      Usuario: UsuarioDef,
+      Vendedor: VendedorDef,
+      Configuracion: ConfiguracionDef
     };
   }
 

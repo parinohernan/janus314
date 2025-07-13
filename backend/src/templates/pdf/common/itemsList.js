@@ -9,10 +9,8 @@
 function renderItemsList(doc, items, y, options = {}) {
   // Preparar los items con la información necesaria
   const itemsConSubtotal = items.map((item) => {
-    const articulo = item.Articulo || {};
     return {
       ...item,
-      Descripcion: articulo.Descripcion || "Artículo no encontrado",
       PrecioUnitario: item.PrecioUnitario || 0,
       Cantidad: item.Cantidad || 0,
       Descuento: item.PorcentajeBonificado || 0,

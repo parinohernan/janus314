@@ -10,8 +10,11 @@ const path = require("path");
  * @param {Object} data - Datos de la factura
  */
 async function renderFacturaB(doc, data) {
-  const { factura, items } = data;
-  const logoPath = path.join(__dirname, "./common/logos/logoempresa.png");
+  const { factura, items, logoPath } = data;
+  // Si no se proporciona logoPath, usar el por defecto
+  const finalLogoPath = logoPath || path.join(__dirname, "./common/logos/logoempresa.png");
+  
+
 
   // Establecer la fuente Helvetica para todo el documento
   doc.font("Helvetica");
@@ -35,7 +38,7 @@ async function renderFacturaB(doc, data) {
       title: "B",
       documentType: "B",
       documentNumber: `${factura.DocumentoSucursal}-${factura.DocumentoNumero}`,
-      logoPath: logoPath,
+      logoPath: finalLogoPath,
     });
 
     // Agregar indicador de original o duplicado

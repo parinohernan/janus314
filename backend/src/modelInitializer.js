@@ -22,16 +22,7 @@ const initializeModels = (sequelize) => {
     timestamps: true
   });
 
-  // Establecer relaciones de caja
-  CajaCabeza.hasMany(CajaMovimientos, {
-    foreignKey: 'CajaCabezaId',
-    as: 'Movimientos'
-  });
-
-  CajaMovimientos.belongsTo(CajaCabeza, {
-    foreignKey: 'CajaCabezaId',
-    as: 'Caja'
-  });
+  // Las asociaciones de caja se manejan en cajaAssociations.js para evitar duplicaciones
 
   // Definir modelo Cliente
   const Cliente = sequelize.define('Cliente', {

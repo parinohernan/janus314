@@ -38,6 +38,21 @@ function renderHeader(doc, options = {}) {
     fecha: 12,
     companyName: 16, // Tamaño fijo para el nombre de la empresa
   };
+
+  // Logo de la empresa (si está habilitado y se proporciona una ruta)
+  if (showLogo && logoPath) {
+    try {
+      // Cargar el logo con resolución de 300 DPI
+      doc.image(logoPath, logoX, logoY, {
+        width: logoWidth,
+        height: logoHeight,
+        resolution: 300 // Establecer resolución a 300 DPI
+      });
+    } catch (error) {
+      console.error("❌ Error al cargar el logo:", error.message);
+    }
+  }
+
   //   // Título del documento
   //   doc.rect(10, 10, doc.page.width - 20, 110).stroke(); //rectangulo contenedor del encabezado
   //linea debajo del rectangulo
@@ -52,20 +67,6 @@ function renderHeader(doc, options = {}) {
   });
   doc.y = rectY + 30; // Asegurar que la posición Y esté después del rectángulo
   doc.moveDown();
-
-  // Logo de la empresa (si está habilitado y se proporciona una ruta)
-  if (showLogo && logoPath) {
-    try {
-      // Cargar el logo con resolución de 300 DPI
-      doc.image(logoPath, logoX, logoY, {
-        width: logoWidth,
-        height: logoHeight,
-        resolution: 300 // Establecer resolución a 300 DPI
-      });
-    } catch (error) {
-      console.error("Error al cargar el logo:", error);
-    }
-  }
 
   // informacion del documento
   // Posicionamos en el margen superior

@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { PUBLIC_API_URL } from '$env/static/public';
   import { fade } from 'svelte/transition';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { auth } from '$lib/stores/authStore';
+  import { get } from 'svelte/store';
 
   interface EstadoActualizacion {
     ultimaActualizacion: string | null;
@@ -28,24 +30,39 @@
   };
 
   let loading = true;
+  let usuarioAutenticado = true; // Para mostrar estado de autenticación
 
   onMount(async () => {
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/sincronizacion/estado-actualizacion`);
+      // Verificar autenticación antes de cargar datos
+      const authState = get(auth);
+      if (!authState.isAuthenticated || !authState.token) {
+        console.log('[Actualización] Usuario no autenticado en onMount:', authState);
+        usuarioAutenticado = false;
+        loading = false;
+        return;
+      }
+
+      const response = await fetchWithAuth('/sincronizacion/estado-actualizacion');
       if (!response.ok) throw new Error('Error al cargar el estado de actualización');
       
       const data = await response.json();
       estado.ultimaActualizacion = data.data.ultimaActualizacion;
       loading = false;
     } catch (err) {
-      estado.mensaje = err instanceof Error ? err.message : 'Error al cargar el estado de actualización';
+      // Si es error de autenticación, no mostrar error crítico
+      if (err instanceof Error && err.message.includes('token')) {
+        console.log('[Actualización] Error de autenticación en carga inicial');
+      } else {
+        estado.mensaje = err instanceof Error ? err.message : 'Error al cargar el estado de actualización';
+      }
       loading = false;
     }
   });
 
   async function verificarConfiguracion() {
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/sincronizacion/verificar-configuracion`);
+      const response = await fetchWithAuth('/sincronizacion/verificar-configuracion');
       if (!response.ok) throw new Error('Error al verificar configuración');
       
       const data = await response.json();
@@ -63,7 +80,7 @@
 
   async function actualizarArticulos() {
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/sincronizacion/actualizar-articulos`, {
+      const response = await fetchWithAuth('/sincronizacion/actualizar-articulos', {
         method: 'POST'
       });
       if (!response.ok) throw new Error('Error al actualizar artículos');
@@ -79,7 +96,7 @@
 
   async function actualizarClientes() {
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/sincronizacion/actualizar-clientes`, {
+      const response = await fetchWithAuth('/sincronizacion/actualizar-clientes', {
         method: 'POST'
       });
       if (!response.ok) throw new Error('Error al actualizar clientes');
@@ -95,7 +112,7 @@
 
   async function actualizarVendedores() {
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/sincronizacion/actualizar-vendedores`, {
+      const response = await fetchWithAuth('/sincronizacion/actualizar-vendedores', {
         method: 'POST'
       });
       if (!response.ok) throw new Error('Error al actualizar vendedores');
@@ -111,7 +128,7 @@
 
   async function finalizarActualizacion() {
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/sincronizacion/finalizar-actualizacion`, {
+      const response = await fetchWithAuth('/sincronizacion/finalizar-actualizacion', {
         method: 'POST'
       });
       if (!response.ok) throw new Error('Error al finalizar actualización');
@@ -127,6 +144,15 @@
   }
 
   async function iniciarActualizacion() {
+    // Verificar autenticación antes de iniciar
+    const authState = get(auth);
+    if (!authState.isAuthenticated || !authState.token) {
+      estado.estado = 'error';
+      estado.mensaje = 'No estás autenticado. Por favor, inicia sesión nuevamente.';
+      console.log('[Actualización] Error de autenticación:', authState);
+      return;
+    }
+
     estado.estado = 'procesando';
     estado.mensaje = null;
     estado.tareas = {
@@ -149,7 +175,13 @@
       await finalizarActualizacion();
     } catch (err) {
       estado.estado = 'error';
-      estado.mensaje = err instanceof Error ? err.message : 'Error al iniciar la actualización';
+      
+      // Manejo específico de errores de autenticación
+      if (err instanceof Error && err.message.includes('token')) {
+        estado.mensaje = 'Sesión expirada. Por favor, inicia sesión nuevamente.';
+      } else {
+        estado.mensaje = err instanceof Error ? err.message : 'Error al iniciar la actualización';
+      }
     }
   }
 </script>
@@ -161,6 +193,19 @@
     {#if loading}
       <div class="flex justify-center items-center h-64">
         <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    {:else if !usuarioAutenticado}
+      <div class="text-center space-y-4">
+        <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+          <p class="font-medium">No estás autenticado</p>
+          <p class="text-sm">Para usar esta función, necesitas iniciar sesión.</p>
+        </div>
+        <a
+          href="/login"
+          class="inline-block px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        >
+          Ir al Login
+        </a>
       </div>
     {:else}
       <div class="space-y-6">
@@ -202,7 +247,7 @@
           </div>
         {/if}
 
-        <div class="flex justify-center mt-6">
+        <div class="flex justify-center mt-6 space-x-4">
           <button
             on:click={iniciarActualizacion}
             class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -217,6 +262,15 @@
               Iniciar Actualización
             {/if}
           </button>
+          
+          {#if estado.estado === 'error' && estado.mensaje?.includes('autenticado')}
+            <a
+              href="/login"
+              class="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+            >
+              Ir al Login
+            </a>
+          {/if}
         </div>
       </div>
     {/if}

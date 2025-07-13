@@ -1,4 +1,3 @@
-const Configuracion = require('../models/configuracion.model');
 const ArticuloPreventa = require('../models/preventa/articulo.model');
 const ClientePreventa = require('../models/preventa/cliente.model');
 const VendedorPreventa = require('../models/preventa/vendedor.model');
@@ -9,6 +8,7 @@ const NumerosControlController = require('./numerosControl.controller');
 // Obtener el estado de actualización
 exports.getEstadoActualizacion = async (req, res) => {
   try {
+    const { Configuracion } = req.models;
     const configuraciones = await Configuracion.findAll({
       where: {
         Codigo: [
@@ -36,6 +36,7 @@ exports.getEstadoActualizacion = async (req, res) => {
 // Obtener el estado de descarga
 exports.getEstadoDescarga = async (req, res) => {
   try {
+    const { Configuracion } = req.models;
     const configuraciones = await Configuracion.findAll({
       where: {
         Codigo: [
@@ -60,9 +61,87 @@ exports.getEstadoDescarga = async (req, res) => {
   }
 };
 
+// Obtener configuración de sincronización
+exports.getConfiguracion = async (req, res) => {
+  try {
+    const { Configuracion } = req.models;
+    const configuraciones = await Configuracion.findAll({
+      where: {
+        Codigo: [
+          'PreventasServidor',
+          'PreventasBaseDeDatos',
+          'PreventaUsuario',
+          'PreventaContraseña'
+        ]
+      }
+    });
+
+    const config = configuraciones.reduce((acc, curr) => {
+      acc[curr.Codigo] = curr.ValorConfig;
+      return acc;
+    }, {});
+
+    res.json({
+      success: true,
+      data: {
+        servidor: config.PreventasServidor || '',
+        baseDatos: config.PreventasBaseDeDatos || '',
+        usuario: config.PreventaUsuario || '',
+        password: config.PreventaContraseña || ''
+      }
+    });
+  } catch (error) {
+    console.error('Error al obtener configuración:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Error al obtener la configuración' 
+    });
+  }
+};
+
+// Guardar configuración de sincronización
+exports.saveConfiguracion = async (req, res) => {
+  try {
+    const { Configuracion } = req.models;
+    const { servidor, baseDatos, usuario, password } = req.body;
+
+    // Validar datos requeridos
+    if (!servidor || !baseDatos || !usuario || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Todos los campos son requeridos'
+      });
+    }
+
+    // Actualizar o crear configuraciones
+    const configuraciones = [
+      { Codigo: 'PreventasServidor', ValorConfig: servidor },
+      { Codigo: 'PreventasBaseDeDatos', ValorConfig: baseDatos },
+      { Codigo: 'PreventaUsuario', ValorConfig: usuario },
+      { Codigo: 'PreventaContraseña', ValorConfig: password }
+    ];
+
+    for (const config of configuraciones) {
+      await Configuracion.upsert(config);
+    }
+
+    res.json({
+      success: true,
+      message: 'Configuración guardada correctamente'
+    });
+  } catch (error) {
+    console.error('Error al guardar configuración:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Error al guardar la configuración' 
+    });
+  }
+};
+
 // Verificar configuración
 exports.verificarConfiguracion = async (req, res) => {
   try {
+    const { Configuracion } = req.models;
     const configuraciones = await Configuracion.findAll({
       where: {
         Codigo: [

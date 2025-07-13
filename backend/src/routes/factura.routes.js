@@ -19,6 +19,12 @@ router.put("/anular/:tipo/:sucursal/:numero", facturaController.anularFactura);
 // Nueva ruta para generar PDF
 router.get("/pdf/:tipo/:sucursal/:numero", getEmpresaConnection, pdfController.generarFacturaPDF);
 
+// Ruta de prueba para verificar logos (sin autenticación temporalmente)
+router.get("/prueba-logo", pdfController.probarLogo);
+
+// Ruta de prueba temporal para factura sin autenticación
+router.get("/test-factura/:tipo/:sucursal/:numero", getEmpresaConnection, pdfController.generarFacturaPDF);
+
 // Obtener últimas facturas de un cliente
 router.get(
   "/cliente/:codigoCliente",

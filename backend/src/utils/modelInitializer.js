@@ -1328,36 +1328,7 @@ const initializeModels = (sequelize) => {
     targetKey: "Codigo",
   });
 
-  // Asociaciones de caja
-  CajaMovimientos.belongsTo(CajaCabeza, {
-    foreignKey: 'CajaCabezaId',
-    targetKey: 'Codigo',
-    constraints: false
-  });
-
-  CajaMovimientos.belongsTo(TipoDePago, {
-    foreignKey: "MetodoPago",
-    targetKey: "Codigo",
-    as: "TipoPago"
-  });
-
-  CajaMovimientos.belongsTo(Vendedor, {
-    foreignKey: "UsuarioId",
-    targetKey: "Codigo",
-    as: "Usuario"
-  });
-
-  CajaArqueoDetalle.belongsTo(CajaCabeza, {
-    foreignKey: 'CajaCabezaId',
-    targetKey: 'Codigo',
-    constraints: false
-  });
-
-  CajaArqueoDetalle.belongsTo(TipoDePago, {
-    foreignKey: "MetodoPago",
-    targetKey: "Codigo",
-    as: "TipoPago"
-  });
+  // Las asociaciones de caja se manejan en cajaAssociations.js para evitar duplicaciones
 
   // Crear el objeto de modelos
   const modelos = {

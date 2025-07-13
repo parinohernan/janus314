@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { PUBLIC_API_URL } from '$env/static/public';
   import { fade } from 'svelte/transition';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { auth } from '$lib/stores/authStore';
+  import { get } from 'svelte/store';
 
   // Estado específico para la descarga
   let descargaEstado = 'idle'; // 'idle', 'procesando', 'completado', 'error'
@@ -9,11 +11,21 @@
   let descargaCantidad = 0;
   let ultimaDescargaFecha: string | null = null;
   let loadingDescarga = true; // Para cargar estado inicial
+  let usuarioAutenticado = true; // Para mostrar estado de autenticación
 
   // Cargar estado inicial de descarga
   onMount(async () => {
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/sincronizacion/estado-descarga`);
+      // Verificar autenticación antes de cargar datos
+      const authState = get(auth);
+      if (!authState.isAuthenticated || !authState.token) {
+        console.log('[Preventas] Usuario no autenticado en onMount:', authState);
+        usuarioAutenticado = false;
+        loadingDescarga = false;
+        return;
+      }
+
+      const response = await fetchWithAuth('/sincronizacion/estado-descarga');
       if (response.ok) {
         const data = await response.json();
         ultimaDescargaFecha = data.data.ultimaDescarga;
@@ -22,11 +34,25 @@
       }
     } catch (err) {
       console.error("Error cargando estado de descarga inicial:", err);
+      // Si es error de autenticación, no mostrar error crítico
+      if (err instanceof Error && err.message.includes('token')) {
+        console.log('[Preventas] Error de autenticación en carga inicial');
+        usuarioAutenticado = false;
+      }
     }
     loadingDescarga = false;
   });
 
   async function iniciarDescarga() {
+    // Verificar autenticación antes de iniciar
+    const authState = get(auth);
+    if (!authState.isAuthenticated || !authState.token) {
+      descargaEstado = 'error';
+      descargaMensaje = 'No estás autenticado. Por favor, inicia sesión nuevamente.';
+      console.log('[Preventas] Error de autenticación:', authState);
+      return;
+    }
+
     descargaEstado = 'procesando';
     descargaMensaje = 'Iniciando descarga...';
     descargaCantidad = 0;
@@ -34,7 +60,7 @@
 
     try {
       const startTime = Date.now(); 
-      const response = await fetch(`${PUBLIC_API_URL}/sincronizacion/descargar-preventas`, {
+      const response = await fetchWithAuth('/sincronizacion/descargar-preventas', {
         method: 'POST'
       });
 
@@ -62,7 +88,14 @@
     } catch (err) {
       console.error("Error en iniciarDescarga:", err);
       descargaEstado = 'error';
-      descargaMensaje = err instanceof Error ? err.message : 'Ocurrió un error desconocido durante la descarga.';
+      
+      // Manejo específico de errores de autenticación
+      if (err instanceof Error && err.message.includes('token')) {
+        descargaMensaje = 'Sesión expirada. Por favor, inicia sesión nuevamente.';
+      } else {
+        descargaMensaje = err instanceof Error ? err.message : 'Ocurrió un error desconocido durante la descarga.';
+      }
+      
       console.log('[Descarga] Error - Estado:', descargaEstado, 'Mensaje:', descargaMensaje);
     }
   }
@@ -75,6 +108,19 @@
     {#if loadingDescarga}
       <div class="flex justify-center items-center h-64">
         <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    {:else if !usuarioAutenticado}
+      <div class="text-center space-y-4">
+        <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+          <p class="font-medium">No estás autenticado</p>
+          <p class="text-sm">Para usar esta función, necesitas iniciar sesión.</p>
+        </div>
+        <a
+          href="/login"
+          class="inline-block px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        >
+          Ir al Login
+        </a>
       </div>
     {:else}
       <div class="space-y-6">
@@ -103,7 +149,7 @@
         {/if}
 
         <!-- Botón de descarga -->
-        <div class="flex justify-center mt-6">
+        <div class="flex justify-center mt-6 space-x-4">
           <button
             on:click={iniciarDescarga}
             class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -118,6 +164,15 @@
               Iniciar Descarga
             {/if}
           </button>
+          
+          {#if descargaEstado === 'error' && descargaMensaje?.includes('autenticado')}
+            <a
+              href="/login"
+              class="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+            >
+              Ir al Login
+            </a>
+          {/if}
         </div>
       </div>
     {/if}
