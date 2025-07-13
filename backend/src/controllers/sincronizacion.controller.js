@@ -4,6 +4,7 @@ const VendedorPreventa = require('../models/preventa/vendedor.model');
 const { Op, QueryTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const NumerosControlController = require('./numerosControl.controller');
+const NumeroControlService = require('../services/numeroControl.service');
 
 // Obtener el estado de actualización
 exports.getEstadoActualizacion = async (req, res) => {
@@ -174,6 +175,125 @@ exports.verificarConfiguracion = async (req, res) => {
   } catch (error) {
     console.error('Error al verificar configuración:', error);
     res.status(500).json({ error: 'Error al verificar configuración' });
+  }
+};
+
+// Verificar conexión a la base de datos de preventas
+exports.verificarConexion = async (req, res) => {
+  try {
+    const { Configuracion } = req.models;
+    const configuraciones = await Configuracion.findAll({
+      where: {
+        Codigo: [
+          'PreventasServidor',
+          'PreventasBaseDeDatos',
+          'PreventaUsuario',
+          'PreventaContraseña'
+        ]
+      }
+    });
+
+    const config = configuraciones.reduce((acc, curr) => {
+      acc[curr.Codigo] = curr.ValorConfig;
+      return acc;
+    }, {});
+
+    // Verificar que la configuración esté completa
+    if (!config.PreventasServidor || !config.PreventasBaseDeDatos || 
+        !config.PreventaUsuario || !config.PreventaContraseña) {
+      return res.status(400).json({
+        success: false,
+        message: 'Configuración incompleta para la conexión',
+        data: { config }
+      });
+    }
+
+    // Crear conexión de prueba
+    const { Sequelize } = require('sequelize');
+    const testSequelize = new Sequelize(
+      config.PreventasBaseDeDatos,
+      config.PreventaUsuario,
+      config.PreventaContraseña,
+      {
+        host: config.PreventasServidor,
+        port: 3306,
+        dialect: 'mysql',
+        logging: false,
+        pool: {
+          max: 1,
+          min: 0,
+          acquire: 30000,
+          idle: 10000
+        }
+      }
+    );
+
+    try {
+      // Probar la conexión
+      await testSequelize.authenticate();
+      console.log('✅ Conexión a base de datos de preventas exitosa');
+
+      // Verificar que las tablas necesarias existan
+      const results = await testSequelize.query(`
+        SELECT TABLE_NAME 
+        FROM INFORMATION_SCHEMA.TABLES 
+        WHERE TABLE_SCHEMA = ? 
+        AND TABLE_NAME IN ('preventa_cabeza', 'preventa_items', 't_articulos', 't_clientes', 't_vendedores')
+      `, {
+        replacements: [config.PreventasBaseDeDatos],
+        type: testSequelize.QueryTypes.SELECT
+      });
+
+      const tablasExistentes = results.map(r => r.TABLE_NAME);
+      const tablasRequeridas = ['preventa_cabeza', 'preventa_items', 't_articulos', 't_clientes', 't_vendedores'];
+      const tablasFaltantes = tablasRequeridas.filter(tabla => !tablasExistentes.includes(tabla));
+
+      // Contar preventas pendientes
+      let preventasPendientes = 0;
+      if (tablasExistentes.includes('preventa_cabeza')) {
+        const countResults = await testSequelize.query(
+          'SELECT COUNT(*) as count FROM preventa_cabeza',
+          { type: testSequelize.QueryTypes.SELECT }
+        );
+        preventasPendientes = countResults[0].count;
+      }
+
+      await testSequelize.close();
+
+      res.json({
+        success: true,
+        message: 'Conexión exitosa a la base de datos de preventas',
+        data: {
+          config,
+          tablasExistentes,
+          tablasFaltantes,
+          preventasPendientes,
+          conexionExitosa: true
+        }
+      });
+
+    } catch (connectionError) {
+      await testSequelize.close();
+      console.error('❌ Error de conexión a base de datos de preventas:', connectionError);
+      
+      res.status(500).json({
+        success: false,
+        message: 'Error de conexión a la base de datos de preventas',
+        error: connectionError.message,
+        data: {
+          config,
+          conexionExitosa: false
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('Error al verificar conexión:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error al verificar conexión',
+      error: error.message
+    });
   }
 };
 
@@ -550,18 +670,45 @@ exports.finalizarActualizacion = async (req, res) => {
  * @param {string} baseDatosPreventa Nombre de la base de datos de preventa (origen).
  * @returns {Promise<boolean>} True si se procesó una preventa, False si no quedaban preventas.
  */
-const procesarUnaPreventa = async (baseDatosPreventa) => {
+const procesarUnaPreventa = async (config, req) => {
   let cabezaOriginal = null;
   let itemsOriginales = [];
+  let testSequelize = null;
+  let empresaSequelize = null;
 
   try {
+    // Crear conexión directa a la base de datos de preventas
+    const { Sequelize } = require('sequelize');
+    testSequelize = new Sequelize(
+      config.PreventasBaseDeDatos,
+      config.PreventaUsuario,
+      config.PreventaContraseña,
+      {
+        host: config.PreventasServidor,
+        port: 3306,
+        dialect: 'mysql',
+        logging: false,
+        pool: {
+          max: 1,
+          min: 0,
+          acquire: 30000,
+          idle: 10000
+        }
+      }
+    );
+
+    // Usar la conexión de la empresa específica para números de control
+    empresaSequelize = req.db;
+
     // 1. Leer una preventa del origen (la más antigua)
-    const [cabezaResult] = await sequelize.query(
-      `SELECT * FROM ${baseDatosPreventa}.preventa_cabeza 
+    const cabezaResults = await testSequelize.query(
+      `SELECT * FROM preventa_cabeza 
        ORDER BY Fecha ASC, DocumentoSucursal ASC, DocumentoNumero ASC 
        LIMIT 1`,
-      { type: QueryTypes.SELECT, replacements: [baseDatosPreventa] }
+      { type: testSequelize.QueryTypes.SELECT }
     );
+
+    const cabezaResult = cabezaResults[0];
 
     if (!cabezaResult) {
       console.log('No se encontraron más preventas para procesar.');
@@ -569,36 +716,35 @@ const procesarUnaPreventa = async (baseDatosPreventa) => {
     }
     cabezaOriginal = cabezaResult;
 
-    itemsOriginales = await sequelize.query(
-      `SELECT * FROM ${baseDatosPreventa}.preventa_items 
+    itemsOriginales = await testSequelize.query(
+      `SELECT * FROM preventa_items 
        WHERE DocumentoTipo = ? AND DocumentoSucursal = ? AND DocumentoNumero = ?`,
       {
         replacements: [
           cabezaOriginal.DocumentoTipo,
           cabezaOriginal.DocumentoSucursal,
-          cabezaOriginal.DocumentoNumero,
-          baseDatosPreventa
+          cabezaOriginal.DocumentoNumero
         ],
-        type: QueryTypes.SELECT,
+        type: testSequelize.QueryTypes.SELECT,
       }
     );
 
     // 2. Iniciar transacción en la base de datos destino (db_sis_fac)
-    const tDestino = await sequelize.transaction();
+    const tDestino = await empresaSequelize.transaction();
     let nuevoNumeroDoc = null;
 
     try {
-      // 3. Obtener y actualizar número de control 'PRV'
-      const numeroInfo = await NumerosControlController.actualizarNumeroDirecto(
+      // 3. Obtener y actualizar número de control 'PRV' usando la conexión de la empresa
+      nuevoNumeroDoc = await NumeroControlService.obtenerYActualizarNumero(
         'PRV', 
         cabezaOriginal.DocumentoSucursal, 
-        { transaction: tDestino } // Pasar la transacción
+        tDestino, // transaction
+        req.models.NumerosControl // modelo de la empresa específica
       );
-      nuevoNumeroDoc = numeroInfo.numeroUtilizado.toString().padStart(8, '0');
 
       // 4. Insertar Cabeza en Destino (preventa_cabeza en db_sis_fac)
       // Usa la estructura de preventas.preventa_cabeza
-      await sequelize.query(
+      await empresaSequelize.query(
         `INSERT INTO preventa_cabeza (
           DocumentoTipo, DocumentoSucursal, DocumentoNumero, Fecha, FechaHoraEnvio, 
           ClienteCodigo, VendedorCodigo, PagoTipo, ImporteBruto, PorcentajeBonificacion, 
@@ -645,7 +791,7 @@ const procesarUnaPreventa = async (baseDatosPreventa) => {
       )`).join(',');
 
       if (itemsValues) {
-          await sequelize.query(
+          await empresaSequelize.query(
             `INSERT INTO preventa_items (
               DocumentoTipo, DocumentoSucursal, DocumentoNumero, CodigoArticulo, Cantidad, 
               PrecioUnitario, PrecioLista, PorcentajeBonificacion
@@ -667,30 +813,28 @@ const procesarUnaPreventa = async (baseDatosPreventa) => {
 
     // 7. Eliminar del origen (SOLO si la transacción destino fue exitosa)
     try {
-      await sequelize.query(
-        `DELETE FROM ${baseDatosPreventa}.preventa_items 
+      await testSequelize.query(
+        `DELETE FROM preventa_items 
          WHERE DocumentoTipo = ? AND DocumentoSucursal = ? AND DocumentoNumero = ?`,
         { 
           replacements: [
             cabezaOriginal.DocumentoTipo,
             cabezaOriginal.DocumentoSucursal,
-            cabezaOriginal.DocumentoNumero,
-            baseDatosPreventa
+            cabezaOriginal.DocumentoNumero
           ],
-          type: QueryTypes.DELETE
+          type: testSequelize.QueryTypes.DELETE
         }
       );
-      await sequelize.query(
-        `DELETE FROM ${baseDatosPreventa}.preventa_cabeza 
+      await testSequelize.query(
+        `DELETE FROM preventa_cabeza 
          WHERE DocumentoTipo = ? AND DocumentoSucursal = ? AND DocumentoNumero = ?`,
         { 
           replacements: [
             cabezaOriginal.DocumentoTipo,
             cabezaOriginal.DocumentoSucursal,
-            cabezaOriginal.DocumentoNumero,
-            baseDatosPreventa
+            cabezaOriginal.DocumentoNumero
           ],
-          type: QueryTypes.DELETE
+          type: testSequelize.QueryTypes.DELETE
         }
       );
       console.log(`Preventa ${cabezaOriginal.DocumentoSucursal}-${cabezaOriginal.DocumentoNumero} eliminada del origen.`);
@@ -714,6 +858,12 @@ const procesarUnaPreventa = async (baseDatosPreventa) => {
     } else {
       throw new Error(`Error al leer preventas del origen: ${error.message}`);
     }
+  } finally {
+    // Cerrar la conexión de prueba
+    if (testSequelize) {
+      await testSequelize.close();
+    }
+    // No cerramos empresaSequelize porque es la conexión principal del request
   }
 };
 
@@ -721,6 +871,7 @@ const procesarUnaPreventa = async (baseDatosPreventa) => {
 exports.descargarPreventas = async (req, res) => {
   console.log('*** Iniciando descarga de preventas ***');
   try {
+    const { Configuracion } = req.models;
     const configuraciones = await Configuracion.findAll({
       where: {
         Codigo: [
@@ -731,12 +882,13 @@ exports.descargarPreventas = async (req, res) => {
         ]
       }
     });
-
+    
     const config = configuraciones.reduce((acc, curr) => {
       acc[curr.Codigo] = curr.ValorConfig;
       return acc;
     }, {});
-
+    
+    console.log('*** Configuraciones:', config);
     // Verificar que la configuración esté completa
     if (!config.PreventasServidor || !config.PreventasBaseDeDatos || 
         !config.PreventaUsuario || !config.PreventaContraseña) {
@@ -746,16 +898,42 @@ exports.descargarPreventas = async (req, res) => {
       });
     }
 
-    // Aquí iría la lógica para descargar las preventas
-    // Por ahora solo actualizamos la fecha de última descarga
+    // Ejecutar la lógica para descargar las preventas
+    console.log('*** Iniciando procesamiento de preventas ***');
+    
+    let preventasProcesadas = 0;
+    let maxPreventas = 100; // Límite para evitar procesar demasiadas de una vez
+    
+    // Procesar preventas una por una hasta que no queden más o se alcance el límite
+    while (preventasProcesadas < maxPreventas) {
+      try {
+        const seProcesoUna = await procesarUnaPreventa(config, req);
+        if (!seProcesoUna) {
+          console.log('No quedan más preventas para procesar');
+          break;
+        }
+        preventasProcesadas++;
+        console.log(`Preventa ${preventasProcesadas} procesada`);
+      } catch (error) {
+        console.error('Error procesando preventa:', error);
+        // Continuar con la siguiente preventa en lugar de detener todo el proceso
+        break;
+      }
+    }
+
+    // Actualizar la fecha de última descarga
     await Configuracion.update(
       { ValorConfig: new Date().toISOString() },
-        { where: { Codigo: 'PreventaUltimaDescarga' } }
+      { where: { Codigo: 'PreventaUltimaDescarga' } }
     );
 
     res.json({
       success: true,
-      message: 'Proceso de descarga de preventas iniciado'
+      message: `Proceso de descarga completado. ${preventasProcesadas} preventas procesadas`,
+      data: {
+        preventasProcesadas,
+        maxPreventas
+      }
     });
 
   } catch (error) {

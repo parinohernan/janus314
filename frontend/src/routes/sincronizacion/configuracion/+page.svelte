@@ -19,8 +19,10 @@
 
   let loading = true;
   let saving = false;
+  let testingConnection = false;
   let error: string | null = null;
   let successMessage: string | null = null;
+  let connectionResult: any = null;
 
   onMount(async () => {
     try {
@@ -65,6 +67,30 @@
       error = err instanceof Error ? err.message : 'Error al guardar la configuración';
     } finally {
       saving = false;
+    }
+  }
+
+  async function testConnection() {
+    testingConnection = true;
+    error = null;
+    successMessage = null;
+    connectionResult = null;
+
+    try {
+      const response = await fetchWithAuth('/sincronizacion/verificar-conexion');
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al verificar la conexión');
+      }
+
+      const data = await response.json();
+      connectionResult = data;
+      successMessage = data.message;
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Error al verificar la conexión';
+    } finally {
+      testingConnection = false;
     }
   }
 </script>
@@ -141,7 +167,89 @@
           </div>
         {/if}
 
-        <div class="flex justify-end mt-6">
+        {#if connectionResult}
+          <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+            <h3 class="text-lg font-semibold text-gray-800 mb-3">Resultado de la Verificación</h3>
+            
+            {#if connectionResult.data?.conexionExitosa}
+              <div class="space-y-3">
+                <div class="flex items-center text-green-600">
+                  <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                  </svg>
+                  Conexión exitosa
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span class="font-medium">Servidor:</span> {connectionResult.data.config.PreventasServidor}
+                  </div>
+                  <div>
+                    <span class="font-medium">Base de datos:</span> {connectionResult.data.config.PreventasBaseDeDatos}
+                  </div>
+                  <div>
+                    <span class="font-medium">Usuario:</span> {connectionResult.data.config.PreventaUsuario}
+                  </div>
+                  <div>
+                    <span class="font-medium">Preventas pendientes:</span> {connectionResult.data.preventasPendientes || 0}
+                  </div>
+                </div>
+
+                {#if connectionResult.data.tablasExistentes?.length}
+                  <div>
+                    <span class="font-medium">Tablas encontradas:</span>
+                    <div class="mt-1 flex flex-wrap gap-1">
+                      {#each connectionResult.data.tablasExistentes as tabla}
+                        <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">{tabla}</span>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+
+                {#if connectionResult.data.tablasFaltantes?.length}
+                  <div>
+                    <span class="font-medium text-orange-600">Tablas faltantes:</span>
+                    <div class="mt-1 flex flex-wrap gap-1">
+                      {#each connectionResult.data.tablasFaltantes as tabla}
+                        <span class="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded">{tabla}</span>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            {:else}
+              <div class="flex items-center text-red-600">
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                </svg>
+                Error de conexión
+              </div>
+              {#if connectionResult.error}
+                <div class="mt-2 text-sm text-red-600">
+                  {connectionResult.error}
+                </div>
+              {/if}
+            {/if}
+          </div>
+        {/if}
+
+        <div class="flex justify-between mt-6">
+          <button
+            type="button"
+            on:click={testConnection}
+            class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={testingConnection}
+          >
+            {#if testingConnection}
+              <span class="flex items-center">
+                <span class="animate-spin h-4 w-4 mr-2 border-t-2 border-b-2 border-white rounded-full"></span>
+                Verificando...
+              </span>
+            {:else}
+              Verificar Conexión
+            {/if}
+          </button>
+
           <button
             type="submit"
             class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
