@@ -236,11 +236,11 @@
                   ${item.PrecioUnitario.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
-                  <!-- ${(Number(item.PrecioUnitarioIva) * (1 + Number(item.PorcentajeIva) / 100)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} -->
+                  ${(Number(item.PrecioUnitario) * (1 + Number(item.PorcentajeIva) / 100)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">{item.PorcentajeIva}%</td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
-                  ${item.Subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${(item.Total || (item.Cantidad * item.PrecioUnitario)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
                   ${(Number(item.Subtotal) * (1 + Number(item.PorcentajeIva) / 100)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

@@ -121,7 +121,7 @@ export class ArticuloService {
 		);
 
 		// Calcular total
-		item.Total = item.PrecioUnitario * item.Cantidad;
+		item.Total = item.PrecioUnitarioConIva * item.Cantidad;
 
 		return item;
 	}

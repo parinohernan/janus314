@@ -366,28 +366,28 @@ const copiarArticulos = async (empresaSequelize, preventasSequelize) => {
 
     await preventasSequelize.query(`
       INSERT INTO t_articulos (
-        Codigo, 
-        Descripcion, 
-        Existencia, 
-        ExistenciaMinima, 
-        ExistenciaMaxima, 
-        PrecioCostoMasImp, 
-        PorcentajeIVA1, 
-        PorcentajeIVA2, 
-        PrecioCosto, 
-        UnidadVenta, 
-        Lista1, 
-        Lista2, 
-        Lista3, 
-        Lista4, 
-        Lista5, 
-        ProveedorCodigo, 
-        RubroCodigo, 
-        Peso, 
-        SiempreSeDescarga, 
-        Iva2SobreNeto, 
-        PorcentajeVendedor, 
-        DescuentoXCantidad
+      Codigo, 
+      Descripcion, 
+      Existencia,
+      ExistenciaMinima,
+      ExistenciaMaxima,
+      PrecioCostoMasImp,
+      PorcentajeIVA1,
+      PorcentajeIVA2,
+      PrecioCosto,
+      UnidadVenta,
+      Lista1,
+      Lista2,
+      Lista3,
+      Lista4,
+      Lista5,
+      ProveedorCodigo,
+      RubroCodigo,
+      Peso,
+      SiempreSeDescarga,
+      Iva2SobreNeto,
+      PorcentajeVendedor,
+      DescuentoXCantidad
       ) VALUES ${values}
     `);
   }
@@ -998,12 +998,12 @@ exports.descargarPreventas = async (req, res) => {
         ]
       }
     });
-    
+
     const config = configuraciones.reduce((acc, curr) => {
       acc[curr.Codigo] = curr.ValorConfig;
       return acc;
     }, {});
-    
+
     console.log('*** Configuraciones:', config);
     // Verificar que la configuración esté completa
     if (!config.PreventasServidor || !config.PreventasBaseDeDatos || 
@@ -1040,7 +1040,7 @@ exports.descargarPreventas = async (req, res) => {
     // Actualizar la fecha de última descarga
     await Configuracion.update(
       { ValorConfig: new Date().toISOString() },
-      { where: { Codigo: 'PreventaUltimaDescarga' } }
+        { where: { Codigo: 'PreventaUltimaDescarga' } }
     );
 
     res.json({

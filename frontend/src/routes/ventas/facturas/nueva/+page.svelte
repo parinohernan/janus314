@@ -400,27 +400,43 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   
   // Obtener precio según la lista seleccionada
   const obtenerPrecioSegunLista = (articulo: Articulo, listaId: string): number => {
-    // Aquí deberías implementar la lógica para obtener el precio según la lista
-    // Por ahora, usamos una lógica simple basada en el PrecioCosto
+    // Usar directamente los valores de las listas del artículo
+    // Si la lista está en 0, usar el precio de costo como fallback
     
     const precioCosto = articulo.PrecioCosto || 0;
     console.log("articulo", articulo);
     
-    // Valores predeterminados en caso de que las propiedades no existan
-    const lista1 = articulo.Lista1 || 30;
-    const lista2 = articulo.Lista2 || 40;
-    const lista3 = articulo.Lista3 || 50;
-    const lista4 = articulo.Lista4 || 60;
-    const lista5 = articulo.Lista5 || 70;
+    let precioLista = 0;
     
     switch(listaId) {
-      case '1': return precioCosto * (1 + lista1/100);
-      case '2': return precioCosto * (1 + lista2/100);
-      case '3': return precioCosto * (1 + lista3/100);
-      case '4': return precioCosto * (1 + lista4/100);
-      case '5': return precioCosto * (1 + lista5/100);
-      default: return precioCosto * (1 + lista1/100);
+      case '1': 
+        precioLista = articulo.Lista1 || 0;
+        break;
+      case '2': 
+        precioLista = articulo.Lista2 || 0;
+        break;
+      case '3': 
+        precioLista = articulo.Lista3 || 0;
+        break;
+      case '4': 
+        precioLista = articulo.Lista4 || 0;
+        break;
+      case '5': 
+        precioLista = articulo.Lista5 || 0;
+        break;
+      default: 
+        precioLista = articulo.Lista1 || 0;
+        break;
     }
+    
+    // Si el precio de lista es 0, usar el precio de costo
+    if (precioLista === 0) {
+      console.log(`Lista ${listaId} está en 0, usando precio de costo: ${precioCosto}`);
+      return precioCosto;
+    }
+    
+    console.log(`Usando precio de lista ${listaId}: ${precioLista}`);
+    return precioLista;
   };
   
   // Función para recalcular un ítem individual (actualizada)
@@ -1303,12 +1319,12 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                 
                 <!-- Precio con IVA -->
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
-                  ${(Number(item.PrecioUnitario) * (1 + Number(item.PorcentajeIva) / 100)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${item.PrecioUnitarioConIva.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
                 
                 <!-- Total -->
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
-                  ${(item.Cantidad * (Number(item.PrecioUnitario) * (1 + Number(item.PorcentajeIva) / 100))).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${item.Total.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
                 
                 <td class="px-4 py-3 whitespace-nowrap text-center">
