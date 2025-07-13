@@ -373,15 +373,16 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     
     // Obtener precio según la lista seleccionada
     const precioLista = obtenerPrecioSegunLista(articuloSeleccionado, factura.ListaPrecio);
-    // Usar el PorcentajeIva del artículo o 21 como valor predeterminado
-    const porcentajeIva = articuloSeleccionado.PorcentajeIva1 || 21;
+    // Usar el PorcentajeIVA1 del artículo o 21 como valor predeterminado
+    const porcentajeIva = articuloSeleccionado.PorcentajeIVA1 || 21;
     
     const nuevoItem: ItemFactura = {
       ArticuloCodigo: articuloSeleccionado.Codigo,
       Descripcion: articuloSeleccionado.Descripcion,
       Cantidad: cantidadArticulo,
       PrecioLista: precioLista,
-      PorcentajeBonificacion: 0,
+      PorcentajeBonificado: 0,
+      ImporteBonificado: 0, // Se calculará en recalcularItem
       PrecioUnitario: precioLista, // Inicialmente igual al precio de lista (sin descuento)
       PorcentajeIva: porcentajeIva,
       PrecioUnitarioConIva: 0, // Se calculará en recalcularItem
@@ -451,16 +452,20 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   
   // Función para recalcular un ítem individual (actualizada)
   const recalcularItem = (item: ItemFactura) => {
-    // 1. Calcular precio unitario con descuento aplicado (sin IVA)
-    item.PrecioUnitario = item.PrecioLista * (1 - (item.PorcentajeBonificacion / 100));
+    // 1. Calcular importe bonificado (descuento en pesos)
+    item.ImporteBonificado = item.PrecioLista * (item.PorcentajeBonificado / 100);
     
-    // 2. Calcular precio unitario con IVA
+    // 2. Calcular precio unitario con descuento aplicado (sin IVA)
+    item.PrecioUnitario = item.PrecioLista * (1 - (item.PorcentajeBonificado / 100));
+    
+    // 3. Calcular precio unitario con IVA
     item.PrecioUnitarioConIva = item.PrecioUnitario * (1 + (item.PorcentajeIva / 100));
     
-    // 3. Calcular total del ítem (precio unitario con IVA * cantidad)
+    // 4. Calcular total del ítem (precio unitario con IVA * cantidad)
     item.Total = item.PrecioUnitarioConIva * item.Cantidad;
     
     // Redondear valores para evitar problemas de precisión
+    item.ImporteBonificado = parseFloat(item.ImporteBonificado.toFixed(2));
     item.PrecioUnitario = parseFloat(item.PrecioUnitario.toFixed(2));
     item.PrecioUnitarioConIva = parseFloat(item.PrecioUnitarioConIva.toFixed(2));
     item.Total = parseFloat(item.Total.toFixed(2));
@@ -848,7 +853,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   } {
     // El precio de la preventa viene con IVA incluido, lo quitamos para comparar
     const precioPreventaConIva = item.PrecioLista || 0;
-    const porcentajeIva = item.Articulo.PorcentajeIva1 || 21;
+    const porcentajeIva = item.Articulo.PorcentajeIVA1 || 21;
     const precioPreventa = precioPreventaConIva / (1 + porcentajeIva / 100);
     
     // El precio actual viene sin IVA
@@ -937,7 +942,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                 // Crear nuevo item para la factura con la existencia actualizada
                 // El precio de la preventa viene con IVA incluido, lo quitamos
                 const precioPreventaConIva = item.PrecioLista || 0;
-                const porcentajeIva = item.Articulo.PorcentajeIva1 || 21;
+                const porcentajeIva = item.Articulo.PorcentajeIVA1 || 21;
                 const precioPreventaSinIva = precioPreventaConIva / (1 + porcentajeIva / 100);
                 
                 const facturaItem: ItemFactura = {
@@ -945,9 +950,10 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                   Descripcion: item.Articulo.Descripcion,
                   Cantidad: item.Cantidad || 0,
                   PrecioLista: precioPreventaSinIva,
-                  PorcentajeBonificacion: item.PorcentajeBonificacion || 0,
+                  PorcentajeBonificado: item.PorcentajeBonificacion || 0,
+                  ImporteBonificado: 0, // Se calculará en recalcularItem
                   PrecioUnitario: precioPreventaSinIva * (1 - (item.PorcentajeBonificacion || 0) / 100),
-                  PorcentajeIva: item.Articulo.PorcentajeIva1 || 21,
+                  PorcentajeIva: item.Articulo.PorcentajeIVA1 || 21,
                   PrecioUnitarioConIva: 0,
                   Total: 0,
                   enEdicion: false,
@@ -979,7 +985,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                 // Si falla la obtención del artículo actualizado, usar los datos de la preventa
                 // El precio de la preventa viene con IVA incluido, lo quitamos
                 const precioPreventaConIva = item.PrecioLista || 0;
-                const porcentajeIva = item.Articulo.PorcentajeIva1 || 21;
+                const porcentajeIva = item.Articulo.PorcentajeIVA1 || 21;
                 const precioPreventaSinIva = precioPreventaConIva / (1 + porcentajeIva / 100);
                 
                 const facturaItem: ItemFactura = {
@@ -987,9 +993,10 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                   Descripcion: item.Articulo.Descripcion,
                   Cantidad: item.Cantidad || 0,
                   PrecioLista: precioPreventaSinIva,
-                  PorcentajeBonificacion: item.PorcentajeBonificacion || 0,
+                  PorcentajeBonificado: item.PorcentajeBonificacion || 0,
+                  ImporteBonificado: 0, // Se calculará en recalcularItem
                   PrecioUnitario: precioPreventaSinIva * (1 - (item.PorcentajeBonificacion || 0) / 100),
-                  PorcentajeIva: item.Articulo.PorcentajeIva1 || 21,
+                  PorcentajeIva: item.Articulo.PorcentajeIVA1 || 21,
                   PrecioUnitarioConIva: 0,
                   Total: 0,
                   enEdicion: false,
@@ -1031,7 +1038,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
         // Actualizar precio de lista con el precio actual (sin IVA)
         item.PrecioLista = comparacion.precioActual;
         // Recalcular precio unitario
-        item.PrecioUnitario = comparacion.precioActual * (1 - (item.PorcentajeBonificacion || 0) / 100);
+        item.PrecioUnitario = comparacion.precioActual * (1 - (item.PorcentajeBonificado || 0) / 100);
         // Recalcular precio con IVA
         item.PrecioUnitarioConIva = Number(item.PrecioUnitario) * (1 + Number(item.PorcentajeIva) / 100);
         // Recalcular total
@@ -1407,14 +1414,14 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                   {#if item.enEdicion}
                     <input 
                       type="number" 
-                      bind:value={item.PorcentajeBonificacion} 
+                      bind:value={item.PorcentajeBonificado} 
                       min="0" 
                       max="100" 
                       step="0.1"
                       class="w-16 px-2 py-1 text-right border border-gray-300 rounded"
                     />
                   {:else}
-                    {item.PorcentajeBonificacion}%
+                    {item.PorcentajeBonificado}%
                   {/if}
                 </td>
                 

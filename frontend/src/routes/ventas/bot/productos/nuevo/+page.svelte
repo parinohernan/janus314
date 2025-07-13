@@ -23,7 +23,7 @@
       case 3:
         return true; // No hay campos obligatorios en este paso
       case 4:
-        return !!producto.PorcentajeIva1; // Solo el IVA1 es obligatorio
+        return !!producto.PorcentajeIVA1; // Solo el IVA1 es obligatorio
       default:
         return true;
     }
@@ -61,7 +61,7 @@
     UnidadVenta: 'u',
     PrecioCostoSinIva: 0,
     PrecioCostoConIva: 0,
-    PorcentajeIva1: 21,
+    PorcentajeIVA1: 21,
     PorcentajeIva2: 0,
     PrecioLista1: 0,
     PrecioLista2: 0,
@@ -114,13 +114,13 @@
 
   // Calcular precio de costo sin IVA cuando cambia el precio con IVA
   $: if (producto.PrecioCostoConIva > 0) {
-    producto.PrecioCostoSinIva = calcularPrecioSinIva(producto.PrecioCostoConIva, producto.PorcentajeIva1);
+    producto.PrecioCostoSinIva = calcularPrecioSinIva(producto.PrecioCostoConIva, producto.PorcentajeIVA1);
   }
 
   // Calcular precio de lista 1 cuando cambien los valores relacionados
   $: precioLista1 = calcularPrecioLista1(
     producto.PrecioCostoSinIva,
-    producto.PorcentajeIva1,
+    producto.PorcentajeIVA1,
     producto.PrecioLista1
   );
 
@@ -195,8 +195,8 @@
         PrecioCostoSinIva: Number(producto.PrecioCostoSinIva),
         PrecioCostoConIva: Number(producto.PrecioCostoConIva),
         PrecioCostoMasImp: Number(producto.PrecioCostoConIva),
-        PorcentajeIVA1: Number(producto.PorcentajeIva1),
-        PorcentajeIva1: Number(producto.PorcentajeIva1),
+        PorcentajeIVA1: Number(producto.PorcentajeIVA1),
+        PorcentajeIva1: Number(producto.PorcentajeIVA1),
         PorcentajeIVA2: Number(producto.PorcentajeIva2 || 0),
         PorcentajeIva2: Number(producto.PorcentajeIva2 || 0),
         PrecioLista1: Number(producto.PrecioLista1),
@@ -710,7 +710,7 @@
             <input 
               type="number" 
               id="porcentajeIva1" 
-              bind:value={producto.PorcentajeIva1} 
+              bind:value={producto.PorcentajeIVA1} 
               placeholder="21"
               min="0"
               max="100"

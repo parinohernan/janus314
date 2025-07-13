@@ -748,7 +748,7 @@
 							<div class="font-medium">{articulo.Descripcion}</div>
 							<div class="text-sm text-gray-500">
 								<span>Código: {articulo.Codigo}</span>
-								<span class="ml-2">Precio: ${(articulo.PrecioCosto * (1 + (articulo.Lista1 || 0)/100) * (1 + (articulo.PorcentajeIva1 || 0)/100))?.toFixed(2) || '0.00'}</span>
+								<span class="ml-2">Precio: ${(articulo.PrecioCosto * (1 + (articulo.Lista1 || 0)/100) * (1 + (articulo.PorcentajeIVA1 || 0)/100))?.toFixed(2) || '0.00'}</span>
 								<span class="ml-2">Stock: {articulo.Existencia || 0}</span>
 							</div>
 						</button>

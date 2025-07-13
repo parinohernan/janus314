@@ -5,7 +5,8 @@ export interface ItemFactura {
 	Descripcion: string;
 	Cantidad: number;
 	PrecioLista: number;
-	PorcentajeBonificacion: number;
+	PorcentajeBonificado: number;
+	ImporteBonificado: number;
 	PrecioUnitario: number;
 	PorcentajeIva: number;
 	PrecioUnitarioConIva: number;

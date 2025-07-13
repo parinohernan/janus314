@@ -5,6 +5,7 @@ export interface Articulo {
 	PrecioVenta?: number;
 	PorcentajeIva?: number;
 	PorcentajeIva1?: number;
+	PorcentajeIVA1?: number; // Campo real de la base de datos
 	Existencia: number;
 	ExistenciaMinima?: number;
 	ExistenciaMaxima?: number;

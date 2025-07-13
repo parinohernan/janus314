@@ -28,7 +28,7 @@
       case 3:
         return true; // No hay campos obligatorios en este paso
       case 4:
-        return !!producto.PorcentajeIva1; // Solo el IVA1 es obligatorio
+        return !!producto.PorcentajeIVA1; // Solo el IVA1 es obligatorio
       default:
         return true;
     }
@@ -60,12 +60,12 @@
   let success = false;
 
   // Asegurarse de que los campos necesarios para cálculos existen
-  $: producto.PrecioCostoConIva = producto.PrecioCostoConIva || (producto.PrecioCosto ? producto.PrecioCosto * (1 + (producto.PorcentajeIva1 || 21) / 100) : 0);
+  $: producto.PrecioCostoConIva = producto.PrecioCostoConIva || (producto.PrecioCosto ? producto.PrecioCosto * (1 + (producto.PorcentajeIVA1 || 21) / 100) : 0);
   $: producto.PrecioCostoSinIva = producto.PrecioCostoSinIva || producto.PrecioCosto || 0;
 
   // Calcular precio de costo sin IVA cuando cambia el precio con IVA
-  $: if (producto.PrecioCostoConIva > 0 && producto.PorcentajeIva1) {
-    producto.PrecioCostoSinIva = calcularPrecioSinIva(producto.PrecioCostoConIva, producto.PorcentajeIva1);
+  $: if (producto.PrecioCostoConIva > 0 && producto.PorcentajeIVA1) {
+    producto.PrecioCostoSinIva = calcularPrecioSinIva(producto.PrecioCostoConIva, producto.PorcentajeIVA1);
     producto.PrecioCosto = producto.PrecioCostoSinIva;
   }
 
@@ -77,7 +77,7 @@
   // Calcular precio de lista 1 cuando cambien los valores relacionados
   $: precioLista1 = calcularPrecioLista1(
     producto.PrecioCostoSinIva,
-    producto.PorcentajeIva1,
+    producto.PorcentajeIVA1,
     producto.Lista1
   );
 
@@ -127,7 +127,7 @@
         Existencia: Number(producto.Existencia || 0),
         ExistenciaMinima: Number(producto.ExistenciaMinima || 0),
         ExistenciaMaxima: Number(producto.ExistenciaMaxima || 0),
-        PorcentajeIva1: Number(producto.PorcentajeIva1),
+        PorcentajeIVA1: Number(producto.PorcentajeIVA1),
         Lista1: Number(producto.Lista1 || 0),
         Lista2: Number(producto.Lista2 || 0),
         Lista3: Number(producto.Lista3 || 0),
@@ -347,7 +347,7 @@
           
           <div class="form-group">
             <label for="porcentaje-iva">Porcentaje IVA <span class="required">*</span></label>
-            <select id="porcentaje-iva" bind:value={producto.PorcentajeIva1} required>
+            <select id="porcentaje-iva" bind:value={producto.PorcentajeIVA1} required>
               <option value="21">21%</option>
               <option value="10.5">10.5%</option>
               <option value="27">27%</option>

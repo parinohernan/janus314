@@ -106,9 +106,10 @@ export class ArticuloService {
 			Descripcion: articulo.Descripcion,
 			Cantidad: cantidad,
 			PrecioLista: precioLista,
-			PorcentajeBonificacion: 0,
+			PorcentajeBonificado: 0,
+			ImporteBonificado: 0,
 			PrecioUnitario: precioLista,
-			PorcentajeIva: articulo.PorcentajeIva1 || 21, // Valor por defecto 21% si no hay
+			PorcentajeIva: articulo.PorcentajeIVA1 || 21, // Valor por defecto 21% si no hay
 			PrecioUnitarioConIva: 0,
 			Total: 0,
 			enEdicion: false
