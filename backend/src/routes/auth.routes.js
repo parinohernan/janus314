@@ -60,6 +60,15 @@ router.post('/online/login', async (req, res) => {
       });
     }
 
+    // Verificar que el vendedor tenga permisos de administrador
+    if (!vendedor.Permisos || vendedor.Permisos !== 'admin') {
+      logAuthEvent(usuario, 'login', false, { error: 'Acceso denegado - Se requieren permisos de administrador' });
+      return res.status(403).json({
+        success: false,
+        error: 'Acceso denegado - Solo los administradores pueden acceder al sistema'
+      });
+    }
+
     // Generar token JWT
     const token = jwt.sign(
       {
@@ -168,6 +177,14 @@ router.get('/online/verify', async (req, res) => {
       return res.status(401).json({
         success: false,
         error: 'Usuario inactivo'
+      });
+    }
+
+    // Verificar que el vendedor tenga permisos de administrador
+    if (!vendedor.Permisos || vendedor.Permisos !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Acceso denegado - Solo los administradores pueden acceder al sistema'
       });
     }
 

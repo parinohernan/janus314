@@ -7,6 +7,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import EntitySelector from '$lib/components/ui/EntitySelector.svelte';
   import CaeModal from '$lib/components/facturas/CaeModal.svelte';
+  import ImprimirModal from '$lib/components/facturas/ImprimirModal.svelte';
   import { PreventaService } from '$lib/services/PreventaService';
   import { ConfiguracionService } from '$lib/services/ConfiguracionService';
   import type { Preventa } from '$lib/types';
@@ -28,8 +29,8 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     Cliente: null as Cliente | null,
     ListaPrecio: '1',
     ImporteBruto: 0,
-    PorcentajeDescuento: 0,
-    ImporteDescuento: 0,
+    PorcentajeBonificacion: 0,
+    ImporteBonificado: 0,
     ImporteNeto: 0,
     ImporteIva1: 0,
     ImporteIva2: 0,
@@ -92,6 +93,9 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   // Variables para el modal de CAE
   let showCaeModal = false;
   let facturaCreada:any = null;
+  
+  // Variables para el modal de impresión
+  let showImprimirModal = false;
   
   // Datos de la preventa (si se está facturando una)
   let preventaParam = $page.url.searchParams.get('preventa');
@@ -528,10 +532,10 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     factura.ImporteBruto = parseFloat(importeBruto.toFixed(2));
     
     // Calcular descuento general
-    factura.ImporteDescuento = parseFloat((factura.ImporteBruto * (factura.PorcentajeDescuento / 100)).toFixed(2));
+    factura.ImporteBonificado = parseFloat((factura.ImporteBruto * (factura.PorcentajeBonificacion / 100)).toFixed(2));
     
     // Calcular importe neto (después del descuento)
-    factura.ImporteNeto = parseFloat((factura.ImporteBruto - factura.ImporteDescuento).toFixed(2));
+    factura.ImporteNeto = parseFloat((factura.ImporteBruto - factura.ImporteBonificado).toFixed(2));
     
     // Calcular IVA sobre el importe neto (después del descuento general)
     // Necesitamos calcular la proporción de cada alícuota de IVA en el total
@@ -541,7 +545,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     factura.Items.forEach(item => {
       const importeItem = item.PrecioUnitario * item.Cantidad;
       // Aplicar el mismo porcentaje de descuento general a cada ítem
-      const importeItemConDescuento = importeItem * (1 - (factura.PorcentajeDescuento / 100));
+      const importeItemConDescuento = importeItem * (1 - (factura.PorcentajeBonificacion / 100));
       
       if (item.PorcentajeIva === 21) {
         baseIva21 += importeItemConDescuento;
@@ -574,7 +578,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   };
   
   // Actualizar descuento general
-  const actualizarDescuentoGeneral = () => {
+  const actualizarBonificacionGeneral = () => {
     recalcularTotales();
   };
   
@@ -688,11 +692,20 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
         throw new Error(errorData.message || 'Error al crear la factura');
       }
       
-      const { data } = await response.json();
+      const responseData = await response.json();
+      console.log('Respuesta completa del backend:', responseData);
+      
+      // La respuesta tiene estructura anidada: { factura: {...}, items: [...] }
+      const facturaCreadaData = responseData.factura || responseData.data || responseData;
+      console.log('Datos de la factura creada:', facturaCreadaData);
       
       // Guardar la factura creada para usarla en el modal de CAE
-      facturaCreada = data;
+      // Si la respuesta tiene estructura {factura: {...}, items: [...]}, extraer solo la factura
+      facturaCreada = facturaCreadaData.factura || facturaCreadaData;
       guardadoExitoso = true;
+      
+      // Deshabilitar el formulario para evitar duplicaciones
+      loading = true;
 
       // Si estamos facturando una preventa, actualizar también la preventa
       if (preventaCargada) {
@@ -712,18 +725,12 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
         }
       }
       
-      // Solo mostrar el modal de CAE para facturas electrónicas (no PRF)
+      // Mostrar modal de CAE para facturas electrónicas (A/B) o modal de impresión para PRF
       if (factura.DocumentoTipo !== 'PRF') {
         showCaeModal = true;
       } else {
-        // Si es PRF, redirigir según el origen después de un breve retraso
-        setTimeout(() => {
-          if (preventaCargada) {
-            goto('/ventas/preventas/');
-          } else {
-            goto('/ventas/facturas/');
-          }
-        }, 1500);
+        console.log('Mostrando modal de impresión con facturaCreada:', facturaCreada);
+        showImprimirModal = true;
       }
     } catch (err) {
       console.error('Error al crear factura:', err);
@@ -744,7 +751,37 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   
   // Manejador para cerrar el modal de CAE
   const handleCloseCaeModal = () => {
+    console.log('Cerrando modal CAE, facturaCreada:', facturaCreada);
     showCaeModal = false;
+    // Mostrar modal de impresión después del CAE
+    showImprimirModal = true;
+  };
+  
+  // Manejador para imprimir la factura
+  const handleImprimirFactura = () => {
+    console.log('facturaCreada en handleImprimirFactura:', facturaCreada);
+    
+    if (!facturaCreada || !facturaCreada.DocumentoTipo || !facturaCreada.DocumentoSucursal || !facturaCreada.DocumentoNumero) {
+      console.error('Datos de factura incompletos:', facturaCreada);
+      alert('Error: No se pudieron obtener los datos completos de la factura creada');
+      return;
+    }
+    
+    const url = `/ventas/facturas/imprimir/${facturaCreada.DocumentoTipo}/${facturaCreada.DocumentoSucursal}/${facturaCreada.DocumentoNumero}`;
+    console.log('Redirigiendo a:', url);
+    goto(url);
+  };
+  
+  // Manejadores para el modal de impresión
+  const handleImprimirModalImprimir = () => {
+    console.log('Imprimiendo factura:', facturaCreada);
+    showImprimirModal = false;
+    handleImprimirFactura();
+  };
+  
+  const handleImprimirModalCancelar = () => {
+    console.log('Cancelando impresión');
+    showImprimirModal = false;
     // Redirigir según el origen de la factura
     if (preventaCargada) {
       goto('/ventas/preventas/');
@@ -753,9 +790,15 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     }
   };
   
-  // Manejador para imprimir la factura
-  const handleImprimirFactura = () => {
-    goto(`/ventas/facturas/imprimir/${factura.DocumentoTipo}/${factura.DocumentoSucursal}/${factura.DocumentoNumero.toString().padStart(8, '0')}`)
+  const handleImprimirModalClose = () => {
+    console.log('Cerrando modal de impresión');
+    showImprimirModal = false;
+    // Redirigir según el origen de la factura
+    if (preventaCargada) {
+      goto('/ventas/preventas/');
+    } else {
+      goto('/ventas/facturas/');
+    }
   };
 
   // Cancelar creación
@@ -1500,18 +1543,18 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
           </div>
           
           <div class="flex justify-between items-center">
-            <span class="font-medium">Descuento (%):</span>
+            <span class="font-medium">Bonificación (%):</span>
             <div class="flex items-center">
               <input 
                 type="number" 
-                bind:value={factura.PorcentajeDescuento} 
-                on:change={actualizarDescuentoGeneral}
+                bind:value={factura.PorcentajeBonificacion} 
+                on:change={actualizarBonificacionGeneral}
                 min="0" 
                 max="100" 
                 step="0.1"
                 class="w-16 px-2 py-1 text-right border border-gray-300 rounded mr-2"
               />
-              <span>${factura.ImporteDescuento.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span>${factura.ImporteBonificado.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
           </div>
           
@@ -1536,7 +1579,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
               <input 
                 type="number" 
                 bind:value={factura.PorcentajeIngresosBrutos} 
-                on:change={actualizarDescuentoGeneral}
+                on:change={actualizarBonificacionGeneral}
                 min="0" 
                 max="100" 
                 step="0.1"
@@ -1691,4 +1734,13 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   on:close={handleCloseCaeModal}
   on:caeObtenido={handleCaeObtenido}
   on:imprimir={handleImprimirFactura}
-/> 
+/>
+
+<!-- Modal de impresión -->
+<ImprimirModal 
+  bind:show={showImprimirModal} 
+  factura={facturaCreada}
+  on:close={handleImprimirModalClose}
+  on:imprimir={handleImprimirModalImprimir}
+  on:cancelar={handleImprimirModalCancelar}
+/>

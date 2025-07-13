@@ -24,8 +24,8 @@ export interface Factura {
 	VendedorCodigo?: string;
 	ListaPrecio: string;
 	ImporteBruto: number;
-	PorcentajeDescuento: number;
-	ImporteDescuento: number;
+	PorcentajeBonificacion: number;
+	ImporteBonificado: number;
 	ImporteNeto: number;
 	ImporteIva1: number;
 	ImporteIva2: number;

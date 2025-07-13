@@ -79,7 +79,13 @@ function createAuthStore() {
           body: JSON.stringify(credentials)
         });
 
-        if (!response.ok) throw new Error('Error de autenticación');
+        if (!response.ok) {
+          const errorData = await response.json();
+          if (response.status === 403) {
+            throw new Error(errorData.error || 'Acceso denegado - Solo los administradores pueden acceder al sistema');
+          }
+          throw new Error(errorData.error || 'Error de autenticación');
+        }
 
         const data = await response.json();
         console.log('Respuesta del servidor:', data);
