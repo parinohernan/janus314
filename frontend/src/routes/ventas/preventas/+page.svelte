@@ -360,29 +360,35 @@
 		if (await cargarDetallesPreventas()) {
 			let texto = "";
 			
+			texto += "INFORME DETALLADO DE PREVENTAS\n";
+			texto += "===============================\n\n";
+			texto += `CANTIDAD DE PREVENTAS: ${preventasDetalle.length}\n\n`;
+			
 			// Para cada preventa, generar detalle
 			for (const preventa of preventasDetalle) {
 				const cabecera = preventa.preventa;
-				texto += `PREVENTA: ${cabecera.DocumentoTipo}-${cabecera.DocumentoSucursal}-${cabecera.DocumentoNumero}\n`;
-				texto += `CLIENTE: ${cabecera.Cliente?.Descripcion || 'No especificado'}\n`;
-				texto += "-----------------------------------------------\n";
-				texto += "CANT.  DESCRIPCIÓN                     CÓDIGO\n";
-				texto += "-----------------------------------------------\n";
+				
+				// Información de la cabecera simplificada
+				texto += `CLIENTE: ${cabecera.Cliente?.Descripcion || 'No especificado'} - DOCUMENTO: ${cabecera.DocumentoTipo}-${cabecera.DocumentoSucursal}-${cabecera.DocumentoNumero}\n`;
+				
+				texto += "-".repeat(70) + "\n";
+				texto += "CANT.  DESCRIPCIÓN                                    CÓDIGO\n";
+				texto += "-".repeat(70) + "\n";
 				
 				// Listar cada ítem
 				for (const item of preventa.items) {
-					const cantidad = item.Cantidad?.toString().padEnd(6) || '0     ';
-					const descripcion = (item.Articulo?.Descripcion || 'Sin descripción').padEnd(30);
-					const codigo = item.CodigoArticulo;
+					const cantidad = (item.Cantidad || 0).toString().padStart(6);
+					const descripcion = (item.Articulo?.Descripcion || 'Sin descripción').padEnd(40);
+					const codigo = (item.CodigoArticulo || '').padEnd(10);
 					
-					texto += `${cantidad} ${descripcion} ${codigo}\n`;
+					texto += `${cantidad}  ${descripcion} ${codigo}\n`;
 				}
 				
 				// Separador entre preventas
 				texto += "\n\n";
 			}
 			
-			informeTitle = "Informe Detallado de Preventas";
+			informeTitle = "Informe por Preventa";
 			informeText = texto;
 			showInformeModal = true;
 		}
@@ -475,13 +481,13 @@
 				Resumen
 			</Button>
 			
-			<!-- Botón de informe detallado -->
+			<!-- Botón de informe por preventa -->
 			<Button 
 				variant="secondary"
 				on:click={generarInformeDetallado}
 				disabled={selectedPreventas.length === 0 || loadingInforme}
 			>
-				Informe Detallado
+				Informe por Preventa
 			</Button>
 			
 			<!-- Selector de ordenamiento para resúmenes -->
