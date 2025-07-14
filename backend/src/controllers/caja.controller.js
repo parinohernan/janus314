@@ -34,7 +34,7 @@ exports.listarCajas = async (req, res) => {
     // Obtener el total de registros
     const countQuery = `
       SELECT COUNT(*) as total
-      FROM caja_cabeza c
+      FROM caja_cabeza_new c
       WHERE ${Object.keys(whereClause).map(key => {
         if (key === 'Apertura') {
           if (fechaDesde && fechaHasta) {
@@ -62,7 +62,7 @@ exports.listarCajas = async (req, res) => {
         c.*,
         v.Codigo as VendedorCodigo,
         v.Descripcion as VendedorDescripcion
-      FROM caja_cabeza c
+      FROM caja_cabeza_new c
       LEFT JOIN t_vendedores v ON c.VendedorId = v.Codigo
       WHERE ${Object.keys(whereClause).map(key => {
         if (key === 'Apertura') {

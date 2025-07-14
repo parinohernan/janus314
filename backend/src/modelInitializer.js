@@ -11,7 +11,7 @@ const initializeModels = (sequelize) => {
   CajaCabeza.init(CajaCabeza.getAttributes(), {
     sequelize,
     modelName: 'CajaCabeza',
-    tableName: 'caja_cabeza',
+          tableName: 'caja_cabeza_new',
     timestamps: true
   });
 

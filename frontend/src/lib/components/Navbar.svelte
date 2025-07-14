@@ -32,11 +32,13 @@
     {
       id: 'caja',
       label: 'Caja',
-      // submenus: [
-      //   { label: 'Apertura', url: '/caja/apertura' },
-      //   { label: 'Cierre', url: '/caja/cierre' },
-      //   { label: 'Movimientos', url: '/caja/movimientos' }
-      // ]
+      submenus: [
+        { label: 'Administración', url: '/ventas/bot/caja' },
+        { label: 'Cajas Cerradas', url: '/ventas/bot/caja/cerradas' },
+        { label: 'Arqueo', url: '/ventas/bot/caja/arqueo' },
+        { label: 'Ingresos', url: '/ventas/bot/caja/ingreso' },
+        { label: 'Egresos', url: '/ventas/bot/caja/egreso' }
+      ]
     },
     // {
     //   id: 'miniweb',

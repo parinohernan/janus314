@@ -1,3 +1,4 @@
+const sequelize = require("../config/database");
 const { Op } = require("sequelize");
 const XLSX = require("xlsx");
 const multer = require('multer');
@@ -353,7 +354,7 @@ exports.asociarCodigoBarras = async (req, res) => {
 
 // Actualizar precios de artículos
 exports.actualizarPrecios = async (req, res) => {
-  const transaction = await sequelize.transaction();
+  const transaction = await req.db.transaction();
   
   try {
     const { articulos, porcentaje } = req.body;

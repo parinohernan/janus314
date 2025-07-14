@@ -50,7 +50,7 @@ async function initializeAssociations(sequelize) {
       CajaCabeza.init(CajaCabeza.getAttributes(), {
         sequelize,
         modelName: 'CajaCabeza',
-        tableName: 'caja_cabeza',
+        tableName: 'caja_cabeza_new',
         timestamps: false
       });
       console.log('✅ Modelo CajaCabeza inicializado');

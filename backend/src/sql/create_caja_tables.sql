@@ -26,8 +26,8 @@ INSERT IGNORE INTO t_tiposdepago (Codigo, Descripcion, Activo) VALUES
 INSERT IGNORE INTO t_vendedores (Codigo, Descripcion, Clave, Activo, Permisos) VALUES
 ('001', 'Administrador', '123456', 1, 'ADMIN');
 
--- Crear tabla caja_cabeza
-CREATE TABLE IF NOT EXISTS caja_cabeza (
+-- Crear tabla caja_cabeza_new
+CREATE TABLE IF NOT EXISTS caja_cabeza_new (
     Codigo INT AUTO_INCREMENT PRIMARY KEY,
     Descripcion VARCHAR(100),
     VendedorId VARCHAR(20),
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS caja_movimientos (
     Observaciones TEXT,
     createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
     updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (CajaCabezaId) REFERENCES caja_cabeza(Codigo),
+    FOREIGN KEY (CajaCabezaId) REFERENCES caja_cabeza_new(Codigo),
     FOREIGN KEY (MetodoPago) REFERENCES t_tiposdepago(Codigo),
     FOREIGN KEY (UsuarioId) REFERENCES t_vendedores(Codigo)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -74,6 +74,6 @@ CREATE TABLE IF NOT EXISTS caja_arqueo_detalle (
     Observaciones TEXT,
     createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
     updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (CajaCabezaId) REFERENCES caja_cabeza(Codigo),
+    FOREIGN KEY (CajaCabezaId) REFERENCES caja_cabeza_new(Codigo),
     FOREIGN KEY (MetodoPago) REFERENCES t_tiposdepago(Codigo)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci; 

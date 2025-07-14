@@ -12,7 +12,7 @@ class CajaArqueoDetalle extends Model {
         type: DataTypes.INTEGER,
         allowNull: false,
         references: {
-          model: 'caja_cabeza',
+          model: 'caja_cabeza_new',
           key: 'Codigo'
         }
       },

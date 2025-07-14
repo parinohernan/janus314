@@ -9,7 +9,7 @@ const initializeModels = (sequelize) => {
   // Inicializar modelos de caja
   CajaCabeza.init(CajaCabeza.getAttributes(), {
     sequelize,
-    tableName: 'caja_cabeza',
+          tableName: 'caja_cabeza_new',
     timestamps: false,
   });
 
