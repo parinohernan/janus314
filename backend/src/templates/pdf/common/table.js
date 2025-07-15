@@ -67,7 +67,7 @@ function renderTable(doc, items, options = {}) {
 
   // Fondo del encabezado si se especifica
   if (headerBgColor) {
-    doc.fillColor(headerBgColor).rect(startX, y, tableWidth, 20).fill();
+    doc.fillColor(headerBgColor).rect(startX, y, tableWidth, 15).fill(); // Reducido de 20 a 15
   }
 
   doc.fillColor(headerTextColor);
@@ -82,14 +82,14 @@ function renderTable(doc, items, options = {}) {
   });
 
   // Línea después del encabezado
-  y += 20;
+  y += 20; // Reducido de 20 a 15
   doc
     .strokeColor(borderColor)
     .moveTo(startX, y)
     .lineTo(startX + tableWidth, y)
     .stroke();
 
-  // Dibujar filas
+  // // Dibujar filas
   doc.font(font).fontSize(fontSize).fillColor(textColor);
 
   items.forEach((item, i) => {
@@ -109,7 +109,7 @@ function renderTable(doc, items, options = {}) {
       if (headerBgColor) {
         doc
           .fillColor(headerBgColor)
-          .rect(startX, y - 20, tableWidth, 20)
+          .rect(startX, y - 15, tableWidth, 15) // Reducido de 20 a 15
           .fill();
       }
 
@@ -134,14 +134,14 @@ function renderTable(doc, items, options = {}) {
       doc.font("Helvetica").fontSize(fontSize).fillColor(textColor);
     }
 
-    // Fondo de la fila si se especifica
-    if (rowBgColor || (alternateRowBgColor && i % 2 === 1)) {
-      const bgColor =
-        alternateRowBgColor && i % 2 === 1 ? alternateRowBgColor : rowBgColor;
-      if (bgColor) {
-        doc.fillColor(bgColor).rect(startX, y, tableWidth, 20).fill();
+          // Fondo de la fila si se especifica
+      if (rowBgColor || (alternateRowBgColor && i % 2 === 1)) {
+        const bgColor =
+          alternateRowBgColor && i % 2 === 1 ? alternateRowBgColor : rowBgColor;
+        if (bgColor) {
+          doc.fillColor(bgColor).rect(startX, y, tableWidth, 10).fill(); // Reducido de 20 a 10
+        }
       }
-    }
 
     // Dibujar celdas
     x = startX;
@@ -180,7 +180,7 @@ function renderTable(doc, items, options = {}) {
       x += column.width;
     });
 
-    y += 20;
+    y += 10; // Reducido de 20 a 10 para achicar el espaciado entre filas
   });
 
   // Línea después de las filas

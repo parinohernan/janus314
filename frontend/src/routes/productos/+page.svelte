@@ -15,6 +15,8 @@
     Codigo: string;
     Descripcion: string;
     PrecioCosto: number;
+    Lista1?: number;
+    PorcentajeIVA1?: number;
     Existencia: number;
     Activo: number;
     Proveedor?: {
@@ -265,6 +267,19 @@
     }
   };
 
+  // Función para calcular el precio final (Lista1 + IVA)
+  const calcularPrecioFinal = (articulo: Articulo): number => {
+    const precioCosto = articulo.PrecioCosto || 0;
+    const lista1 = articulo.Lista1 || 0;
+    const porcentajeIva = articulo.PorcentajeIVA1 || 21;
+    
+    // Calcular: PrecioCosto * (1 + Lista1/100) * (1 + IVA/100)
+    const precioConLista = precioCosto * (1 + lista1 / 100);
+    const precioFinal = precioConLista * (1 + porcentajeIva / 100);
+    
+    return precioFinal;
+  };
+
   // Al cambiar página o filtros, guardar el estado actual
   const updateState = () => {
     // Solo guardar estado después de la carga inicial
@@ -480,6 +495,9 @@
                 {/if}
               </div>
             </th>
+            <th class="px-6 py-3 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Precio Final
+            </th>
             <th 
               class="px-6 py-3 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               on:click={() => handleSortChange('Existencia')}
@@ -516,6 +534,9 @@
               </td>
               <td class="px-6 py-4 whitespace-nowrap border-b border-gray-200">
                 {articulo.PrecioCosto?.toFixed(2) || '0.00'}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap border-b border-gray-200">
+                ${calcularPrecioFinal(articulo).toFixed(2)}
               </td>
               <td class="px-6 py-4 whitespace-nowrap border-b border-gray-200">
                 {articulo.Existencia?.toFixed(2) || '0.00'}

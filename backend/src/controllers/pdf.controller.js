@@ -38,11 +38,28 @@ exports.generarFacturaPDF = async (req, res) => {
         DocumentoSucursal: sucursal,
         DocumentoNumero: numero,
       },
+      attributes: [
+        'DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'Fecha',
+        'ClienteCodigo', 'VendedorCodigo', 'PagoTipo', 'ImporteBruto',
+        'PorcentajeBonificacion', 'ImporteBonificado', 'ImporteNeto',
+        'ImporteAdicional', 'ImporteIva1', 'ImporteIva2', 'BaseImponible1',
+        'BaseImponible2', 'ImporteTotal', 'ImportePagado', 'PorcentajeIva1',
+        'PorcentajeIva2', 'ListaNumero', 'FechaAnulacion', 'Observacion',
+        'CodigoUsuario', 'CajaNumero', 'afip_cae', 'afip_cae_vencimiento'
+      ],
       include: [{ model: Cliente }],
       raw: false,
     });
 
     console.log('Factura encontrada:', factura ? 'Sí' : 'No');
+    console.log('📋 Datos de la factura:', {
+      DocumentoTipo: factura?.DocumentoTipo,
+      DocumentoSucursal: factura?.DocumentoSucursal,
+      DocumentoNumero: factura?.DocumentoNumero,
+      afip_cae: factura?.afip_cae,
+      afip_cae_vencimiento: factura?.afip_cae_vencimiento,
+      ImporteTotal: factura?.ImporteTotal
+    });
 
     if (!factura) {
       return res.status(404).json({
@@ -169,6 +186,8 @@ exports.generarFacturaPDF = async (req, res) => {
     console.log('Finalizando documento PDF...');
     // Finalizar documento
     doc.end();
+    
+    console.log('✅ PDF generado exitosamente');
   } catch (error) {
     console.error("Error generando PDF:", error);
     console.error("Stack trace:", error.stack);

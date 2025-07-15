@@ -606,6 +606,36 @@ const initializeModels = (sequelize) => {
     CajaNumero: {
       type: DataTypes.STRING(10),
       allowNull: true,
+    },
+    afip_cae: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    afip_cae_observaciones: {
+      type: DataTypes.STRING(254),
+      allowNull: true,
+    },
+    afip_cae_vencimiento: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+    },
+    TransporteCodigo: {
+      type: DataTypes.STRING(3),
+      allowNull: true,
+    },
+    PorcentajePercepcionIIBB: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    ImportePercepcionIIBB: {
+      type: DataTypes.DOUBLE(15, 3),
+      allowNull: true,
+      defaultValue: 0.0,
+    },
+    FechaVencimiento: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
     }
   }, {
     tableName: "facturacabeza",

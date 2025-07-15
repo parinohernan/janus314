@@ -5,7 +5,7 @@
  * @param {number} startY - Posición Y inicial
  * @returns {number} - Posición Y final
  */
-function renderItemsListConIva(doc, items, startY, interlineado=20) {
+function renderItemsListConIva(doc, items, startY, interlineado=10) { // Reducido de 20 a 10
   // Configuración de la tabla
   const tableTop = startY + 20;
   const tableLeft = 20;
@@ -95,7 +95,7 @@ function renderItemsListConIva(doc, items, startY, interlineado=20) {
       doc.text("Total", x, y, { width: columnWidth.total, align: "right" });
       
       // Línea horizontal debajo de los encabezados
-      doc.moveTo(tableLeft, y + 15).lineTo(tableLeft + tableWidth, y + 15).stroke();
+      doc.moveTo(tableLeft, y + 10).lineTo(tableLeft + tableWidth, y + 10).stroke(); // Reducido de 15 a 10
       
       // Restaurar fuente normal
       doc.font("Helvetica");
