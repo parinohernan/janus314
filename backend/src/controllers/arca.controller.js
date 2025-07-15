@@ -1,10 +1,19 @@
 const fetch = require("node-fetch");
 
 function buildArcaUrl(baseUrl, path) {
+  // Validar que la URL base tenga protocolo HTTP o HTTPS
+  if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+    // Si no tiene protocolo, asumir HTTP
+    baseUrl = `http://${baseUrl}`;
+  }
+  
   // Eliminar barras al final de la URL base y al inicio del path
   const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
   const cleanPath = path.replace(/^\/+/, '');
-  return `${cleanBaseUrl}/${cleanPath}`;
+  const finalUrl = `${cleanBaseUrl}/${cleanPath}`;
+  
+  console.log('🔗 Construyendo URL ARCA:', { baseUrl, path, finalUrl });
+  return finalUrl;
 }
 
 exports.obtenerCae = async (req, res) => {
