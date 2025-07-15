@@ -394,6 +394,225 @@ exports.detalleVentasPorVendedor = async (req, res) => {
 };
 
 // ================================================================
+// INFORME DE FACTURACIÓN
+// ================================================================
+
+// Informe completo de facturación
+exports.informeFacturacion = async (req, res) => {
+  try {
+    const { fechaDesde, fechaHasta, agruparPor = 'dia' } = req.query;
+    
+    if (!fechaDesde || !fechaHasta) {
+      return res.status(400).json({
+        success: false,
+        message: "Se requieren fechaDesde y fechaHasta"
+      });
+    }
+
+    // Obtener los modelos específicos de la empresa
+    const { FacturaCabeza, Cliente, Vendedor } = req.models;
+    
+    if (!FacturaCabeza) {
+      return res.status(500).json({
+        success: false,
+        message: "Error: Modelo no disponible"
+      });
+    }
+
+    // Construir consulta base
+    const whereClause = {
+      Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
+      FechaAnulacion: null // Excluir facturas anuladas
+    };
+
+    // Obtener datos de facturación
+    const facturas = await FacturaCabeza.findAll({
+      where: whereClause,
+      include: [
+        {
+          model: Cliente,
+          attributes: ['Codigo', 'Descripcion', 'CategoriaIva'],
+          required: false
+        },
+        {
+          model: Vendedor,
+          attributes: ['Codigo', 'Descripcion'],
+          required: false
+        }
+      ],
+      attributes: [
+        'DocumentoTipo',
+        'DocumentoSucursal', 
+        'DocumentoNumero',
+        'Fecha',
+        'ClienteCodigo',
+        'VendedorCodigo',
+        'ImporteBruto',
+        'ImporteBonificado',
+        'ImporteNeto',
+        'ImporteIva1',
+        'ImporteIva2',
+        'ImporteTotal',
+        'PagoTipo',
+        'afip_cae'
+      ],
+      order: [['Fecha', 'ASC']],
+      raw: false
+    });
+
+    // Procesar datos para diferentes visualizaciones
+    const datosProcesados = procesarDatosFacturacion(facturas, agruparPor);
+
+    res.json({
+      success: true,
+      data: datosProcesados
+    });
+
+  } catch (error) {
+    console.error("Error al generar informe de facturación:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al generar el informe",
+      error: error.message
+    });
+  }
+};
+
+// Función para procesar los datos de facturación
+function procesarDatosFacturacion(facturas, agruparPor) {
+  // Estadísticas generales
+  const estadisticasGenerales = {
+    totalFacturas: facturas.length,
+    totalVentas: facturas.reduce((sum, f) => sum + (f.ImporteTotal || 0), 0),
+    totalIva: facturas.reduce((sum, f) => sum + (f.ImporteIva1 || 0) + (f.ImporteIva2 || 0), 0),
+    totalBonificaciones: facturas.reduce((sum, f) => sum + (f.ImporteBonificado || 0), 0),
+    promedioTicket: 0,
+    facturasConCae: facturas.filter(f => f.afip_cae).length,
+    facturasSinCae: facturas.filter(f => !f.afip_cae).length
+  };
+
+  if (estadisticasGenerales.totalFacturas > 0) {
+    estadisticasGenerales.promedioTicket = estadisticasGenerales.totalVentas / estadisticasGenerales.totalFacturas;
+  }
+
+  // Agrupar por período (día, semana, mes)
+  const agrupacionPorPeriodo = {};
+  facturas.forEach(factura => {
+    const fecha = new Date(factura.Fecha);
+    let clave;
+    
+    switch (agruparPor) {
+      case 'dia':
+        clave = fecha.toISOString().split('T')[0];
+        break;
+      case 'semana':
+        const semana = getWeekNumber(fecha);
+        clave = `${fecha.getFullYear()}-W${semana}`;
+        break;
+      case 'mes':
+        clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+        break;
+      default:
+        clave = fecha.toISOString().split('T')[0];
+    }
+
+    if (!agrupacionPorPeriodo[clave]) {
+      agrupacionPorPeriodo[clave] = {
+        periodo: clave,
+        cantidad: 0,
+        monto: 0,
+        iva: 0
+      };
+    }
+
+    agrupacionPorPeriodo[clave].cantidad++;
+    agrupacionPorPeriodo[clave].monto += factura.ImporteTotal || 0;
+    agrupacionPorPeriodo[clave].iva += (factura.ImporteIva1 || 0) + (factura.ImporteIva2 || 0);
+  });
+
+  // Agrupar por tipo de documento
+  const agrupacionPorTipo = {};
+  facturas.forEach(factura => {
+    const tipo = factura.DocumentoTipo;
+    if (!agrupacionPorTipo[tipo]) {
+      agrupacionPorTipo[tipo] = {
+        tipo,
+        cantidad: 0,
+        monto: 0
+      };
+    }
+    agrupacionPorTipo[tipo].cantidad++;
+    agrupacionPorTipo[tipo].monto += factura.ImporteTotal || 0;
+  });
+
+  // Agrupar por vendedor
+  const agrupacionPorVendedor = {};
+  facturas.forEach(factura => {
+    const vendedor = factura.Vendedor?.Descripcion || 'Sin vendedor';
+    const codigoVendedor = factura.VendedorCodigo || 'SIN_VENDEDOR';
+    
+    if (!agrupacionPorVendedor[codigoVendedor]) {
+      agrupacionPorVendedor[codigoVendedor] = {
+        codigo: codigoVendedor,
+        nombre: vendedor,
+        cantidad: 0,
+        monto: 0
+      };
+    }
+    agrupacionPorVendedor[codigoVendedor].cantidad++;
+    agrupacionPorVendedor[codigoVendedor].monto += factura.ImporteTotal || 0;
+  });
+
+  // Agrupar por cliente
+  const agrupacionPorCliente = {};
+  facturas.forEach(factura => {
+    const cliente = factura.Cliente?.Descripcion || 'Sin cliente';
+    const codigoCliente = factura.ClienteCodigo || 'SIN_CLIENTE';
+    
+    if (!agrupacionPorCliente[codigoCliente]) {
+      agrupacionPorCliente[codigoCliente] = {
+        codigo: codigoCliente,
+        nombre: cliente,
+        cantidad: 0,
+        monto: 0
+      };
+    }
+    agrupacionPorCliente[codigoCliente].cantidad++;
+    agrupacionPorCliente[codigoCliente].monto += factura.ImporteTotal || 0;
+  });
+
+  // Evolución diaria de ventas
+  const evolucionVentas = Object.values(agrupacionPorPeriodo)
+    .sort((a, b) => a.periodo.localeCompare(b.periodo));
+
+  return {
+    estadisticasGenerales,
+    evolucionVentas,
+    agrupacionPorTipo: Object.values(agrupacionPorTipo),
+    agrupacionPorVendedor: Object.values(agrupacionPorVendedor).sort((a, b) => b.monto - a.monto),
+    agrupacionPorCliente: Object.values(agrupacionPorCliente).sort((a, b) => b.monto - a.monto).slice(0, 10), // Top 10 clientes
+    facturas: facturas.map(f => ({
+      numero: `${f.DocumentoSucursal}-${f.DocumentoNumero}`,
+      fecha: f.Fecha,
+      cliente: f.Cliente?.Descripcion || 'Sin cliente',
+      vendedor: f.Vendedor?.Descripcion || 'Sin vendedor',
+      monto: f.ImporteTotal || 0,
+      tipo: f.DocumentoTipo,
+      tieneCae: !!f.afip_cae
+    }))
+  };
+}
+
+// Función auxiliar para obtener número de semana
+function getWeekNumber(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1)/7);
+}
+
+// ================================================================
 // ESTADÍSTICAS DE PRODUCTOS
 // ================================================================
 

@@ -99,12 +99,12 @@ async function initializeAssociations(sequelize) {
     const hasCajaVendedorAssociation = Object.values(associations).some(assoc => assoc.as === 'CajaVendedor');
 
     if (!hasCajaVendedorAssociation) {
-      // Asociaciones CajaCabeza
-      CajaCabeza.belongsTo(Vendedor, { 
-        foreignKey: 'VendedorId', 
+    // Asociaciones CajaCabeza
+    CajaCabeza.belongsTo(Vendedor, { 
+      foreignKey: 'VendedorId', 
         as: 'CajaVendedor',
-        targetKey: 'Codigo'
-      });
+      targetKey: 'Codigo'
+    });
     }
 
     // Verificar si las asociaciones de CajaMovimientos ya están definidas
@@ -112,11 +112,11 @@ async function initializeAssociations(sequelize) {
     const hasCajaAssociation = Object.values(cajaMovimientosAssociations).some(assoc => assoc.as === 'Caja');
 
     if (!hasCajaAssociation) {
-      // Asociaciones CajaMovimientos
-      CajaMovimientos.belongsTo(CajaCabeza, { 
-        foreignKey: 'CajaCabezaId', 
-        as: 'Caja' 
-      });
+    // Asociaciones CajaMovimientos
+    CajaMovimientos.belongsTo(CajaCabeza, { 
+      foreignKey: 'CajaCabezaId', 
+      as: 'Caja' 
+    });
     }
 
     // Verificar si las asociaciones de CajaArqueoDetalle ya están definidas
@@ -124,10 +124,10 @@ async function initializeAssociations(sequelize) {
     const hasArqueoCajaAssociation = Object.values(cajaArqueoAssociations).some(assoc => assoc.as === 'Caja');
 
     if (!hasArqueoCajaAssociation) {
-      CajaArqueoDetalle.belongsTo(CajaCabeza, { 
-        foreignKey: 'CajaCabezaId', 
-        as: 'Caja' 
-      });
+    CajaArqueoDetalle.belongsTo(CajaCabeza, { 
+      foreignKey: 'CajaCabezaId', 
+      as: 'Caja' 
+    });
     }
 
     // Verificar y agregar asociaciones con TipoDePago

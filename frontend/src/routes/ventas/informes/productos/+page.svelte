@@ -3,7 +3,7 @@
   import { Chart } from 'chart.js/auto';
   import DatePicker from '$lib/components/DatePicker.svelte';
   import EntitySelector from '$lib/components/ui/EntitySelector.svelte';
-  import { PUBLIC_API_URL } from '$env/static/public';
+  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
   // Inicializar fechas con valores válidos
   let fechaDesde: Date = new Date();
@@ -33,13 +33,13 @@
     if (productosSeleccionados.length === 0) return;
 
     try {
-      const params = new URLSearchParams({
-        fechaDesde: formatDate(fechaDesde),
-        fechaHasta: formatDate(fechaHasta),
-        productos: productosSeleccionados.map(p => p.codigo).join(',')
+      const response = await fetchWithAuth('/informes/ventas-por-productos', {
+        params: {
+          fechaDesde: formatDate(fechaDesde),
+          fechaHasta: formatDate(fechaHasta),
+          productos: productosSeleccionados.map(p => p.codigo).join(',')
+        }
       });
-
-      const response = await fetch(`${PUBLIC_API_URL}/informes/ventas-por-productos?${params}`);
       
       if (!response.ok) {
         const errorText = await response.text();
