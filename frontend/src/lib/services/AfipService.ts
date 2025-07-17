@@ -136,4 +136,81 @@ export class AfipService {
 			throw error;
 		}
 	}
+
+	/**
+	 * Coloca CAE manualmente
+	 * Permite al usuario ingresar el CAE y vencimiento manualmente
+	 * @param tipo Tipo de documento (FCA, FCB, NCA, NCB)
+	 * @param puntoVenta Punto de venta (sucursal)
+	 * @param numero Número de comprobante
+	 * @param cae Número de CAE
+	 * @param fechaVencimiento Fecha de vencimiento del CAE (YYYY-MM-DD)
+	 * @returns Resultado de la operación
+	 */
+	public static async colocarCaeManualmente(
+		tipo: string, 
+		puntoVenta: string, 
+		numero: string,
+		cae: string,
+		fechaVencimiento: string
+	): Promise<{
+		success: boolean;
+		data?: {
+			mensaje: string;
+			documento: {
+				tipo: string;
+				puntoVenta: number;
+				numero: number;
+				cliente: string;
+				fecha: string;
+				importeNeto: number;
+				importeIva: number;
+				total: number;
+			};
+			cae: {
+				numero: string;
+				fechaVencimiento: string;
+				resultado: string;
+			};
+		};
+		error?: string;
+	}> {
+		try {
+			console.log('📝 Colocando CAE manualmente para:', { tipo, puntoVenta, numero, cae, fechaVencimiento });
+			
+			const response = await fetchWithAuth(`/afip/colocar-cae-manualmente`, {
+				method: 'POST',
+				body: JSON.stringify({
+					tipo,
+					puntoVenta,
+					numero,
+					cae,
+					fechaVencimiento
+				})
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				console.error('Error al colocar CAE manualmente:', errorData);
+				return {
+					success: false,
+					error: errorData.message || 'Error al colocar CAE manualmente'
+				};
+			}
+
+			const data = await response.json();
+			console.log('✅ CAE colocado manualmente exitosamente:', data);
+
+			return {
+				success: true,
+				data
+			};
+		} catch (error) {
+			console.error('Error en servicio AFIP - colocar CAE manualmente:', error);
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : 'Error desconocido al colocar CAE manualmente'
+			};
+		}
+	}
 }

@@ -99,8 +99,11 @@ exports.ventasPorProductos = async (req, res) => {
     const resultado = Object.values(itemsAgrupados).sort((a, b) => b.cantidad - a.cantidad);
 
     res.json({
-      productos: resultado,
-      totalVentas: resultado.reduce((total, item) => total + item.importeTotal, 0)
+      success: true,
+      data: {
+        productos: resultado,
+        totalVentas: resultado.reduce((total, item) => total + item.importeTotal, 0)
+      }
     });
   } catch (error) {
     console.error("Error al generar informe de ventas por productos:", error);
@@ -402,6 +405,8 @@ exports.informeFacturacion = async (req, res) => {
   try {
     const { fechaDesde, fechaHasta, agruparPor = 'dia' } = req.query;
     
+    console.log("Parámetros recibidos:", { fechaDesde, fechaHasta, agruparPor });
+    
     if (!fechaDesde || !fechaHasta) {
       return res.status(400).json({
         success: false,
@@ -411,6 +416,12 @@ exports.informeFacturacion = async (req, res) => {
 
     // Obtener los modelos específicos de la empresa
     const { FacturaCabeza, Cliente, Vendedor } = req.models;
+    
+    console.log("Modelos disponibles:", { 
+      FacturaCabeza: !!FacturaCabeza, 
+      Cliente: !!Cliente, 
+      Vendedor: !!Vendedor 
+    });
     
     if (!FacturaCabeza) {
       return res.status(500).json({
@@ -425,21 +436,11 @@ exports.informeFacturacion = async (req, res) => {
       FechaAnulacion: null // Excluir facturas anuladas
     };
 
+    console.log("Consultando facturas con whereClause:", whereClause);
+
     // Obtener datos de facturación
     const facturas = await FacturaCabeza.findAll({
       where: whereClause,
-      include: [
-        {
-          model: Cliente,
-          attributes: ['Codigo', 'Descripcion', 'CategoriaIva'],
-          required: false
-        },
-        {
-          model: Vendedor,
-          attributes: ['Codigo', 'Descripcion'],
-          required: false
-        }
-      ],
       attributes: [
         'DocumentoTipo',
         'DocumentoSucursal', 
@@ -457,11 +458,54 @@ exports.informeFacturacion = async (req, res) => {
         'afip_cae'
       ],
       order: [['Fecha', 'ASC']],
-      raw: false
+      raw: true
     });
 
+    console.log("Facturas encontradas:", facturas.length);
+
+    // Obtener información de clientes y vendedores por separado
+    const clienteCodigos = [...new Set(facturas.map(f => f.ClienteCodigo).filter(Boolean))];
+    const vendedorCodigos = [...new Set(facturas.map(f => f.VendedorCodigo).filter(Boolean))];
+
+    console.log("Códigos de clientes únicos:", clienteCodigos.length);
+    console.log("Códigos de vendedores únicos:", vendedorCodigos.length);
+
+    // Obtener clientes
+    const clientes = await Cliente.findAll({
+      where: { Codigo: { [Op.in]: clienteCodigos } },
+      attributes: ['Codigo', 'Descripcion'],
+      raw: true
+    });
+
+    // Obtener vendedores
+    const vendedores = await Vendedor.findAll({
+      where: { Codigo: { [Op.in]: vendedorCodigos } },
+      attributes: ['Codigo', 'Descripcion'],
+      raw: true
+    });
+
+    // Crear mapas para acceso rápido
+    const clientesMap = clientes.reduce((acc, cliente) => {
+      acc[cliente.Codigo] = cliente.Descripcion;
+      return acc;
+    }, {});
+
+    const vendedoresMap = vendedores.reduce((acc, vendedor) => {
+      acc[vendedor.Codigo] = vendedor.Descripcion;
+      return acc;
+    }, {});
+
+    // Agregar información de clientes y vendedores a las facturas
+    const facturasConInfo = facturas.map(factura => ({
+      ...factura,
+      Cliente: { Descripcion: clientesMap[factura.ClienteCodigo] || 'Sin cliente' },
+      Vendedor: { Descripcion: vendedoresMap[factura.VendedorCodigo] || 'Sin vendedor' }
+    }));
+
     // Procesar datos para diferentes visualizaciones
-    const datosProcesados = procesarDatosFacturacion(facturas, agruparPor);
+    const datosProcesados = procesarDatosFacturacion(facturasConInfo, agruparPor);
+
+    console.log("Datos procesados correctamente");
 
     res.json({
       success: true,
@@ -470,6 +514,7 @@ exports.informeFacturacion = async (req, res) => {
 
   } catch (error) {
     console.error("Error al generar informe de facturación:", error);
+    console.error("Stack trace:", error.stack);
     res.status(500).json({
       success: false,
       message: "Error al generar el informe",
@@ -480,16 +525,21 @@ exports.informeFacturacion = async (req, res) => {
 
 // Función para procesar los datos de facturación
 function procesarDatosFacturacion(facturas, agruparPor) {
-  // Estadísticas generales
-  const estadisticasGenerales = {
-    totalFacturas: facturas.length,
-    totalVentas: facturas.reduce((sum, f) => sum + (f.ImporteTotal || 0), 0),
-    totalIva: facturas.reduce((sum, f) => sum + (f.ImporteIva1 || 0) + (f.ImporteIva2 || 0), 0),
-    totalBonificaciones: facturas.reduce((sum, f) => sum + (f.ImporteBonificado || 0), 0),
-    promedioTicket: 0,
-    facturasConCae: facturas.filter(f => f.afip_cae).length,
-    facturasSinCae: facturas.filter(f => !f.afip_cae).length
-  };
+  console.log("Iniciando procesamiento de datos con", facturas.length, "facturas");
+  
+  try {
+    // Estadísticas generales
+    const estadisticasGenerales = {
+      totalFacturas: facturas.length,
+      totalVentas: facturas.reduce((sum, f) => sum + (f.ImporteTotal || 0), 0),
+      totalIva: facturas.reduce((sum, f) => sum + (f.ImporteIva1 || 0) + (f.ImporteIva2 || 0), 0),
+      totalBonificaciones: facturas.reduce((sum, f) => sum + (f.ImporteBonificado || 0), 0),
+      promedioTicket: 0,
+      facturasConCae: facturas.filter(f => f.afip_cae).length,
+      facturasSinCae: facturas.filter(f => !f.afip_cae).length
+    };
+
+    console.log("Estadísticas generales calculadas:", estadisticasGenerales);
 
   if (estadisticasGenerales.totalFacturas > 0) {
     estadisticasGenerales.promedioTicket = estadisticasGenerales.totalVentas / estadisticasGenerales.totalFacturas;
@@ -498,7 +548,25 @@ function procesarDatosFacturacion(facturas, agruparPor) {
   // Agrupar por período (día, semana, mes)
   const agrupacionPorPeriodo = {};
   facturas.forEach(factura => {
-    const fecha = new Date(factura.Fecha);
+    console.log("Procesando factura con fecha:", factura.Fecha, "tipo:", typeof factura.Fecha);
+    
+    // Manejar diferentes formatos de fecha
+    let fecha;
+    if (typeof factura.Fecha === 'string') {
+      fecha = new Date(factura.Fecha);
+    } else if (factura.Fecha instanceof Date) {
+      fecha = factura.Fecha;
+    } else {
+      console.warn("Fecha inválida:", factura.Fecha);
+      return; // Saltar esta factura
+    }
+    
+    // Verificar que la fecha sea válida
+    if (isNaN(fecha.getTime())) {
+      console.warn("Fecha inválida después de conversión:", factura.Fecha);
+      return; // Saltar esta factura
+    }
+    
     let clave;
     
     switch (agruparPor) {
@@ -515,6 +583,8 @@ function procesarDatosFacturacion(facturas, agruparPor) {
       default:
         clave = fecha.toISOString().split('T')[0];
     }
+    
+    console.log("Clave generada:", clave);
 
     if (!agrupacionPorPeriodo[clave]) {
       agrupacionPorPeriodo[clave] = {
@@ -585,7 +655,10 @@ function procesarDatosFacturacion(facturas, agruparPor) {
   const evolucionVentas = Object.values(agrupacionPorPeriodo)
     .sort((a, b) => a.periodo.localeCompare(b.periodo));
 
-  return {
+  console.log("Agrupación por período:", agrupacionPorPeriodo);
+  console.log("Evolución de ventas:", evolucionVentas);
+
+  const resultado = {
     estadisticasGenerales,
     evolucionVentas,
     agrupacionPorTipo: Object.values(agrupacionPorTipo),
@@ -601,6 +674,21 @@ function procesarDatosFacturacion(facturas, agruparPor) {
       tieneCae: !!f.afip_cae
     }))
   };
+
+  console.log("Resultado final:", {
+    totalFacturas: resultado.estadisticasGenerales.totalFacturas,
+    evolucionVentasLength: resultado.evolucionVentas.length,
+    agrupacionPorTipoLength: resultado.agrupacionPorTipo.length,
+    agrupacionPorVendedorLength: resultado.agrupacionPorVendedor.length,
+    agrupacionPorClienteLength: resultado.agrupacionPorCliente.length
+  });
+
+  return resultado;
+  } catch (error) {
+    console.error("Error en procesarDatosFacturacion:", error);
+    console.error("Stack trace:", error.stack);
+    throw error;
+  }
 }
 
 // Función auxiliar para obtener número de semana

@@ -7,7 +7,9 @@
   import { navigationState } from '$lib/stores/navigationState';
   import { writable } from 'svelte/store';
   import CaeModal from '$lib/components/facturas/CaeModal.svelte';
+  import CaeManualModal from '$lib/components/facturas/CaeManualModal.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { AfipService } from '$lib/services/AfipService';
 
   // Definición de interfaces
   interface Factura {
@@ -308,6 +310,7 @@
   
   // Modificar la función para abrir modal CAE
   let mostrarModalCAE = false;
+  let mostrarModalCAEManual = false;
   let facturaSeleccionada: { 
     DocumentoTipo: string, 
     DocumentoSucursal: string, 
@@ -323,14 +326,33 @@
     mostrarModalCAE = true;
   };
 
+  const abrirModalCAEManual = (tipo: string, sucursal: string, numero: string) => {
+    facturaSeleccionada = { 
+      DocumentoTipo: tipo, 
+      DocumentoSucursal: sucursal, 
+      DocumentoNumero: numero 
+    };
+    mostrarModalCAEManual = true;
+  };
+
   const cerrarModalCAE = () => {
     mostrarModalCAE = false;
+    facturaSeleccionada = null;
+  };
+
+  const cerrarModalCAEManual = () => {
+    mostrarModalCAEManual = false;
     facturaSeleccionada = null;
   };
 
   const handleCaeObtenido = () => {
     cargarFacturas(); // Recargar la lista después de obtener el CAE
     cerrarModalCAE();
+  };
+
+  const handleCaeGuardado = () => {
+    cargarFacturas(); // Recargar la lista después de guardar el CAE
+    cerrarModalCAEManual();
   };
 </script>
 
@@ -504,13 +526,21 @@
               <td class="px-4 py-3 whitespace-nowrap text-center">
                 {#if factura.afip_cae}
                   <span class="text-sm text-gray-700">{factura.afip_cae}</span>
-                {:else if !factura.FechaAnulacion && (factura.DocumentoTipo === 'FCA' || factura.DocumentoTipo === 'FCB' || factura.DocumentoTipo === 'FCC')}
-                  <button 
-                    class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    on:click={() => abrirModalCAE(factura.DocumentoTipo, factura.DocumentoSucursal, factura.DocumentoNumero)}
-                  >
-                    Obtener CAE
-                  </button>
+                {:else if !factura.FechaAnulacion && (factura.DocumentoTipo === 'FCA' || factura.DocumentoTipo === 'FCB' || factura.DocumentoTipo === 'NCA' || factura.DocumentoTipo === 'NCB')}
+                  <div class="flex flex-col space-y-1">
+                    <button 
+                      class="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      on:click={() => abrirModalCAE(factura.DocumentoTipo, factura.DocumentoSucursal, factura.DocumentoNumero)}
+                    >
+                      Obtener CAE
+                    </button>
+                    <button 
+                      class="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                      on:click={() => abrirModalCAEManual(factura.DocumentoTipo, factura.DocumentoSucursal, factura.DocumentoNumero)}
+                    >
+                      Colocar Manualmente
+                    </button>
+                  </div>
                 {:else}
                   <span class="text-sm text-gray-400">N/A</span>
                 {/if}
@@ -632,6 +662,16 @@
     factura={facturaSeleccionada} 
     on:close={cerrarModalCAE}
     on:caeObtenido={handleCaeObtenido}
+  />
+{/if}
+
+<!-- Usar el componente CaeManualModal importado -->
+{#if mostrarModalCAEManual && facturaSeleccionada}
+  <CaeManualModal 
+    show={mostrarModalCAEManual} 
+    factura={facturaSeleccionada} 
+    on:close={cerrarModalCAEManual}
+    on:caeGuardado={handleCaeGuardado}
   />
 {/if}
 

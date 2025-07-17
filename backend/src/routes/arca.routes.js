@@ -6,5 +6,6 @@ const arcaController = require("../controllers/arca.controller");
 router.post("/grabar-cae", arcaController.obtenerCae);
 router.get("/estado-completo", arcaController.obtenerEstadoCompleto);
 router.post("/ultimo-comprobante", arcaController.obtenerUltimoComprobante);
+router.post("/colocar-cae-manualmente", arcaController.colocarCaeManualmente);
 
 module.exports = router;

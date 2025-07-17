@@ -12,8 +12,8 @@ function renderItemsListPrefactura(doc, items, startY, interlineado=20) {
   const tableWidth = doc.page.width - 40;
   const columnWidth = {
     codigo: 40,
-    cantidad: 30,
-    descripcion: 200,
+    cantidad: 26, // Reducido de 30 a 26 (quitar 4 caracteres)
+    descripcion: 210, // Aumentado de 200 a 210 (agregar 10 caracteres)
     precioLista: 70,
     descuento: 40,
     precioUnitario: 70,
@@ -61,8 +61,8 @@ function renderItemsListPrefactura(doc, items, startY, interlineado=20) {
   doc.text("Descripción", x+2, tableTop, { width: columnWidth.descripcion });
   x += columnWidth.descripcion;
   
-  doc.text("P. Lista", x, tableTop, { width: columnWidth.precioLista, align: "right" });
-  x += columnWidth.precioLista;
+  doc.text("P. Lista", x + 6, tableTop, { width: columnWidth.precioLista, align: "right" });
+  x += columnWidth.precioLista + 6;
   
   doc.text("% Desc.", x, tableTop, { width: columnWidth.descuento, align: "right" });
   x += columnWidth.descuento;
@@ -102,8 +102,8 @@ function renderItemsListPrefactura(doc, items, startY, interlineado=20) {
       doc.text("Descripción", x+2, y, { width: columnWidth.descripcion });
       x += columnWidth.descripcion;
       
-      doc.text("P. Lista", x, y, { width: columnWidth.precioLista, align: "right" });
-      x += columnWidth.precioLista;
+      doc.text("P. Lista", x + 6, y, { width: columnWidth.precioLista, align: "right" });
+      x += columnWidth.precioLista + 6;
       
       doc.text("% Desc.", x, y, { width: columnWidth.descuento, align: "right" });
       x += columnWidth.descuento;
@@ -122,6 +122,16 @@ function renderItemsListPrefactura(doc, items, startY, interlineado=20) {
       y += interlineado;
     }
     
+    // Calcular altura necesaria para la descripción
+    const descripcionText = item.Descripcion || "";
+    
+    // Calcular altura basada en la longitud del texto y el ancho de la columna
+    // Aproximadamente 50 caracteres por línea con fuente de 9pt (más realista)
+    const charsPerLine = Math.floor(columnWidth.descripcion / 4.5); // 4.5 puntos por carácter (más realista)
+    const estimatedLines = Math.ceil(descripcionText.length / charsPerLine);
+    const lineHeight = 12; // Altura por línea en puntos
+    const descripcionHeight = Math.max(interlineado, estimatedLines * lineHeight);
+    
     // Renderizar fila
     x = tableLeft;
     doc.text(item.CodigoArticulo || "", x, y, { width: columnWidth.codigo });
@@ -130,11 +140,15 @@ function renderItemsListPrefactura(doc, items, startY, interlineado=20) {
     doc.text(item.Cantidad.toString(), x, y, { width: columnWidth.cantidad, align: "right" });
     x += columnWidth.cantidad;
     
-    doc.text(item.Descripcion || "", x+2, y, { width: columnWidth.descripcion });
+    // Renderizar descripción
+    doc.text(descripcionText, x+2, y, { 
+      width: columnWidth.descripcion + 20,
+      ellipsis: false
+    });
     x += columnWidth.descripcion;
     
-    doc.text(item.PrecioLista.toFixed(2), x, y, { width: columnWidth.precioLista, align: "right" });
-    x += columnWidth.precioLista;
+    doc.text(item.PrecioLista.toFixed(2), x + 6, y, { width: columnWidth.precioLista, align: "right" });
+    x += columnWidth.precioLista + 6;
     
     // Mostrar descuento solo si es mayor a 0
     const descuentoText = item.PorcentajeBonificacion > 0 ? `${item.PorcentajeBonificacion}%` : "0%";
@@ -147,7 +161,8 @@ function renderItemsListPrefactura(doc, items, startY, interlineado=20) {
     
     doc.text(item.TotalConIva.toFixed(2), x, y, { width: columnWidth.total, align: "right" });
     
-    y += interlineado;
+    // Avanzar Y según la altura real de la descripción
+    y += descripcionHeight;
     maxY = Math.max(maxY, y);
   });
   

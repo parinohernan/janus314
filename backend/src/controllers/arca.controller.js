@@ -211,3 +211,118 @@ exports.obtenerUltimoComprobante = async (req, res) => {
     });
   }
 };
+
+/**
+ * Recupera y actualiza CAE automáticamente
+ * Consulta AFIP para obtener el CAE de un comprobante autorizado
+ * y lo actualiza en la base de datos
+ */
+exports.colocarCaeManualmente = async (req, res) => {
+  try {
+    const { tipo, puntoVenta, numero, cae, fechaVencimiento } = req.body;
+
+    // Validar datos de entrada
+    if (!tipo || !puntoVenta || !numero || !cae || !fechaVencimiento) {
+      return res.status(400).json({
+        success: false,
+        message: "Faltan datos obligatorios: tipo, puntoVenta, numero, cae y fechaVencimiento",
+      });
+    }
+
+    // Validar formato del CAE (debe ser numérico)
+    if (!/^\d+$/.test(cae)) {
+      return res.status(400).json({
+        success: false,
+        message: "El CAE debe ser un número válido",
+      });
+    }
+
+    // Validar formato de fecha de vencimiento (YYYY-MM-DD)
+    const fechaVencimientoRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!fechaVencimientoRegex.test(fechaVencimiento)) {
+      return res.status(400).json({
+        success: false,
+        message: "La fecha de vencimiento debe tener el formato YYYY-MM-DD",
+      });
+    }
+
+    console.log(`📝 Colocando CAE manualmente para: ${tipo}-${puntoVenta}-${numero}`);
+
+    // 1. Verificar que el documento existe en la base de datos
+    const { FacturaCabeza, Cliente } = req.models;
+    
+    const documento = await FacturaCabeza.findOne({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: puntoVenta,
+        DocumentoNumero: numero,
+      },
+      include: [{ model: Cliente }],
+      raw: false,
+    });
+
+    if (!documento) {
+      return res.status(404).json({
+        success: false,
+        message: "Documento no encontrado en la base de datos"
+      });
+    }
+
+    // 2. Verificar que el documento no esté anulado
+    if (documento.FechaAnulacion) {
+      return res.status(400).json({
+        success: false,
+        message: "No se puede colocar CAE en un documento anulado"
+      });
+    }
+
+    // 3. Actualizar el CAE en la base de datos
+    await FacturaCabeza.update(
+      {
+        afip_cae: cae,
+        afip_cae_vencimiento: fechaVencimiento,
+        afip_cae_observaciones: "CAE colocado manualmente por el usuario"
+      },
+      {
+        where: {
+          DocumentoTipo: tipo,
+          DocumentoSucursal: puntoVenta,
+          DocumentoNumero: numero,
+        }
+      }
+    );
+
+    console.log(`✅ CAE colocado manualmente en BD: ${cae} para ${tipo}-${puntoVenta}-${numero}`);
+
+    // 4. Preparar respuesta exitosa
+    const respuesta = {
+      success: true,
+      mensaje: "CAE colocado manualmente y guardado correctamente en la base de datos",
+      documento: {
+        tipo: tipo,
+        puntoVenta: parseInt(puntoVenta),
+        numero: parseInt(numero),
+        cliente: documento.Cliente ? documento.Cliente.Descripcion : "Cliente no encontrado",
+        fecha: documento.Fecha,
+        importeNeto: documento.ImporteNeto || 0,
+        importeIva: (documento.ImporteIva1 || 0) + (documento.ImporteIva2 || 0),
+        total: documento.ImporteTotal || 0
+      },
+      cae: {
+        numero: cae,
+        fechaVencimiento: fechaVencimiento,
+        resultado: "A"
+      }
+    };
+
+    res.json(respuesta);
+
+  } catch (error) {
+    console.error("Error al colocar CAE manualmente:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error interno del servidor al colocar CAE manualmente",
+      error: error.message,
+    });
+  }
+};

@@ -3,6 +3,7 @@
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import DatePicker from '$lib/components/DatePicker.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import Chart from '$lib/components/Chart.svelte';
   import { formatDate } from '$lib/utils/dateUtils';
 
   // Estado
@@ -47,6 +48,8 @@
       
       if (result.success) {
         datos = result.data;
+        console.log("Datos recibidos:", datos);
+        console.log("Evolución de ventas:", datos.evolucionVentas);
       } else {
         throw new Error(result.message || 'Error en el servidor');
       }
@@ -124,12 +127,12 @@
     <h2 class="text-lg font-semibold mb-4">📅 Filtros de Fecha</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Desde</label>
-        <DatePicker bind:value={fechaDesde} />
+        <label for="fechaDesde" class="block text-sm font-medium text-gray-700 mb-2">Fecha Desde</label>
+        <DatePicker id="fechaDesde" bind:value={fechaDesde} />
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Hasta</label>
-        <DatePicker bind:value={fechaHasta} />
+        <label for="fechaHasta" class="block text-sm font-medium text-gray-700 mb-2">Fecha Hasta</label>
+        <DatePicker id="fechaHasta" bind:value={fechaHasta} />
       </div>
     </div>
   </div>
@@ -191,28 +194,78 @@
     <!-- Gráfico de Evolución de Ventas -->
     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
       <h2 class="text-xl font-semibold mb-6">📈 Evolución de Ventas</h2>
-      <div class="h-80 flex items-end justify-between gap-2">
-        {#each datos.evolucionVentas as item, i}
-          {@const maxMonto = Math.max(...datos.evolucionVentas.map((d: any) => d.monto))}
-          {@const altura = maxMonto > 0 ? (item.monto / maxMonto) * 100 : 0}
-          <div class="flex-1 flex flex-col items-center">
-            <div 
-              class="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-lg transition-all duration-300 hover:from-blue-600 hover:to-blue-500"
-              style="height: {altura}%"
-              title="{item.periodo}: {formatearMoneda(item.monto)}"
-            ></div>
-            <div class="text-xs text-gray-500 mt-2 text-center">
-              {#if agruparPor === 'dia'}
-                {new Date(item.periodo).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })}
-              {:else if agruparPor === 'semana'}
-                Sem {item.periodo.split('-W')[1]}
-              {:else}
-                {new Date(item.periodo + '-01').toLocaleDateString('es-AR', { month: 'short' })}
-              {/if}
-            </div>
+      {#if datos.evolucionVentas && datos.evolucionVentas.length > 0}
+        {@const chartData = {
+          labels: datos.evolucionVentas.map((item: any) => {
+            if (agruparPor === 'dia') {
+              return new Date(item.periodo).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
+            } else if (agruparPor === 'semana') {
+              return `Sem ${item.periodo.split('-W')[1]}`;
+            } else {
+              return new Date(item.periodo + '-01').toLocaleDateString('es-AR', { month: 'short' });
+            }
+          }),
+          datasets: [{
+            label: 'Ventas ($)',
+            data: datos.evolucionVentas.map((item: any) => item.monto),
+            backgroundColor: 'rgba(59, 130, 246, 0.8)',
+            borderColor: 'rgba(59, 130, 246, 1)',
+            borderWidth: 2,
+            borderRadius: 4,
+            borderSkipped: false,
+          }]
+        }}
+        
+        {@const chartOptions = {
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context: any) {
+                  const item = datos.evolucionVentas[context.dataIndex];
+                  if (item) {
+                    return [
+                      `Ventas: ${formatearMoneda(context.parsed.y)}`,
+                      `Facturas: ${item.cantidad}`,
+                      `Fecha: ${item.periodo}`
+                    ];
+                  }
+                  return `Ventas: ${formatearMoneda(context.parsed.y)}`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: function(value: any) {
+                  if (typeof value === 'number') {
+                    return formatearMoneda(value);
+                  }
+                  return value;
+                }
+              }
+            }
+          }
+        }}
+        
+        <Chart 
+          data={chartData} 
+          type="bar" 
+          options={chartOptions}
+          height="400px"
+        />
+      {:else}
+        <div class="h-80 flex items-center justify-center text-gray-500">
+          <div class="text-center">
+            <div class="text-4xl mb-4">📊</div>
+            <p>No hay datos de evolución de ventas para el período seleccionado</p>
           </div>
-        {/each}
-      </div>
+        </div>
+      {/if}
     </div>
 
     <!-- Distribución por Tipo de Documento -->

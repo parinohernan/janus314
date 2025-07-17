@@ -54,8 +54,8 @@ function renderItemsListConIva(doc, items, startY, interlineado=10) { // Reducid
   doc.text("Descripción", x+4, tableTop, { width: columnWidth.descripcion });
   x += columnWidth.descripcion;
   
-  doc.text("Precio Unit.", x, tableTop, { width: columnWidth.precioUnitario, align: "right" });
-  x += columnWidth.precioUnitario;
+  doc.text("Precio Unit.", x + 6, tableTop, { width: columnWidth.precioUnitario, align: "right" });
+  x += columnWidth.precioUnitario + 6;
   
   doc.text("Total", x, tableTop, { width: columnWidth.total, align: "right" });
   
@@ -86,11 +86,11 @@ function renderItemsListConIva(doc, items, startY, interlineado=10) { // Reducid
       doc.text("Cant.", x, y, { width: columnWidth.cantidad, align: "right" });
       x += columnWidth.cantidad;
       
-      doc.text("Descripción", x+4, y, { width: columnWidth.descripcion });
+      doc.text("Descripción", x+4, y, { width: columnWidth.descripcion + 20 });
       x += columnWidth.descripcion;
       
-      doc.text("Precio Unit.", x, y, { width: columnWidth.precioUnitario, align: "right" });
-      x += columnWidth.precioUnitario;
+      doc.text("Precio Unit.", x + 6, y, { width: columnWidth.precioUnitario, align: "right" });
+      x += columnWidth.precioUnitario + 6;
       
       doc.text("Total", x, y, { width: columnWidth.total, align: "right" });
       
@@ -111,11 +111,11 @@ function renderItemsListConIva(doc, items, startY, interlineado=10) { // Reducid
     doc.text(item.Cantidad.toString(), x, y, { width: columnWidth.cantidad, align: "right" });
     x += columnWidth.cantidad;
     
-    doc.text(item.Descripcion || "", x+4, y, { width: columnWidth.descripcion });
+    doc.text(item.Descripcion || "", x+4, y, { width: columnWidth.descripcion + 20 });
     x += columnWidth.descripcion;
     
-    doc.text(item.PrecioConIva.toFixed(2), x, y, { width: columnWidth.precioUnitario, align: "right" });
-    x += columnWidth.precioUnitario;
+    doc.text(item.PrecioConIva.toFixed(2), x + 6, y, { width: columnWidth.precioUnitario, align: "right" });
+    x += columnWidth.precioUnitario + 6;
     
     doc.text(item.TotalConIva.toFixed(2), x, y, { width: columnWidth.total, align: "right" });
     

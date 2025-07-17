@@ -27,6 +27,7 @@ function renderTable(doc, items, options = {}) {
         width: 70,
         align: "right",
         format: (value) => value.toFixed(2),
+        offset: 6,
       },
       {
         header: "Desc.",
@@ -74,11 +75,11 @@ function renderTable(doc, items, options = {}) {
 
   let x = startX;
   columns.forEach((column) => {
-    doc.text(column.header, x, y + padding / 2, {
+    doc.text(column.header, x + (column.offset || 0), y + padding / 2, {
       width: column.width,
       align: column.align || "left",
     });
-    x += column.width;
+    x += column.width + (column.offset || 0);
   });
 
   // Línea después del encabezado
@@ -117,11 +118,11 @@ function renderTable(doc, items, options = {}) {
 
       x = startX;
       columns.forEach((column) => {
-        doc.text(column.header, x, y - 20 + padding / 2, {
+        doc.text(column.header, x + (column.offset || 0), y - 20 + padding / 2, {
           width: column.width,
           align: column.align || "left",
         });
-        x += column.width;
+        x += column.width + (column.offset || 0);
       });
 
       // Línea después del encabezado
@@ -173,11 +174,11 @@ function renderTable(doc, items, options = {}) {
         value = column.defaultValue || "";
       }
 
-      doc.text(value.toString(), x, y + padding / 2, {
-        width: column.width,
+      doc.text(value.toString(), x + (column.offset || 0), y + padding / 2, {
+        width: column.width + (column.property === "Descripcion" ? 20 : 0),
         align: column.align || "left",
       });
-      x += column.width;
+      x += column.width + (column.offset || 0);
     });
 
     y += 10; // Reducido de 20 a 10 para achicar el espaciado entre filas

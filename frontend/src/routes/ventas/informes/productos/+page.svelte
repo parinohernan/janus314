@@ -52,8 +52,14 @@
         throw new Error('La respuesta no es JSON');
       }
 
-      datosVentas = await response.json();
-      actualizarGrafico();
+      const result = await response.json();
+      
+      if (result.success) {
+        datosVentas = result.data;
+        actualizarGrafico();
+      } else {
+        throw new Error(result.message || 'Error en el servidor');
+      }
     } catch (error) {
       console.error('Error al cargar datos de ventas:', error);
       datosVentas = null;
