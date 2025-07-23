@@ -160,7 +160,6 @@
           <div class="warning-content">
             <h4>Importante</h4>
             <p>Debe usar datos reales consultados en la página de AFIP o ARCA (afip.gob.ar).</p>
-            <p><strong>En AFIP SOLO PODRÁS CONSULTAR PASADAS LAS 24 HORAS</strong> desde la autorización del comprobante.</p>
             <p>El CAE y fecha de vencimiento deben corresponder exactamente con los datos autorizados por AFIP.</p>
           </div>
         </div>

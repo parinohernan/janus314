@@ -67,10 +67,17 @@ class Cache {
 
   async shutdown() {
     try {
-      await this.redis.quit();
-      console.log('Conexión Redis cerrada correctamente');
+      console.log('🔄 Cerrando conexión Redis...');
+      
+      // Verificar si Redis está conectado
+      if (this.redis.status === 'ready') {
+        await this.redis.quit();
+        console.log('✅ Conexión Redis cerrada correctamente');
+      } else {
+        console.log('⚠️ Redis no estaba conectado');
+      }
     } catch (error) {
-      console.error('Error al cerrar conexión Redis:', error);
+      console.error('❌ Error al cerrar conexión Redis:', error);
     }
   }
 }

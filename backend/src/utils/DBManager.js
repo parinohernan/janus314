@@ -137,7 +137,16 @@ class DBManager {
   async getConnectionWithConfig(empresaConfig) {
     // Si ya existe una conexión, la retornamos
     if (this.pools.has(empresaConfig.id)) {
-      return this.pools.get(empresaConfig.id);
+      const existingConnection = this.pools.get(empresaConfig.id);
+      
+      // Verificar que la conexión esté activa
+      try {
+        await existingConnection.authenticate();
+        return existingConnection;
+      } catch (error) {
+        console.log(`⚠️ Conexión existente inactiva para empresa ${empresaConfig.id}, creando nueva...`);
+        this.pools.delete(empresaConfig.id);
+      }
     }
 
     try {
@@ -151,7 +160,7 @@ class DBManager {
       console.log('Usuario:', empresaConfig.db_user);
       console.log('===================================');
 
-      // Crear nueva conexión
+      // Crear nueva conexión con configuración optimizada
       const sequelize = new Sequelize(
         empresaConfig.db_name,
         empresaConfig.db_user,
@@ -161,17 +170,31 @@ class DBManager {
           port: empresaConfig.db_port || 3306,
           dialect: 'mysql',
           pool: {
-            max: parseInt(process.env.DB_POOL_MAX || '5'),
-            min: parseInt(process.env.DB_POOL_MIN || '0'),
-            acquire: parseInt(process.env.DB_POOL_ACQUIRE || '30000'),
-            idle: parseInt(process.env.DB_POOL_IDLE || '10000')
+            max: parseInt(process.env.DB_POOL_MAX || '10'),
+            min: parseInt(process.env.DB_POOL_MIN || '2'),
+            acquire: parseInt(process.env.DB_POOL_ACQUIRE || '60000'),
+            idle: parseInt(process.env.DB_POOL_IDLE || '30000'),
+            evict: parseInt(process.env.DB_POOL_EVICT || '60000')
           },
-          logging: process.env.NODE_ENV === 'development'
+          logging: process.env.NODE_ENV === 'development',
+          dialectOptions: {
+            connectTimeout: 60000,
+            acquireTimeout: 60000,
+            timeout: 60000,
+            timezone: "-03:00"
+          },
+          timezone: "-03:00"
         }
       );
 
-      // Probar la conexión
-      await sequelize.authenticate();
+      // Probar la conexión con timeout
+      await Promise.race([
+        sequelize.authenticate(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout al conectar')), 30000)
+        )
+      ]);
+      
       console.log('✅ Conexión establecida exitosamente para empresa:', empresaConfig.nombre);
 
       // Inicializar los modelos para esta conexión
@@ -238,18 +261,55 @@ class DBManager {
   }
 
   async shutdown() {
-    const closePromises = [];
-    for (const [empresaId, sequelize] of this.pools.entries()) {
-      console.log(`Cerrando conexión para empresa ${empresaId}...`);
-      closePromises.push(sequelize.close());
+    console.log('🔄 Iniciando cierre de DBManager...');
+    
+    if (this.pools.size === 0) {
+      console.log('✅ No hay conexiones activas para cerrar.');
+      return;
     }
-    await Promise.all(closePromises);
-    this.pools.clear();
+
+    const closePromises = [];
+    const empresaIds = Array.from(this.pools.keys());
     
-    // Cerrar conexión Redis
-    await cache.shutdown();
+    for (const empresaId of empresaIds) {
+      const sequelize = this.pools.get(empresaId);
+      console.log(`🔄 Cerrando conexión para empresa ${empresaId}...`);
+      
+      // Crear promesa con timeout individual
+      const closePromise = Promise.race([
+        sequelize.close(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error(`Timeout cerrando empresa ${empresaId}`)), 3000)
+        )
+      ]).catch(error => {
+        console.warn(`⚠️ Error cerrando conexión empresa ${empresaId}:`, error.message);
+      });
+      
+      closePromises.push(closePromise);
+    }
     
-    console.log('Todas las conexiones han sido cerradas.');
+    try {
+      await Promise.allSettled(closePromises);
+      this.pools.clear();
+      console.log('✅ Todas las conexiones de empresa cerradas.');
+    } catch (error) {
+      console.error('❌ Error durante cierre de conexiones:', error);
+    }
+    
+    // Cerrar conexión Redis con timeout
+    try {
+      console.log('🔄 Cerrando conexión Redis...');
+      await Promise.race([
+        cache.shutdown(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout cerrando Redis')), 2000)
+        )
+      ]);
+    } catch (error) {
+      console.warn('⚠️ Error cerrando Redis:', error.message);
+    }
+    
+    console.log('✅ DBManager cerrado completamente.');
   }
 }
 

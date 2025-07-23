@@ -214,8 +214,9 @@ exports.obtenerFactura = async (req, res) => {
   }
 };
 
-// Crear nueva factura - Versión modularizada
+// Crear nueva factura - Versión optimizada
 exports.crearFactura = async (req, res) => {
+  let t = null;
   try {
     const { FacturaCabeza, FacturaItem, Cliente, Articulo, MovimientoStock, NumerosControl } = req.models;
     const facturaData = req.body;
@@ -223,108 +224,101 @@ exports.crearFactura = async (req, res) => {
     // Obtener la conexión de la empresa
     const connection = req.db;
     
-    // Crear transacción usando la conexión de la empresa específica, no la global
-    const t = await connection.transaction();
+    // Crear transacción usando la conexión de la empresa específica
+    t = await connection.transaction();
     
-    try {
-      // Usar la fecha exacta que viene del frontend
-      if (!facturaData.Fecha) {
-        // Si no viene fecha, usar la fecha actual
-        facturaData.Fecha = new Date().toISOString().split('T')[0];
-        console.log('Usando fecha actual:', facturaData.Fecha);
-      } else {
-        console.log('Usando fecha del frontend:', facturaData.Fecha);
+    // Usar la fecha exacta que viene del frontend
+    if (!facturaData.Fecha) {
+      facturaData.Fecha = new Date().toISOString().split('T')[0];
+      console.log('Usando fecha actual:', facturaData.Fecha);
+    } else {
+      console.log('Usando fecha del frontend:', facturaData.Fecha);
+    }
+    
+    // Completar los campos necesarios
+    facturaData.PagoTipo = facturaData.FormaPagoCodigo;
+    delete facturaData.FormaPagoCodigo;
+    facturaData.VendedorCodigo = facturaData.Vendedor || "1";
+    delete facturaData.Vendedor;
+    facturaData.PorcentajeIva1 = "21";
+    facturaData.PorcentajeIva2 = "10.5";
+    facturaData.ListaNumero = facturaData.ListaPrecio;
+    delete facturaData.ListaPrecio;
+    facturaData.CodigoUsuario = "admin";
+
+    // Verificar si el tipo de pago aplica saldo
+    const { TipoDePago } = req.models;
+    const tipoPago = await TipoDePago.findOne({
+      where: { 
+        Codigo: facturaData.PagoTipo,
+        Activo: 1
+      },
+      transaction: t
+    });
+
+    // Si es cuenta corriente, el importe pagado es 0
+    if (facturaData.PagoTipo === "CC") {
+      facturaData.ImportePagado = 0;
+      
+      // Actualizar saldo del cliente
+      const cliente = await Cliente.findOne({
+        where: { Codigo: facturaData.ClienteCodigo },
+        transaction: t
+      });
+      
+      if (!cliente) {
+        throw new Error("Cliente no encontrado");
       }
       
-      // completo los campos necesarios con los nombres adecuados
-      facturaData.PagoTipo = facturaData.FormaPagoCodigo;
-      delete facturaData.FormaPagoCodigo;
-      facturaData.VendedorCodigo = facturaData.Vendedor || "1";
-      delete facturaData.Vendedor;
-      facturaData.PorcentajeIva1 = "21";
-      facturaData.PorcentajeIva2 = "10.5";
-      facturaData.ListaNumero = facturaData.ListaPrecio;
-      delete facturaData.ListaPrecio;
-      facturaData.CodigoUsuario = "admin";
-
-      // Verificar si el tipo de pago aplica saldo
-      const { TipoDePago } = req.models;
-      const tipoPago = await TipoDePago.findOne({
-        where: { 
-          Codigo: facturaData.PagoTipo,
-          Activo: 1
-        }
-      });
-
-      if (tipoPago && tipoPago.aplicaSaldo) {
-        console.log(`Corregir saldo por importe: ${facturaData.ImporteTotal}`);
-      }
-
-      // Si es cuenta corriente, el importe pagado es 0
-      if (facturaData.PagoTipo === "CC") {
-        facturaData.ImportePagado = 0;
-        
-        // Actualizar saldo del cliente
-        const cliente = await Cliente.findOne({
+      // Actualizar el saldo del cliente
+      await Cliente.update(
+        { 
+          ImporteDeuda: connection.literal(`COALESCE(ImporteDeuda, 0) + ${parseFloat(facturaData.ImporteTotal) || 0}`)
+        },
+        { 
           where: { Codigo: facturaData.ClienteCodigo },
-          transaction: t
-        });
-        
-        if (!cliente) {
-          throw new Error("Cliente no encontrado");
+          transaction: t 
         }
-        
-        // Actualizar el saldo del cliente
-        await Cliente.update(
-          { 
-            ImporteDeuda: connection.literal(`COALESCE(ImporteDeuda, 0) + ${parseFloat(facturaData.ImporteTotal) || 0}`)
-          },
-          { 
-            where: { Codigo: facturaData.ClienteCodigo },
-            transaction: t 
-          }
-        );
-      } else {
-        // Si es contado, el importe pagado es el total
-        facturaData.ImportePagado = facturaData.ImporteTotal;
-      }
-
-      // Obtener y actualizar el número de control
-      const numeroControl = await numerosControlController.actualizarNumeroDirecto(
-        facturaData.DocumentoTipo,
-        facturaData.DocumentoSucursal,
-        facturaData.ImporteTotal,
-        t,
-        req.models
       );
-
-      // Asignar el número obtenido a la factura
-      facturaData.DocumentoNumero = numeroControl;
-
-      // Crear factura usando el servicio (pasando la transacción y los modelos dinámicos)
-      const facturaCreada = await FacturaService.crearFactura(
-        facturaData, 
-        t,  // Pasar la transacción para que todo se haga en la misma
-        { FacturaCabeza, FacturaItem, Articulo, MovimientoStock, NumerosControl },
-        connection  // Pasar la conexión específica de la empresa
-      );
-
-      // Confirmar la transacción
-      await t.commit();
-
-      //aca incluir Comunicacion con ARCA o AFIP
-      res.status(201).json({
-        success: true,
-        message: "Factura creada correctamente",
-        data: facturaCreada,
-      });
-    } catch (error) {
-      // Si hay error, hacer rollback
-      await t.rollback();
-      throw error;
+    } else {
+      // Si es contado, el importe pagado es el total
+      facturaData.ImportePagado = facturaData.ImporteTotal;
     }
+
+    // ✅ Obtener y actualizar el número de control (una sola vez)
+    const numeroControl = await numerosControlController.actualizarNumeroDirecto(
+      facturaData.DocumentoTipo,
+      facturaData.DocumentoSucursal,
+      facturaData.ImporteTotal,
+      t,
+      req.models
+    );
+
+    // Asignar el número obtenido a la factura
+    facturaData.DocumentoNumero = numeroControl;
+
+    // ✅ Crear factura usando el servicio (sin crear nueva transacción)
+    const facturaCreada = await FacturaService.crearFactura(
+      facturaData, 
+      t,  // Pasar la transacción existente
+      { FacturaCabeza, FacturaItem, Articulo, MovimientoStock, NumerosControl },
+      connection
+    );
+
+    // ✅ Confirmar la transacción
+    await t.commit();
+
+    res.status(201).json({
+      success: true,
+      message: "Factura creada correctamente",
+      data: facturaCreada,
+    });
   } catch (error) {
-    console.error("Error al crear factura:", error);
+    // ✅ Hacer rollback en caso de error
+    if (t) {
+      await t.rollback();
+    }
+    console.error(`[${new Date().toLocaleString()}] Error al crear factura:`, error);
     res.status(500).json({
       success: false,
       message: "Error al crear factura",

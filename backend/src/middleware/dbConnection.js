@@ -49,8 +49,13 @@ const getEmpresaConnection = async (req, res, next) => {
     console.log('📦 Empresa:', empresaData.nombre);
     console.log('📦 vendedor:', req.body.Vendedor);
     
-    // Obtener la conexión
-    const empresaDB = await DBManager.getConnectionWithConfig(empresaData);
+    // ✅ Agregar timeout para operaciones de base de datos
+    const empresaDB = await Promise.race([
+      DBManager.getConnectionWithConfig(empresaData),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout al obtener conexión de empresa')), 30000)
+      )
+    ]);
     
     // Inicializar los modelos con la conexión de la empresa
     console.log('Inicializando modelos...');
@@ -103,6 +108,13 @@ const getEmpresaConnection = async (req, res, next) => {
       return res.status(401).json({
         success: false,
         error: 'Token expirado'
+      });
+    }
+    if (error.message.includes('Timeout')) {
+      console.error('❌ Error de timeout en conexión:', error);
+      return res.status(503).json({
+        success: false,
+        error: 'Servicio temporalmente no disponible - Timeout de conexión'
       });
     }
     console.error('❌ Error en middleware de conexión:', error);

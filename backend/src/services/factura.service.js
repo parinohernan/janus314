@@ -18,18 +18,14 @@ const FacturaService = {
   async crearFactura(facturaData, transaction, models, connection = null) {
     // Validar datos de la factura
     const { FacturaCabeza, FacturaItem, NumerosControl, Articulo, MovimientoStock } = models;
-    const t = transaction || await connection.transaction();
-    const shouldCreateTransaction = !transaction;
-    // console.log("facturaData", facturaData);
+    
+    // ✅ Usar la transacción existente, no crear una nueva
+    const t = transaction;
+    
     try {
-      // Si no se proporcionó un número, obtener el siguiente disponible
+      // ✅ No obtener número aquí, ya viene asignado desde el controlador
       if (!facturaData.DocumentoNumero) {
-        facturaData.DocumentoNumero = await NumeroControlService.obtenerYActualizarNumero(
-          facturaData.DocumentoTipo,
-          facturaData.DocumentoSucursal,
-          t,
-          NumerosControl
-        );
+        throw new Error('DocumentoNumero es requerido');
       }
 
       // Corregir el código del vendedor si viene en formato objeto
@@ -53,8 +49,7 @@ const FacturaService = {
         { transaction: t }
       );
 
-      // Crear items de factura con el número formateado
-      console.log("facturaData.Items", facturaData.Items);
+      // Crear items de factura
       const facturaItems = await this.crearItemsFactura(
         facturaData.Items,
         facturaData.DocumentoTipo,
@@ -75,19 +70,13 @@ const FacturaService = {
         { Articulo, MovimientoStock }
       );
 
-      // Solo hacer commit si creamos la transacción aquí
-      if (shouldCreateTransaction) {
-        await t.commit();
-      }
-
+      // ✅ No hacer commit aquí, se hace en el controlador
       return {
         factura: facturaCabeza,
         items: facturaItems
       };
     } catch (error) {
-      if (shouldCreateTransaction) {
-        await t.rollback();
-      }
+      // ✅ No hacer rollback aquí, se hace en el controlador
       throw error;
     }
   },

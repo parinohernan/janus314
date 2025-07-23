@@ -79,17 +79,34 @@ exports.processWebhook = async (req, res) => {
  */
 exports.initBot = async () => {
   try {
+    // Verificar si el token está configurado
+    if (!config.botToken || config.botToken === '') {
+      console.log('⚠️ Bot de Telegram deshabilitado - Token no configurado');
+      return;
+    }
+
+    // Verificar si ya hay una instancia ejecutándose
+    if (bot.botInfo) {
+      console.log('⚠️ Bot de Telegram ya está ejecutándose');
+      return;
+    }
+
     if (process.env.NODE_ENV === 'development') {
       // Modo polling para desarrollo
       await bot.launch();
-      console.log('Bot de Telegram iniciado en modo polling');
+      console.log('✅ Bot de Telegram iniciado en modo polling');
     } else {
       // Configurar webhook para producción
-      await bot.telegram.setWebhook(config.webhookUrl);
-      console.log('Bot de Telegram configurado con webhook:', config.webhookUrl);
+      if (config.webhookUrl) {
+        await bot.telegram.setWebhook(config.webhookUrl);
+        console.log('✅ Bot de Telegram configurado con webhook:', config.webhookUrl);
+      } else {
+        console.log('⚠️ Bot de Telegram deshabilitado - Webhook URL no configurada');
+      }
     }
   } catch (error) {
-    console.error('Error al iniciar el bot de Telegram:', error);
+    console.error('❌ Error al iniciar el bot de Telegram:', error);
+    // No lanzar el error para que no afecte el inicio del servidor
   }
 };
 

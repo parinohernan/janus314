@@ -433,8 +433,7 @@ exports.facturarPreventa = async (req, res) => {
       await t.rollback();
       return res.status(400).json({
         success: false,
-        message:
-          "Faltan datos obligatorios (facturaTipo, facturaSucursal, facturaNumero)",
+        message: "Faltan datos obligatorios (facturaTipo, facturaSucursal, facturaNumero)",
       });
     }
 
@@ -479,7 +478,10 @@ exports.facturarPreventa = async (req, res) => {
     preventa.FacturaSucursal = facturaSucursal;
     preventa.FacturaNumero = facturaNumero;
     preventa.FechaHoraEnvio = new Date();
-    await preventa.save();
+    await preventa.save({ transaction: t });
+
+    // ✅ Confirmar transacción
+    await t.commit();
 
     res.status(200).json({
       success: true,
@@ -487,6 +489,8 @@ exports.facturarPreventa = async (req, res) => {
       data: preventa,
     });
   } catch (error) {
+    // ✅ Hacer rollback en caso de error
+    await t.rollback();
     console.error("Error al facturar preventa:", error);
     res.status(500).json({
       success: false,
