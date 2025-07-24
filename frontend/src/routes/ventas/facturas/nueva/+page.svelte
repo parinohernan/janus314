@@ -985,7 +985,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                 // Crear nuevo item para la factura con la existencia actualizada
                 // El precio de la preventa viene con IVA incluido, lo quitamos
                 const precioPreventaConIva = item.PrecioLista || 0;
-                const porcentajeIva = item.Articulo.PorcentajeIVA1 || 21;
+                const porcentajeIva = articuloActualizado.PorcentajeIVA1 || 21; // Usar el porcentaje del artículo actualizado
                 const precioPreventaSinIva = precioPreventaConIva / (1 + porcentajeIva / 100);
                 
                 const facturaItem: ItemFactura = {
@@ -996,7 +996,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                   PorcentajeBonificado: item.PorcentajeBonificacion || 0,
                   ImporteBonificado: 0, // Se calculará en recalcularItem
                   PrecioUnitario: precioPreventaSinIva * (1 - (item.PorcentajeBonificacion || 0) / 100),
-                  PorcentajeIva: item.Articulo.PorcentajeIVA1 || 21,
+                  PorcentajeIva: articuloActualizado.PorcentajeIVA1 || 21, // Usar el porcentaje del artículo actualizado
                   PrecioUnitarioConIva: 0,
                   Total: 0,
                   enEdicion: false,
@@ -1028,7 +1028,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                 // Si falla la obtención del artículo actualizado, usar los datos de la preventa
                 // El precio de la preventa viene con IVA incluido, lo quitamos
                 const precioPreventaConIva = item.PrecioLista || 0;
-                const porcentajeIva = item.Articulo.PorcentajeIVA1 || 21;
+                const porcentajeIva = item.Articulo.PorcentajeIVA1 || 21; // En este caso usar el valor por defecto
                 const precioPreventaSinIva = precioPreventaConIva / (1 + porcentajeIva / 100);
                 
                 const facturaItem: ItemFactura = {
@@ -1039,7 +1039,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                   PorcentajeBonificado: item.PorcentajeBonificacion || 0,
                   ImporteBonificado: 0, // Se calculará en recalcularItem
                   PrecioUnitario: precioPreventaSinIva * (1 - (item.PorcentajeBonificacion || 0) / 100),
-                  PorcentajeIva: item.Articulo.PorcentajeIVA1 || 21,
+                  PorcentajeIva: item.Articulo.PorcentajeIVA1 || 21, // En este caso usar el valor por defecto
                   PrecioUnitarioConIva: 0,
                   Total: 0,
                   enEdicion: false,
