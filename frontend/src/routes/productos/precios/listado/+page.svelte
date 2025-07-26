@@ -23,15 +23,70 @@
 	let mostrarExistencia = true;
 	let soloActivos = true;
 
-	// Agrupar artículos por rubro
+	// Configuración de rubros
+	let configuracionRubros: Array<{
+		codigo: string;
+		visible: boolean;
+		orden: number;
+	}> = [];
+	let mostrarConfiguracionRubros = false;
+
+	// Agrupar artículos por rubro (solo rubros visibles)
 	$: articulosPorRubro = articulos.reduce((acc, articulo) => {
 		const rubroCodigo = articulo.RubroCodigo || 'SIN_RUBRO';
-		if (!acc[rubroCodigo]) {
-			acc[rubroCodigo] = [];
+		
+		// Solo incluir si el rubro está configurado y visible
+		const configRubro = configuracionRubros.find(c => c.codigo === rubroCodigo);
+		if (configRubro && configRubro.visible) {
+			if (!acc[rubroCodigo]) {
+				acc[rubroCodigo] = [];
+			}
+			acc[rubroCodigo].push(articulo);
 		}
-		acc[rubroCodigo].push(articulo);
 		return acc;
 	}, {} as Record<string, Articulo[]>);
+
+	// Debug: mostrar configuración de visibilidad y orden
+	$: if (configuracionRubros.length > 0) {
+		console.log('Configuración completa:', configuracionRubros.map(c => `${c.codigo}: visible=${c.visible}, orden=${c.orden}`));
+		console.log('Rubros visibles en el listado:', Object.keys(articulosPorRubro));
+		console.log('Orden final en articulosPorRubroOrdenado:', articulosPorRubroOrdenado.map(r => r.codigo));
+	}
+
+	// Ordenar rubros según la configuración
+	$: articulosPorRubroOrdenado = (() => {
+		const resultado: Array<{codigo: string, articulos: Articulo[]}> = [];
+		
+		// Usar toda la configuración ordenada y solo incluir rubros visibles
+		const configuracionOrdenada = [...configuracionRubros].sort((a, b) => a.orden - b.orden);
+		
+		for (const config of configuracionOrdenada) {
+			if (config.visible && articulosPorRubro[config.codigo]) {
+				resultado.push({
+					codigo: config.codigo,
+					articulos: articulosPorRubro[config.codigo]
+				});
+			}
+		}
+		
+		return resultado;
+	})();
+
+	// Crear configuración por defecto cuando se carguen los rubros
+	$: if (rubros.length > 0 && configuracionRubros.length === 0) {
+		crearConfiguracionPorDefecto();
+	}
+
+	// Asegurar que la configuración se aplique inmediatamente
+	$: if (configuracionRubros.length > 0) {
+		// Forzar la reactividad del filtrado
+		articulosPorRubro = articulosPorRubro;
+	}
+
+	// Guardar configuración automáticamente cuando cambien los filtros
+	$: if (typeof window !== 'undefined') {
+		guardarConfiguracionRubros();
+	}
 
 	// Obtener nombre del rubro
 	function getNombreRubro(codigo: string): string {
@@ -42,14 +97,21 @@
 
 	// Obtener precio según lista
 	function getPrecioLista(articulo: Articulo): number {
+		const precioCosto = articulo.PrecioCosto || 0;
+		let porcentajeLista = 0;
+		
+		// Obtener el porcentaje de la lista seleccionada
 		switch (listaPrecio) {
-			case '1': return articulo.Lista1 || 0;
-			case '2': return articulo.Lista2 || 0;
-			case '3': return articulo.Lista3 || 0;
-			case '4': return articulo.Lista4 || 0;
-			case '5': return articulo.Lista5 || 0;
-			default: return articulo.Lista1 || 0;
+			case '1': porcentajeLista = articulo.PorcentajeLista1 || 0; break;
+			case '2': porcentajeLista = articulo.PorcentajeLista2 || 0; break;
+			case '3': porcentajeLista = articulo.PorcentajeLista3 || 0; break;
+			case '4': porcentajeLista = articulo.PorcentajeLista4 || 0; break;
+			case '5': porcentajeLista = articulo.PorcentajeLista5 || 0; break;
+			default: porcentajeLista = articulo.PorcentajeLista1 || 0; break;
 		}
+		
+		// Calcular precio de lista: precio de costo + porcentaje
+		return precioCosto * (1 + porcentajeLista / 100);
 	}
 
 	// Obtener precio con IVA
@@ -71,17 +133,66 @@
 		return 'OK'; // Stock alto
 	}
 
+	// Funciones para localStorage
+	function guardarConfiguracionRubros() {
+		if (typeof window !== 'undefined') {
+			const config = {
+				configuracionRubros,
+				listaPrecio,
+				mostrarExistencia,
+				soloActivos
+			};
+			localStorage.setItem('listadoPreciosConfig', JSON.stringify(config));
+		}
+	}
+
+	function cargarConfiguracionRubros() {
+		if (typeof window !== 'undefined') {
+			const config = localStorage.getItem('listadoPreciosConfig');
+			if (config) {
+				try {
+					const datos = JSON.parse(config);
+					configuracionRubros = datos.configuracionRubros || [];
+					listaPrecio = datos.listaPrecio || '1';
+					mostrarExistencia = datos.mostrarExistencia !== undefined ? datos.mostrarExistencia : true;
+					soloActivos = datos.soloActivos !== undefined ? datos.soloActivos : true;
+				} catch (error) {
+					console.error('Error al cargar configuración:', error);
+				}
+			}
+		}
+	}
+
+	function crearConfiguracionPorDefecto() {
+		// Crear configuración por defecto con todos los rubros visibles y ordenados alfabéticamente
+		if (configuracionRubros.length === 0 && rubros.length > 0) {
+			const rubrosOrdenados = [...rubros.map(r => r.Codigo).sort(), 'SIN_RUBRO'];
+			configuracionRubros = rubrosOrdenados.map((codigo, index) => ({
+				codigo,
+				visible: true,
+				orden: index
+			}));
+			guardarConfiguracionRubros();
+		}
+	}
+
 	// Cargar datos
 	onMount(async () => {
 		try {
 			loading = true;
 			error = null;
 
+			// Cargar configuración guardada
+			cargarConfiguracionRubros();
+
 			// Cargar datos de la empresa
 			empresa = await EmpresaService.obtenerDatos();
 
 			// Cargar rubros
 			rubros = await RubroService.obtenerRubros();
+
+			// Crear configuración por defecto después de cargar rubros
+			crearConfiguracionPorDefecto();
 
 			// Cargar artículos para listado de precios (todos sin paginación)
 			articulos = await ArticuloService.obtenerArticulosParaListadoPrecios(soloActivos);
@@ -94,18 +205,88 @@
 		}
 	});
 
-	// Generar PDF
+	// Funciones para manejo de rubros
+	function toggleRubroVisible(codigoRubro: string) {
+		const config = configuracionRubros.find(c => c.codigo === codigoRubro);
+		if (config) {
+			config.visible = !config.visible;
+			configuracionRubros = [...configuracionRubros];
+			guardarConfiguracionRubros();
+		}
+	}
+
+	function mostrarTodosLosRubros() {
+		configuracionRubros = configuracionRubros.map(config => ({ ...config, visible: true }));
+		guardarConfiguracionRubros();
+	}
+
+	function ocultarTodosLosRubros() {
+		configuracionRubros = configuracionRubros.map(config => ({ ...config, visible: false }));
+		guardarConfiguracionRubros();
+	}
+
+	function moverRubroArriba(index: number) {
+		console.log('Mover arriba - index:', index, 'configuracionRubros.length:', configuracionRubros.length);
+		if (index > 0) {
+			const config = configuracionRubros[index];
+			const configAnterior = configuracionRubros[index - 1];
+			
+			console.log('Antes del cambio:', config.codigo, 'orden:', config.orden, '->', configAnterior.codigo, 'orden:', configAnterior.orden);
+			
+			// Intercambiar orden
+			const tempOrden = config.orden;
+			config.orden = configAnterior.orden;
+			configAnterior.orden = tempOrden;
+			
+			console.log('Después del cambio:', config.codigo, 'orden:', config.orden, '->', configAnterior.codigo, 'orden:', configAnterior.orden);
+			
+			configuracionRubros = [...configuracionRubros];
+			guardarConfiguracionRubros();
+		}
+	}
+
+	function moverRubroAbajo(index: number) {
+		console.log('Mover abajo - index:', index, 'configuracionRubros.length:', configuracionRubros.length);
+		if (index < configuracionRubros.length - 1) {
+			const config = configuracionRubros[index];
+			const configSiguiente = configuracionRubros[index + 1];
+			
+			console.log('Antes del cambio:', config.codigo, 'orden:', config.orden, '->', configSiguiente.codigo, 'orden:', configSiguiente.orden);
+			
+			// Intercambiar orden
+			const tempOrden = config.orden;
+			config.orden = configSiguiente.orden;
+			configSiguiente.orden = tempOrden;
+			
+			console.log('Después del cambio:', config.codigo, 'orden:', config.orden, '->', configSiguiente.codigo, 'orden:', configSiguiente.orden);
+			
+			configuracionRubros = [...configuracionRubros];
+			guardarConfiguracionRubros();
+		}
+	}
+
+			// Generar PDF
 	async function generarPDF() {
 		try {
 			generandoPDF = true;
 			
+			// Convertir el array ordenado a objeto para el backend
+			const articulosPorRubroObj = articulosPorRubroOrdenado.reduce((acc, {codigo, articulos}) => {
+				acc[codigo] = articulos;
+				return acc;
+			}, {} as Record<string, Articulo[]>);
+
+			// Obtener el orden de los rubros visibles
+			const ordenRubros = articulosPorRubroOrdenado.map(rubro => rubro.codigo);
+
 			const datos = {
 				empresa: empresa,
 				fecha: new Date().toISOString().split('T')[0],
 				listaPrecio: parseInt(listaPrecio),
 				mostrarExistencia: mostrarExistencia,
-				articulosPorRubro: articulosPorRubro,
-				rubros: rubros
+				articulosPorRubro: articulosPorRubroObj,
+				rubros: rubros,
+				ordenRubros: ordenRubros
 			};
 
 			const response = await fetchWithAuth('/api/articulos/listado-precios-pdf', {
@@ -147,13 +328,23 @@
 		try {
 			generandoPDF = true;
 			
+			// Convertir el array ordenado a objeto para el backend
+			const articulosPorRubroObj = articulosPorRubroOrdenado.reduce((acc, {codigo, articulos}) => {
+				acc[codigo] = articulos;
+				return acc;
+			}, {} as Record<string, Articulo[]>);
+
+			// Obtener el orden de los rubros visibles
+			const ordenRubros = articulosPorRubroOrdenado.map(rubro => rubro.codigo);
+
 			const datos = {
 				empresa: empresa,
 				fecha: new Date().toISOString().split('T')[0],
 				listaPrecio: parseInt(listaPrecio),
 				mostrarExistencia: mostrarExistencia,
-				articulosPorRubro: articulosPorRubro,
-				rubros: rubros
+				articulosPorRubro: articulosPorRubroObj,
+				rubros: rubros,
+				ordenRubros: ordenRubros
 			};
 
 			const response = await fetchWithAuth('/api/articulos/listado-precios-pdf', {
@@ -283,6 +474,89 @@
 		</div>
 	</div>
 
+	<!-- Configuración de Rubros -->
+	<div class="bg-white rounded-lg shadow-md p-4 mb-6">
+		<div class="flex justify-between items-center mb-4">
+			<h3 class="text-lg font-semibold text-gray-800">Configuración de Rubros</h3>
+			<Button 
+				variant="secondary" 
+				on:click={() => mostrarConfiguracionRubros = !mostrarConfiguracionRubros}
+			>
+				{mostrarConfiguracionRubros ? 'Ocultar' : 'Configurar'} Rubros
+			</Button>
+		</div>
+
+		{#if mostrarConfiguracionRubros}
+			<div class="space-y-4">
+				<!-- Controles generales -->
+				<div class="flex space-x-2">
+					<Button variant="secondary" size="sm" on:click={mostrarTodosLosRubros}>
+						Mostrar Todos
+					</Button>
+					<Button variant="secondary" size="sm" on:click={ocultarTodosLosRubros}>
+						Ocultar Todos
+					</Button>
+					<Button variant="secondary" size="sm" on:click={() => {
+						console.log('Estado actual:');
+						console.log('rubros:', rubros);
+						console.log('configuracionRubros:', configuracionRubros);
+					}}>
+						Debug Estado
+					</Button>
+				</div>
+
+				<!-- Lista de rubros ordenados -->
+				<div class="max-h-96 overflow-y-auto border border-gray-200 rounded-md">
+					{#each configuracionRubros.sort((a, b) => a.orden - b.orden) as config, index}
+						<div class="flex items-center justify-between p-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
+							<div class="flex items-center space-x-3 flex-1">
+								<button 
+									on:click={() => toggleRubroVisible(config.codigo)}
+									class={`px-2 py-1 text-xs rounded ${
+										config.visible
+											? 'bg-green-100 text-green-700 hover:bg-green-200' 
+											: 'bg-red-100 text-red-700 hover:bg-red-200'
+									}`}
+								>
+									{config.visible ? 'Visible' : 'Oculto'}
+								</button>
+								<span class="text-sm font-mono text-gray-500">{config.codigo}</span>
+								<span class="text-sm text-gray-700">
+									{config.codigo === 'SIN_RUBRO' ? 'Sin Rubro' : 
+										rubros.find(r => r.Codigo === config.codigo)?.Descripcion || config.codigo}
+								</span>
+							</div>
+							
+							<div class="flex space-x-1">
+								<button 
+									on:click={() => moverRubroArriba(index)}
+									disabled={index === 0}
+									class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded disabled:opacity-50"
+									title="Mover arriba"
+								>
+									↑
+								</button>
+								<button 
+									on:click={() => moverRubroAbajo(index)}
+									disabled={index === configuracionRubros.length - 1}
+									class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded disabled:opacity-50"
+									title="Mover abajo"
+								>
+									↓
+								</button>
+							</div>
+						</div>
+					{/each}
+				</div>
+
+				<!-- Información del orden -->
+				<div class="text-sm text-gray-600 bg-gray-50 p-3 rounded">
+					<p><strong>Orden actual:</strong> Todos los rubros están incluidos en el orden. Usa los botones ↑/↓ para reorganizar la posición de cada rubro en el listado.</p>
+				</div>
+			</div>
+		{/if}
+	</div>
+
 	<!-- Error -->
 	{#if error}
 		<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
@@ -315,7 +589,7 @@
 			</div>
 
 			<!-- Listado por rubros -->
-			{#each Object.entries(articulosPorRubro) as [rubroCodigo, articulosRubro]}
+			{#each articulosPorRubroOrdenado as {codigo: rubroCodigo, articulos: articulosRubro}}
 				<div class="mb-8 print:mb-6">
 					<h3 class="text-xl font-bold text-gray-800 mb-4 print:text-lg print:mb-3 border-b-2 border-gray-300 pb-2">
 						{getNombreRubro(rubroCodigo)}

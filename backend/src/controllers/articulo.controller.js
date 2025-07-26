@@ -788,7 +788,7 @@ exports.actualizarPreciosLista = async (req, res) => {
 exports.generarListadoPreciosPDF = async (req, res) => {
   try {
     const PDFDocument = require('pdfkit');
-    const { empresa, fecha, listaPrecio, mostrarExistencia, articulosPorRubro, rubros } = req.body;
+    const { empresa, fecha, listaPrecio, mostrarExistencia, articulosPorRubro, rubros, ordenRubros } = req.body;
 
     // Crear documento PDF
     const doc = new PDFDocument({
@@ -810,14 +810,21 @@ exports.generarListadoPreciosPDF = async (req, res) => {
 
     // Función para obtener precio según lista
     const getPrecioLista = (articulo) => {
+      const precioCosto = articulo.PrecioCosto || 0;
+      let porcentajeLista = 0;
+      
+      // Obtener el porcentaje de la lista seleccionada
       switch (listaPrecio) {
-        case 1: return articulo.Lista1 || 0;
-        case 2: return articulo.Lista2 || 0;
-        case 3: return articulo.Lista3 || 0;
-        case 4: return articulo.Lista4 || 0;
-        case 5: return articulo.Lista5 || 0;
-        default: return articulo.Lista1 || 0;
+        case 1: porcentajeLista = articulo.PorcentajeLista1 || 0; break;
+        case 2: porcentajeLista = articulo.PorcentajeLista2 || 0; break;
+        case 3: porcentajeLista = articulo.PorcentajeLista3 || 0; break;
+        case 4: porcentajeLista = articulo.PorcentajeLista4 || 0; break;
+        case 5: porcentajeLista = articulo.PorcentajeLista5 || 0; break;
+        default: porcentajeLista = articulo.PorcentajeLista1 || 0; break;
       }
+      
+      // Calcular precio de lista: precio de costo + porcentaje
+      return precioCosto * (1 + porcentajeLista / 100);
     };
 
     // Función para obtener precio con IVA
@@ -858,8 +865,14 @@ exports.generarListadoPreciosPDF = async (req, res) => {
     const pageHeight = doc.page.height - 60;
     const margin = 30;
 
-    // Iterar por cada rubro
-    for (const [rubroCodigo, articulos] of Object.entries(articulosPorRubro)) {
+    // Ordenar rubros según el orden proporcionado
+    const rubrosOrdenados = ordenRubros && Array.isArray(ordenRubros) 
+      ? ordenRubros.filter(codigo => articulosPorRubro[codigo])
+      : Object.keys(articulosPorRubro);
+
+    // Iterar por cada rubro en el orden correcto
+    for (const rubroCodigo of rubrosOrdenados) {
+      const articulos = articulosPorRubro[rubroCodigo];
       const nombreRubro = getNombreRubro(rubroCodigo);
       
       // Verificar si necesitamos nueva página
