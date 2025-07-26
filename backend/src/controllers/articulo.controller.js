@@ -27,6 +27,85 @@ const upload = multer({
   }
 }).single('archivo');
 
+// Obtener todos los artículos para listado de precios (sin paginación)
+exports.getAllArticulosForPricing = async (req, res) => {
+  try {
+    const { Articulo, Proveedor, Rubro } = req.models;
+    const {
+      activo = 1,
+      proveedor = "",
+      rubro = "",
+      proveedores = "",
+      rubros = ""
+    } = req.query;
+
+    // Configurar opciones de búsqueda
+    const whereClause = {};
+    
+    // Filtrar por estado activo/inactivo
+    if (parseInt(activo) !== -1) {
+      whereClause.Activo = parseInt(activo) === 1 ? 1 : 0;
+    }
+    
+    // Filtrar por proveedor
+    if (proveedor) {
+      whereClause.ProveedorCodigo = proveedor;
+    }
+    
+    // Filtrar por rubro
+    if (rubro) {
+      whereClause.RubroCodigo = rubro;
+    }
+
+    // Filtrar por múltiples proveedores
+    if (proveedores) {
+      whereClause.ProveedorCodigo = {
+        [Op.in]: proveedores.split(',')
+      };
+    }
+
+    // Filtrar por múltiples rubros
+    if (rubros) {
+      whereClause.RubroCodigo = {
+        [Op.in]: rubros.split(',')
+      };
+    }
+
+    // Obtener todos los registros sin paginación
+    const articulos = await Articulo.findAll({
+      where: whereClause,
+      order: [["RubroCodigo", "ASC"], ["Descripcion", "ASC"]],
+      include: [
+        {
+          model: Proveedor,
+          as: "Proveedor",
+          attributes: ["Codigo", "Descripcion"],
+          required: false
+        },
+        {
+          model: Rubro,
+          as: "Rubro",
+          attributes: ["Codigo", "Descripcion"],
+          required: false
+        }
+      ]
+    });
+
+    return res.status(200).json({
+      items: articulos,
+      total: articulos.length
+    });
+
+  } catch (error) {
+    console.error("Error al obtener artículos para listado de precios:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error al obtener artículos",
+      error: error.message
+    });
+  }
+};
+
 // Obtener todos los artículos (con filtros y paginación)
 exports.getAllArticulos = async (req, res) => {
   try {
@@ -702,5 +781,197 @@ exports.actualizarPreciosLista = async (req, res) => {
   } catch (error) {
     console.error("Error al actualizar precios desde lista:", error);
     return res.status(500).json({ message: "Error al actualizar los precios" });
+  }
+};
+
+// Generar listado de precios en PDF
+exports.generarListadoPreciosPDF = async (req, res) => {
+  try {
+    const PDFDocument = require('pdfkit');
+    const { empresa, fecha, listaPrecio, mostrarExistencia, articulosPorRubro, rubros } = req.body;
+
+    // Crear documento PDF
+    const doc = new PDFDocument({
+      size: 'A4',
+      margin: 30
+    });
+
+    // Configurar headers para PDF
+    res.setHeader('Content-Type', 'application/pdf');
+    const nombreEmpresa = empresa?.RazonSocial || 'Empresa';
+    const nombreArchivo = `${nombreEmpresa}_listade_precios_${fecha}.pdf`;
+    res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);
+
+    // Pipe el PDF a la respuesta
+    doc.pipe(res);
+    
+    // Configurar fuente para soporte Unicode
+    doc.font('Helvetica');
+
+    // Función para obtener precio según lista
+    const getPrecioLista = (articulo) => {
+      switch (listaPrecio) {
+        case 1: return articulo.Lista1 || 0;
+        case 2: return articulo.Lista2 || 0;
+        case 3: return articulo.Lista3 || 0;
+        case 4: return articulo.Lista4 || 0;
+        case 5: return articulo.Lista5 || 0;
+        default: return articulo.Lista1 || 0;
+      }
+    };
+
+    // Función para obtener precio con IVA
+    const getPrecioConIva = (articulo) => {
+      const precioLista = getPrecioLista(articulo);
+      const porcentajeIva = articulo.PorcentajeIVA1 || 21;
+      return precioLista * (1 + porcentajeIva / 100);
+    };
+
+    // Función para obtener nivel de existencia
+    const getNivelExistencia = (articulo) => {
+      if (!mostrarExistencia) return '';
+      
+      const existencia = articulo.Existencia || 0;
+      const existenciaMinima = articulo.ExistenciaMinima || 0;
+      
+      if (existencia === 0) return 'X'; // Sin stock
+      if (existencia <= existenciaMinima) return '!'; // Stock bajo
+      return 'OK'; // Stock alto
+    };
+
+    // Función para obtener nombre del rubro
+    const getNombreRubro = (codigo) => {
+      if (codigo === 'SIN_RUBRO') return 'Sin Rubro';
+      const rubro = rubros.find(r => r.Codigo === codigo);
+      return rubro ? rubro.Descripcion : `Rubro ${codigo}`;
+    };
+
+    // Encabezado
+    doc.fontSize(22).font('Helvetica-Bold').text(empresa?.RazonSocial || 'Empresa', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(18).font('Helvetica').text(`Listado de Precios - Lista ${listaPrecio}`, { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(14).text(`Fecha: ${fecha}`, { align: 'center' });
+    doc.moveDown(2);
+
+    let yPosition = doc.y;
+    const pageHeight = doc.page.height - 60;
+    const margin = 30;
+
+    // Iterar por cada rubro
+    for (const [rubroCodigo, articulos] of Object.entries(articulosPorRubro)) {
+      const nombreRubro = getNombreRubro(rubroCodigo);
+      
+      // Verificar si necesitamos nueva página
+      if (yPosition > pageHeight - 100) {
+        doc.addPage();
+        yPosition = margin;
+      }
+
+      // Título del rubro
+      doc.fontSize(16).font('Helvetica-Bold').text(nombreRubro, { ellipsis: true });
+      doc.moveDown(0.5);
+      // Reposicionar cursor a la izquierda después del título
+      doc.x = margin;
+    
+
+      // Tabla de artículos
+      const tableTop = doc.y;
+      const tableLeft = margin;
+      const columnWidth = {
+        codigo: 70,
+        descripcion: 280,
+        precioLista: 70,
+        precioConIva: 70
+      };
+
+      if (mostrarExistencia) {
+        columnWidth.existencia = 50;
+      }
+
+      // Encabezados de tabla
+      doc.fontSize(12).font('Helvetica-Bold');
+      let x = tableLeft;
+      doc.text('Código', x, tableTop, { width: columnWidth.codigo, ellipsis: true });
+      x += columnWidth.codigo;
+      doc.text('Descripción', x, tableTop, { width: columnWidth.descripcion, ellipsis: true });
+      x += columnWidth.descripcion;
+      doc.text('Precio', x, tableTop, { width: columnWidth.precioLista, align: 'right' });
+      x += columnWidth.precioLista;
+      doc.text('Precio+IVA', x, tableTop, { width: columnWidth.precioConIva, align: 'right' });
+      
+      if (mostrarExistencia) {
+        x += columnWidth.precioConIva;
+        doc.text('Stock', x, tableTop, { width: columnWidth.existencia, align: 'center' });
+      }
+
+      doc.moveDown(0.5);
+      // Reposicionar cursor a la izquierda después de los encabezados
+      doc.x = margin;
+
+      // Línea separadora
+      doc.strokeColor('#000000').moveTo(tableLeft, doc.y).lineTo(tableLeft + Object.values(columnWidth).reduce((a, b) => a + b, 0), doc.y).stroke();
+      doc.moveDown(0.5);
+      // Reposicionar cursor a la izquierda después de la línea separadora
+      doc.x = margin;
+
+      // Artículos del rubro
+      doc.fontSize(11).font('Helvetica');
+      
+      for (const articulo of articulos) {
+        // Verificar si necesitamos nueva página
+        if (doc.y > pageHeight - 50) {
+          doc.addPage();
+          yPosition = margin;
+        }
+
+        const currentY = doc.y;
+        x = tableLeft;
+        doc.text(articulo.Codigo || '', x, currentY, { width: columnWidth.codigo, ellipsis: true });
+        x += columnWidth.codigo;
+        doc.text(articulo.Descripcion || '', x, currentY, { width: columnWidth.descripcion, ellipsis: true });
+        x += columnWidth.descripcion;
+        doc.text(`$${getPrecioLista(articulo).toFixed(2)}`, x, currentY, { width: columnWidth.precioLista, align: 'right' });
+        x += columnWidth.precioLista;
+        doc.text(`$${getPrecioConIva(articulo).toFixed(2)}`, x, currentY, { width: columnWidth.precioConIva, align: 'right' });
+        
+        if (mostrarExistencia) {
+          x += columnWidth.precioConIva;
+          const nivelExistencia = getNivelExistencia(articulo);
+          doc.text(nivelExistencia, x, currentY, { width: columnWidth.existencia, align: 'center' });
+        }
+
+        // Mover a la siguiente línea sin saltos adicionales
+        doc.y = currentY + 15; // Espacio fijo entre líneas
+        // Reposicionar cursor a la izquierda
+        doc.x = margin;
+      }
+
+      doc.moveDown(1);
+      yPosition = doc.y;
+    }
+
+    // Pie de página
+    doc.moveDown(2);
+    doc.fontSize(12).font('Helvetica').text(`Total de artículos: ${Object.values(articulosPorRubro).flat().length}`, { align: 'center', ellipsis: true });
+    doc.moveDown(0.5);
+    doc.text(`Generado el ${fecha}`, { align: 'center', ellipsis: true });
+    
+    // Leyenda de stock si está habilitada
+    if (mostrarExistencia) {
+      doc.moveDown(1);
+      doc.fontSize(10).font('Helvetica').text('Leyenda Stock: OK Alto | ! Bajo | X Sin stock', { align: 'center' });
+    }
+
+    // Finalizar PDF
+    doc.end();
+
+  } catch (error) {
+    console.error('Error al generar PDF:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al generar PDF',
+      error: error.message
+    });
   }
 };

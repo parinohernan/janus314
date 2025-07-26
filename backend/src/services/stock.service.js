@@ -91,7 +91,7 @@ const StockService = {
       }
 
       for (const item of items) {
-        // Actualizar stock
+        // Actualizar stock (solo descuento, sin crear movimiento)
         await this.actualizarStock(
           item.ArticuloCodigo,
           signo * item.Cantidad,
@@ -99,20 +99,20 @@ const StockService = {
           Articulo
         );
 
-        // Registrar movimiento
-        await this.registrarMovimiento(
-          {
-            DocumentoTipo: documentoTipo,
-            DocumentoSucursal: documentoSucursal,
-            DocumentoNumero: documentoNumero,
-            Fecha: fecha,
-            CodigoArticulo: item.ArticuloCodigo,
-            Cantidad: signo * item.Cantidad,
-            Motivo: esVenta ? "VENTA" : "DEVOLUCION",
-          },
-          transaction,
-          MovimientoStock
-        );
+        // Comentado: No crear registro de movimiento de stock
+        // await this.registrarMovimiento(
+        //   {
+        //     DocumentoTipo: documentoTipo,
+        //     DocumentoSucursal: documentoSucursal,
+        //     DocumentoNumero: documentoNumero,
+        //     Fecha: fecha,
+        //     CodigoArticulo: item.ArticuloCodigo,
+        //     Cantidad: signo * item.Cantidad,
+        //     Motivo: esVenta ? "VENTA" : "DEVOLUCION",
+        //   },
+        //   transaction,
+        //   MovimientoStock
+        // );
       }
     } catch (error) {
       console.error(`Error al procesar stock para factura:`, error);

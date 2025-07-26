@@ -320,9 +320,14 @@
   <!-- Encabezado -->
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-2xl font-bold">Gestión de Productos</h1>
-    <Button variant="primary" on:click={() => goto('/productos/nuevo')}>
-      Nuevo Producto 
-    </Button>
+    <div class="flex space-x-2">
+      <Button variant="secondary" on:click={() => goto('/productos/precios/listado')}>
+        Listado de Precios
+      </Button>
+      <Button variant="primary" on:click={() => goto('/productos/nuevo')}>
+        Nuevo Producto 
+      </Button>
+    </div>
   </div>
   
   <!-- Filtros -->

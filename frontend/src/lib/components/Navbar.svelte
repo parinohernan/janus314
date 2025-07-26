@@ -82,6 +82,7 @@
         { label: 'Productos', url: '/productos' },
         { label: 'Stock', url: '/productos/stock' },
         { label: 'Rubros', url: '/rubros' },
+        { label: 'Listado de Precios', url: '/productos/precios/listado' },
         { label: 'Actualización de Precios', url: '/productos/precios/actualizacion' },
         { label: 'Actualización de Precios desde listas', url: '/productos/precios/actualizarconlista' }
       ]

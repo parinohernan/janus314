@@ -37,6 +37,8 @@ router.get("/stock-bajo", articuloController.getStockBajo);
 router.post("/asociar-codigo", articuloController.asociarCodigoBarras);
 router.post("/actualizar-precios", articuloController.actualizarPrecios);
 router.post("/actualizar-precios-lista", articuloController.actualizarPreciosLista);
+router.post("/listado-precios-pdf", articuloController.generarListadoPreciosPDF);
+router.get("/listado-precios", articuloController.getAllArticulosForPricing);
 
 // Rutas con parámetros después
 router.get("/:id", articuloController.getArticuloById);

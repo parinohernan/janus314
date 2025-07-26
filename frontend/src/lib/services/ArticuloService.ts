@@ -174,4 +174,23 @@ export class ArticuloService {
 			throw new Error('Error al cargar los artículos');
 		}
 	}
+
+	/**
+	 * Obtiene todos los artículos para listado de precios (sin paginación)
+	 */
+	public static async obtenerArticulosParaListadoPrecios(activo: boolean = true): Promise<Articulo[]> {
+		try {
+			const response = await fetchWithAuth('/articulos/listado-precios', {
+				params: {
+					activo: activo ? 1 : 0
+				}
+			});
+			
+			const data = await response.json();
+			return data.items || [];
+		} catch (error) {
+			console.error('Error al obtener artículos para listado de precios:', error);
+			throw new Error('Error al cargar los artículos');
+		}
+	}
 }

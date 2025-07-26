@@ -1134,7 +1134,12 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
 
 <div class="container mx-auto px-4 py-8">
   <div class="flex justify-between items-center mb-6">
-    <h1 class="text-2xl font-bold text-gray-800">Nueva Factura</h1>
+    <div class="flex items-center space-x-4">
+      <h1 class="text-2xl font-bold text-gray-800">Nueva Factura</h1>
+      <div class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+        {factura.Items.length} {factura.Items.length === 1 ? 'artículo' : 'artículos'}
+      </div>
+    </div>
     <div class="flex space-x-2">
       <Button variant="secondary" on:click={cancelar}>Cancelar</Button>
       <Button variant="primary" on:click={crearFactura} disabled={loading}>
