@@ -13,6 +13,7 @@ const StockService = {
    * @param {Object} Articulo - Modelo de artículo dinámico
    */
   async actualizarStock(codigoArticulo, cantidad, transaction, Articulo) {
+    console.log("????????????actualizarStock", codigoArticulo, cantidad, transaction, Articulo);
     try {
       // Actualizar stock en la tabla de artículos
       await Articulo.update(
@@ -67,30 +68,46 @@ const StockService = {
     transaction,
     models = null
   ) {
+    console.log("🔍 procesarStockFactura INICIADO");
+    console.log("🔍 documentoTipo:", documentoTipo);
+    console.log(" items recibidos:", items);
+    
     try {
       // Usar modelos dinámicos si están disponibles, de lo contrario importar modelos estáticos
       let Articulo, MovimientoStock;
       if (models) {
         Articulo = models.Articulo;
         MovimientoStock = models.MovimientoStock;
+        console.log(" Usando modelos dinámicos");
       } else {
         // Importar de forma dinámica solo si es necesario (fallback)
         Articulo = require("../models/articulo.model");
         MovimientoStock = require("../models/movimientoStock");
+        console.log("🔍 Usando modelos estáticos");
       }
       
       // Determinar tipo de movimiento según tipo de documento
-      const esVenta = ["FAA", "FAB", "FCA", "FCB"].includes(documentoTipo);
-      const esDevolucion = ["NCA", "NCB"].includes(documentoTipo);
+      const esVenta = ["FAA", "FAB", "FCA", "FCB","PRF"].includes(documentoTipo);
+      const esDevolucion = ["NCA", "NCB","NCF"].includes(documentoTipo);
+
+      console.log(" esVenta:", esVenta, "esDevolucion:", esDevolucion);
 
       // El signo depende del tipo de documento
       const signo = esVenta ? -1 : esDevolucion ? 1 : 0;
 
+      console.log(" signo calculado:", signo);
+
       if (signo === 0) {
+        console.log("🔍 No afecta stock, saliendo");
         return; // No afecta stock
       }
 
+      console.log("🔍 Procesando items...");
       for (const item of items) {
+        console.log(" Procesando item:", item);
+        console.log("🔍 item.ArticuloCodigo:", item.ArticuloCodigo);
+        console.log("🔍 item.Cantidad:", item.Cantidad);
+        
         // Actualizar stock (solo descuento, sin crear movimiento)
         await this.actualizarStock(
           item.ArticuloCodigo,
@@ -98,22 +115,8 @@ const StockService = {
           transaction,
           Articulo
         );
-
-        // Comentado: No crear registro de movimiento de stock
-        // await this.registrarMovimiento(
-        //   {
-        //     DocumentoTipo: documentoTipo,
-        //     DocumentoSucursal: documentoSucursal,
-        //     DocumentoNumero: documentoNumero,
-        //     Fecha: fecha,
-        //     CodigoArticulo: item.ArticuloCodigo,
-        //     Cantidad: signo * item.Cantidad,
-        //     Motivo: esVenta ? "VENTA" : "DEVOLUCION",
-        //   },
-        //   transaction,
-        //   MovimientoStock
-        // );
       }
+      console.log("🔍 procesarStockFactura COMPLETADO");
     } catch (error) {
       console.error(`Error al procesar stock para factura:`, error);
       throw error;

@@ -1,7 +1,7 @@
 /**
  * Renderiza la información electrónica en el documento PDF (QR, CAE, logo ARCA, etc.)
  * @param {PDFDocument} doc - Documento PDF
- * @param {Object} factura - Datos de la factura
+ * @param {Object} factura - Datos de la factura o nota de crédito
  * @param {number} yTotales - Posición Y de los totales
  * @returns {number} - Posición Y final
  */
@@ -12,8 +12,9 @@ async function renderElectronicInfo(doc, factura, yTotales) {
     afip_cae_vencimiento: factura.afip_cae_vencimiento
   });
   
-  // Código QR en el pie de página (para todas las facturas A y B)
-  if (factura.DocumentoTipo === "FCA" || factura.DocumentoTipo === "FCB") {
+  // Código QR en el pie de página (para facturas A y B, y notas de crédito A y B)
+  if (factura.DocumentoTipo === "FCA" || factura.DocumentoTipo === "FCB" || 
+      factura.DocumentoTipo === "NCA" || factura.DocumentoTipo === "NCB") {
     // Zona para el QR
     doc.y = yTotales;
     doc.x = 20;
@@ -36,18 +37,19 @@ async function renderElectronicInfo(doc, factura, yTotales) {
           doc.image(qrImage, doc.x, doc.y + 24, { width: 80, height: 80 });
           console.log('✅ QR dibujado exitosamente');
         } else {
-          console.error("❌ Error generando QR para factura");
+          console.error("❌ Error generando QR para documento");
         }
       } else {
         console.log('⚠️ No se generaron datos QR');
       }
     } catch (error) {
-      console.error("💥 Error generando QR para factura:", error);
+      console.error("💥 Error generando QR para documento:", error);
     }
   }
 
   // Información del CAE y logo ARCA a la derecha del QR
-  if (factura.DocumentoTipo === "FCA" || factura.DocumentoTipo === "FCB") {
+  if (factura.DocumentoTipo === "FCA" || factura.DocumentoTipo === "FCB" || 
+      factura.DocumentoTipo === "NCA" || factura.DocumentoTipo === "NCB") {
     doc.x = 140;
     yTotales = yTotales + 24 
     doc.y = yTotales

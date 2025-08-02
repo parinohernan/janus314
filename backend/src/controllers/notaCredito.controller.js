@@ -48,6 +48,11 @@ exports.listarNotasCredito = async (req, res) => {
     // Consulta con join a cliente
     const notasCredito = await NotaCreditoCabezaEmpresa.findAndCountAll({
       where: whereClause,
+      attributes: [
+        'DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'Fecha', 
+        'ImporteTotal', 'FechaAnulacion', 'afip_cae', 'afip_cae_vencimiento',
+        'afip_cae_observaciones', 'CodigoCliente'
+      ],
       include: [
         {
           model: ClienteEmpresa,

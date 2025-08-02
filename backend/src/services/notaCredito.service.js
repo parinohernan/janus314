@@ -127,7 +127,39 @@ const NotaCreditoService = {
    */
   async crearCabeceraNotaCredito(notaCreditoData, transaction, NotaCreditoCabezaModel) {
     try {
-      return await NotaCreditoCabezaModel.create(notaCreditoData, { transaction });
+      // Mapear explícitamente los campos para asegurar que se guarden correctamente
+      const datosCabecera = {
+        DocumentoTipo: notaCreditoData.DocumentoTipo,
+        DocumentoSucursal: notaCreditoData.DocumentoSucursal,
+        DocumentoNumero: notaCreditoData.DocumentoNumero,
+        CodigoCliente: notaCreditoData.CodigoCliente,
+        Fecha: notaCreditoData.Fecha,
+        ImporteTotal: parseFloat(notaCreditoData.ImporteTotal) || 0,
+        ImporteUtilizado: parseFloat(notaCreditoData.ImporteUtilizado) || 0,
+        ImporteNeto: parseFloat(notaCreditoData.ImporteNeto) || 0,
+        ImporteIva1: parseFloat(notaCreditoData.ImporteIva1) || 0,
+        ImporteIva2: parseFloat(notaCreditoData.ImporteIva2) || 0,
+        BaseImponible1: parseFloat(notaCreditoData.BaseImponible1) || 0,
+        BaseImponible2: parseFloat(notaCreditoData.BaseImponible2) || 0,
+        PorcentajeIva1: parseFloat(notaCreditoData.PorcentajeIva1) || 21,
+        PorcentajeIva2: parseFloat(notaCreditoData.PorcentajeIva2) || 10.5,
+        ImporteBruto: parseFloat(notaCreditoData.ImporteBruto) || 0,
+        ImporteBonificado: parseFloat(notaCreditoData.ImporteBonificado) || 0,
+        ImporteAdicional: parseFloat(notaCreditoData.ImporteAdicional) || 0,
+        ListaNumero: notaCreditoData.ListaNumero || 1,
+        Observacion: notaCreditoData.Observacion || '',
+        PorStock: notaCreditoData.PorStock ? 1 : 0,
+        CodigoUsuario: notaCreditoData.CodigoUsuario || 'admin',
+        CajaNumero: notaCreditoData.CajaNumero || null,
+        CodigoVendedor: notaCreditoData.CodigoVendedor || '1',
+        factura_tipo: notaCreditoData.factura_tipo || null,
+        factura_sucursal: notaCreditoData.factura_sucursal || null,
+        factura_numero: notaCreditoData.factura_numero || null
+      };
+
+      console.log('Datos de cabecera a guardar:', datosCabecera);
+      
+      return await NotaCreditoCabezaModel.create(datosCabecera, { transaction });
     } catch (error) {
       console.error("Error al crear cabecera de nota de crédito:", error);
       throw error;

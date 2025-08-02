@@ -854,11 +854,11 @@ exports.generarListadoPreciosPDF = async (req, res) => {
     };
 
     // Encabezado
-    doc.fontSize(22).font('Helvetica-Bold').text(empresa?.RazonSocial || 'Empresa', { align: 'center' });
+    doc.fontSize(20).font('Helvetica-Bold').text(empresa?.RazonSocial || 'Empresa', { align: 'center' });
     doc.moveDown(0.5);
-    doc.fontSize(18).font('Helvetica').text(`Listado de Precios - Lista ${listaPrecio}`, { align: 'center' });
+    doc.fontSize(16).font('Helvetica').text(`Listado de Precios - Lista ${listaPrecio}`, { align: 'center' });
     doc.moveDown(0.5);
-    doc.fontSize(14).text(`Fecha: ${fecha}`, { align: 'center' });
+    doc.fontSize(12).text(`Fecha: ${fecha}`, { align: 'center' });
     doc.moveDown(2);
 
     let yPosition = doc.y;
@@ -882,7 +882,7 @@ exports.generarListadoPreciosPDF = async (req, res) => {
       }
 
       // Título del rubro
-      doc.fontSize(16).font('Helvetica-Bold').text(nombreRubro, { ellipsis: true });
+      doc.fontSize(14).font('Helvetica-Bold').text(nombreRubro, { ellipsis: true });
       doc.moveDown(0.5);
       // Reposicionar cursor a la izquierda después del título
       doc.x = margin;
@@ -903,7 +903,7 @@ exports.generarListadoPreciosPDF = async (req, res) => {
       }
 
       // Encabezados de tabla
-      doc.fontSize(12).font('Helvetica-Bold');
+      doc.fontSize(10).font('Helvetica-Bold');
       let x = tableLeft;
       doc.text('Código', x, tableTop, { width: columnWidth.codigo, ellipsis: true });
       x += columnWidth.codigo;
@@ -929,7 +929,7 @@ exports.generarListadoPreciosPDF = async (req, res) => {
       doc.x = margin;
 
       // Artículos del rubro
-      doc.fontSize(11).font('Helvetica');
+      doc.fontSize(9).font('Helvetica');
       
       for (const articulo of articulos) {
         // Verificar si necesitamos nueva página
@@ -966,14 +966,14 @@ exports.generarListadoPreciosPDF = async (req, res) => {
 
     // Pie de página
     doc.moveDown(2);
-    doc.fontSize(12).font('Helvetica').text(`Total de artículos: ${Object.values(articulosPorRubro).flat().length}`, { align: 'center', ellipsis: true });
+    doc.fontSize(10).font('Helvetica').text(`Total de artículos: ${Object.values(articulosPorRubro).flat().length}`, { align: 'center', ellipsis: true });
     doc.moveDown(0.5);
     doc.text(`Generado el ${fecha}`, { align: 'center', ellipsis: true });
     
     // Leyenda de stock si está habilitada
     if (mostrarExistencia) {
       doc.moveDown(1);
-      doc.fontSize(10).font('Helvetica').text('Leyenda Stock: OK Alto | ! Bajo | X Sin stock', { align: 'center' });
+      doc.fontSize(8).font('Helvetica').text('Leyenda Stock: OK Alto | ! Bajo | X Sin stock', { align: 'center' });
     }
 
     // Finalizar PDF

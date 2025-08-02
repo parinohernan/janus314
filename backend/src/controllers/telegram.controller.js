@@ -692,23 +692,22 @@ exports.crearNotaCredito = async (req, res) => {
         DocumentoSucursal: notaCreditoData.DocumentoSucursal,
         DocumentoNumero: notaCreditoData.DocumentoNumero,
         Fecha: fechaBsAs,
-        ClienteCodigo: notaCreditoData.ClienteCodigo,
-        VendedorCodigo: notaCreditoData.Vendedor,
-        ImporteBruto: notaCreditoData.ImporteBruto,
-        PorcentajeBonificacion: notaCreditoData.PorcentajeBonificacion || 0,
-        ImporteBonificado: notaCreditoData.ImporteBonificado || 0,
-        ImporteNeto: notaCreditoData.ImporteNeto,
-        ImporteAdicional: notaCreditoData.ImporteAdicional || 0,
-        ImporteIva1: notaCreditoData.ImporteIva1,
-        ImporteIva2: notaCreditoData.ImporteIva2 || 0,
-        BaseImponible1: notaCreditoData.BaseImponible1,
-        BaseImponible2: notaCreditoData.BaseImponible2 || 0,
-        ImporteTotal: notaCreditoData.ImporteTotal,
-        PorcentajeIva1: 21,
-        PorcentajeIva2: 10.5,
+        CodigoCliente: notaCreditoData.ClienteCodigo, // ✅ Corregido
+        CodigoVendedor: notaCreditoData.Vendedor || '1', // ✅ Corregido
+        ImporteBruto: parseFloat(notaCreditoData.ImporteBruto) || 0,
+        ImporteBonificado: parseFloat(notaCreditoData.ImporteBonificado) || 0,
+        ImporteNeto: parseFloat(notaCreditoData.ImporteNeto) || 0,
+        ImporteAdicional: parseFloat(notaCreditoData.ImporteAdicional) || 0,
+        ImporteIva1: parseFloat(notaCreditoData.ImporteIva1) || 0,
+        ImporteIva2: parseFloat(notaCreditoData.ImporteIva2) || 0,
+        BaseImponible1: parseFloat(notaCreditoData.BaseImponible1) || 0,
+        BaseImponible2: parseFloat(notaCreditoData.BaseImponible2) || 0,
+        ImporteTotal: parseFloat(notaCreditoData.ImporteTotal) || 0,
+        PorcentajeIva1: parseFloat(notaCreditoData.PorcentajeIva1) || 21,
+        PorcentajeIva2: parseFloat(notaCreditoData.PorcentajeIva2) || 10.5,
         Observacion: notaCreditoData.Observacion || '',
         CodigoUsuario: 'admin',
-        CajaNumero: notaCreditoData.CajaNumero
+        CajaNumero: notaCreditoData.CajaNumero || null
       };
       
       // Crear nota de crédito cabeza

@@ -388,12 +388,17 @@
     try {
       loading = true;
       error = null;
+      
       // defino importe utilizado segun el pago
       if (notaCredito.FormaPagoCodigo === 'CC') {
         notaCredito.ImporteUtilizado = 0;
-      }else{
+      } else {
         notaCredito.ImporteUtilizado = notaCredito.ImporteTotal;
       }
+      
+      // Agregar log para debug
+      console.log('Datos de nota de crédito a enviar:', JSON.stringify(notaCredito, null, 2));
+      
       const resultado = await NotaCreditoService.crearNotaCredito(notaCredito);
       
       if (resultado.success) {

@@ -17,7 +17,7 @@ async function renderPrefactura(doc, data) {
   const interlineado = 10; //10 media pagina y 20 A4
 
   // Función para renderizar una página
-  const renderPage = async (isOriginal) => {
+  const renderPage = async () => {
     // Agregar logo de la empresa si está disponible
     if (finalLogoPath) {
       try {
@@ -34,10 +34,6 @@ async function renderPrefactura(doc, data) {
     // Encabezado simple con solo la leyenda "Prefactura Nº:" y el número
     doc.fontSize(14).font("Helvetica-Bold");
     doc.text(`Remito Nº: ${prefactura.DocumentoSucursal} - ${prefactura.DocumentoNumero}`, 40, 40, { align: "center" });
-    
-    // Agregar indicador de original o duplicado
-    doc.fontSize(12);
-    doc.text(isOriginal ? "ORIGINAL" : "DUPLICADO", 40, 60, { align: "center" });
     
     // Restaurar fuente normal
     doc.font("Helvetica");
@@ -111,14 +107,8 @@ async function renderPrefactura(doc, data) {
     doc.text("Este documento es una prefactura y no tiene validez fiscal", 20, y-10, { align: "left" });
   };
 
-  // Renderizar página original
-  await renderPage(true);
-  
-  // Agregar página duplicado
-  doc.addPage();
-  
-  // Renderizar página duplicado
-  await renderPage(false);
+  // Renderizar solo una página (sin duplicado)
+  await renderPage();
 }
 
 module.exports = renderPrefactura; 

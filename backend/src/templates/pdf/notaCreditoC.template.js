@@ -5,11 +5,11 @@ const renderElectronicInfo = require("./common/electronicInfo.js");
 const path = require("path");
 
 /**
- * Genera un PDF para una Nota de Crédito A
+ * Genera un PDF para una Nota de Crédito C
  * @param {PDFDocument} doc - Documento PDF
  * @param {Object} data - Datos de la nota de crédito
  */
-async function renderNotaCreditoA(doc, data) {
+async function renderNotaCreditoC(doc, data) {
   const { factura: notaCredito, items, logoPath } = data;
   // Si no se proporciona logoPath, usar el por defecto
   const finalLogoPath = logoPath || path.join(__dirname, "./common/logos/logoempresa.png");
@@ -33,8 +33,8 @@ async function renderNotaCreditoA(doc, data) {
       companyInicioActividades: notaCredito.Empresa.InicioActividades 
         ? notaCredito.Empresa.InicioActividades.toLocaleDateString("es-AR")
         : "No especificado",
-      title: "A",
-      documentType: "A",
+      title: "C",
+      documentType: "C",
       documentNumber: `${notaCredito.DocumentoSucursal}-${notaCredito.DocumentoNumero}`,
       logoPath: finalLogoPath,
     });
@@ -64,7 +64,7 @@ async function renderNotaCreditoA(doc, data) {
 
     // Tabla de items
     y = renderItemsList(doc, items, y, {
-      showIva: true, // Mostrar columna de IVA en notas de crédito A
+      showIva: false, // No mostrar columna de IVA en notas de crédito C
     });
 
     // me posiciono en la parte de los totales
@@ -76,8 +76,6 @@ async function renderNotaCreditoA(doc, data) {
 
     // Totales
     doc.font("Helvetica-Bold");
-    
-    // Subtotal
     doc.text("Subtotal:", xTotales, y, { width: 90, align: "right" });
     doc.text(
       notaCredito.ImporteNeto ? notaCredito.ImporteNeto.toFixed(2) : "0.00",
@@ -86,28 +84,6 @@ async function renderNotaCreditoA(doc, data) {
       { width: 70, align: "right" }
     );
     y += 20;
-
-    // IVA 21%
-    if (notaCredito.ImporteIva1 && notaCredito.ImporteIva1 > 0) {
-      doc.text("IVA 21%:", xTotales, y, { width: 90, align: "right" });
-      doc.text(
-        notaCredito.ImporteIva1.toFixed(2),
-        xTotales + 90,
-        y,
-        { width: 70, align: "right" }
-      );
-      y += 20;
-    }
-
-    // IVA 10.5%
-    if (notaCredito.ImporteIva2 && notaCredito.ImporteIva2 > 0) {
-      doc.text("IVA 10.5%:", xTotales, y, { width: 90, align: "right" });
-      doc.text(notaCredito.ImporteIva2.toFixed(2), xTotales + 90, y, {
-        width: 70,
-        align: "right",
-      });
-      y += 20;
-    }
 
     // Línea antes de los TOTALES
     doc.strokeColor("#000000").moveTo(20, 650).lineTo(580, 650).stroke();
@@ -146,4 +122,4 @@ async function renderNotaCreditoA(doc, data) {
   await renderPage(false);
 }
 
-module.exports = renderNotaCreditoA;
+module.exports = renderNotaCreditoC; 

@@ -8,7 +8,7 @@
   import { writable } from 'svelte/store';
   import { EmpresaService } from '$lib/services/EmpresaService';
   import CaeModal from '$lib/components/facturas/CaeModal.svelte';
-  import CaeManualModal from '$lib/components/facturas/CaeManualModal.svelte';
+  // Remover: import CaeManualModal from '$lib/components/facturas/CaeManualModal.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
   // Definición de interfaces
@@ -20,6 +20,8 @@
     ImporteTotal: number;
     FechaAnulacion: string | null;
     afip_cae?: string;
+    afip_cae_vencimiento?: string;
+    afip_cae_observaciones?: string;
     Cliente?: {
       Codigo: string;
       Descripcion: string;
@@ -279,7 +281,7 @@
   
   // Modificar la función para abrir modal CAE
   let mostrarModalCAE = false;
-  let mostrarModalCAEManual = false;
+  // Remover: let mostrarModalCAEManual = false;
   let notaCreditoSeleccionada: { 
     DocumentoTipo: string, 
     DocumentoSucursal: string, 
@@ -295,34 +297,21 @@
     mostrarModalCAE = true;
   };
 
-  const abrirModalCAEManual = (tipo: string, sucursal: string, numero: string) => {
-    notaCreditoSeleccionada = { 
-      DocumentoTipo: tipo, 
-      DocumentoSucursal: sucursal, 
-      DocumentoNumero: numero 
-    };
-    mostrarModalCAEManual = true;
-  };
+  // Remover: const abrirModalCAEManual = ...
 
   const cerrarModalCAE = () => {
     mostrarModalCAE = false;
     notaCreditoSeleccionada = null;
   };
 
-  const cerrarModalCAEManual = () => {
-    mostrarModalCAEManual = false;
-    notaCreditoSeleccionada = null;
-  };
+  // Remover: const cerrarModalCAEManual = ...
 
   const handleCaeObtenido = () => {
     cargarNotasCredito(); // Recargar la lista después de obtener el CAE
     cerrarModalCAE();
   };
 
-  const handleCaeGuardado = () => {
-    cargarNotasCredito(); // Recargar la lista después de guardar el CAE
-    cerrarModalCAEManual();
-  };
+  // Remover: const handleCaeGuardado = ...
   
   // Al montar el componente
   onMount(async () => {
@@ -553,22 +542,21 @@
               </td>
               <td class="px-4 py-3 whitespace-nowrap text-center">
                 {#if nc.afip_cae}
-                  <span class="text-sm text-gray-700">{nc.afip_cae}</span>
-                {:else if !nc.FechaAnulacion && (nc.DocumentoTipo === 'NCA' || nc.DocumentoTipo === 'NCB' || nc.DocumentoTipo === 'NCC')}
-                  <div class="flex flex-col space-y-1">
-                    <button 
-                      class="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      on:click={() => abrirModalCAE(nc.DocumentoTipo, nc.DocumentoSucursal, nc.DocumentoNumero)}
-                    >
-                      Obtener CAE
-                    </button>
-                    <button 
-                      class="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                      on:click={() => abrirModalCAEManual(nc.DocumentoTipo, nc.DocumentoSucursal, nc.DocumentoNumero)}
-                    >
-                      Colocar Manualmente
-                    </button>
+                  <div class="flex flex-col">
+                    <span class="text-sm font-medium text-gray-700">{nc.afip_cae}</span>
+                    {#if nc.afip_cae_vencimiento}
+                      <span class="text-xs text-gray-500">
+                        Vto: {new Date(nc.afip_cae_vencimiento).toLocaleDateString('es-AR')}
+                      </span>
+                    {/if}
                   </div>
+                {:else if !nc.FechaAnulacion && (nc.DocumentoTipo === 'NCA' || nc.DocumentoTipo === 'NCB' || nc.DocumentoTipo === 'NCC')}
+                  <button 
+                    class="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    on:click={() => abrirModalCAE(nc.DocumentoTipo, nc.DocumentoSucursal, nc.DocumentoNumero)}
+                  >
+                    Obtener CAE
+                  </button>
                 {:else}
                   <span class="text-sm text-gray-400">N/A</span>
                 {/if}
@@ -691,15 +679,5 @@
     factura={notaCreditoSeleccionada} 
     on:close={cerrarModalCAE}
     on:caeObtenido={handleCaeObtenido}
-  />
-{/if}
-
-<!-- Usar el componente CaeManualModal importado -->
-{#if mostrarModalCAEManual && notaCreditoSeleccionada}
-  <CaeManualModal 
-    show={mostrarModalCAEManual} 
-    factura={notaCreditoSeleccionada} 
-    on:close={cerrarModalCAEManual}
-    on:caeGuardado={handleCaeGuardado}
   />
 {/if} 

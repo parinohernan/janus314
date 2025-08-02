@@ -60,6 +60,7 @@ const FacturaService = {
       );
 
       // Procesar stock
+      console.log("🔍 Llamando a StockService.procesarStockFactura");
       await StockService.procesarStockFactura(
         facturaData.Items,
         facturaData.DocumentoTipo,
@@ -69,6 +70,7 @@ const FacturaService = {
         t,
         { Articulo, MovimientoStock }
       );
+      console.log("🔍 StockService.procesarStockFactura completado");
 
       // ✅ No hacer commit aquí, se hace en el controlador
       return {

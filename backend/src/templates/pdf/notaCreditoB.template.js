@@ -1,131 +1,143 @@
-const { formatearNumero, formatearFecha } = require("../../utils/formatters");
-const { generarCodigoBarrasAfip } = require("../../utils/afipUtils");
+const renderHeader = require("./common/header");
+const renderClienteInfo = require("./common/clienteInfo.js");
+const renderItemsList = require("./common/itemsList.js");
+const renderElectronicInfo = require("./common/electronicInfo.js");
+const path = require("path");
 
-async function renderNotaCreditoB(doc, { factura: notaCredito, items, logoPath }) {
-  // Configuración inicial
+/**
+ * Genera un PDF para una Nota de Crédito B
+ * @param {PDFDocument} doc - Documento PDF
+ * @param {Object} data - Datos de la nota de crédito
+ */
+async function renderNotaCreditoB(doc, data) {
+  const { factura: notaCredito, items, logoPath } = data;
+  // Si no se proporciona logoPath, usar el por defecto
+  const finalLogoPath = logoPath || path.join(__dirname, "./common/logos/logoempresa.png");
+
+  // Establecer la fuente Helvetica para todo el documento
   doc.font("Helvetica");
 
-  // Agregar logo de la empresa si está disponible
-  if (logoPath) {
-    try {
-      doc.image(logoPath, 20, 20, {
-        width: 60,
-        height: 60,
-        resolution: 300
-      });
-    } catch (error) {
-      console.error("Error al cargar el logo en nota de crédito B:", error);
-    }
-  }
-
-  // Encabezado
-  doc.fontSize(20).text("NOTA DE CRÉDITO B", { align: "center" });
-  doc.moveDown();
-
-  // Información de la empresa
-  doc
-    .fontSize(12)
-    .text(notaCredito.Empresa.RazonSocial || "EMPRESA S.A.", { align: "left" });
-  doc
-    .fontSize(10)
-    .text(`CUIT: ${notaCredito.Empresa.Cuit || ""}`)
-    .text(`Dirección: ${notaCredito.Empresa.Direccion || ""}`)
-    .text(`Condición IVA: Responsable Inscripto`);
-  doc.moveDown();
-
-  // Número de comprobante y fecha
-  doc
-    .fontSize(12)
-    .text(
-      `Comprobante: ${notaCredito.DocumentoSucursal}-${notaCredito.DocumentoNumero}`
-    )
-    .text(`Fecha: ${formatearFecha(notaCredito.Fecha)}`);
-
-  // Información del cliente
-  doc
-    .moveDown()
-    .fontSize(12)
-    .text("DATOS DEL CLIENTE", { align: "left" })
-    .fontSize(10)
-    .text(`Cliente: ${notaCredito.Cliente?.Descripcion || "N/A"}`)
-    .text(`CUIT/DNI: ${notaCredito.Cliente?.Cuit || "N/A"}`)
-    .text(`Dirección: ${notaCredito.Cliente?.Calle || "N/A"}`)
-    .text(`Localidad: ${notaCredito.Cliente?.Localidad || "N/A"}`)
-    .text(`Condición IVA: ${notaCredito.Cliente?.CategoriaIva || "N/A"}`);
-
-  // Si hay factura de referencia
-  if (notaCredito.factura_tipo) {
-    doc
-      .moveDown()
-      .text(
-        `Comprobante de Referencia: ${notaCredito.factura_tipo}-${notaCredito.factura_sucursal}-${notaCredito.factura_numero}`
-      );
-  }
-
-  // Tabla de items
-  doc.moveDown();
-  let y = doc.y + 20;
-
-  // Encabezados
-  doc.font("Helvetica-Bold");
-  doc.text("Código", 50, y, { width: 80 });
-  doc.text("Descripción", 130, y, { width: 200 });
-  doc.text("Cant.", 330, y, { width: 40, align: "right" });
-  doc.text("Precio", 370, y, { width: 70, align: "right" });
-  doc.text("Subtotal", 440, y, { width: 70, align: "right" });
-
-  // Línea separadora
-  y += 15;
-  doc.moveTo(50, y).lineTo(510, y).stroke();
-  y += 10;
-
-  // Items
-  doc.font("Helvetica");
-  items.forEach((item) => {
-    if (y > 700) {
-      doc.addPage();
-      y = 50;
-    }
-
-    doc.text(item.CodigoArticulo || "", 50, y, { width: 80 });
-    doc.text(item.Articulo?.Descripcion || "", 130, y, { width: 200 });
-    doc.text(item.Cantidad.toString(), 330, y, { width: 40, align: "right" });
-    doc.text(formatearNumero(item.PrecioUnitario), 370, y, {
-      width: 70,
-      align: "right",
-    });
-    doc.text(formatearNumero(item.Cantidad * item.PrecioUnitario), 440, y, {
-      width: 70,
-      align: "right",
+  // Función para renderizar una página (original o duplicado)
+  const renderPage = async (isOriginal) => {
+    // Encabezado
+    let y = renderHeader(doc, {
+      fecha: notaCredito.Fecha,
+      companyName: notaCredito.Empresa.RazonSocial,
+      companyName2: notaCredito.Empresa.PieCero,
+      companyTaxId: notaCredito.Empresa.Cuit,
+      companyAddress: notaCredito.Empresa.DomicilioComercial,
+      companyPhone: notaCredito.Empresa.Telefono,
+      companyEmail: notaCredito.Empresa.Email,
+      companyLocalidad: notaCredito.Empresa.Localidad,
+      companyIngresosBrutos: notaCredito.Empresa.IngresosBrutos,
+      companyInicioActividades: notaCredito.Empresa.InicioActividades 
+        ? notaCredito.Empresa.InicioActividades.toLocaleDateString("es-AR")
+        : "No especificado",
+      title: "B",
+      documentType: "B",
+      documentNumber: `${notaCredito.DocumentoSucursal}-${notaCredito.DocumentoNumero}`,
+      logoPath: finalLogoPath,
     });
 
+    // Agregar indicador de original o duplicado
+    doc.fontSize(12).font("Helvetica-Bold");
+    if (isOriginal) {
+      doc.text("ORIGINAL", 40, 2, { align: "center" });
+    } else {
+      doc.text("DUPLICADO", 36, 2, { align: "center" });
+    }
+    doc.font("Helvetica");
+
+    // Información del cliente
+    y += 8;
+    y = renderClienteInfo(doc, notaCredito, y);
+
+    // Información de referencia a factura (si existe)
+    if (notaCredito.factura_tipo && notaCredito.factura_sucursal && notaCredito.factura_numero) {
+      y += 10;
+      doc.font("Helvetica-Bold").fontSize(10);
+      doc.text("COMPROBANTE DE REFERENCIA:", 20, y);
+      doc.font("Helvetica").fontSize(10);
+      doc.text(`${notaCredito.factura_tipo} ${notaCredito.factura_sucursal}-${notaCredito.factura_numero}`, 20, y + 15);
+      y += 25;
+    }
+
+    // Tabla de items
+    y = renderItemsList(doc, items, y, {
+      showIva: false, // No mostrar columna de IVA en notas de crédito B
+    });
+
+    // me posiciono en la parte de los totales
+    y = 660;
+    let yTotales = y;
+    let xTotales = 420;
+
+    doc.x = xTotales;
+
+    // Totales
+    doc.font("Helvetica-Bold");
+    doc.text("Subtotal:", xTotales, y, { width: 90, align: "right" });
+    doc.text(
+      notaCredito.ImporteNeto ? notaCredito.ImporteNeto.toFixed(2) : "0.00",
+      xTotales + 90,
+      y,
+      { width: 70, align: "right" }
+    );
     y += 20;
-  });
 
-  // Totales (para tipo B, mostramos el total final solamente)
-  doc.moveDown();
-  y = doc.y + 10;
-  doc.font("Helvetica-Bold");
-  doc.text("TOTAL:", 350, y, { width: 90, align: "right" });
-  doc.text(formatearNumero(notaCredito.ImporteTotal), 440, y, {
-    width: 70,
-    align: "right",
-  });
+    if (notaCredito.ImporteIva1 && notaCredito.ImporteIva1 > 0) {
+      doc.text("IVA 21%:", xTotales, y, { width: 90, align: "right" });
+      doc.text(notaCredito.ImporteIva1.toFixed(2), xTotales + 90, y, {
+        width: 70,
+        align: "right",
+      });
+      y += 20;
+    }
 
-  // Información de AFIP
-  if (notaCredito.afip_cae) {
-    doc.moveDown().moveDown();
-    doc
-      .fontSize(10)
-      .text(`CAE: ${notaCredito.afip_cae}`)
-      .text(
-        `Vencimiento CAE: ${formatearFecha(notaCredito.afip_cae_vencimiento)}`
-      );
+    if (notaCredito.ImporteIva2 && notaCredito.ImporteIva2 > 0) {
+      doc.text("IVA 10.5%:", xTotales, y, { width: 90, align: "right" });
+      doc.text(notaCredito.ImporteIva2.toFixed(2), xTotales + 90, y, {
+        width: 70,
+        align: "right",
+      });
+      y += 20;
+    }
 
-    // Código de barras AFIP
-    const codigoBarras = generarCodigoBarrasAfip(notaCredito);
-    // Aquí iría la lógica para generar y mostrar el código de barras
-  }
+    // Línea antes de los TOTALES
+    doc.strokeColor("#000000").moveTo(20, 650).lineTo(580, 650).stroke();
+    y += 10;
+
+    // Total en palabras
+    doc.fontSize(10);
+    const convertirNumeroAPalabras = require("../../utils/convertirNumeroAPalabras");
+    const TotalEnPalabras = convertirNumeroAPalabras(notaCredito.ImporteTotal);
+    doc.text(`Son ${TotalEnPalabras}`, 20, yTotales);
+    
+    // Observaciones específicas para notas de crédito
+    if (notaCredito.Observacion) {
+      doc.text(`Observación: ${notaCredito.Observacion}`, 20, yTotales + 12);
+    }
+
+    doc.fontSize(12).text("TOTAL:", xTotales, y, { width: 90, align: "right" });
+    doc.text(
+      notaCredito.ImporteTotal ? notaCredito.ImporteTotal.toFixed(2) : "0.00",
+      xTotales + 90,
+      y,
+      { width: 70, align: "right" }
+    );
+
+    // Renderizar información electrónica (QR, CAE, logo ARCA, etc.)
+    await renderElectronicInfo(doc, notaCredito, yTotales);
+  };
+
+  // Renderizar página original
+  await renderPage(true);
+  
+  // Agregar nueva página para el duplicado
+  doc.addPage();
+  
+  // Renderizar página duplicado
+  await renderPage(false);
 }
 
 module.exports = renderNotaCreditoB;

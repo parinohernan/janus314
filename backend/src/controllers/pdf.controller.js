@@ -21,6 +21,7 @@ const renderNotaCreditoF = require("../templates/pdf/notaCreditoF.template.js");
 // const datosEmpresaController = require("../controllers/datosEmpresa.controller");
 const logoManager = require("../utils/logoManager");
 const docFacturaA4 = { margin: 42.5, size: "A4" }; // 1.5cm = 42.5 puntos (1cm = 28.35 puntos)
+
 // Función para generar PDF de factura
 exports.generarFacturaPDF = async (req, res) => {
   try {
@@ -100,8 +101,6 @@ exports.generarFacturaPDF = async (req, res) => {
       raw: true,
     });
 
-    console.log('Artículos encontrados:', articulos.length);
-
     // Crear un mapa de artículos por código para facilitar la búsqueda
     const articulosPorCodigo = {};
     articulos.forEach((articulo) => {
@@ -120,7 +119,6 @@ exports.generarFacturaPDF = async (req, res) => {
         Descripcion: articulo.Descripcion || '',
         UnidadVenta: articulo.UnidadVenta || '',
         PrecioUnitario: item.PrecioUnitario || articulo.Lista1 || 0,
-        PrecioLista: item.PrecioLista || articulo.Lista1 || 0,
         PorcentajeBonificacion: item.PorcentajeBonificacion || 0,
         PorcentajeIVA1: articulo.PorcentajeIVA1 || 0,
         PorcentajeIVA2: articulo.PorcentajeIVA2 || 0,
@@ -131,8 +129,6 @@ exports.generarFacturaPDF = async (req, res) => {
 
     // Obtener datos de la empresa
     const datosEmpresa = await DatosEmpresa.findOne();
-    console.log('Datos de empresa encontrados:', datosEmpresa ? 'Sí' : 'No');
-    
     if (!datosEmpresa) {
       return res.status(404).json({
         success: false,
@@ -140,7 +136,7 @@ exports.generarFacturaPDF = async (req, res) => {
       });
     }
     
-    // Asignar datos de empresa a la factura para la plantilla
+    // Asignar datos de empresa
     factura.Empresa = datosEmpresa;
     
     // Convertir la cadena de fecha InicioActividades a un objeto Date
@@ -152,8 +148,6 @@ exports.generarFacturaPDF = async (req, res) => {
     console.log('🖼️ Configurando logo de empresa...');
     const logoPath = await logoManager.getLogoPath(datosEmpresa.LogoURL);
     console.log('✅ Logo configurado:', logoPath);
-
-    console.log('Iniciando generación del PDF...');
 
     // Crear documento PDF
     const doc = new PDFDocument(docFacturaA4);
@@ -168,207 +162,157 @@ exports.generarFacturaPDF = async (req, res) => {
     // Pipe PDF a la respuesta
     doc.pipe(res);
 
-    // Aplicar plantilla adecuada según tipo de documento
-    if (tipo === "FCA" || tipo === "NCA" || tipo === "NDA") {
-      console.log('Aplicando plantilla Factura A...');
-      await renderFacturaA(doc, { factura, items: itemsConArticulos, logoPath });
-    } else if (tipo === "FCB" || tipo === "NCB" || tipo === "NDB") {
-      console.log('Aplicando plantilla Factura B...');
-      await renderFacturaB(doc, { factura, items: itemsConArticulos, logoPath });
+    // Aplicar plantilla según tipo de factura
+    if (tipo === "FCA") {
+      await renderFacturaA(doc, {
+        factura: factura,
+        items: itemsConArticulos,
+        logoPath,
+      });
+    } else if (tipo === "FCB") {
+      await renderFacturaB(doc, {
+        factura: factura,
+        items: itemsConArticulos,
+        logoPath,
+      });
     } else if (tipo === "PRF") {
-      console.log('Aplicando plantilla Prefactura...');
-      await renderPrefactura(doc, { prefactura: factura, items: itemsConArticulos, logoPath });
+      await renderPrefactura(doc, {
+        prefactura: factura, // ✅ Corregido: cambiar 'factura' por 'prefactura'
+        items: itemsConArticulos,
+        logoPath,
+      });
     } else {
-      // Si el tipo no está entre los soportados, mostrar mensaje
-      doc.fontSize(20).text("Tipo de documento no soportado", 100, 100);
+      doc.fontSize(20).text("Tipo de factura no soportado", 100, 100);
     }
 
-    console.log('Finalizando documento PDF...');
     // Finalizar documento
     doc.end();
-    
-    console.log('✅ PDF generado exitosamente');
   } catch (error) {
-    console.error("Error generando PDF:", error);
-    console.error("Stack trace:", error.stack);
+    console.error("Error generando PDF de factura:", error);
     res.status(500).json({
       success: false,
-      message: "Error al generar PDF",
+      message: "Error al generar PDF de factura",
       error: error.message,
     });
   }
 };
 
-// Función para generar el contenido del PDF
-function generarContenidoPDF(doc, factura, items) {
-  // Encabezado
-  doc.fontSize(20).text("FACTURA", { align: "center" });
-  doc.moveDown();
+// Función para generar PDF de prefactura
+exports.generarPrefacturaPDF = async (req, res) => {
+  try {
+    const { tipo, sucursal, numero } = req.params;
+    
+    // Obtener los modelos dinámicos de la empresa actual
+    const { PreventaCabeza, PreventaItem, Cliente, Articulo, DatosEmpresa } = req.models;
 
-  // Tipo de factura
-  let tipoFactura = "";
-  switch (factura.DocumentoTipo) {
-    case "FCA":
-      tipoFactura = "FACTURA A";
-      break;
-    case "FCB":
-      tipoFactura = "FACTURA B";
-      break;
-    case "FCC":
-      tipoFactura = "FACTURA C";
-      break;
-    default:
-      tipoFactura = `FACTURA ${factura.DocumentoTipo}`;
-  }
+    // Obtener datos de la prefactura con el cliente
+    const prefactura = await PreventaCabeza.findOne({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero,
+      },
+      include: [{ model: Cliente }],
+      raw: false,
+    });
 
-  doc
-    .fontSize(16)
-    .text(
-      `${tipoFactura} N° ${factura.DocumentoSucursal}-${factura.DocumentoNumero}`,
-      { align: "center" }
-    );
-  doc.moveDown();
-
-  // Información de la empresa
-  doc.fontSize(12).text("EMPRESA S.A.", { align: "left" });
-  doc.fontSize(10).text("CUIT: 30-12345678-9");
-  doc.text("Dirección: Calle Principal 123, Ciudad");
-  doc.text("Tel: (123) 456-7890");
-  doc.moveDown();
-
-  // Información del cliente
-  doc.fontSize(12).text("DATOS DEL CLIENTE", { align: "left" });
-  doc
-    .fontSize(10)
-    .text(`Cliente: ${factura.Cliente ? factura.Cliente.Descripcion : "N/A"}`);
-  doc.text(`CUIT: ${factura.Cliente ? factura.Cliente.Cuit : "N/A"}`);
-  doc.text(`Calle: ${factura.Cliente ? factura.Cliente.Calle : "N/A"}`);
-  doc.text(`Localidad: ${factura.Cliente ? factura.Cliente.Localidad : "N/A"}`);
-  doc.moveDown();
-
-  // Fecha y CAE
-  doc
-    .fontSize(10)
-    .text(`Fecha: ${new Date(factura.Fecha).toLocaleDateString("es-AR")}`);
-  if (factura.afip_cae) {
-    doc.text(`CAE: ${factura.afip_cae}`);
-    doc.text(
-      `Vencimiento CAE: ${new Date(
-        factura.afip_cae_vencimiento
-      ).toLocaleDateString("es-AR")}`
-    );
-  }
-  doc.moveDown();
-
-  // Tabla de items
-  doc.fontSize(10);
-  const tableTop = doc.y;
-  const itemsTableTop = tableTop + 20;
-
-  // Encabezados de la tabla
-  doc.font("Helvetica-Bold");
-  doc.text("Código", 50, tableTop, { width: 80 });
-  doc.text("Descripción", 130, tableTop, { width: 200 });
-  doc.text("Cant.", 330, tableTop, { width: 40, align: "right" });
-  doc.text("Precio", 370, tableTop, { width: 70, align: "right" });
-  doc.text("Subtotal", 440, tableTop, { width: 70, align: "right" });
-  doc.font("Helvetica");
-
-  // Línea horizontal
-  doc
-    .moveTo(50, tableTop + 15)
-    .lineTo(510, tableTop + 15)
-    .stroke();
-
-  // Items
-  let y = itemsTableTop;
-  items.forEach((item, i) => {
-    const cantidad = item.Cantidad || 0;
-    const precioUnitario = item.PrecioUnitario || 0;
-    const subtotal = cantidad * precioUnitario;
-
-    // Si no hay suficiente espacio en la página, crear una nueva
-    if (y > 700) {
-      doc.addPage();
-      y = 50;
-
-      // Repetir encabezados en la nueva página
-      doc.font("Helvetica-Bold");
-      doc.text("Código", 50, y - 20, { width: 80 });
-      doc.text("Descripción", 130, y - 20, { width: 200 });
-      doc.text("Cant.", 330, y - 20, { width: 40, align: "right" });
-      doc.text("Precio", 370, y - 20, { width: 70, align: "right" });
-      doc.text("Subtotal", 440, y - 20, { width: 70, align: "right" });
-      doc.font("Helvetica");
-
-      // Línea horizontal
-      doc
-        .moveTo(50, y - 5)
-        .lineTo(510, y - 5)
-        .stroke();
-    }
-
-    doc.text(item.CodigoArticulo || "", 50, y, { width: 80 });
-    doc.text(item.Descripcion || "", 130, y, { width: 200 });
-    doc.text(cantidad.toString(), 330, y, { width: 40, align: "right" });
-    doc.text(precioUnitario.toFixed(2), 370, y, { width: 70, align: "right" });
-    doc.text(subtotal.toFixed(2), 440, y, { width: 70, align: "right" });
-
-    y += 20;
-  });
-
-  // Línea horizontal
-  doc.moveTo(50, y).lineTo(510, y).stroke();
-  y += 10;
-
-  // Totales
-  doc.font("Helvetica-Bold");
-  doc.text("Subtotal:", 350, y, { width: 90, align: "right" });
-  doc.text(
-    factura.ImporteNeto ? factura.ImporteNeto.toFixed(2) : "0.00",
-    440,
-    y,
-    { width: 70, align: "right" }
-  );
-  y += 20;
-
-  doc.text("IVA:", 350, y, { width: 90, align: "right" });
-  const iva = (factura.ImporteIva1 || 0) + (factura.ImporteIva2 || 0);
-  doc.text(iva.toFixed(2), 440, y, { width: 70, align: "right" });
-  y += 20;
-
-  doc.text("TOTAL:", 350, y, { width: 90, align: "right" });
-  doc.text(
-    factura.ImporteTotal ? factura.ImporteTotal.toFixed(2) : "0.00",
-    440,
-    y,
-    { width: 70, align: "right" }
-  );
-
-  // Pie de página
-  const pageCount = doc.bufferedPageRange().count;
-  for (let i = 0; i < pageCount; i++) {
-    doc.switchToPage(i);
-
-    // Agregar número de página
-    doc
-      .fontSize(8)
-      .text(`Página ${i + 1} de ${pageCount}`, 50, doc.page.height - 50, {
-        align: "center",
-        width: doc.page.width - 100,
+    if (!prefactura) {
+      return res.status(404).json({
+        success: false,
+        message: "Prefactura no encontrada",
       });
-
-    // Agregar información legal
-    if (i === pageCount - 1) {
-      doc
-        .fontSize(8)
-        .text("Documento no válido como factura", 50, doc.page.height - 30, {
-          align: "center",
-          width: doc.page.width - 100,
-        });
     }
+
+    // Obtener ítems de la prefactura
+    const items = await PreventaItem.findAll({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero,
+      },
+      include: [{ 
+        model: Articulo,
+        attributes: ['Codigo', 'Descripcion', 'UnidadVenta', 'Lista1', 'PorcentajeIVA1', 'PorcentajeIVA2']
+      }],
+      attributes: [
+        'DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 
+        'CodigoArticulo', 'Cantidad', 'PrecioUnitario'
+      ]
+    });
+
+    // Combinar los items con la información de artículos
+    const itemsConArticulos = items.map((item) => {
+      const itemData = item.get({ plain: true });
+      const articulo = itemData.Articulo || {};
+      const subtotal = itemData.Cantidad * itemData.PrecioUnitario;
+      const porcentajeIva = articulo.PorcentajeIVA1 || 0;
+      const importeIva = subtotal * (porcentajeIva / 100);
+      
+      return {
+        ...itemData,
+        Descripcion: articulo.Descripcion || '',
+        UnidadVenta: articulo.UnidadVenta || '',
+        PrecioUnitario: itemData.PrecioUnitario || articulo.Lista1 || 0,
+        PorcentajeIVA1: articulo.PorcentajeIVA1 || 0,
+        PorcentajeIVA2: articulo.PorcentajeIVA2 || 0,
+        Total: subtotal,
+        TotalConIva: subtotal + importeIva
+      };
+    });
+
+    // Obtener datos de la empresa
+    const datosEmpresa = await DatosEmpresa.findOne();
+    if (!datosEmpresa) {
+      return res.status(404).json({
+        success: false,
+        message: "Datos de empresa no encontrados",
+      });
+    }
+
+    // Asignar datos de empresa
+    prefactura.Empresa = datosEmpresa;
+    
+    // Convertir la cadena de fecha InicioActividades a un objeto Date
+    if (prefactura.Empresa.InicioActividades) {
+      prefactura.Empresa.InicioActividades = new Date(prefactura.Empresa.InicioActividades);
+    }
+
+    // Preparar el logo de la empresa usando el LogoManager
+    console.log('🖼️ Configurando logo de empresa para prefactura...');
+    const logoPath = await logoManager.getLogoPath(datosEmpresa.LogoURL);
+    console.log('✅ Logo configurado para prefactura:', logoPath);
+
+    // Crear documento PDF
+    const doc = new PDFDocument(docFacturaA4);
+
+    // Configurar respuesta HTTP
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="prefactura-${tipo}-${sucursal}-${numero}.pdf"`
+    );
+
+    // Pipe PDF a la respuesta
+    doc.pipe(res);
+
+    // Aplicar plantilla de prefactura
+    await renderPrefactura(doc, {
+      factura: prefactura,
+      items: itemsConArticulos,
+      logoPath,
+    });
+
+    // Finalizar documento
+    doc.end();
+  } catch (error) {
+    console.error("Error generando PDF de prefactura:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al generar PDF de prefactura",
+      error: error.message,
+    });
   }
-}
+};
 
 // Endpoint de prueba para verificar el logo
 exports.probarLogo = async (req, res) => {
@@ -470,7 +414,7 @@ exports.generarNotaCreditoPDF = async (req, res) => {
       });
     }
 
-    // Obtener ítems de la nota de crédito
+    // Obtener ítems de la nota de crédito - CORREGIDO: solo columnas que existen
     const items = await NotaCreditoItem.findAll({
       where: {
         DocumentoTipo: tipo,
@@ -484,28 +428,67 @@ exports.generarNotaCreditoPDF = async (req, res) => {
       attributes: [
         'DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 
         'CodigoArticulo', 'Cantidad', 'PrecioUnitario'
+        // Removidos: 'PorcentajeBonificado', 'ImporteBonificado' - no existen en la tabla
       ]
     });
 
-    // Combinar los items con la información de artículos
+    // Combinar los items con la información de artículos y calcular totales
     const itemsConArticulos = items.map((item) => {
       const itemData = item.get({ plain: true });
       const articulo = itemData.Articulo || {};
-      const subtotal = itemData.Cantidad * itemData.PrecioUnitario;
-      const porcentajeIva = articulo.PorcentajeIVA1 || 0;
-      const importeIva = subtotal * (porcentajeIva / 100);
+      const precioUnitario = itemData.PrecioUnitario || articulo.Lista1 || 0;
+      const cantidad = itemData.Cantidad || 0;
+      const subtotal = cantidad * precioUnitario;
+      // Para notas de crédito, no hay descuentos por item, se manejan a nivel cabecera
+      const descuento = 0; // Los descuentos se manejan en la cabecera
+      const subtotalConDescuento = subtotal - descuento;
+      const porcentajeIva1 = articulo.PorcentajeIVA1 || 0;
+      const porcentajeIva2 = articulo.PorcentajeIVA2 || 0;
+      const importeIva1 = subtotalConDescuento * (porcentajeIva1 / 100);
+      const importeIva2 = subtotalConDescuento * (porcentajeIva2 / 100);
       
       return {
         ...itemData,
         Descripcion: articulo.Descripcion || '',
         UnidadVenta: articulo.UnidadVenta || '',
-        PrecioUnitario: itemData.PrecioUnitario || articulo.Lista1 || 0,
-        PorcentajeIVA1: articulo.PorcentajeIVA1 || 0,
-        PorcentajeIVA2: articulo.PorcentajeIVA2 || 0,
-        Total: subtotal,
-        TotalConIva: subtotal + importeIva
+        PrecioUnitario: precioUnitario,
+        PorcentajeIVA1: porcentajeIva1,
+        PorcentajeIVA2: porcentajeIva2,
+        Subtotal: subtotal,
+        Descuento: descuento,
+        SubtotalConDescuento: subtotalConDescuento,
+        ImporteIva1: importeIva1,
+        ImporteIva2: importeIva2,
+        Total: subtotalConDescuento + importeIva1 + importeIva2
       };
     });
+
+    // Calcular totales generales
+    const totales = itemsConArticulos.reduce((acc, item) => {
+      acc.subtotal += item.Subtotal || 0;
+      acc.descuento += item.Descuento || 0;
+      acc.subtotalConDescuento += item.SubtotalConDescuento || 0;
+      acc.iva1 += item.ImporteIva1 || 0;
+      acc.iva2 += item.ImporteIva2 || 0;
+      acc.total += item.Total || 0;
+      return acc;
+    }, {
+      subtotal: 0,
+      descuento: 0,
+      subtotalConDescuento: 0,
+      iva1: 0,
+      iva2: 0,
+      total: 0
+    });
+
+    // Asignar los totales calculados a la nota de crédito
+    // Usar los valores de la cabecera si están disponibles, sino los calculados
+    notaCredito.ImporteBruto = notaCredito.ImporteBruto || totales.subtotal;
+    notaCredito.ImporteBonificado = notaCredito.ImporteBonificado || totales.descuento;
+    notaCredito.ImporteNeto = notaCredito.ImporteNeto || totales.subtotalConDescuento;
+    notaCredito.ImporteIva1 = notaCredito.ImporteIva1 || totales.iva1;
+    notaCredito.ImporteIva2 = notaCredito.ImporteIva2 || totales.iva2;
+    notaCredito.ImporteTotal = notaCredito.ImporteTotal || totales.total;
 
     // Obtener datos de la empresa
     const datosEmpresa = await DatosEmpresa.findOne();

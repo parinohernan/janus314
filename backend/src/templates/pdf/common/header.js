@@ -74,7 +74,16 @@ function renderHeader(doc, options = {}) {
 
   // Tipo y número de documento
   if (documentType && documentNumber) {
-    doc.fontSize(12).text(`Factura N° ${documentNumber}`, { align: "right" });
+    // Determinar el tipo de documento basado en el título
+    let documentTypeText = "Factura";
+    if (title === "A" || title === "B" || title === "C") {
+      // Verificar si es nota de crédito basado en el tipo de documento
+      if (documentType === "A" || documentType === "B" || documentType === "C") {
+        documentTypeText = "Nota de Crédito";
+      }
+    }
+    
+    doc.fontSize(12).text(`${documentTypeText} N° ${documentNumber}`, { align: "right" });
   }
   // fecha
   doc.fontSize(12).text(`Fecha: ${fecha}`, { align: "right" });
