@@ -1115,7 +1115,7 @@ exports.getDocumentosDeuda = async (req, res) => {
     // Obtener la instancia de sequelize desde el modelo Cliente
     const sequelize = Cliente.sequelize;
     
-    // Consulta SQL para obtener las facturas impagas del cliente
+    // Consulta SQL para obtener las facturas impagas del cliente (excluyendo anuladas)
     const query = `
       SELECT 
         f.DocumentoTipo,
@@ -1129,11 +1129,12 @@ exports.getDocumentosDeuda = async (req, res) => {
       WHERE 
         f.ClienteCodigo = :codigocliente
         AND f.ImporteTotal - COALESCE(f.ImportePagado, 0) > 0
+        AND f.FechaAnulacion IS NULL
       ORDER BY 
         f.Fecha ASC
     `;
     
-    //consulta para obtener las notas de debito impagas
+    //consulta para obtener las notas de debito impagas (excluyendo anuladas)
     const queryNotasDebito = `
       SELECT 
         n.DocumentoTipo,
@@ -1147,6 +1148,7 @@ exports.getDocumentosDeuda = async (req, res) => {
       WHERE 
         n.ClienteCodigo = :codigocliente
         AND n.ImporteTotal - COALESCE(n.ImportePagado, 0) > 0 
+        AND n.FechaAnulacion IS NULL
       ORDER BY 
         n.Fecha ASC
     `;
@@ -1197,7 +1199,7 @@ exports.getDocumentosCredito = async (req, res) => {
     // Obtener la instancia de sequelize desde el modelo Cliente
     const sequelize = Cliente.sequelize;
     
-    // Consulta para obtener notas de crédito con saldo disponible
+    // Consulta para obtener notas de crédito con saldo disponible (excluyendo anuladas)
     const query = `
       SELECT 
         nc.DocumentoTipo as documento,
@@ -1212,6 +1214,7 @@ exports.getDocumentosCredito = async (req, res) => {
       WHERE 
         nc.codigocliente = :codigocliente
         AND nc.ImporteTotal > COALESCE(nc.ImporteUtilizado, 0)
+        AND nc.FechaAnulacion IS NULL
       ORDER BY 
         nc.Fecha DESC
     `;
