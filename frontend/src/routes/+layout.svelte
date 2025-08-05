@@ -2,6 +2,7 @@
 	import '../app.css';
 	import MainBar from '$lib/components/MainBar.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
+	import Sidebar from '$lib/components/Sidebar.svelte';
 	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { navigationState } from '$lib/stores/navigationState';
 	import { auth } from '$lib/stores/authStore';
@@ -83,6 +84,7 @@
 		{#if !$page.url.pathname.includes('/ventas/bot/')}
 			<MainBar />
 			<Navbar />
+			<Sidebar />
 		{/if}
 		<main class="flex-grow container mx-auto px-4 py-6">
 			{@render children()}

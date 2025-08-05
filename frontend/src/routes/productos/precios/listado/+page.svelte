@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import DraggableList from '$lib/components/DraggableList.svelte';
 	import { ArticuloService } from '$lib/services/ArticuloService';
 	import { RubroService, type Rubro } from '$lib/services/RubroService';
 	import { EmpresaService } from '$lib/services/EmpresaService';
 	import type { Articulo } from '$lib/types';
 	import { formatDate } from '$lib/utils/dateUtils';
 	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+	import { auth } from '$lib/stores/authStore';
 
 	// Estado
 	let articulos: Articulo[] = [];
@@ -84,7 +86,7 @@
 	}
 
 	// Guardar configuración automáticamente cuando cambien los filtros
-	$: if (typeof window !== 'undefined') {
+	$: if (typeof window !== 'undefined' && configuracionRubros.length > 0) {
 		guardarConfiguracionRubros();
 	}
 
@@ -102,12 +104,12 @@
 		
 		// Obtener el porcentaje de la lista seleccionada
 		switch (listaPrecio) {
-			case '1': porcentajeLista = articulo.PorcentajeLista1 || 0; break;
-			case '2': porcentajeLista = articulo.PorcentajeLista2 || 0; break;
-			case '3': porcentajeLista = articulo.PorcentajeLista3 || 0; break;
-			case '4': porcentajeLista = articulo.PorcentajeLista4 || 0; break;
-			case '5': porcentajeLista = articulo.PorcentajeLista5 || 0; break;
-			default: porcentajeLista = articulo.PorcentajeLista1 || 0; break;
+			case '1': porcentajeLista = articulo.Lista1 || 0; break;
+			case '2': porcentajeLista = articulo.Lista2 || 0; break;
+			case '3': porcentajeLista = articulo.Lista3 || 0; break;
+			case '4': porcentajeLista = articulo.Lista4 || 0; break;
+			case '5': porcentajeLista = articulo.Lista5 || 0; break;
+			default: porcentajeLista = articulo.Lista1 || 0; break;
 		}
 		
 		// Calcular precio de lista: precio de costo + porcentaje
@@ -133,38 +135,73 @@
 		return 'OK'; // Stock alto
 	}
 
-	// Funciones para localStorage
+	// Funciones para localStorage específicas por usuario
+	function getStorageKey(): string {
+		const userId = $auth.user?.usuario || 'anonymous';
+		return `listadoPreciosConfig_${userId}`;
+	}
+
 	function guardarConfiguracionRubros() {
 		if (typeof window !== 'undefined') {
 			const config = {
 				configuracionRubros,
 				listaPrecio,
 				mostrarExistencia,
-				soloActivos
+				soloActivos,
+				ultimaActualizacion: new Date().toISOString(),
+				usuario: $auth.user?.usuario || 'anonymous'
 			};
-			localStorage.setItem('listadoPreciosConfig', JSON.stringify(config));
+			
+			localStorage.setItem(getStorageKey(), JSON.stringify(config));
 		}
 	}
 
 	function cargarConfiguracionRubros() {
 		if (typeof window !== 'undefined') {
-			const config = localStorage.getItem('listadoPreciosConfig');
+			const config = localStorage.getItem(getStorageKey());
+			
 			if (config) {
 				try {
 					const datos = JSON.parse(config);
-					configuracionRubros = datos.configuracionRubros || [];
-					listaPrecio = datos.listaPrecio || '1';
-					mostrarExistencia = datos.mostrarExistencia !== undefined ? datos.mostrarExistencia : true;
-					soloActivos = datos.soloActivos !== undefined ? datos.soloActivos : true;
+					
+					// Verificar que la configuración sea válida
+					if (datos.configuracionRubros && Array.isArray(datos.configuracionRubros)) {
+						// Si la configuración está vacía, verificar si es porque se guardó recientemente
+						if (datos.configuracionRubros.length === 0) {
+							if (datos.ultimaActualizacion) {
+								const fechaGuardado = new Date(datos.ultimaActualizacion);
+								const fechaActual = new Date();
+								const minutosTranscurridos = (fechaActual.getTime() - fechaGuardado.getTime()) / (1000 * 60);
+								
+								if (minutosTranscurridos < 5) {
+									configuracionRubros = [];
+								} else {
+									configuracionRubros = [];
+								}
+							} else {
+								configuracionRubros = [];
+							}
+						} else {
+							configuracionRubros = datos.configuracionRubros;
+						}
+						
+						// Cargar otras configuraciones
+						listaPrecio = datos.listaPrecio || '1';
+						mostrarExistencia = datos.mostrarExistencia !== undefined ? datos.mostrarExistencia : true;
+						soloActivos = datos.soloActivos !== undefined ? datos.soloActivos : true;
+					} else {
+						configuracionRubros = [];
+					}
 				} catch (error) {
 					console.error('Error al cargar configuración:', error);
+					configuracionRubros = [];
 				}
 			}
 		}
 	}
 
 	function crearConfiguracionPorDefecto() {
-		// Crear configuración por defecto con todos los rubros visibles y ordenados alfabéticamente
+		// Crear configuración por defecto solo si no hay configuración guardada
 		if (configuracionRubros.length === 0 && rubros.length > 0) {
 			const rubrosOrdenados = [...rubros.map(r => r.Codigo).sort(), 'SIN_RUBRO'];
 			configuracionRubros = rubrosOrdenados.map((codigo, index) => ({
@@ -178,11 +215,28 @@
 
 	// Cargar datos
 	onMount(async () => {
+		// Esperar a que el usuario esté disponible
+		const esperarUsuario = () => {
+			if ($auth.user) {
+				cargarDatos();
+			} else {
+				setTimeout(esperarUsuario, 100);
+			}
+		};
+		
+		esperarUsuario();
+	});
+
+	// Función para cargar todos los datos
+	async function cargarDatos() {
 		try {
 			loading = true;
 			error = null;
 
-			// Cargar configuración guardada
+			// Limpiar configuraciones antiguas
+			limpiarConfiguracionesAntiguas();
+
+			// Cargar configuración guardada PRIMERO
 			cargarConfiguracionRubros();
 
 			// Cargar datos de la empresa
@@ -191,7 +245,10 @@
 			// Cargar rubros
 			rubros = await RubroService.obtenerRubros();
 
-			// Crear configuración por defecto después de cargar rubros
+			// Sincronizar configuración con rubros disponibles
+			sincronizarConfiguracionConRubros();
+
+			// Crear configuración por defecto SOLO si no hay configuración
 			crearConfiguracionPorDefecto();
 
 			// Cargar artículos para listado de precios (todos sin paginación)
@@ -203,7 +260,7 @@
 		} finally {
 			loading = false;
 		}
-	});
+	}
 
 	// Funciones para manejo de rubros
 	function toggleRubroVisible(codigoRubro: string) {
@@ -265,7 +322,82 @@
 		}
 	}
 
-			// Generar PDF
+	// Función para sincronizar configuración con rubros disponibles
+	function sincronizarConfiguracionConRubros() {
+		if (configuracionRubros.length > 0 && rubros.length > 0) {
+			const codigosRubrosDisponibles = new Set(rubros.map(r => r.Codigo));
+			codigosRubrosDisponibles.add('SIN_RUBRO');
+			
+			// Filtrar rubros que ya no existen
+			const configuracionFiltrada = configuracionRubros.filter(config => 
+				codigosRubrosDisponibles.has(config.codigo)
+			);
+			
+			// Agregar rubros nuevos que no están en la configuración
+			const codigosConfigurados = new Set(configuracionFiltrada.map(c => c.codigo));
+			const rubrosNuevos = Array.from(codigosRubrosDisponibles).filter(codigo => 
+				!codigosConfigurados.has(codigo)
+			);
+			
+			if (rubrosNuevos.length > 0) {
+				const maxOrden = Math.max(...configuracionFiltrada.map(c => c.orden), -1);
+				const nuevosConfigs = rubrosNuevos.map((codigo, index) => ({
+					codigo,
+					visible: true,
+					orden: maxOrden + 1 + index
+				}));
+				configuracionFiltrada.push(...nuevosConfigs);
+			}
+			
+			if (configuracionFiltrada.length !== configuracionRubros.length) {
+				configuracionRubros = configuracionFiltrada;
+				guardarConfiguracionRubros();
+			}
+		}
+	}
+
+	// Función para limpiar configuraciones antiguas
+	function limpiarConfiguracionesAntiguas() {
+		if (typeof window !== 'undefined') {
+			const keys = Object.keys(localStorage);
+			const configKeys = keys.filter(key => key.startsWith('listadoPreciosConfig_'));
+			
+			configKeys.forEach(key => {
+				try {
+					const config = localStorage.getItem(key);
+					if (config) {
+						const datos = JSON.parse(config);
+						const fechaGuardado = new Date(datos.ultimaActualizacion || 0);
+						const fechaActual = new Date();
+						const diasTranscurridos = (fechaActual.getTime() - fechaGuardado.getTime()) / (1000 * 60 * 60 * 24);
+						
+						// Eliminar configuraciones con más de 30 días
+						if (diasTranscurridos > 30) {
+							localStorage.removeItem(key);
+						}
+					}
+				} catch (error) {
+					console.error('Error al procesar configuración antigua:', error);
+				}
+			});
+		}
+	}
+
+	// Función para manejar el reordenamiento por drag & drop
+	function handleReorder(event: CustomEvent) {
+		const { oldIndex, newIndex, items } = event.detail;
+		
+		// Actualizar los órdenes basándose en la nueva posición
+		const reorderedConfig = items.map((item: any, index: number) => ({
+			...item,
+			orden: index
+		}));
+		
+		configuracionRubros = reorderedConfig;
+		guardarConfiguracionRubros();
+	}
+
+	// Generar PDF
 	async function generarPDF() {
 		try {
 			generandoPDF = true;
@@ -505,53 +637,76 @@
 					</Button>
 				</div>
 
-				<!-- Lista de rubros ordenados -->
+				<!-- Lista de rubros ordenados con drag & drop -->
 				<div class="max-h-96 overflow-y-auto border border-gray-200 rounded-md">
-					{#each configuracionRubros.sort((a, b) => a.orden - b.orden) as config, index}
-						<div class="flex items-center justify-between p-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
-							<div class="flex items-center space-x-3 flex-1">
-								<button 
-									on:click={() => toggleRubroVisible(config.codigo)}
-									class={`px-2 py-1 text-xs rounded ${
-										config.visible
-											? 'bg-green-100 text-green-700 hover:bg-green-200' 
-											: 'bg-red-100 text-red-700 hover:bg-red-200'
-									}`}
-								>
-									{config.visible ? 'Visible' : 'Oculto'}
-								</button>
-								<span class="text-sm font-mono text-gray-500">{config.codigo}</span>
-								<span class="text-sm text-gray-700">
-									{config.codigo === 'SIN_RUBRO' ? 'Sin Rubro' : 
-										rubros.find(r => r.Codigo === config.codigo)?.Descripcion || config.codigo}
-								</span>
+					<DraggableList 
+						items={configuracionRubros.sort((a, b) => a.orden - b.orden)}
+						itemKey="codigo"
+						on:reorder={handleReorder}
+					>
+						<svelte:fragment slot="default" let:item let:index>
+							{@const config = item as {codigo: string, visible: boolean, orden: number}}
+							<div class="flex items-center justify-between p-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
+								<div class="flex items-center space-x-3 flex-1">
+									<div class="text-gray-400 cursor-move mr-2">
+										⋮⋮
+									</div>
+									<button 
+										on:click={() => toggleRubroVisible(config.codigo)}
+										class={`px-2 py-1 text-xs rounded ${
+											config.visible
+												? 'bg-green-100 text-green-700 hover:bg-green-200' 
+												: 'bg-red-100 text-red-700 hover:bg-red-200'
+										}`}
+									>
+										{config.visible ? 'Visible' : 'Oculto'}
+									</button>
+									<span class="text-sm font-mono text-gray-500">{config.codigo}</span>
+									<span class="text-sm text-gray-700">
+										{config.codigo === 'SIN_RUBRO' ? 'Sin Rubro' : 
+											rubros.find(r => r.Codigo === config.codigo)?.Descripcion || config.codigo}
+									</span>
+								</div>
+								
+								<div class="flex space-x-1">
+									<button 
+										on:click={() => moverRubroArriba(index)}
+										disabled={index === 0}
+										class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded disabled:opacity-50"
+										title="Mover arriba"
+									>
+										↑
+									</button>
+									<button 
+										on:click={() => moverRubroAbajo(index)}
+										disabled={index === configuracionRubros.length - 1}
+										class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded disabled:opacity-50"
+										title="Mover abajo"
+									>
+										↓
+									</button>
+								</div>
 							</div>
-							
-							<div class="flex space-x-1">
-								<button 
-									on:click={() => moverRubroArriba(index)}
-									disabled={index === 0}
-									class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded disabled:opacity-50"
-									title="Mover arriba"
-								>
-									↑
-								</button>
-								<button 
-									on:click={() => moverRubroAbajo(index)}
-									disabled={index === configuracionRubros.length - 1}
-									class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded disabled:opacity-50"
-									title="Mover abajo"
-								>
-									↓
-								</button>
-							</div>
-						</div>
-					{/each}
+						</svelte:fragment>
+					</DraggableList>
 				</div>
 
 				<!-- Información del orden -->
 				<div class="text-sm text-gray-600 bg-gray-50 p-3 rounded">
-					<p><strong>Orden actual:</strong> Todos los rubros están incluidos en el orden. Usa los botones ↑/↓ para reorganizar la posición de cada rubro en el listado.</p>
+					<p><strong>Orden actual:</strong> Todos los rubros están incluidos en el orden. Puedes:</p>
+					<ul class="list-disc list-inside mt-1 space-y-1">
+						<li><strong>Arrastrar y soltar:</strong> Haz clic y arrastra cualquier rubro para reordenarlo</li>
+						<li><strong>Botones ↑/↓:</strong> Usa los botones para mover rubros uno por uno</li>
+						<li><strong>Icono ⋮⋮:</strong> Indica que el elemento se puede arrastrar</li>
+					</ul>
+					<div class="mt-2 pt-2 border-t border-gray-200">
+						<p class="text-xs text-gray-500">
+							<strong>Configuración guardada para:</strong> {$auth.user?.usuario || 'Usuario anónimo'}
+						</p>
+						<p class="text-xs text-gray-500">
+							<strong>Última actualización:</strong> {new Date().toLocaleString()}
+						</p>
+					</div>
 				</div>
 			</div>
 		{/if}
