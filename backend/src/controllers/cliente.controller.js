@@ -336,9 +336,12 @@ const getComprobantesCliente = async (req, res) => {
 
     let comprobantes = [];
     
-    // Obtener facturas
+    // Obtener facturas (excluyendo las anuladas)
     const facturas = await FacturaCabeza.findAll({
-      where: { ClienteCodigo: id },
+      where: { 
+        ClienteCodigo: id,
+        FechaAnulacion: null // ✅ Excluir facturas anuladas
+      },
       attributes: [
         'Fecha',
         'DocumentoTipo',
@@ -346,7 +349,8 @@ const getComprobantesCliente = async (req, res) => {
         'DocumentoNumero',
         'ImporteTotal',
         'ImportePagado',
-        'PagoTipo'
+        'PagoTipo',
+        'FechaAnulacion'
       ],
       order: [['Fecha', 'DESC']],
       raw: true

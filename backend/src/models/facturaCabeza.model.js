@@ -200,9 +200,6 @@ FacturaCabeza.belongsTo(Vendedor, {
   targetKey: "Codigo",
 });
 
-// Agregar asociación con FacturaItem
-FacturaCabeza.hasMany(FacturaItem, {
-  foreignKey: ["DocumentoTipo", "DocumentoSucursal", "DocumentoNumero"]
-});
+// La relación con FacturaItem se define en el modelInitializer para evitar dependencias circulares
 
 module.exports = FacturaCabeza;

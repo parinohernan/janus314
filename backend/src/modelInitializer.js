@@ -268,55 +268,30 @@ const initializeModels = (sequelize) => {
     as: 'Recibo'
   });
 
-  // Definir modelo FacturaItem
-  const FacturaItem = sequelize.define('FacturaItem', {
-    DocumentoTipo: {
-      type: DataTypes.CHAR(3),
-      primaryKey: true,
-      allowNull: false,
-    },
-    DocumentoSucursal: {
-      type: DataTypes.STRING(4),
-      primaryKey: true,
-      allowNull: false,
-    },
-    DocumentoNumero: {
-      type: DataTypes.STRING(8),
-      primaryKey: true,
-      allowNull: false,
-    },
-    CodigoArticulo: {
-      type: DataTypes.STRING(20),
-      primaryKey: true,
-      allowNull: false,
-    },
-    Cantidad: {
-      type: DataTypes.DOUBLE(15, 3),
-      allowNull: false,
-    },
-    PrecioLista: {
-      type: DataTypes.DOUBLE(15, 3),
-      allowNull: true,
-    },
-    PorcentajeBonificado: {
-      type: DataTypes.DOUBLE(15, 3),
-      allowNull: true,
-    },
-    ImporteBonificado: {
-      type: DataTypes.DOUBLE(15, 3),
-      allowNull: true,
-    },
-    PrecioUnitario: {
-      type: DataTypes.DOUBLE(15, 3),
-      allowNull: true,
-    },
-    ImporteCosto: {
-      type: DataTypes.DOUBLE(15, 3),
-      allowNull: true,
-    }
-  }, {
-    tableName: 'facturaitem',
-    timestamps: false
+  // Importar modelos de factura desde archivos separados
+  const FacturaCabeza = require('./models/facturaCabeza.model');
+  const FacturaItem = require('./models/facturaItem.model');
+  const Articulo = require('./models/articulo.model');
+
+  // Establecer relaciones de Factura
+  console.log('Estableciendo relaciones de Factura...');
+  
+  // Relación FacturaCabeza -> FacturaItem
+  FacturaCabeza.hasMany(FacturaItem, {
+    foreignKey: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero'],
+    sourceKey: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero']
+  });
+
+  // Relación FacturaItem -> FacturaCabeza
+  FacturaItem.belongsTo(FacturaCabeza, {
+    foreignKey: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero'],
+    targetKey: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero']
+  });
+
+  // Relación FacturaItem -> Articulo
+  FacturaItem.belongsTo(Articulo, {
+    foreignKey: 'CodigoArticulo',
+    targetKey: 'Codigo'
   });
 
   // ... resto de modelos ...

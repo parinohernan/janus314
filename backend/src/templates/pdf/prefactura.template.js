@@ -35,6 +35,11 @@ async function renderPrefactura(doc, data) {
     doc.fontSize(14).font("Helvetica-Bold");
     doc.text(`Remito Nº: ${prefactura.DocumentoSucursal} - ${prefactura.DocumentoNumero}`, 40, 40, { align: "center" });
     
+    // Agregar fecha en la parte superior derecha
+    const fecha = new Date(prefactura.Fecha).toLocaleDateString('es-AR');
+    doc.fontSize(12).font("Helvetica");
+    doc.text(`Fecha: ${fecha}`, 450, 40, { align: "right" });
+    
     // Restaurar fuente normal
     doc.font("Helvetica");
     

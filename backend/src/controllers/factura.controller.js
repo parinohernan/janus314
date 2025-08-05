@@ -329,10 +329,10 @@ exports.crearFactura = async (req, res) => {
 
 // Anular factura
 exports.anularFactura = async (req, res) => {
-  const t = await sequelize.transaction();
+  const t = await req.db.transaction();
 
   try {
-    const { FacturaCabeza, FacturaItem, Articulo } = req.models;
+    const { FacturaCabeza, FacturaItem, Articulo, ReciboItem, Cliente } = req.models;
     const { tipo, sucursal, numero } = req.params;
 
     // Verificar si la factura existe
@@ -362,6 +362,33 @@ exports.anularFactura = async (req, res) => {
       });
     }
 
+    // ✅ Verificar que solo se puedan anular prefacturas (PRF) y notas de crédito tipo NCF
+    if (tipo !== "PRF" && tipo !== "NCF") {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: `No se puede anular el documento tipo ${tipo}. Solo se pueden anular prefacturas (PRF) y notas de crédito tipo NCF.`,
+      });
+    }
+
+    // ✅ Verificar si existe un recibo asociado a la factura
+    const reciboAsociado = await ReciboItem.findOne({
+      where: {
+        FacturaTipo: tipo,
+        FacturaSucursal: sucursal,
+        FacturaNumero: numero,
+      },
+      transaction: t,
+    });
+
+    if (reciboAsociado) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: `Error: primero debe anular el recibo ${reciboAsociado.DocumentoTipo}-${reciboAsociado.DocumentoSucursal}-${reciboAsociado.DocumentoNumero}`,
+      });
+    }
+
     // Obtener ítems de factura para restaurar stock
     const items = await FacturaItem.findAll({
       where: {
@@ -369,36 +396,102 @@ exports.anularFactura = async (req, res) => {
         DocumentoSucursal: sucursal,
         DocumentoNumero: numero,
       },
-      include: [{ model: Articulo }],
+      attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'CodigoArticulo', 'Cantidad'],
       transaction: t,
     });
 
     // Restaurar stock de artículos
     for (const item of items) {
-      if (item.Articulo) {
-        let nuevoStock;
+      // Obtener el artículo por separado para evitar problemas de relaciones
+      const articulo = await Articulo.findOne({
+        where: { Codigo: item.CodigoArticulo },
+        attributes: ['Codigo', 'Descripcion', 'Existencia', 'ExistenciaMinima', 'ExistenciaMaxima'],
+        transaction: t
+      });
 
-        if (tipo === "FAC") {
-          // Si es factura, devolvemos el stock
-          nuevoStock =
-            parseFloat(item.Articulo.Existencia) + parseFloat(item.Cantidad);
-        } else if (tipo === "NCA") {
-          // Si es nota de crédito, restamos el stock
-          nuevoStock =
-            parseFloat(item.Articulo.Existencia) - parseFloat(item.Cantidad);
+      if (articulo) {
+        // ✅ Validar que los valores sean números válidos
+        const existenciaActual = parseFloat(articulo.Existencia) || 0;
+        const cantidad = parseFloat(item.Cantidad) || 0;
+        
+        if (isNaN(existenciaActual) || isNaN(cantidad)) {
+          console.error(`❌ Valores inválidos para artículo ${articulo.Codigo}:`, {
+            existencia: articulo.Existencia,
+            cantidad: item.Cantidad,
+            existenciaActual,
+            cantidad
+          });
+          throw new Error(`Valores inválidos para artículo ${articulo.Codigo}: existencia=${articulo.Existencia}, cantidad=${item.Cantidad}`);
         }
 
-        await item.Articulo.update(
+        let nuevoStock;
+
+        if (tipo === "PRF") {
+          // Prefactura: devolver stock al inventario (no es documento legal)
+          nuevoStock = existenciaActual + cantidad;
+        } else if (tipo === "NCF") {
+          // Nota de crédito NCF: restar stock del inventario
+          nuevoStock = existenciaActual - cantidad;
+        }
+
+        // ✅ Validar que el nuevo stock sea un número válido
+        if (isNaN(nuevoStock)) {
+          console.error(`❌ Nuevo stock inválido para artículo ${articulo.Codigo}:`, {
+            existenciaActual,
+            cantidad,
+            nuevoStock,
+            tipo
+          });
+          throw new Error(`Error al calcular nuevo stock para artículo ${articulo.Codigo}`);
+        }
+
+        // ✅ Validar que el nuevo stock no sea excesivamente negativo (opcional)
+        if (nuevoStock < -1000) {
+          console.warn(`⚠️ Stock muy negativo para artículo ${articulo.Codigo}: ${nuevoStock}`);
+        }
+
+        console.log(`✅ Actualizando stock artículo ${articulo.Codigo}: ${existenciaActual} + ${cantidad} = ${nuevoStock} (${nuevoStock >= 0 ? 'positivo' : 'negativo'})`);
+
+        await articulo.update(
           { Existencia: nuevoStock },
           { transaction: t }
         );
       }
     }
 
-    // Marcar como anulada
+    // ✅ Actualizar saldo del cliente si es cuenta corriente
+    if (factura.PagoTipo === "CC") {
+      const cliente = await Cliente.findOne({
+        where: { Codigo: factura.ClienteCodigo },
+        transaction: t
+      });
+      
+      if (cliente) {
+        // Restar el importe de la factura del saldo del cliente
+        const nuevoSaldo = parseFloat(cliente.ImporteDeuda || 0) - parseFloat(factura.ImporteTotal || 0);
+        
+        await cliente.update(
+          { ImporteDeuda: nuevoSaldo },
+          { transaction: t }
+        );
+        
+        console.log(`✅ Saldo del cliente ${cliente.Codigo} actualizado: ${cliente.ImporteDeuda} → ${nuevoSaldo}`);
+      }
+    }
+
+    // Marcar como anulada y poner importes en 0
     await factura.update(
       {
         FechaAnulacion: new Date(),
+        ImporteTotal: 0,        // ✅ Poner importe total en 0
+        ImportePagado: 0,       // ✅ Poner importe pagado en 0
+        ImporteBruto: 0,        // ✅ Poner importe bruto en 0
+        ImporteNeto: 0,         // ✅ Poner importe neto en 0
+        ImporteIva1: 0,         // ✅ Poner importe IVA en 0
+        ImporteIva2: 0,         // ✅ Poner importe IVA en 0
+        ImporteAdicional: 0,    // ✅ Poner importe adicional en 0
+        ImporteBonificado: 0,   // ✅ Poner importe bonificado en 0
+        ImportePercepcionIIBB: 0 // ✅ Poner importe percepción en 0
       },
       { transaction: t }
     );

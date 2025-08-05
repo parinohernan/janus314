@@ -1,0 +1,33 @@
+import { e as escape_html, k as attr_class, l as stringify, x as bind_props, c as pop, p as push } from "../../../../../../../chunks/index3.js";
+import "../../../../../../../chunks/client.js";
+/* empty css                              */
+import "clsx";
+import "../../../../../../../chunks/authStore.js";
+import { B as Breadcrumbs } from "../../../../../../../chunks/index4.js";
+function _page($$payload, $$props) {
+  push();
+  let data = $$props["data"];
+  let producto = data.articulo || {};
+  function formatearPrecio(precio) {
+    return precio ? `$${Number(precio).toFixed(2)}` : "$0.00";
+  }
+  function formatearPorcentaje(valor) {
+    return valor ? `${Number(valor).toFixed(2)}%` : "0.00%";
+  }
+  function estadoStock(actual, minimo) {
+    if (!actual || !minimo) return "normal";
+    return actual <= minimo ? "bajo" : "normal";
+  }
+  $$payload.out += `<div class="detalle-producto-container svelte-xfelb5">`;
+  Breadcrumbs($$payload, {});
+  $$payload.out += `<!----> <header class="header svelte-xfelb5"><div class="header-title svelte-xfelb5"><h1 class="svelte-xfelb5">Detalles del Producto</h1> <div class="product-code svelte-xfelb5">Código: ${escape_html(producto.Codigo)}</div></div> <div class="header-actions svelte-xfelb5"><button class="btn-back svelte-xfelb5" aria-label="Volver al listado"><span class="icon svelte-xfelb5">←</span> <span class="label">Volver</span></button> <button class="btn-edit svelte-xfelb5" aria-label="Editar producto"><span class="icon svelte-xfelb5">✏️</span> <span class="label">Editar</span></button></div></header> `;
+  {
+    $$payload.out += "<!--[!-->";
+  }
+  $$payload.out += `<!--]--> <div class="product-details svelte-xfelb5"><section class="detail-section svelte-xfelb5"><h2 class="svelte-xfelb5">Información General</h2> <div class="detail-grid svelte-xfelb5"><div class="detail-item svelte-xfelb5"><div class="detail-label svelte-xfelb5">Descripción</div> <div class="detail-value svelte-xfelb5">${escape_html(producto.Descripcion || "No disponible")}</div></div> <div class="detail-item svelte-xfelb5"><div class="detail-label svelte-xfelb5">Código de Barras</div> <div class="detail-value svelte-xfelb5">${escape_html(producto.CodigoBarras || "No especificado")}</div></div> <div class="detail-item svelte-xfelb5"><div class="detail-label svelte-xfelb5">Proveedor</div> <div class="detail-value svelte-xfelb5">${escape_html("No especificado")}</div></div> <div class="detail-item svelte-xfelb5"><div class="detail-label svelte-xfelb5">Rubro</div> <div class="detail-value svelte-xfelb5">${escape_html("No especificado")}</div></div> <div class="detail-item svelte-xfelb5"><div class="detail-label svelte-xfelb5">Estado</div> <div class="detail-value svelte-xfelb5"><span${attr_class(`status-indicator ${stringify(producto.Activo ? "active" : "inactive")}`, "svelte-xfelb5")}>${escape_html(producto.Activo ? "Activo" : "Inactivo")}</span></div></div></div></section> <section class="detail-section svelte-xfelb5"><h2 class="svelte-xfelb5">Inventario</h2> <div class="detail-grid svelte-xfelb5"><div class="detail-item svelte-xfelb5"><div class="detail-label svelte-xfelb5">Existencia Actual</div> <div${attr_class(`detail-value stock-level ${stringify(estadoStock(producto.Existencia, producto.ExistenciaMinima))}`, "svelte-xfelb5")}>${escape_html(producto.Existencia || 0)} ${escape_html(producto.UnidadVenta || "u")}</div></div> <div class="detail-item svelte-xfelb5"><div class="detail-label svelte-xfelb5">Existencia Mínima</div> <div class="detail-value svelte-xfelb5">${escape_html(producto.ExistenciaMinima || 0)} ${escape_html(producto.UnidadVenta || "u")}</div></div> <div class="detail-item svelte-xfelb5"><div class="detail-label svelte-xfelb5">Existencia Máxima</div> <div class="detail-value svelte-xfelb5">${escape_html(producto.ExistenciaMaxima || 0)} ${escape_html(producto.UnidadVenta || "u")}</div></div> <div class="detail-item svelte-xfelb5"><div class="detail-label svelte-xfelb5">Unidad de Venta</div> <div class="detail-value svelte-xfelb5">${escape_html(producto.UnidadVenta || "u")}</div></div> <div class="detail-item svelte-xfelb5"><div class="detail-label svelte-xfelb5">Ubicación en Depósito</div> <div class="detail-value svelte-xfelb5">${escape_html(producto.UbicacionDeposito || "No especificada")}</div></div></div></section> <section class="detail-section svelte-xfelb5"><h2 class="svelte-xfelb5">Precios y Costos</h2> <div class="detail-grid svelte-xfelb5"><div class="detail-item svelte-xfelb5"><div class="detail-label svelte-xfelb5">Precio de Costo</div> <div class="detail-value svelte-xfelb5">${escape_html(formatearPrecio(producto.PrecioCosto))}</div></div> <div class="detail-item svelte-xfelb5"><div class="detail-label svelte-xfelb5">Precio de Costo + IVA</div> <div class="detail-value svelte-xfelb5">${escape_html(formatearPrecio(producto.PrecioCostoMasImp))}</div></div> <div class="detail-item svelte-xfelb5"><div class="detail-label svelte-xfelb5">IVA Principal</div> <div class="detail-value svelte-xfelb5">${escape_html(producto.PorcentajeIVA1 || producto.PorcentajeIva1 || 21)}%</div></div> <div class="detail-item svelte-xfelb5"><div class="detail-label svelte-xfelb5">IVA Secundario</div> <div class="detail-value svelte-xfelb5">${escape_html(producto.PorcentajeIVA2 || producto.PorcentajeIva2 || 0)}%</div></div></div></section> <section class="detail-section svelte-xfelb5"><h2 class="svelte-xfelb5">Listas de Precios</h2> <div class="price-list-grid svelte-xfelb5"><div class="price-list-item svelte-xfelb5"><div class="price-list-name svelte-xfelb5">Lista 1</div> <div class="price-list-value svelte-xfelb5">${escape_html(formatearPorcentaje(producto.Lista1))}</div></div> <div class="price-list-item svelte-xfelb5"><div class="price-list-name svelte-xfelb5">Lista 2</div> <div class="price-list-value svelte-xfelb5">${escape_html(formatearPorcentaje(producto.Lista2))}</div></div> <div class="price-list-item svelte-xfelb5"><div class="price-list-name svelte-xfelb5">Lista 3</div> <div class="price-list-value svelte-xfelb5">${escape_html(formatearPorcentaje(producto.Lista3))}</div></div> <div class="price-list-item svelte-xfelb5"><div class="price-list-name svelte-xfelb5">Lista 4</div> <div class="price-list-value svelte-xfelb5">${escape_html(formatearPorcentaje(producto.Lista4))}</div></div> <div class="price-list-item svelte-xfelb5"><div class="price-list-name svelte-xfelb5">Lista 5</div> <div class="price-list-value svelte-xfelb5">${escape_html(formatearPorcentaje(producto.Lista5))}</div></div></div></section></div></div>`;
+  bind_props($$props, { data });
+  pop();
+}
+export {
+  _page as default
+};

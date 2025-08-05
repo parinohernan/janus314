@@ -91,10 +91,6 @@ const FacturaItem = sequelize.define(
   }
 );
 
-// Definir la relación con Articulo
-FacturaItem.belongsTo(Articulo, {
-  foreignKey: "CodigoArticulo",
-  targetKey: "Codigo"
-});
+// Las relaciones se definen en el modelInitializer para evitar dependencias circulares
 
 module.exports = FacturaItem;

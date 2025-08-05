@@ -37,6 +37,7 @@ async function renderFacturaA(doc, data) {
       documentType: "A",
       documentNumber: `${factura.DocumentoSucursal}-${factura.DocumentoNumero}`,
       logoPath: finalLogoPath,
+      isNotaCredito: false, // Indicar que es una factura
     });
 
     // Agregar indicador de original o duplicado

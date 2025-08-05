@@ -37,6 +37,7 @@ async function renderNotaCreditoA(doc, data) {
       documentType: "A",
       documentNumber: `${notaCredito.DocumentoSucursal}-${notaCredito.DocumentoNumero}`,
       logoPath: finalLogoPath,
+      isNotaCredito: true, // Indicar que es una nota de crédito
     });
 
     // Agregar indicador de original o duplicado

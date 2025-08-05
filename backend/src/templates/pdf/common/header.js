@@ -19,6 +19,7 @@ function renderHeader(doc, options = {}) {
     companyInicioActividades = "",
     showLogo = true,
     logoPath = null,
+    isNotaCredito = false, // Nuevo parámetro para distinguir entre facturas y notas de crédito
   } = options;
 
   // constantes de posicionamiento
@@ -74,14 +75,8 @@ function renderHeader(doc, options = {}) {
 
   // Tipo y número de documento
   if (documentType && documentNumber) {
-    // Determinar el tipo de documento basado en el título
-    let documentTypeText = "Factura";
-    if (title === "A" || title === "B" || title === "C") {
-      // Verificar si es nota de crédito basado en el tipo de documento
-      if (documentType === "A" || documentType === "B" || documentType === "C") {
-        documentTypeText = "Nota de Crédito";
-      }
-    }
+    // Determinar el tipo de documento basado en el parámetro isNotaCredito
+    let documentTypeText = isNotaCredito ? "Nota de Crédito" : "Factura";
     
     doc.fontSize(12).text(`${documentTypeText} N° ${documentNumber}`, { align: "right" });
   }
