@@ -4,8 +4,3 @@
 
 [build.environment]
   NODE_VERSION = "18"
-
-[[redirects]]
-  from = "/*"
-  to = "/.netlify/functions/sveltekit-render"
-  status = 200 
