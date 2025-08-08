@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: janus314-backend
+    env: node
+    plan: free
+    branch: produccion
+    rootDir: ./backend
+    buildCommand: npm ci
+    startCommand: npm start
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false
+      - key: EMPRESAS_DB_HOST
+        sync: false
+      - key: EMPRESAS_DB_NAME
+        sync: false
+      - key: EMPRESAS_DB_USER
+        sync: false
+      - key: EMPRESAS_DB_PASSWORD
+        sync: false
+      - key: EMPRESAS_DB_PORT
+        value: "3306"
+      - key: LOG_LEVEL
+        value: info
+      # Redis es opcional; si no lo usas en producción, puedes omitir estos
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        value: "6379"
+      - key: REDIS_PASSWORD
+        sync: false
+      # Telegram es opcional; deja vacío para deshabilitar
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      # Si tu front corre en otro dominio, puedes agregarlo a CORS por env (recomendado actualizar código para leerlo)
+      - key: CORS_ORIGINS
+        sync: false
+
+
