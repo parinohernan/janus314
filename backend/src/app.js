@@ -51,21 +51,30 @@ const app = express();
 app.use(requestLogger);
 
 // Configuración de CORS
+const staticCorsOrigins = [
+  'http://localhost:5173', 
+  'https://janus314.osvi.lat', 
+  'https://janus314-api.osvi.lat',
+  'https://janus314-api.janus314.com.ar',
+  'https://jano.janus314.com.ar',
+  'http://jano.janus314.com.ar',
+  'https://janus314.com.ar',
+  'https://janus314-api.com.ar',
+  'https://jano.janus314.com.ar',
+  'http://jano.janus314.com.ar'
+];
+
+// Permitir agregar orígenes por ENV (separados por comas)
+const envCorsOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(o => o.length > 0);
+
+// Unir y de-duplicar
+const allowedOrigins = Array.from(new Set([...staticCorsOrigins, ...envCorsOrigins]));
+
 const corsOptions = {
-  origin: [
-    'http://localhost:5173', 
-    'https://janus314.osvi.lat', 
-    'https://janus314-api.osvi.lat',
-    'https://janus314-api.janus314.com.ar',
-    'https://jano.janus314.com.ar',
-    // 'https://web.telegram.org',
-    'http://jano.janus314.com.ar',
-    'https://janus314.com.ar',
-    'https://janus314-api.com.ar',
-    'https://jano.janus314.com.ar',
-    // 'https://web.telegram.org',
-    'http://jano.janus314.com.ar'  // Agregamos también la versión HTTP
-  ],
+  origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   credentials: true,

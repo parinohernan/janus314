@@ -6,11 +6,11 @@ module.exports = {
   botToken: process.env.TELEGRAM_BOT_TOKEN || '',
   
   // URL base de la aplicación web
-  baseUrl: 'https://janus314.osvi.lat',
+  baseUrl: process.env.TELEGRAM_BASE_URL || 'https://janus314.osvi.lat',
   
   // URL de la mini webapp para crear ventas
-  webAppUrl: 'https://janus314.osvi.lat/ventas/bot/nueva',
+  webAppUrl: process.env.TELEGRAM_WEBAPP_URL || 'https://janus314.osvi.lat/ventas/bot/nueva',
   
   // URL del webhook para recibir actualizaciones de Telegram
-  webhookUrl: 'https://janus314.osvi.lat/api/telegram/webhook'
+  webhookUrl: process.env.TELEGRAM_WEBHOOK_URL || ''
 }; 

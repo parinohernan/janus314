@@ -19,6 +19,7 @@ class MasterDBConnection {
       process.env.EMPRESAS_DB_PASSWORD,
       {
         host: process.env.EMPRESAS_DB_HOST,
+        port: process.env.EMPRESAS_DB_PORT ? parseInt(process.env.EMPRESAS_DB_PORT) : 3306,
         dialect: 'mysql',
         pool: {
           max: 5,
