@@ -220,9 +220,24 @@
     }
   };
   
+  // Validar que el porcentaje de IVA 1 sea uno de los valores permitidos
+  const validarPorcentajeIVA1 = (): boolean => {
+    const valoresPermitidos = [0, 10.5, 21];
+    if (!valoresPermitidos.includes(articulo.PorcentajeIVA1)) {
+      error = 'El porcentaje de IVA 1 debe ser 0, 10.5 o 21';
+      return false;
+    }
+    return true;
+  };
+
   // Manejar el envío del formulario
   const handleSubmit = async (event: Event): Promise<void> => {
     event.preventDefault();
+    
+    // Validar el porcentaje de IVA 1 antes de enviar
+    if (!validarPorcentajeIVA1()) {
+      return;
+    }
     
     try {
       loading = true;
@@ -302,7 +317,7 @@
       </Button>
     </div>
     
-    {#if error && isEditing}
+    {#if error}
       <div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
         {error}
       </div>
@@ -561,15 +576,19 @@
               <label for="porcentajeIVA1" class="block text-sm font-medium text-gray-700 mb-1">
                 Porcentaje IVA 1
               </label>
-              <input
-                type="number"
+              <select
                 id="porcentajeIVA1"
                 bind:value={articulo.PorcentajeIVA1}
-                step="0.01"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              >
+                <option value={0}>0%</option>
+                <option value={10.5}>10.5%</option>
+                <option value={21}>21%</option>
+              </select>
             </div>
             
+            <!-- Campo Porcentaje IVA 2 oculto - no se muestra al crear nuevo producto o editar -->
+            {#if false}
             <div>
               <label for="porcentajeIVA2" class="block text-sm font-medium text-gray-700 mb-1">
                 Porcentaje IVA 2
@@ -582,6 +601,7 @@
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            {/if}
           </div>
           
           <Button 
