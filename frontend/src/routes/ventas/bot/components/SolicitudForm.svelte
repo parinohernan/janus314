@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
+  import { PUBLIC_API_URL } from '$env/static/public';
   
   const dispatch = createEventDispatcher();
   
@@ -59,7 +60,7 @@
     success = null;
 
     try {
-      const response = await fetch('https://janus314-api.osvi.lat/api/solicitudes', {
+      const response = await fetch(`${PUBLIC_API_URL}/solicitudes`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
