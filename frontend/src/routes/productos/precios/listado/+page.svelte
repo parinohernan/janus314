@@ -421,7 +421,7 @@
 				ordenRubros: ordenRubros
 			};
 
-			const response = await fetchWithAuth('/api/articulos/listado-precios-pdf', {
+            const response = await fetchWithAuth('articulos/listado-precios-pdf', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
@@ -479,7 +479,7 @@
 				ordenRubros: ordenRubros
 			};
 
-			const response = await fetchWithAuth('/api/articulos/listado-precios-pdf', {
+            const response = await fetchWithAuth('articulos/listado-precios-pdf', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'

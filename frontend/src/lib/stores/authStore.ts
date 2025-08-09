@@ -71,7 +71,7 @@ function createAuthStore() {
 
         // En modo online, hacer la llamada al servidor
         const endpoint = `${PUBLIC_API_URL}${authConfig.endpoints.online.login}`;
-        console.log('Haciendo login online en:', endpoint);
+        console.log('Haciendo login online en:', endpoint, 'PUBLIC_API_URL:', PUBLIC_API_URL);
         
         const response = await fetch(endpoint, {
           method: 'POST',
@@ -80,11 +80,23 @@ function createAuthStore() {
         });
 
         if (!response.ok) {
-          const errorData = await response.json();
-          if (response.status === 403) {
-            throw new Error(errorData.error || 'Acceso denegado - Solo los administradores pueden acceder al sistema');
+          const contentType = response.headers.get('content-type') || '';
+          let errorMessage = `Error de autenticación (HTTP ${response.status})`;
+          try {
+            if (contentType.includes('application/json')) {
+              const errorData = await response.json();
+              errorMessage = errorData.error || errorMessage;
+            } else {
+              const text = await response.text();
+              if (text) errorMessage = text;
+            }
+          } catch {
+            // ignorar parseos fallidos
           }
-          throw new Error(errorData.error || 'Error de autenticación');
+          if (response.status === 403) {
+            throw new Error(errorMessage || 'Acceso denegado - Solo los administradores pueden acceder al sistema');
+          }
+          throw new Error(errorMessage);
         }
 
         const data = await response.json();
