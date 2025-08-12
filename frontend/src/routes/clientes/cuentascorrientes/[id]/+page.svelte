@@ -3,6 +3,7 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import Button from '$lib/components/ui/Button.svelte';
+  import Pagination from '$lib/components/ui/Pagination.svelte';
   import { ClienteService, type Comprobante } from '$lib/services/ClienteService';
   
   const clienteId = $page.params.id;
@@ -12,7 +13,15 @@
   let loading = true;
   let error: string | null = null;
   
-  const loadData = async (): Promise<void> => {
+  // Variables de paginación
+  let currentPage = 1;
+  let totalPages = 1;
+  let totalItems = 0;
+  let itemsPerPage = 10;
+  
+  const itemsPerPageOptions = [10, 25, 50, 100];
+  
+  const loadData = async (page: number = 1): Promise<void> => {
     try {
       loading = true;
       error = null;
@@ -32,8 +41,19 @@
         saldoTotal = cliente.Saldo;
       }
       
-      // Cargar los comprobantes
-      comprobantes = await ClienteService.obtenerComprobantes(clienteId);
+      // Cargar los comprobantes con paginación
+      const comprobantesResult = await ClienteService.obtenerComprobantes(clienteId, {
+        page,
+        limit: itemsPerPage,
+        search: '',
+        field: 'Fecha',
+        order: 'DESC'
+      });
+      
+      comprobantes = comprobantesResult.items;
+      currentPage = comprobantesResult.currentPage;
+      totalPages = comprobantesResult.totalPages;
+      totalItems = comprobantesResult.totalItems;
       
     } catch (err: unknown) {
       console.error('Error cargando datos:', err);
@@ -43,8 +63,18 @@
     }
   };
   
+  const handlePageChange = (event: CustomEvent<{ page: number }>) => {
+    loadData(event.detail.page);
+  };
+  
+  const handleItemsPerPageChange = (event: Event) => {
+    const target = event.target as HTMLSelectElement;
+    itemsPerPage = parseInt(target.value);
+    loadData(1); // Volver a la primera página
+  };
+  
   onMount(() => {
-    loadData();
+    loadData(1);
   });
   
   const formatDate = (dateString: string): string => {
@@ -111,7 +141,7 @@
       <p>{error}</p>
       <button 
         class="mt-2 bg-red-200 hover:bg-red-300 text-red-800 px-3 py-1 rounded"
-        on:click={loadData}>
+        on:click={() => loadData(1)}>
         Reintentar
       </button>
     </div>
@@ -121,6 +151,26 @@
     </div>
   {:else}
     <div class="overflow-x-auto bg-white rounded-lg shadow">
+      <!-- Controles de paginación -->
+      <div class="flex justify-between items-center p-4 border-b">
+        <div class="flex items-center gap-2">
+          <label for="itemsPerPage" class="text-sm text-gray-700">Elementos por página:</label>
+          <select
+            id="itemsPerPage"
+            bind:value={itemsPerPage}
+            on:change={handleItemsPerPageChange}
+            class="border border-gray-300 rounded px-2 py-1 text-sm"
+          >
+            {#each itemsPerPageOptions as option}
+              <option value={option}>{option}</option>
+            {/each}
+          </select>
+        </div>
+        <div class="text-sm text-gray-600">
+          Total: {totalItems} comprobantes
+        </div>
+      </div>
+      
       <table class="min-w-full">
         <thead class="bg-gray-50 border-b">
           <tr>
@@ -163,6 +213,15 @@
           {/each}
         </tbody>
       </table>
+      
+      <!-- Paginación -->
+      <Pagination
+        {currentPage}
+        {totalPages}
+        {totalItems}
+        {itemsPerPage}
+        on:pageChange={handlePageChange}
+      />
     </div>
   {/if}
 </div> 

@@ -194,14 +194,31 @@ export class ClienteService {
 	}
 
 	/**
-	 * Obtiene los comprobantes de una cuenta corriente por el código de cliente
+	 * Obtiene los comprobantes de una cuenta corriente por el código de cliente con paginación
 	 */
-	public static async obtenerComprobantes(codigoCliente: string): Promise<Comprobante[]> {
+	public static async obtenerComprobantes(codigoCliente: string, params?: PaginationParams): Promise<PaginatedResponse<Comprobante>> {
 		try {
-			const response = await fetchWithAuth(`/clientes/${codigoCliente}/comprobantes`);
+			const searchParams = new URLSearchParams();
+			
+			if (params) {
+				searchParams.append('page', params.page.toString());
+				searchParams.append('limit', params.limit.toString());
+				searchParams.append('search', params.search);
+				searchParams.append('field', params.field);
+				searchParams.append('order', params.order);
+			}
+
+			const url = `/clientes/${codigoCliente}/comprobantes${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+			const response = await fetchWithAuth(url);
 
 			const data = await response.json();
-			return data.items || [];
+			return {
+				items: data.items || [],
+				currentPage: parseInt(data.meta?.currentPage || '1', 10),
+				totalPages: parseInt(data.meta?.totalPages || '1', 10),
+				totalItems: parseInt(data.meta?.totalItems || '0', 10),
+				limit: parseInt(data.meta?.itemsPerPage || '10', 10)
+			};
 		} catch (error) {
 			console.error(`Error cargando comprobantes para cliente ${codigoCliente}:`, error);
 			throw error;

@@ -8,7 +8,7 @@ exports.getAllRecibos = async (req, res) => {
   try {
     const { ReciboCabeza, Cliente } = req.models;
     const {
-      page = 1,
+      page,
       limit = 10,
       search = '',
       field = 'Fecha',
@@ -17,9 +17,21 @@ exports.getAllRecibos = async (req, res) => {
       fechaDesde = '',
       fechaHasta = ''
     } = req.query;
+    
+    // Si no se proporciona page, usar 1 por defecto
+    const pageValue = page ? parseInt(page) : 1;
+    
+    console.log('🔍 Backend - Query recibido:', req.query);
+    console.log('🔍 Backend - limit:', limit);
 
-    const offset = (page - 1) * limit;
+    // Si no se proporciona limit o se especifica all=true, obtener todos los registros
+    const shouldGetAll = !limit || limit === 'undefined' || limit === 'null' || req.query.all === 'true';
+    const limitValue = shouldGetAll ? null : parseInt(limit);
+    const offset = shouldGetAll ? 0 : (pageValue - 1) * limitValue;
     const whereClause = {};
+    
+    console.log('🔍 Backend - shouldGetAll:', shouldGetAll);
+    console.log('🔍 Backend - limitValue:', limitValue);
     
     if (clienteCodigo) {
       whereClause.ClienteCodigo = clienteCodigo;
@@ -49,7 +61,7 @@ exports.getAllRecibos = async (req, res) => {
     const count = await ReciboCabeza.count({ where: whereClause });
 
     // Luego hacemos la consulta con includes para los datos
-    const recibos = await ReciboCabeza.findAll({
+    const queryOptions = {
       where: whereClause,
       include: [{
         model: Cliente,
@@ -60,19 +72,33 @@ exports.getAllRecibos = async (req, res) => {
         [sortField, sortOrder],
         ['DocumentoSucursal', sortOrder],
         ['DocumentoNumero', sortOrder]
-      ],
-      limit: parseInt(limit),
-      offset: parseInt(offset)
+      ]
+    };
+
+    // Solo agregar limit y offset si no estamos obteniendo todos
+    if (!shouldGetAll) {
+      queryOptions.limit = limitValue;
+      queryOptions.offset = offset;
+    }
+
+    const recibos = await ReciboCabeza.findAll(queryOptions);
+    
+    console.log('🔍 Backend - Query ejecutada:', {
+      shouldGetAll,
+      limitValue,
+      offset,
+      count,
+      recibosCount: recibos.length
     });
 
-    const totalPages = Math.ceil(count / limit);
+    const totalPages = shouldGetAll ? 1 : Math.ceil(count / limitValue);
 
     return res.status(200).json({
       items: recibos,
       meta: {
         totalItems: count,
-        itemsPerPage: parseInt(limit),
-        currentPage: parseInt(page),
+        itemsPerPage: shouldGetAll ? count : parseInt(limit),
+        currentPage: shouldGetAll ? 1 : pageValue,
         totalPages: totalPages
       }
     });
