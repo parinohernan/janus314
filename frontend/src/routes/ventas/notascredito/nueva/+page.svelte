@@ -215,10 +215,10 @@
           Cantidad: item.Cantidad || item.cantidad,
           PrecioUnitario: item.PrecioUnitario || item.precioUnitario,
           PorcentajeBonificacion: item.PorcentajeBonificado || item.porcentajeBonificado || 0,
-          PorcentajeIva: item.PorcentajeIVA1 || item.porcentajeIva1 || 21,
-          PrecioUnitarioConIva: (item.PrecioUnitario || item.precioUnitario) * (1 + (item.PorcentajeIVA1 || item.porcentajeIva1 || 21) / 100),
+          PorcentajeIva: item.PorcentajeIva || item.PorcentajeIVA1 || item.porcentajeIva1 || 21,
+          PrecioUnitarioConIva: (item.PrecioUnitario || item.precioUnitario) * (1 + (item.PorcentajeIva || item.PorcentajeIVA1 || item.porcentajeIva1 || 21) / 100),
           Total: (item.Cantidad || item.cantidad) * (item.PrecioUnitario || item.precioUnitario),
-          TotalConIva: (item.Cantidad || item.cantidad) * (item.PrecioUnitario || item.precioUnitario) * (1 + (item.PorcentajeIVA1 || item.porcentajeIva1 || 21) / 100),
+          TotalConIva: (item.Cantidad || item.cantidad) * (item.PrecioUnitario || item.precioUnitario) * (1 + (item.PorcentajeIva || item.PorcentajeIVA1 || item.porcentajeIva1 || 21) / 100),
           enEdicion: false
         }));
         

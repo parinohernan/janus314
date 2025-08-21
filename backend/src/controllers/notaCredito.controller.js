@@ -42,8 +42,20 @@ exports.listarNotasCredito = async (req, res) => {
     console.log("whereClause", whereClause);
 
     // Definir los modelos para esta conexión
-    const NotaCreditoCabezaEmpresa = req.dbConnection.model('NotaCreditoCabeza');
+    const NotaCreditoCabezaEmpresa = require('../models/notaCreditoCabeza.model');
+    NotaCreditoCabezaEmpresa.init(NotaCreditoCabezaEmpresa.getAttributes(), {
+      sequelize: req.dbConnection,
+      tableName: "notacreditocabeza",
+      timestamps: false
+    });
+    
     const ClienteEmpresa = req.dbConnection.model('Cliente');
+    
+    // Establecer asociación
+    NotaCreditoCabezaEmpresa.belongsTo(ClienteEmpresa, {
+      foreignKey: "CodigoCliente",
+      targetKey: "Codigo",
+    });
 
     // Consulta con join a cliente
     const notasCredito = await NotaCreditoCabezaEmpresa.findAndCountAll({
@@ -93,10 +105,33 @@ exports.obtenerNotaCredito = async (req, res) => {
     const { tipo, sucursal, numero } = req.params;
 
     // Definir los modelos para esta conexión
-    const NotaCreditoCabezaEmpresa = req.dbConnection.model('NotaCreditoCabeza');
-    const NotaCreditoItemEmpresa = req.dbConnection.model('NotaCreditoItem');
+    const NotaCreditoCabezaEmpresa = require('../models/notaCreditoCabeza.model');
+    NotaCreditoCabezaEmpresa.init(NotaCreditoCabezaEmpresa.getAttributes(), {
+      sequelize: req.dbConnection,
+      tableName: "notacreditocabeza",
+      timestamps: false
+    });
+    
+    const NotaCreditoItemEmpresa = require('../models/notaCreditoItem.model');
+    NotaCreditoItemEmpresa.init(NotaCreditoItemEmpresa.getAttributes(), {
+      sequelize: req.dbConnection,
+      tableName: "notacreditoitems",
+      timestamps: false
+    });
+    
     const ClienteEmpresa = req.dbConnection.model('Cliente');
     const ArticuloEmpresa = req.dbConnection.model('Articulo');
+    
+    // Establecer asociaciones
+    NotaCreditoCabezaEmpresa.belongsTo(ClienteEmpresa, {
+      foreignKey: "CodigoCliente",
+      targetKey: "Codigo",
+    });
+    
+    NotaCreditoItemEmpresa.belongsTo(ArticuloEmpresa, {
+      foreignKey: 'CodigoArticulo',
+      targetKey: 'Codigo'
+    });
 
     // Obtener encabezado
     const notaCredito = await NotaCreditoCabezaEmpresa.findOne({

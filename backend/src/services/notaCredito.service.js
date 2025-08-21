@@ -26,10 +26,28 @@ const NotaCreditoService = {
     }
 
     // Definir los modelos para esta conexión
-    const NotaCreditoCabezaEmpresa = dbConnection.model('NotaCreditoCabeza');
-    const NotaCreditoItemEmpresa = dbConnection.model('NotaCreditoItem');
+    const NotaCreditoCabezaEmpresa = require('../models/notaCreditoCabeza.model');
+    NotaCreditoCabezaEmpresa.init(NotaCreditoCabezaEmpresa.getAttributes(), {
+      sequelize: dbConnection,
+      tableName: "notacreditocabeza",
+      timestamps: false
+    });
+    
+    const NotaCreditoItemEmpresa = require('../models/notaCreditoItem.model');
+    NotaCreditoItemEmpresa.init(NotaCreditoItemEmpresa.getAttributes(), {
+      sequelize: dbConnection,
+      tableName: "notacreditoitems",
+      timestamps: false
+    });
+    
     const ClienteEmpresa = dbConnection.model('Cliente');
     const NumerosControlEmpresa = dbConnection.model('NumerosControl');
+    
+    // Establecer asociaciones
+    NotaCreditoCabezaEmpresa.belongsTo(ClienteEmpresa, {
+      foreignKey: "CodigoCliente",
+      targetKey: "Codigo",
+    });
 
     // Ejecutar todo el proceso en una transacción
     return await TransactionService.ejecutarEnTransaccion(
@@ -135,7 +153,7 @@ const NotaCreditoService = {
         CodigoCliente: notaCreditoData.CodigoCliente,
         Fecha: notaCreditoData.Fecha,
         ImporteTotal: parseFloat(notaCreditoData.ImporteTotal) || 0,
-        ImporteUtilizado: parseFloat(notaCreditoData.ImporteUtilizado) || 0,
+        ImporteUtilizado: 0, // Una nota de crédito nueva siempre tiene ImporteUtilizado = 0
         ImporteNeto: parseFloat(notaCreditoData.ImporteNeto) || 0,
         ImporteIva1: parseFloat(notaCreditoData.ImporteIva1) || 0,
         ImporteIva2: parseFloat(notaCreditoData.ImporteIva2) || 0,
