@@ -224,4 +224,101 @@ export class ClienteService {
 			throw error;
 		}
 	}
+
+	/**
+	 * Genera y descarga el PDF de cuenta corriente de un cliente
+	 */
+	public static async generarPDFCuentaCorriente(codigoCliente: string): Promise<void> {
+		try {
+			console.log('🔍 Intentando generar PDF para cliente:', codigoCliente);
+			
+			const response = await fetchWithAuth(`/clientes/${codigoCliente}/cuenta-corriente/pdf`, {
+				method: 'GET'
+			});
+
+			console.log('📥 Respuesta del servidor:', {
+				status: response.status,
+				statusText: response.statusText,
+				headers: Object.fromEntries(response.headers.entries())
+			});
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				console.error('❌ Error response:', errorText);
+				throw new Error(`Error al generar el PDF de cuenta corriente: ${response.status} ${response.statusText}`);
+			}
+
+			// Obtener el blob del PDF
+			const blob = await response.blob();
+			console.log('📄 Blob recibido:', blob.size, 'bytes');
+			
+			// Crear URL del blob
+			const url = window.URL.createObjectURL(blob);
+			
+			// Crear elemento de descarga
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `cuenta-corriente-${codigoCliente}.pdf`;
+			document.body.appendChild(a);
+			a.click();
+			
+			// Limpiar
+			window.URL.revokeObjectURL(url);
+			document.body.removeChild(a);
+			
+					console.log('✅ PDF descargado exitosamente');
+	} catch (error) {
+		console.error(`❌ Error generando PDF de cuenta corriente para cliente ${codigoCliente}:`, error);
+		throw error;
+	}
+}
+
+	/**
+	 * Función de prueba para generar PDF de cuenta corriente (sin autenticación)
+	 */
+	public static async generarPDFCuentaCorrientePrueba(codigoCliente: string): Promise<void> {
+		try {
+			console.log('🧪 Probando generación de PDF sin autenticación para cliente:', codigoCliente);
+			
+			// Usar fetch directamente sin autenticación para la ruta de prueba
+			const response = await fetch(`https://janus314-api.janus314.com.ar/test-cuenta-corriente/${codigoCliente}`, {
+				method: 'GET'
+			});
+
+			console.log('📥 Respuesta del servidor (prueba):', {
+				status: response.status,
+				statusText: response.statusText,
+				headers: Object.fromEntries(response.headers.entries())
+			});
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				console.error('❌ Error response (prueba):', errorText);
+				throw new Error(`Error al generar el PDF de prueba: ${response.status} ${response.statusText}`);
+			}
+
+			// Obtener el blob del PDF
+			const blob = await response.blob();
+			console.log('📄 Blob recibido (prueba):', blob.size, 'bytes');
+			
+			// Crear URL del blob
+			const url = window.URL.createObjectURL(blob);
+			
+			// Crear elemento de descarga
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `cuenta-corriente-prueba-${codigoCliente}.pdf`;
+			document.body.appendChild(a);
+			a.click();
+			
+			// Limpiar
+			window.URL.revokeObjectURL(url);
+			document.body.removeChild(a);
+			
+			console.log('✅ PDF de prueba descargado exitosamente');
+		} catch (error) {
+			console.error(`❌ Error generando PDF de prueba para cliente ${codigoCliente}:`, error);
+			throw error;
+		}
+	}
 }

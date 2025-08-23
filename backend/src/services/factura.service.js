@@ -22,6 +22,12 @@ const FacturaService = {
     // ✅ Usar la transacción existente, no crear una nueva
     const t = transaction;
     
+    console.log('🔍 Datos de factura recibidos:', {
+      VendedorCodigo: facturaData.VendedorCodigo,
+      PagoTipo: facturaData.PagoTipo,
+      ClienteCodigo: facturaData.ClienteCodigo
+    });
+    
     try {
       // ✅ No obtener número aquí, ya viene asignado desde el controlador
       if (!facturaData.DocumentoNumero) {
@@ -29,8 +35,27 @@ const FacturaService = {
       }
 
       // Corregir el código del vendedor si viene en formato objeto
-      if (facturaData.VendedorCodigo && facturaData.VendedorCodigo.data && facturaData.VendedorCodigo.data.Codigo) {
-        facturaData.VendedorCodigo = facturaData.VendedorCodigo.data.Codigo;
+      if (facturaData.VendedorCodigo) {
+        if (typeof facturaData.VendedorCodigo === 'object') {
+          if (facturaData.VendedorCodigo.data && facturaData.VendedorCodigo.data.Codigo) {
+            facturaData.VendedorCodigo = facturaData.VendedorCodigo.data.Codigo;
+          } else if (facturaData.VendedorCodigo.value) {
+            facturaData.VendedorCodigo = facturaData.VendedorCodigo.value;
+          } else {
+            facturaData.VendedorCodigo = '';
+          }
+        }
+      }
+
+      // Corregir el tipo de pago si viene en formato objeto
+      if (facturaData.PagoTipo) {
+        if (typeof facturaData.PagoTipo === 'object') {
+          if (facturaData.PagoTipo.value) {
+            facturaData.PagoTipo = facturaData.PagoTipo.value;
+          } else {
+            facturaData.PagoTipo = '';
+          }
+        }
       }
 
       // Configurar PagoTipo e ImportePagado según la forma de pago

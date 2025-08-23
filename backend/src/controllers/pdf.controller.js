@@ -14,6 +14,7 @@ const renderPrefactura = require("../templates/pdf/prefactura.template.js");
 const renderNotaCreditoA = require("../templates/pdf/notaCreditoA.template.js");
 const renderNotaCreditoB = require("../templates/pdf/notaCreditoB.template.js");
 const renderNotaCreditoF = require("../templates/pdf/notaCreditoF.template.js");
+const renderCuentaCorriente = require("../templates/pdf/cuentaCorriente.template.js");
 // const renderNotaCreditoC = require("../templates/pdf/notaCreditoC.template");
 // const renderNotaCreditoF = require("../templates/pdf/notaCreditoF.template");
 // const NotaCreditoCabeza = require("../models/notaCreditoCabeza.model");
@@ -562,6 +563,211 @@ exports.generarNotaCreditoPDF = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error al generar PDF de nota de crédito",
+      error: error.message,
+    });
+  }
+};
+
+// Función para generar PDF de cuenta corriente
+exports.generarCuentaCorrientePDF = async (req, res) => {
+  try {
+    const { codigoCliente } = req.params;
+    
+    console.log(`Generando PDF para cuenta corriente del cliente: ${codigoCliente}`);
+    
+    // Obtener los modelos dinámicos de la empresa actual
+    const { Cliente, FacturaCabeza, NotaCredito, NotaDebito, Recibo, DatosEmpresa } = req.models;
+
+    // Verificar que el cliente existe
+    const cliente = await Cliente.findByPk(codigoCliente);
+    if (!cliente) {
+      return res.status(404).json({
+        success: false,
+        message: "Cliente no encontrado",
+      });
+    }
+
+    // Obtener todos los comprobantes del cliente
+    let comprobantes = [];
+    
+    // Obtener facturas (excluyendo las anuladas)
+    const facturas = await FacturaCabeza.findAll({
+      where: { 
+        ClienteCodigo: codigoCliente,
+        FechaAnulacion: null
+      },
+      attributes: [
+        'Fecha',
+        'DocumentoTipo',
+        'DocumentoSucursal',
+        'DocumentoNumero',
+        'ImporteTotal',
+        'ImportePagado',
+        'PagoTipo'
+      ],
+      order: [['Fecha', 'ASC']],
+      raw: true
+    });
+
+    // Formatear facturas
+    const facturasFormateadas = facturas.map(factura => ({
+      Fecha: factura.Fecha,
+      Detalle: `${factura.DocumentoTipo} - ${factura.DocumentoSucursal} - ${factura.DocumentoNumero}`,
+      Debitos: factura.ImporteTotal,
+      Creditos: factura.ImportePagado,
+      Saldo: factura.PagoTipo === 'CC' ? 
+        factura.ImporteTotal : 
+        (factura.ImporteTotal - factura.ImportePagado),
+      TipoComprobante: 'FAC'
+    }));
+
+    // Obtener notas de crédito
+    const notasCredito = await NotaCredito.findAll({
+      where: { CodigoCliente: codigoCliente },
+      attributes: [
+        'Fecha',
+        'DocumentoTipo',
+        'DocumentoSucursal',
+        'DocumentoNumero',
+        'ImporteTotal',
+        'ImporteUtilizado'
+      ],
+      order: [['Fecha', 'ASC']],
+      raw: true
+    });
+
+    // Formatear notas de crédito
+    const notasCreditoFormateadas = notasCredito.map(nota => ({
+      Fecha: nota.Fecha,
+      Detalle: `${nota.DocumentoTipo} - ${nota.DocumentoSucursal} - ${nota.DocumentoNumero}`,
+      Debitos: nota.ImporteUtilizado,
+      Creditos: nota.ImporteTotal,
+      Saldo: -1 * nota.ImporteTotal + nota.ImporteUtilizado,
+      TipoComprobante: 'NC'
+    }));
+
+    // Obtener notas de débito
+    const notasDebito = await NotaDebito.findAll({
+      where: { ClienteCodigo: codigoCliente },
+      attributes: [
+        'Fecha',
+        'DocumentoTipo',
+        'DocumentoSucursal',
+        'DocumentoNumero',
+        'ImporteTotal',
+        'ImportePagado'
+      ],
+      order: [['Fecha', 'ASC']],
+      raw: true
+    });
+
+    // Formatear notas de débito
+    const notasDebitoFormateadas = notasDebito.map(nota => ({
+      Fecha: nota.Fecha,
+      Detalle: `${nota.DocumentoTipo} - ${nota.DocumentoSucursal} - ${nota.DocumentoNumero}`,
+      Debitos: nota.ImporteTotal || 0,
+      Creditos: 0,
+      Saldo: nota.ImporteTotal || 0,
+      TipoComprobante: 'ND'
+    }));
+
+    // Obtener recibos
+    const recibos = await Recibo.findAll({
+      where: { 
+        ClienteCodigo: codigoCliente,
+        FechaAnulacion: null
+      },
+      attributes: [
+        'Fecha',
+        'DocumentoTipo',
+        'DocumentoSucursal',
+        'DocumentoNumero',
+        'ImporteTotal'
+      ],
+      order: [['Fecha', 'ASC']],
+      raw: true
+    });
+
+    // Formatear recibos
+    const recibosFormateados = recibos.map(recibo => ({
+      Fecha: recibo.Fecha,
+      Detalle: `${recibo.DocumentoTipo} - ${recibo.DocumentoSucursal} - ${recibo.DocumentoNumero}`,
+      Debitos: 0,
+      Creditos: recibo.ImporteTotal,
+      Saldo: -1 * recibo.ImporteTotal,
+      TipoComprobante: 'REC'
+    }));
+
+    // Combinar todos los comprobantes
+    comprobantes = [
+      ...facturasFormateadas,
+      ...notasCreditoFormateadas,
+      ...notasDebitoFormateadas,
+      ...recibosFormateados
+    ];
+
+    // Ordenar por fecha ascendente
+    comprobantes.sort((a, b) => new Date(a.Fecha) - new Date(b.Fecha));
+
+    // Calcular saldos acumulados
+    let saldoAcumulado = 0;
+    for (let i = 0; i < comprobantes.length; i++) {
+      saldoAcumulado += comprobantes[i].Saldo;
+      comprobantes[i].Saldo = saldoAcumulado;
+    }
+
+    // Obtener datos de la empresa
+    const datosEmpresa = await DatosEmpresa.findOne();
+    if (!datosEmpresa) {
+      return res.status(404).json({
+        success: false,
+        message: "Datos de empresa no encontrados",
+      });
+    }
+
+    // Convertir la cadena de fecha InicioActividades a un objeto Date si es necesario
+    if (datosEmpresa.InicioActividades && typeof datosEmpresa.InicioActividades === 'string') {
+      try {
+        datosEmpresa.InicioActividades = new Date(datosEmpresa.InicioActividades);
+      } catch (error) {
+        console.warn('⚠️ Error convirtiendo fecha InicioActividades:', error);
+        datosEmpresa.InicioActividades = null;
+      }
+    }
+
+    // Preparar el logo de la empresa usando el LogoManager
+    console.log('🖼️ Configurando logo de empresa para cuenta corriente...');
+    const logoPath = await logoManager.getLogoPath(datosEmpresa.LogoURL);
+    console.log('✅ Logo configurado para cuenta corriente:', logoPath);
+
+    // Crear documento PDF
+    const doc = new PDFDocument(docFacturaA4);
+
+    // Configurar respuesta HTTP
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="cuenta-corriente-${codigoCliente}.pdf"`
+    );
+
+    // Pipe PDF a la respuesta
+    doc.pipe(res);
+
+    // Aplicar plantilla de cuenta corriente
+    await renderCuentaCorriente(doc, {
+      cliente: cliente,
+      comprobantes: comprobantes,
+      datosEmpresa: datosEmpresa,
+      logoPath,
+    });
+
+    // Finalizar documento
+    doc.end();
+  } catch (error) {
+    console.error("Error generando PDF de cuenta corriente:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al generar PDF de cuenta corriente",
       error: error.message,
     });
   }

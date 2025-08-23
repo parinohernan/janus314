@@ -204,6 +204,31 @@
       alert(err instanceof Error ? err.message : 'Error al anular la factura');
     }
   };
+
+  // Clonar factura
+  const clonarFactura = async (tipo: string, sucursal: string, numero: string) => {
+    try {
+      console.log('🔍 Iniciando clonación de factura:', { tipo, sucursal, numero });
+      
+      // Obtener los datos de la factura para clonar
+      const response = await fetchWithAuth(`/facturas/${tipo}/${sucursal}/${numero}`);
+      
+      if (!response.ok) {
+        throw new Error('Error al obtener los datos de la factura');
+      }
+      
+      const result = await response.json();
+      
+      // Guardar los datos de la factura en sessionStorage para que estén disponibles en la página de nueva factura
+      sessionStorage.setItem('facturaClonada', JSON.stringify(result.data));
+      
+      // Redirigir a la página de nueva factura
+      goto('/ventas/facturas/nueva?clonada=true');
+    } catch (err) {
+      console.error('❌ Error obteniendo datos de factura para clonar:', err);
+      alert(err instanceof Error ? err.message : 'Error al obtener los datos de la factura');
+    }
+  };
   
   // Función para buscar clientes
   const buscarClientes = async (busqueda = '') => {
@@ -569,6 +594,16 @@
                   </button>
                   
                   {#if !factura.FechaAnulacion}
+                    <button 
+                      class="text-green-600 hover:text-green-900"
+                      on:click={() => clonarFactura(factura.DocumentoTipo, factura.DocumentoSucursal, factura.DocumentoNumero)}
+                      aria-label="Clonar factura"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                    
                     <button 
                       class="text-red-600 hover:text-red-900"
                       on:click={() => anularFactura(factura.DocumentoTipo, factura.DocumentoSucursal, factura.DocumentoNumero)}

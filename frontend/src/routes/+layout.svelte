@@ -93,7 +93,7 @@
 			<footer class="bg-gray-800 text-white text-center py-4 text-sm">
 				<div class="flex items-center justify-center">
 					<img src="/janus314.png" alt="janus314" class="w-10 h-10">
-					<span>janus314 - sistema de gestión comercial &copy; 2025</span>
+					<span>janus314 - sistema de gestión comercial &copy; 2025 - Hernan Parino - v1.0.1</span>
 					<img src="/janus314.png" alt="janus314" class="w-10 h-10">
 				</div>
 			</footer>

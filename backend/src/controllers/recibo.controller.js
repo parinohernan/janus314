@@ -1094,11 +1094,48 @@ exports.anularRecibo = async (req, res) => {
         await cajaAbierta.update({
           SaldoTeorico: parseFloat(cajaAbierta.SaldoTeorico || 0) - totalEgreso
         }, { transaction });
-    
-    // 4. Marcar el recibo como anulado
-    await recibo.update({
-      FechaAnulacion: new Date()
-    }, { transaction });
+
+        // 4. Actualizar la deuda del cliente
+        console.log("Paso 4: Actualizando deuda del cliente...");
+        try {
+          // Obtener el cliente
+          const cliente = await Cliente.findByPk(recibo.ClienteCodigo, { transaction });
+          
+          if (!cliente) {
+            throw new Error(`Cliente no encontrado: ${recibo.ClienteCodigo}`);
+          }
+          
+          // Calcular el total de formas de pago que afectan la deuda
+          const totalFormasPago = valores.reduce((total, valor) => {
+            if (!['SAL', 'SALDO'].includes(valor.ValorCodigo)) {
+              return total + parseFloat(valor.ValorImporte);
+            }
+            return total;
+          }, 0);
+          
+          // Recargar la deuda del cliente
+          await cliente.update(
+            { 
+              ImporteDeuda: (cliente.ImporteDeuda || 0) + totalFormasPago 
+            },
+            { transaction }
+          );
+          console.log("Deuda del cliente actualizada correctamente");
+        } catch (errorCliente) {
+          console.error("Error al actualizar deuda del cliente:", errorCliente);
+          await transaction.rollback();
+          return res.status(500).json({
+            success: false,
+            message: "Error al actualizar la deuda del cliente",
+            error: errorCliente.message,
+            stack: errorCliente.stack
+          });
+        }
+
+        // 5. Marcar el recibo como anulado
+        await recibo.update({
+          FechaAnulacion: new Date()
+        }, { transaction });
     
     await transaction.commit();
         console.log('Recibo anulado exitosamente');

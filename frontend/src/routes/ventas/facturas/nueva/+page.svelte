@@ -218,6 +218,12 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
         console.error('Error cargando vendedores:', error);
         vendedoresOptions = [];
       }
+
+      // Verificar si viene de una clonación
+      const esClonacion = $page.url.searchParams.get('clonada') === 'true';
+      if (esClonacion) {
+        await cargarFacturaClonada();
+      }
     } catch (error) {
       console.error('Error en inicialización:', error);
       cargandoConfiguracion = false;
@@ -326,6 +332,98 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
         articulosLoading = false;
       }
     }, 300);
+  };
+
+  // Cargar factura clonada
+  const cargarFacturaClonada = async () => {
+    try {
+      console.log('🔍 Iniciando carga de factura clonada...');
+      const facturaClonadaData = sessionStorage.getItem('facturaClonada');
+      console.log('🔍 Datos en sessionStorage:', facturaClonadaData);
+      
+      if (!facturaClonadaData) {
+        console.log('❌ No hay datos de factura clonada en sessionStorage');
+        return;
+      }
+
+      const facturaData = JSON.parse(facturaClonadaData);
+      console.log('✅ Datos parseados de factura clonada:', facturaData);
+      console.log('Datos de lista de precios:', {
+        ListaNumero: facturaData.encabezado?.ListaNumero,
+        ListaPrecio: facturaData.encabezado?.ListaPrecio
+      });
+
+      // Cargar datos del encabezado
+      const encabezado = facturaData.encabezado;
+      
+      // Establecer datos básicos (sin número de documento)
+      factura.DocumentoTipo = encabezado.DocumentoTipo;
+      factura.DocumentoSucursal = encabezado.DocumentoSucursal;
+      factura.DocumentoNumero = ''; // Se asignará automáticamente
+      factura.Fecha = fechaFormateada; // Fecha actual
+      factura.ListaPrecio = encabezado.ListaNumero?.toString() || '1';
+      factura.Observacion = encabezado.Observacion || '';
+      factura.FormaPagoCodigo = encabezado.PagoTipo || '';
+      factura.VendedorCodigo = encabezado.VendedorCodigo || '';
+      
+      console.log('✅ Lista de precios asignada:', factura.ListaPrecio);
+
+      // Cargar cliente
+      if (encabezado.Cliente) {
+        factura.ClienteCodigo = encabezado.Cliente.Codigo;
+        factura.Cliente = encabezado.Cliente;
+        clientesBusqueda = `${encabezado.Cliente.Codigo} - ${encabezado.Cliente.Descripcion}`;
+        
+        // Actualizar tipos de documento según categoría IVA
+        actualizarTiposDocumento(encabezado.Cliente.CategoriaIva);
+      }
+
+      // Cargar forma de pago
+      if (encabezado.PagoTipo) {
+        factura.FormaPagoCodigo = encabezado.PagoTipo;
+        const formaPagoEncontrada = formasPago.find(fp => fp.value === encabezado.PagoTipo);
+        if (formaPagoEncontrada) {
+          factura.FormaPago = formaPagoEncontrada;
+        }
+      }
+
+      // Cargar vendedor
+      if (encabezado.VendedorCodigo) {
+        factura.VendedorCodigo = encabezado.VendedorCodigo;
+        const vendedorEncontrado = vendedoresOptions.find(v => v.value === encabezado.VendedorCodigo);
+        if (vendedorEncontrado) {
+          factura.Vendedor = vendedorEncontrado;
+        }
+      }
+
+      // Cargar items
+      if (facturaData.items && Array.isArray(facturaData.items)) {
+        factura.Items = facturaData.items.map((item: any) => ({
+          ArticuloCodigo: item.CodigoArticulo,
+          Descripcion: item.Descripcion,
+          Cantidad: item.Cantidad,
+          PrecioLista: item.PrecioUnitario,
+          PorcentajeBonificado: 0,
+          ImporteBonificado: 0,
+          PrecioUnitario: item.PrecioUnitario,
+          PorcentajeIva: item.PorcentajeIva || 21,
+          PrecioUnitarioConIva: item.PrecioUnitarioConIva || 0,
+          Total: item.Total || 0,
+          enEdicion: false
+        }));
+      }
+
+      // Obtener próximo número de comprobante
+      await obtenerProximoNumero();
+
+      // Limpiar datos de sessionStorage
+      sessionStorage.removeItem('facturaClonada');
+
+      console.log('Factura clonada cargada exitosamente');
+    } catch (error) {
+      console.error('Error cargando factura clonada:', error);
+      error = 'Error al cargar los datos de la factura clonada';
+    }
   };
   
   // Seleccionar cliente

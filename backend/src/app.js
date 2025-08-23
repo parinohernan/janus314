@@ -108,7 +108,7 @@ app.use("/api/movimientos-stock", getEmpresaConnection, movimientoStockRoutes);
 app.use("/api/numeros-control", getEmpresaConnection, numerosControlRoutes);
 app.use("/api/datos-empresa", getEmpresaConnection, datosEmpresaRoutes);
 app.use("/api/stockmovimientos", (req, res) => {
-  res.json({ message: "API de Gestión Comercial funcionando correctamente" });
+  res.json({ message: "API de Gestión Comercial funcionando correctamente. v1.0.1" });
 });
 app.use("/api/facturas", getEmpresaConnection, facturaRoutes);
 app.use("/api/notascredito", getEmpresaConnection, notaCreditoRoutes);
@@ -154,7 +154,7 @@ app.use('/health', healthRoutes);
 
 // Ruta de prueba
 app.get("/", (req, res) => {
-  res.json({ message: "API de Gestión Comercial funcionando correctamente" });
+  res.json({ message: "API de Gestión Comercial funcionando correctamente. v1.0.1" });
 });
 
 // Ruta de prueba para logos (sin autenticación)
@@ -179,6 +179,30 @@ app.get("/test-factura/:tipo/:sucursal/:numero", async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error al generar PDF de prueba',
+      error: error.message
+    });
+  }
+});
+
+// Ruta de prueba temporal para cuenta corriente sin autenticación
+app.get("/test-cuenta-corriente/:codigoCliente", async (req, res) => {
+  try {
+    const { codigoCliente } = req.params;
+    
+    // Simular una conexión de empresa para pruebas
+    const DBManager = require('./utils/DBManager');
+    const connection = await DBManager.getConnection('8'); // ID de otarolaTest
+    req.db = connection;
+    req.models = connection.models;
+    
+    // Llamar al controlador de PDF
+    const pdfController = require('./controllers/pdf.controller');
+    await pdfController.generarCuentaCorrientePDF(req, res);
+  } catch (error) {
+    console.error('Error en test-cuenta-corriente:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al generar PDF de cuenta corriente de prueba',
       error: error.message
     });
   }

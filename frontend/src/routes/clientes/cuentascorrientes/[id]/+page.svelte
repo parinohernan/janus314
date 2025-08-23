@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Pagination from '$lib/components/ui/Pagination.svelte';
   import { ClienteService, type Comprobante } from '$lib/services/ClienteService';
+  import { DatosEmpresaService, type DatosEmpresa } from '$lib/services/DatosEmpresaService';
   
   const clienteId = $page.params.id;
   let comprobantes: Comprobante[] = [];
@@ -12,6 +13,8 @@
   let saldoTotal = 0;
   let loading = true;
   let error: string | null = null;
+  let datosEmpresa: DatosEmpresa | null = null;
+  let cliente: any = null;
   
   // Variables de paginación
   let currentPage = 1;
@@ -21,10 +24,15 @@
   
   const itemsPerPageOptions = [10, 25, 50, 100];
   
+
+  
   const loadData = async (page: number = 1): Promise<void> => {
     try {
       loading = true;
       error = null;
+      
+      // Cargar datos de la empresa
+      datosEmpresa = await DatosEmpresaService.obtenerDatosEmpresa();
       
       // Buscar el cliente para obtener su nombre
       const clientesResult = await ClienteService.obtenerCuentasCorrientes({
@@ -35,7 +43,7 @@
         order: 'ASC'
       });
       
-      const cliente = clientesResult.items.find(c => c.Codigo === clienteId);
+      cliente = clientesResult.items.find(c => c.Codigo === clienteId);
       if (cliente) {
         clienteNombre = cliente.Descripcion;
         saldoTotal = cliente.Saldo;
@@ -90,6 +98,65 @@
       minimumFractionDigits: 2
     }).format(value);
   };
+
+  // Función para imprimir la cuenta corriente
+  const imprimirCuentaCorriente = () => {
+    window.print();
+  };
+
+  // Función para generar PDF usando el backend
+  const generarPDF = async () => {
+    try {
+      await ClienteService.generarPDFCuentaCorriente(clienteId);
+    } catch (err) {
+      console.error('Error generando PDF:', err);
+      alert('Error al generar el PDF');
+    }
+  };
+
+  // Función para compartir
+  const compartirCuentaCorriente = async () => {
+    try {
+      // Generar PDF usando el backend
+      const response = await fetch(`/api/clientes/${clienteId}/cuenta-corriente/pdf`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al generar el PDF');
+      }
+
+      const blob = await response.blob();
+      
+      // Verificamos si el navegador soporta la API de compartir
+      if (navigator.share) {
+        const file = new File([blob], `cuenta-corriente-${clienteId}.pdf`, { type: 'application/pdf' });
+        await navigator.share({
+          title: 'Cuenta Corriente',
+          text: `Cuenta corriente de ${clienteNombre}`,
+          files: [file]
+        });
+      } else {
+        // Si no soporta compartir, descargamos el PDF
+        generarPDF();
+      }
+    } catch (err) {
+      console.error('Error compartiendo cuenta corriente:', err);
+      alert('Error al compartir la cuenta corriente');
+    }
+  };
+
+  // Función para generar PDF de prueba (sin autenticación)
+  const generarPDFPrueba = async () => {
+    try {
+      await ClienteService.generarPDFCuentaCorrientePrueba(clienteId);
+    } catch (err) {
+      console.error('Error generando PDF de prueba:', err);
+      alert('Error al generar el PDF de prueba');
+    }
+  };
 </script>
 
 <svelte:head>
@@ -105,6 +172,32 @@
         on:click={() => goto('/clientes/cuentascorrientes')}
       >
         Volver a Cuentas Corrientes
+      </Button>
+    </div>
+    <div class="flex gap-2 print:hidden">
+      <Button variant="primary" on:click={imprimirCuentaCorriente}>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+        </svg>
+        Imprimir
+      </Button>
+      <Button variant="primary" on:click={generarPDF}>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        Descargar PDF
+      </Button>
+      <Button variant="primary" on:click={compartirCuentaCorriente}>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+        </svg>
+        Compartir
+      </Button>
+      <Button variant="secondary" on:click={generarPDFPrueba}>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        PDF Prueba
       </Button>
     </div>
   </div>
@@ -224,4 +317,32 @@
       />
     </div>
   {/if}
-</div> 
+
+
+</div>
+
+<style>
+  @media print {
+    :global(body) {
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+    
+    .print\:hidden {
+      display: none !important;
+    }
+    
+    .container {
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    
+    .bg-white {
+      box-shadow: none !important;
+    }
+
+    @page {
+      margin: 0.5cm;
+    }
+  }
+</style> 

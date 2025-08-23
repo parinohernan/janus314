@@ -145,6 +145,14 @@ exports.obtenerFactura = async (req, res) => {
     // Convertir factura a un objeto plano
     const facturaPlana = factura.toJSON();
     
+    // Log para ver qué campos están disponibles
+    console.log("Campos de la factura:", Object.keys(facturaPlana));
+    console.log("Datos de lista de precios en factura:", {
+      ListaNumero: facturaPlana.ListaNumero,
+      ListaPrecio: facturaPlana.ListaPrecio,
+      Lista: facturaPlana.Lista
+    });
+    
     // Ajustar la fecha para que sea consistente
     if (facturaPlana.Fecha) {
       const fechaObj = new Date(facturaPlana.Fecha);
@@ -559,3 +567,5 @@ exports.obtenerUltimasFacturasCliente = async (req, res) => {
     });
   }
 };
+
+
