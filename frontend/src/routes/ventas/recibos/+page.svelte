@@ -143,13 +143,15 @@
         delete params.page;
       }
       
-      console.log('🔍 Parámetros enviados:', params);
-      console.log('🔍 itemsPerPage:', itemsPerPage);
-      
       if (filtroTipo) params.tipo = filtroTipo;
-      if (filtroCliente) params.cliente = filtroCliente;
+      if (filtroCliente) params.clienteCodigo = filtroCliente;
       if (filtroFechaDesde) params.fechaDesde = filtroFechaDesde;
       if (filtroFechaHasta) params.fechaHasta = filtroFechaHasta;
+      
+      console.log('🔍 Parámetros enviados:', params);
+      console.log('🔍 itemsPerPage:', itemsPerPage);
+      console.log('🔍 filtroCliente:', filtroCliente);
+      console.log('🔍 clienteCodigo enviado:', params.clienteCodigo);
       
       const response = await fetchWithAuth('/recibos', { params });
       
@@ -275,7 +277,12 @@
     
     timeoutId = setTimeout(async () => {
       try {
-        const response = await fetch(`${PUBLIC_API_URL}/clientes?search=${encodeURIComponent(busqueda)}&limit=10`);
+        const response = await fetchWithAuth('/clientes', {
+          params: {
+            search: busqueda,
+            limit: 10
+          }
+        });
         
         if (!response.ok) {
           throw new Error('Error al buscar clientes');
@@ -304,12 +311,38 @@
     filtroCliente = codigo;
     clienteBusqueda = `${codigo} - ${razonSocial}`;
     clientesOptions = [];
+    // Aplicar filtro automáticamente al seleccionar cliente
+    aplicarFiltros();
   };
   
   // Limpiar cliente seleccionado
   const limpiarCliente = () => {
     filtroCliente = '';
     clienteBusqueda = '';
+    clientesOptions = [];
+    // Aplicar filtro automáticamente al limpiar cliente
+    aplicarFiltros();
+  };
+  
+  // Buscar información de un cliente por código (para restaurar estado)
+  const buscarClienteInfo = async (codigo: string) => {
+    try {
+      const response = await fetchWithAuth(`/clientes/${codigo}`);
+      
+      if (response.ok) {
+        const cliente = await response.json();
+        const nombreCliente = cliente.RazonSocial || cliente.Descripcion || 'Sin nombre';
+        clienteBusqueda = `${codigo} - ${nombreCliente}`;
+      }
+    } catch (error) {
+      console.error('Error obteniendo información del cliente:', error);
+      // Si no se puede obtener la info, mostrar al menos el código
+      clienteBusqueda = `${codigo} - Cliente`;
+    }
+  };
+  
+  // Cerrar dropdown de clientes
+  const cerrarDropdownClientes = () => {
     clientesOptions = [];
   };
   
@@ -329,6 +362,11 @@
         filtroCliente = filtrosGuardados.cliente || '';
         filtroFechaDesde = filtrosGuardados.fechaDesde || fechaFormateada;
         filtroFechaHasta = filtrosGuardados.fechaHasta || fechaFormateada;
+        
+        // Si hay un cliente seleccionado, buscar su información para mostrar en el campo
+        if (filtroCliente) {
+          buscarClienteInfo(filtroCliente);
+        }
       }
     }
     
@@ -337,7 +375,19 @@
       itemsPerPage = -1;
     }
     
+    // Agregar evento para cerrar dropdown al hacer click fuera
+    const handleClickOutside = () => {
+      cerrarDropdownClientes();
+    };
+    
+    document.addEventListener('click', handleClickOutside);
+    
     cargarRecibos();
+    
+    // Cleanup
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
   });
   
   // Al destruir el componente, limpiar timeout si existe
@@ -395,14 +445,19 @@
       
       <div class="relative w-full md:w-64 mb-4 md:mb-0">
         <label for="filtroCliente" class="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
-        <div class="relative">
+        <div class="relative" role="search">
           <input
             type="text"
             id="filtroCliente"
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
             placeholder="Buscar cliente..."
             bind:value={clienteBusqueda}
-            on:input={() => buscarClientes(clienteBusqueda)}
+            on:input={(e) => {
+              const target = e.target as HTMLInputElement;
+              if (target) {
+                buscarClientes(target.value);
+              }
+            }}
             autocomplete="off"
           />
           {#if filtroCliente}

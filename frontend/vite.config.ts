@@ -26,7 +26,9 @@ export default defineConfig(({ mode }) => {
             }
         },
         server: {
-            host: true,
+            host: '0.0.0.0',
+            port: 5173,
+            strictPort: false,
             proxy: {
                 '/api': {
                     target: proxyTarget,
@@ -38,7 +40,8 @@ export default defineConfig(({ mode }) => {
                 'janus314.osvi.lat',
                 'jano.janus314.com.ar',
                 'api.janus314.osvi.lat',
-                'localhost'
+                'localhost',
+                '127.0.0.1'
             ]
         },
         test: {
