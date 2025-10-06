@@ -7,7 +7,7 @@ const FacturaService = require("../services/factura.service");
 // Obtener listado de facturas (con paginación y filtros)
 exports.listarFacturas = async (req, res) => {
   try {
-    const { FacturaCabeza, Cliente } = req.models;
+    const { FacturaCabeza, Cliente, Vendedor } = req.models;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
@@ -63,6 +63,10 @@ exports.listarFacturas = async (req, res) => {
       include: [
         {
           model: Cliente,
+          attributes: ["Codigo", "Descripcion"],
+        },
+        {
+          model: Vendedor,
           attributes: ["Codigo", "Descripcion"],
         },
       ],

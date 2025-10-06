@@ -23,13 +23,23 @@
     Cliente?: {
       Codigo: string;
       Descripcion: string;
-    }
+    };
+    Vendedor?: {
+      Codigo: string;
+      Descripcion: string;
+    };
   }
   
   interface ClienteOption {
     value: string;
     label: string;
     razonSocial: string;
+  }
+  
+  interface VendedorOption {
+    value: string;
+    label: string;
+    descripcion: string;
   }
   
   // Actualizar la interfaz PageState para que coincida con los datos reales
@@ -39,6 +49,7 @@
     filters: {
       tipo: string;
       cliente: string;
+      vendedor: string;
       fechaDesde: string;
       fechaHasta: string;
     }
@@ -71,6 +82,7 @@
   // Filtros
   let filtroTipo = '';
   let filtroCliente = '';
+  let filtroVendedor = '';
   let filtroFechaDesde = fechaFormateada;
   let filtroFechaHasta = fechaFormateada;
   
@@ -92,6 +104,12 @@
   let clientesLoading = false;
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   
+  // Estado para el selector de vendedores
+  let vendedoresOptions: VendedorOption[] = [];
+  let vendedorBusqueda = '';
+  let vendedoresLoading = false;
+  let timeoutVendedorId: ReturnType<typeof setTimeout> | null = null;
+  
   // Cargar facturas
   const cargarFacturas = async () => {
     try {
@@ -107,6 +125,7 @@
       
       if (filtroTipo) params.append('tipo', filtroTipo);
       if (filtroCliente) params.append('cliente', filtroCliente);
+      if (filtroVendedor) params.append('vendedor', filtroVendedor);
       if (filtroFechaDesde) params.append('fechaDesde', filtroFechaDesde);
       if (filtroFechaHasta) params.append('fechaHasta', filtroFechaHasta);
       
@@ -134,6 +153,7 @@
         filters: {
           tipo: filtroTipo,
           cliente: filtroCliente,
+          vendedor: filtroVendedor,
           fechaDesde: filtroFechaDesde,
           fechaHasta: filtroFechaHasta
         }
@@ -165,6 +185,7 @@
   const resetearFiltros = () => {
     filtroTipo = '';
     filtroCliente = '';
+    filtroVendedor = '';
     filtroFechaDesde = fechaFormateada;
     filtroFechaHasta = fechaFormateada;
     currentPage = 1;
@@ -286,6 +307,62 @@
     clientesOptions = [];
   };
   
+  // Función para buscar vendedores
+  const buscarVendedores = async (busqueda = '') => {
+    if (timeoutVendedorId) clearTimeout(timeoutVendedorId);
+    
+    if (!busqueda || busqueda.length < 2) {
+      vendedoresOptions = [];
+      return;
+    }
+    
+    vendedoresLoading = true;
+    
+    timeoutVendedorId = setTimeout(async () => {
+      try {
+        const response = await fetchWithAuth('/vendedores', {
+          params: {
+            search: busqueda,
+            limit: 10
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Error al buscar vendedores');
+        }
+        
+        const data = await response.json();
+        vendedoresOptions = data.items.map((vendedor: any) => {
+          const nombreVendedor = vendedor.Descripcion || 'Sin nombre';
+          return {
+            value: vendedor.Codigo,
+            label: `${vendedor.Codigo} - ${nombreVendedor}`,
+            descripcion: nombreVendedor
+          };
+        });
+      } catch (error) {
+        console.error('Error buscando vendedores:', error);
+        vendedoresOptions = [];
+      } finally {
+        vendedoresLoading = false;
+      }
+    }, 300);
+  };
+  
+  // Seleccionar vendedor
+  const seleccionarVendedor = (codigo: string, descripcion: string) => {
+    filtroVendedor = codigo;
+    vendedorBusqueda = `${codigo} - ${descripcion}`;
+    vendedoresOptions = [];
+  };
+  
+  // Limpiar vendedor seleccionado
+  const limpiarVendedor = () => {
+    filtroVendedor = '';
+    vendedorBusqueda = '';
+    vendedoresOptions = [];
+  };
+  
   // Al montar el componente
   onMount(() => {
     // Recuperar estado guardado si existe
@@ -300,6 +377,7 @@
       if (filtrosGuardados) {
         filtroTipo = filtrosGuardados.tipo || '';
         filtroCliente = filtrosGuardados.cliente || '';
+        filtroVendedor = filtrosGuardados.vendedor || '';
         filtroFechaDesde = filtrosGuardados.fechaDesde || fechaFormateada;
         filtroFechaHasta = filtrosGuardados.fechaHasta || fechaFormateada;
       }
@@ -311,6 +389,7 @@
   // Al destruir el componente, limpiar timeout si existe
   onDestroy(() => {
     if (timeoutId) clearTimeout(timeoutId);
+    if (timeoutVendedorId) clearTimeout(timeoutVendedorId);
   });
   
   // Estados visuales
@@ -394,7 +473,7 @@
   
   <!-- Filtros -->
   <div class="bg-white p-4 rounded-lg shadow-sm mb-6">
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
       <div>
         <label for="filtroTipo" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento</label>
         <select 
@@ -459,6 +538,57 @@
         {/if}
       </div>
       
+      <div class="relative w-full md:w-64 mb-4 md:mb-0">
+        <label for="filtroVendedor" class="block text-sm font-medium text-gray-700 mb-1">Vendedor</label>
+        <div class="relative">
+          <input
+            type="text"
+            id="filtroVendedor"
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+            placeholder="Buscar vendedor..."
+            bind:value={vendedorBusqueda}
+            on:input={() => buscarVendedores(vendedorBusqueda)}
+            autocomplete="off"
+          />
+          {#if filtroVendedor}
+            <button 
+              class="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
+              on:click={limpiarVendedor}
+              aria-label="Limpiar selección de vendedor"
+            >
+              <svg class="h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+              </svg>
+            </button>
+          {/if}
+        </div>
+        
+        {#if vendedoresOptions.length > 0}
+          <div class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base overflow-auto focus:outline-none sm:text-sm">
+            <ul>
+              {#each vendedoresOptions as vendedor}
+                <li>
+                  <button 
+                    class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-100 w-full text-left"
+                    on:click={() => seleccionarVendedor(vendedor.value, vendedor.descripcion)}
+                  >
+                    <div class="flex items-center">
+                      <span class="font-normal block truncate">{vendedor.label}</span>
+                    </div>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+        
+        {#if vendedoresLoading}
+          <div class="absolute right-3 top-1/2 -translate-y-1/2">
+            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+          </div>
+        {/if}
+      </div>
+      
       <div>
         <label for="filtroFechaDesde" class="block text-sm font-medium text-gray-700 mb-1">Fecha Desde</label>
         <input 
@@ -479,7 +609,7 @@
         />
       </div>
       
-      <div class="md:col-span-4 flex justify-end space-x-2">
+      <div class="md:col-span-5 flex justify-end space-x-2">
         <Button variant="secondary" on:click={resetearFiltros}>Limpiar Filtros</Button>
         <Button variant="primary" on:click={aplicarFiltros}>Aplicar Filtros</Button>
       </div>
@@ -509,6 +639,7 @@
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Número</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendedor</th>
             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">CAE</th>
             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
@@ -544,6 +675,9 @@
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 {factura.Cliente ? factura.Cliente.Descripcion || 'Cliente no asignado' : 'Cliente no asignado'}
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                {factura.Vendedor ? factura.Vendedor.Descripcion || 'Vendedor no asignado' : 'Vendedor no asignado'}
               </td>
               <td class="px-4 py-3 whitespace-nowrap text-right">
                 {factura.ImporteTotal ? factura.ImporteTotal.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' }) : '$0,00'}
