@@ -368,9 +368,12 @@ const getComprobantesCliente = async (req, res) => {
       TipoComprobante: 'FAC'
     }));
 
-    // Obtener notas de crédito
+    // Obtener notas de crédito (excluyendo las anuladas)
     const notasCredito = await NotaCredito.findAll({
-      where: { CodigoCliente: id },
+      where: { 
+        CodigoCliente: id,
+        FechaAnulacion: null // ✅ Excluir NC anuladas
+      },
       attributes: [
         'Fecha',
         'DocumentoTipo',
@@ -393,9 +396,12 @@ const getComprobantesCliente = async (req, res) => {
       TipoComprobante: 'NC'
     }));
 
-    // Obtener notas de débito
+    // Obtener notas de débito (excluyendo las anuladas)
     const notasDebito = await NotaDebito.findAll({
-      where: { ClienteCodigo: id },
+      where: { 
+        ClienteCodigo: id,
+        FechaAnulacion: null // ✅ Excluir ND anuladas
+      },
       attributes: [
         'Fecha',
         'DocumentoTipo',

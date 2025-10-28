@@ -18,4 +18,7 @@ router.get('/productos/mas-vendidos', informesController.productosMasVendidos);
 router.get('/productos/menos-vendidos', informesController.productosMenosVendidos);
 router.get('/productos/rotacion-stock', informesController.rotacionStock);
 
+// Ruta para el informe de ventas por proveedor
+router.get('/ventas-por-proveedor', informesController.ventasPorProveedor);
+
 module.exports = router; 

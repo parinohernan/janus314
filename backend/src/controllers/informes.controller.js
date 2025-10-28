@@ -1025,4 +1025,158 @@ exports.rotacionStock = async (req, res) => {
       error: error.message
     });
   }
+};
+
+// Informe de ventas por proveedor
+exports.ventasPorProveedor = async (req, res) => {
+  try {
+    const { fechaDesde, fechaHasta, proveedorCodigo } = req.query;
+    
+    console.log("Parámetros recibidos:", { fechaDesde, fechaHasta, proveedorCodigo });
+    
+    if (!fechaDesde || !fechaHasta) {
+      return res.status(400).json({
+        success: false,
+        message: "Se requieren fechaDesde y fechaHasta"
+      });
+    }
+
+    // Obtener los modelos específicos de la empresa
+    const { FacturaCabeza, FacturaItem, Articulo, Proveedor } = req.models;
+    
+    if (!FacturaCabeza || !FacturaItem || !Articulo || !Proveedor) {
+      return res.status(500).json({
+        success: false,
+        message: "Error: Modelos no disponibles"
+      });
+    }
+
+    // Construir la consulta para facturas
+    const whereClause = {
+      Fecha: {
+        [Op.between]: [fechaDesde, fechaHasta]
+      },
+      FechaAnulacion: null // Excluir facturas anuladas
+    };
+    
+    // Obtener las facturas en el rango de fechas
+    const facturas = await FacturaCabeza.findAll({
+      where: whereClause,
+      attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'ClienteCodigo', 'Fecha'],
+      raw: true
+    });
+
+    console.log("Facturas encontradas:", facturas.length);
+    
+    // Obtener los items de las facturas con información del proveedor
+    const items = [];
+    for (const factura of facturas) {
+      const itemsFactura = await FacturaItem.findAll({
+        where: {
+          DocumentoTipo: factura.DocumentoTipo,
+          DocumentoSucursal: factura.DocumentoSucursal,
+          DocumentoNumero: factura.DocumentoNumero
+        },
+               include: [{
+                 model: Articulo,
+                 attributes: ['Codigo', 'Descripcion', 'ProveedorCodigo', 'Existencia'],
+                 include: [{
+                   model: Proveedor,
+                   as: 'Proveedor',
+                   attributes: ['Codigo', 'Descripcion'],
+                   required: false
+                 }]
+               }],
+        attributes: ['CodigoArticulo', 'Cantidad', 'PrecioUnitario', 'ImporteBonificado']
+      });
+
+      // Filtrar por proveedor si se especifica
+      const proveedorCodigos = proveedorCodigo ? proveedorCodigo.split(',') : [];
+      const itemsFiltrados = proveedorCodigos.length > 0
+        ? itemsFactura.filter(item => proveedorCodigos.includes(item.Articulo?.ProveedorCodigo))
+        : itemsFactura;
+
+               items.push(...itemsFiltrados.map(item => ({
+                 CodigoArticulo: item.CodigoArticulo,
+                 Cantidad: item.Cantidad,
+                 PrecioUnitario: item.PrecioUnitario,
+                 ImporteBonificado: item.ImporteBonificado,
+                 ArticuloDescripcion: item.Articulo?.Descripcion,
+                 ArticuloExistencia: item.Articulo?.Existencia,
+                 ProveedorCodigo: item.Articulo?.ProveedorCodigo,
+                 ProveedorDescripcion: item.Articulo?.Proveedor?.Descripcion
+               })));
+    }
+
+    // Agrupar por proveedor
+    const ventasPorProveedor = items.reduce((acumulado, item) => {
+      const proveedorCodigo = item.ProveedorCodigo || 'SIN_PROVEEDOR';
+      const proveedorDescripcion = item.ProveedorDescripcion || 'Sin Proveedor';
+      
+      if (!acumulado[proveedorCodigo]) {
+        acumulado[proveedorCodigo] = {
+          codigo: proveedorCodigo,
+          descripcion: proveedorDescripcion,
+          productos: {},
+          cantidadTotal: 0,
+          importeTotal: 0
+        };
+      }
+
+      // Agrupar por producto dentro del proveedor
+      const codigoArticulo = item.CodigoArticulo;
+      if (!acumulado[proveedorCodigo].productos[codigoArticulo]) {
+        acumulado[proveedorCodigo].productos[codigoArticulo] = {
+          codigo: codigoArticulo,
+          descripcion: item.ArticuloDescripcion,
+          existencia: item.ArticuloExistencia || 0,
+          cantidad: 0,
+          importeTotal: 0
+        };
+      }
+
+      acumulado[proveedorCodigo].productos[codigoArticulo].cantidad += item.Cantidad;
+      acumulado[proveedorCodigo].productos[codigoArticulo].importeTotal += 
+        item.ImporteBonificado || (item.PrecioUnitario * item.Cantidad);
+
+      acumulado[proveedorCodigo].cantidadTotal += item.Cantidad;
+      acumulado[proveedorCodigo].importeTotal += 
+        item.ImporteBonificado || (item.PrecioUnitario * item.Cantidad);
+
+      return acumulado;
+    }, {});
+
+    // Convertir productos a arrays y ordenar
+    Object.keys(ventasPorProveedor).forEach(proveedorCodigo => {
+      ventasPorProveedor[proveedorCodigo].productos = Object.values(
+        ventasPorProveedor[proveedorCodigo].productos
+      ).sort((a, b) => b.cantidad - a.cantidad);
+    });
+
+    // Convertir a array y ordenar por importe total
+    const resultado = Object.values(ventasPorProveedor)
+      .sort((a, b) => b.importeTotal - a.importeTotal);
+
+    const totalVentas = resultado.reduce((sum, proveedor) => sum + proveedor.importeTotal, 0);
+
+    res.json({
+      success: true,
+      data: {
+        proveedores: resultado,
+        totalVentas: totalVentas,
+        periodo: {
+          fechaDesde,
+          fechaHasta
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("Error en ventasPorProveedor:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error interno del servidor",
+      error: error.message
+    });
+  }
 }; 

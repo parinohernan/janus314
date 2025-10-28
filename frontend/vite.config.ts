@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => {
     })();
 
     return {
+        root: process.cwd(),
         plugins: [tailwindcss(), sveltekit()],
         resolve: {
             alias: {
@@ -29,6 +30,15 @@ export default defineConfig(({ mode }) => {
             host: '0.0.0.0',
             port: 5173,
             strictPort: false,
+            fs: {
+                strict: true,
+                allow: [
+                    process.cwd(),
+                    resolve(process.cwd(), 'node_modules'),
+                    resolve(process.cwd(), 'src'),
+                    resolve(process.cwd(), '.svelte-kit')
+                ]
+            },
             proxy: {
                 '/api': {
                     target: proxyTarget,

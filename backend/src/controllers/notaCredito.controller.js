@@ -249,13 +249,16 @@ exports.crearNotaCredito = async (req, res) => {
 
 // Anular nota de crédito
 exports.anularNotaCredito = async (req, res) => {
-  const t = await sequelize.transaction();
-
   try {
-    const { tipo, sucursal, numero } = req.params;
+    const { NotaCreditoCabeza, NotaCreditoItem, Articulo } = req.models;
+    const sequelizeEmpresa = NotaCreditoCabeza.sequelize;
+    const t = await sequelizeEmpresa.transaction();
 
-    // Verificar si la nota de crédito existe
-    const notaCredito = await NotaCreditoCabeza.findOne({
+    try {
+      const { tipo, sucursal, numero } = req.params;
+
+      // Verificar si la nota de crédito existe
+      const notaCredito = await NotaCreditoCabeza.findOne({
       where: {
         DocumentoTipo: tipo,
         DocumentoSucursal: sucursal,
@@ -315,14 +318,30 @@ exports.anularNotaCredito = async (req, res) => {
       { transaction: t }
     );
 
-    await t.commit();
+    // Actualizar la deuda del cliente
+    const { Cliente } = req.models;
+    const cliente = await Cliente.findByPk(notaCredito.CodigoCliente, { transaction: t });
 
-    res.json({
-      success: true,
-      message: "Nota de crédito anulada correctamente",
-    });
+    if (cliente) {
+      // Al anular NC, restamos el saldo de NC no aplicado
+      // Solo afecta el saldo disponible (ImporteTotal - ImporteUtilizado)
+      const saldoDisponible = (notaCredito.ImporteTotal || 0) - (notaCredito.ImporteUtilizado || 0);
+      await cliente.update({
+        SaldoNTCNoAplicado: Math.max(0, (cliente.SaldoNTCNoAplicado || 0) - saldoDisponible)
+      }, { transaction: t });
+    }
+
+      await t.commit();
+
+      res.json({
+        success: true,
+        message: "Nota de crédito anulada correctamente",
+      });
+    } catch (error) {
+      await t.rollback();
+      throw error;
+    }
   } catch (error) {
-    await t.rollback();
     console.error("Error al anular nota de crédito:", error);
     res.status(500).json({
       success: false,
