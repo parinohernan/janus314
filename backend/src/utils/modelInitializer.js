@@ -976,6 +976,12 @@ const initializeModels = (sequelize) => {
     timestamps: false
   });
 
+  // Establecer asociación entre FacturaCabeza y Vendedor
+  FacturaCabeza.belongsTo(Vendedor, {
+    foreignKey: "VendedorCodigo",
+    targetKey: "Codigo",
+  });
+
   // Definir modelo PreventaCabeza
   const PreventaCabeza = sequelize.define(
     "PreventaCabeza",
