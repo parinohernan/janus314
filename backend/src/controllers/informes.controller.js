@@ -1,4 +1,6 @@
 const { Op, fn, col } = require('sequelize');
+const PDFDocument = require('pdfkit');
+const renderInformeVendedor = require('../templates/pdf/informeVendedor.template');
 
 // Informe de ventas por productos
 exports.ventasPorProductos = async (req, res) => {
@@ -1024,6 +1026,389 @@ exports.rotacionStock = async (req, res) => {
       message: "Error al generar el informe",
       error: error.message
     });
+  }
+};
+
+// Informe detallado de ventas por vendedor con notas de crédito
+exports.informeVentasVendedor = async (req, res) => {
+  try {
+    const { fechaDesde, fechaHasta, vendedorCodigo } = req.query;
+    
+    console.log("Parámetros recibidos:", { fechaDesde, fechaHasta, vendedorCodigo });
+    
+    // Validar parámetros
+    if (!fechaDesde || !fechaHasta || !vendedorCodigo) {
+      return res.status(400).json({
+        success: false,
+        message: "Se requieren fechaDesde, fechaHasta y vendedorCodigo"
+      });
+    }
+
+    // Obtener los modelos específicos de la empresa
+    const { FacturaCabeza, NotaCredito, Vendedor, Cliente } = req.models;
+    
+    if (!FacturaCabeza || !NotaCredito || !Vendedor || !Cliente) {
+      return res.status(500).json({
+        success: false,
+        message: "Error: Modelos no disponibles"
+      });
+    }
+
+    // 1. Obtener facturas del vendedor en el rango de fechas
+    const facturas = await FacturaCabeza.findAll({
+      where: {
+        VendedorCodigo: vendedorCodigo,
+        Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
+        FechaAnulacion: null,
+        DocumentoTipo: { [Op.in]: ['FCA', 'FCB', 'FCC', 'PRF'] } // Facturas y prefacturas
+      },
+      attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'Fecha', 'ClienteCodigo', 'ImporteTotal'],
+      include: [
+        {
+          model: Cliente,
+          attributes: ['Codigo', 'Descripcion'],
+          required: false
+        }
+      ],
+      raw: true
+    });
+
+    console.log(`Facturas encontradas: ${facturas.length}`);
+
+    // 2. Obtener notas de crédito relacionadas con esas facturas (SIN filtro de fecha)
+    // Usar sistema eficiente con mapa
+    let notasCredito = [];
+    
+    if (facturas.length > 0) {
+      // Función para normalizar tipo de documento
+      const normalizarTipo = (tipo) => {
+        if (!tipo) return null;
+        const tipoUpper = tipo.toUpperCase();
+        // Mapear tipos cortos a completos
+        if (tipoUpper === 'A') return 'FCA';
+        if (tipoUpper === 'B') return 'FCB';
+        if (tipoUpper === 'C') return 'FCC';
+        if (tipoUpper === 'F') return 'PRF';
+        return tipoUpper;
+      };
+      
+      // Crear un mapa de facturas para búsqueda rápida
+      const facturasMap = new Map();
+      facturas.forEach(f => {
+        // Clave exacta
+        const claveExacta = `${f.DocumentoTipo}-${f.DocumentoSucursal}-${f.DocumentoNumero}`;
+        facturasMap.set(claveExacta, f);
+        
+        // Clave normalizada (sin ceros a la izquierda)
+        const claveNormalizada = `${f.DocumentoTipo}-${parseInt(f.DocumentoSucursal)}-${parseInt(f.DocumentoNumero)}`;
+        facturasMap.set(claveNormalizada, f);
+      });
+      
+      // Obtener TODAS las NC sin filtro previo
+      const todasLasNC = await NotaCredito.findAll({
+        where: {
+          FechaAnulacion: null
+        },
+        attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'Fecha', 'CodigoCliente', 'ImporteTotal', 
+                     'factura_tipo', 'factura_sucursal', 'factura_numero'],
+        include: [
+          {
+            model: Cliente,
+            attributes: ['Codigo', 'Descripcion'],
+            required: false
+          }
+        ],
+        raw: true
+      });
+      
+      console.log(`Total de NC en BD (no anuladas): ${todasLasNC.length}`);
+      
+      // Filtrar NC que coincidan con las facturas del vendedor
+      for (const nc of todasLasNC) {
+        if (nc.factura_tipo && nc.factura_sucursal && nc.factura_numero) {
+          // Normalizar el tipo de factura
+          const tipoNormalizado = normalizarTipo(nc.factura_tipo);
+          
+          // Intentar diferentes combinaciones de búsqueda
+          const claves = [
+            // Con tipo normalizado, exacto
+            `${tipoNormalizado}-${nc.factura_sucursal}-${nc.factura_numero}`,
+            // Con tipo original, exacto
+            `${nc.factura_tipo.toUpperCase()}-${nc.factura_sucursal}-${nc.factura_numero}`,
+            // Con tipo normalizado, sin ceros
+            `${tipoNormalizado}-${parseInt(nc.factura_sucursal)}-${parseInt(nc.factura_numero)}`
+          ];
+          
+          let encontrada = false;
+          for (const clave of claves) {
+            if (facturasMap.has(clave)) {
+              notasCredito.push(nc);
+              encontrada = true;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    console.log(`Notas de crédito relacionadas encontradas: ${notasCredito.length}`);
+
+    // 3. Calcular totales
+    const totalFacturas = facturas.reduce((sum, f) => sum + (parseFloat(f.ImporteTotal) || 0), 0);
+    const totalNotasCredito = notasCredito.reduce((sum, nc) => sum + (parseFloat(nc.ImporteTotal) || 0), 0);
+    const totalGeneral = totalFacturas - totalNotasCredito;
+
+    // 4. Obtener información del vendedor
+    const vendedor = await Vendedor.findByPk(vendedorCodigo, {
+      attributes: ['Codigo', 'Descripcion'],
+      raw: true
+    });
+
+    // 5. Preparar respuesta
+    const respuesta = {
+      vendedor: {
+        codigo: vendedorCodigo,
+        descripcion: vendedor ? vendedor.Descripcion : 'Vendedor no encontrado'
+      },
+      periodo: {
+        fechaDesde,
+        fechaHasta
+      },
+      facturas: facturas.map(f => ({
+        tipo: f.DocumentoTipo,
+        numero: `${f.DocumentoSucursal}-${f.DocumentoNumero}`,
+        fecha: f.Fecha,
+        clienteCodigo: f.ClienteCodigo,
+        clienteDescripcion: f['Cliente.Descripcion'] || 'Sin descripción',
+        importe: parseFloat(f.ImporteTotal) || 0
+      })),
+      notasCredito: notasCredito.map(nc => ({
+        tipo: nc.DocumentoTipo,
+        numero: `${nc.DocumentoSucursal}-${nc.DocumentoNumero}`,
+        fecha: nc.Fecha,
+        clienteCodigo: nc.CodigoCliente,
+        clienteDescripcion: nc['Cliente.Descripcion'] || 'Sin descripción',
+        importe: -(parseFloat(nc.ImporteTotal) || 0), // Negativo
+        facturaRelacionada: `${nc.factura_tipo}-${nc.factura_sucursal}-${nc.factura_numero}`
+      })),
+      totales: {
+        facturas: {
+          cantidad: facturas.length,
+          importe: totalFacturas
+        },
+        notasCredito: {
+          cantidad: notasCredito.length,
+          importe: -totalNotasCredito // Negativo
+        },
+        general: totalGeneral
+      }
+    };
+
+    res.json({
+      success: true,
+      data: respuesta
+    });
+
+  } catch (error) {
+    console.error("Error al generar informe de ventas por vendedor:", error);
+    console.error("Stack trace:", error.stack);
+    res.status(500).json({
+      success: false,
+      message: "Error al generar el informe",
+      error: error.message
+    });
+  }
+};
+
+// Generar PDF del informe de ventas por vendedor
+exports.generarPDFInformeVendedor = async (req, res) => {
+  try {
+    const { fechaDesde, fechaHasta, vendedorCodigo } = req.query;
+    
+    console.log("Generando PDF - Parámetros recibidos:", { fechaDesde, fechaHasta, vendedorCodigo });
+    
+    // Validar parámetros
+    if (!fechaDesde || !fechaHasta || !vendedorCodigo) {
+      return res.status(400).json({
+        success: false,
+        message: "Se requieren fechaDesde, fechaHasta y vendedorCodigo"
+      });
+    }
+
+    // Obtener los modelos específicos de la empresa
+    const { FacturaCabeza, NotaCredito, Vendedor, Cliente, DatosEmpresa } = req.models;
+    
+    if (!FacturaCabeza || !NotaCredito || !Vendedor || !Cliente || !DatosEmpresa) {
+      return res.status(500).json({
+        success: false,
+        message: "Error: Modelos no disponibles"
+      });
+    }
+
+    // Reutilizar la misma lógica del endpoint informeVentasVendedor
+    // 1. Obtener facturas del vendedor en el rango de fechas
+    const facturas = await FacturaCabeza.findAll({
+      where: {
+        VendedorCodigo: vendedorCodigo,
+        Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
+        FechaAnulacion: null,
+        DocumentoTipo: { [Op.in]: ['FCA', 'FCB', 'FCC', 'PRF'] }
+      },
+      attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'Fecha', 'ClienteCodigo', 'ImporteTotal'],
+      include: [
+        {
+          model: Cliente,
+          attributes: ['Codigo', 'Descripcion'],
+          required: false
+        }
+      ],
+      raw: true
+    });
+
+    // 2. Obtener notas de crédito (mismo sistema eficiente)
+    let notasCredito = [];
+    
+    if (facturas.length > 0) {
+      const normalizarTipo = (tipo) => {
+        if (!tipo) return null;
+        const tipoUpper = tipo.toUpperCase();
+        if (tipoUpper === 'A') return 'FCA';
+        if (tipoUpper === 'B') return 'FCB';
+        if (tipoUpper === 'C') return 'FCC';
+        if (tipoUpper === 'F') return 'PRF';
+        return tipoUpper;
+      };
+      
+      const facturasMap = new Map();
+      facturas.forEach(f => {
+        const claveExacta = `${f.DocumentoTipo}-${f.DocumentoSucursal}-${f.DocumentoNumero}`;
+        facturasMap.set(claveExacta, f);
+        const claveNormalizada = `${f.DocumentoTipo}-${parseInt(f.DocumentoSucursal)}-${parseInt(f.DocumentoNumero)}`;
+        facturasMap.set(claveNormalizada, f);
+      });
+      
+      const todasLasNC = await NotaCredito.findAll({
+        where: {
+          FechaAnulacion: null
+        },
+        attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'Fecha', 'CodigoCliente', 'ImporteTotal', 
+                     'factura_tipo', 'factura_sucursal', 'factura_numero'],
+        include: [
+          {
+            model: Cliente,
+            attributes: ['Codigo', 'Descripcion'],
+            required: false
+          }
+        ],
+        raw: true
+      });
+      
+      for (const nc of todasLasNC) {
+        if (nc.factura_tipo && nc.factura_sucursal && nc.factura_numero) {
+          const tipoNormalizado = normalizarTipo(nc.factura_tipo);
+          const claves = [
+            `${tipoNormalizado}-${nc.factura_sucursal}-${nc.factura_numero}`,
+            `${nc.factura_tipo.toUpperCase()}-${nc.factura_sucursal}-${nc.factura_numero}`,
+            `${tipoNormalizado}-${parseInt(nc.factura_sucursal)}-${parseInt(nc.factura_numero)}`
+          ];
+          
+          for (const clave of claves) {
+            if (facturasMap.has(clave)) {
+              notasCredito.push(nc);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Calcular totales
+    const totalFacturas = facturas.reduce((sum, f) => sum + (parseFloat(f.ImporteTotal) || 0), 0);
+    const totalNotasCredito = notasCredito.reduce((sum, nc) => sum + (parseFloat(nc.ImporteTotal) || 0), 0);
+    const totalGeneral = totalFacturas - totalNotasCredito;
+
+    // 4. Obtener información del vendedor
+    const vendedor = await Vendedor.findByPk(vendedorCodigo, {
+      attributes: ['Codigo', 'Descripcion'],
+      raw: true
+    });
+
+    // 5. Obtener datos de la empresa
+    const datosEmpresa = await DatosEmpresa.findOne({
+      raw: true
+    });
+
+    // 6. Preparar datos para el PDF
+    const datosPDF = {
+      vendedor: {
+        codigo: vendedorCodigo,
+        descripcion: vendedor ? vendedor.Descripcion : 'Vendedor no encontrado'
+      },
+      periodo: {
+        fechaDesde,
+        fechaHasta
+      },
+      facturas: facturas.map(f => ({
+        tipo: f.DocumentoTipo,
+        numero: `${f.DocumentoSucursal}-${f.DocumentoNumero}`,
+        fecha: f.Fecha,
+        clienteCodigo: f.ClienteCodigo,
+        clienteDescripcion: f['Cliente.Descripcion'] || 'Sin descripción',
+        importe: parseFloat(f.ImporteTotal) || 0
+      })),
+      notasCredito: notasCredito.map(nc => ({
+        tipo: nc.DocumentoTipo,
+        numero: `${nc.DocumentoSucursal}-${nc.DocumentoNumero}`,
+        fecha: nc.Fecha,
+        clienteCodigo: nc.CodigoCliente,
+        clienteDescripcion: nc['Cliente.Descripcion'] || 'Sin descripción',
+        importe: -(parseFloat(nc.ImporteTotal) || 0),
+        facturaRelacionada: `${nc.factura_tipo}-${nc.factura_sucursal}-${nc.factura_numero}`
+      })),
+      totales: {
+        facturas: {
+          cantidad: facturas.length,
+          importe: totalFacturas
+        },
+        notasCredito: {
+          cantidad: notasCredito.length,
+          importe: -totalNotasCredito
+        },
+        general: totalGeneral
+      }
+    };
+
+    // 7. Generar el PDF
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+
+    // Configurar headers para descarga
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="informe-vendedor-${vendedorCodigo}-${fechaDesde}-${fechaHasta}.pdf"`
+    );
+
+    // Pipe el PDF a la respuesta
+    doc.pipe(res);
+
+    // Renderizar el contenido
+    await renderInformeVendedor(doc, datosPDF, datosEmpresa);
+
+    // Finalizar el documento
+    doc.end();
+
+  } catch (error) {
+    console.error("Error al generar PDF de informe de vendedor:", error);
+    console.error("Stack trace:", error.stack);
+    
+    // Si aún no se han enviado los headers
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        message: "Error al generar el PDF",
+        error: error.message
+      });
+    }
   }
 };
 

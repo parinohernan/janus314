@@ -45,9 +45,15 @@
     }
   }
   
-  // Volver a la lista de facturas
+  // Volver a la lista de facturas usando el historial del navegador
   function volver() {
-    goto('/ventas/facturas');
+    // Usar history.back() para preservar el estado de la página anterior
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      window.history.back();
+    } else {
+      // Fallback si no hay historial
+      goto('/ventas/facturas');
+    }
   }
   
   // Cargar datos al montar el componente

@@ -15,6 +15,7 @@ exports.listarNotasCredito = async (req, res) => {
     const offset = (page - 1) * limit;
     const tipo = req.query.tipo || null;
     const clienteCodigo = req.query.cliente || null;
+    const vendedorCodigo = req.query.vendedor || null;
     const fechaDesde = req.query.fechaDesde || null;
     const fechaHasta = req.query.fechaHasta || null;
     const sucursal = req.query.sucursal || null;
@@ -39,6 +40,7 @@ exports.listarNotasCredito = async (req, res) => {
         [Op.lte]: fechaHasta,
       };
     }
+    
     console.log("whereClause", whereClause);
 
     // Definir los modelos para esta conexión
@@ -63,7 +65,8 @@ exports.listarNotasCredito = async (req, res) => {
       attributes: [
         'DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'Fecha', 
         'ImporteTotal', 'FechaAnulacion', 'afip_cae', 'afip_cae_vencimiento',
-        'afip_cae_observaciones', 'CodigoCliente'
+        'afip_cae_observaciones', 'CodigoCliente', 
+        'factura_tipo', 'factura_sucursal', 'factura_numero'
       ],
       include: [
         {
@@ -76,17 +79,103 @@ exports.listarNotasCredito = async (req, res) => {
         ["DocumentoTipo", "DESC"],
         ["DocumentoNumero", "DESC"],
       ],
-      limit,
-      offset,
+      limit: vendedorCodigo ? 9999 : limit, // Si hay filtro de vendedor, traer todas para filtrar después
+      offset: vendedorCodigo ? 0 : offset,
     });
 
+    let itemsFiltrados = notasCredito.rows;
+    let totalFiltrado = notasCredito.count;
+
+    // Si hay filtro por vendedor, filtrar por facturas relacionadas
+    if (vendedorCodigo) {
+      const FacturaCabezaEmpresa = req.dbConnection.model('FacturaCabeza');
+      
+      // Función para normalizar tipo de documento
+      const normalizarTipo = (tipo) => {
+        if (!tipo) return null;
+        const tipoUpper = tipo.toUpperCase();
+        // Mapear tipos cortos a completos
+        if (tipoUpper === 'A') return 'FCA';
+        if (tipoUpper === 'B') return 'FCB';
+        if (tipoUpper === 'C') return 'FCC';
+        if (tipoUpper === 'F') return 'PRF';
+        return tipoUpper;
+      };
+      
+      // Obtener todas las facturas del vendedor para cachearlas
+      const facturasVendedor = await FacturaCabezaEmpresa.findAll({
+        where: {
+          VendedorCodigo: vendedorCodigo,
+          FechaAnulacion: null
+        },
+        attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'VendedorCodigo'],
+        raw: true
+      });
+      
+      console.log(`Facturas del vendedor ${vendedorCodigo}: ${facturasVendedor.length}`);
+      
+      // Crear un mapa para búsqueda rápida
+      const facturasMap = new Map();
+      facturasVendedor.forEach(f => {
+        // Clave exacta
+        const claveExacta = `${f.DocumentoTipo}-${f.DocumentoSucursal}-${f.DocumentoNumero}`;
+        facturasMap.set(claveExacta, f);
+        
+        // Clave normalizada (sin ceros a la izquierda)
+        const claveNormalizada = `${f.DocumentoTipo}-${parseInt(f.DocumentoSucursal)}-${parseInt(f.DocumentoNumero)}`;
+        facturasMap.set(claveNormalizada, f);
+      });
+      
+      // Filtrar NC por vendedor de factura relacionada
+      const ncFiltradas = [];
+      for (const nc of notasCredito.rows) {
+        if (nc.factura_tipo && nc.factura_sucursal && nc.factura_numero) {
+          // Normalizar el tipo de factura
+          const tipoNormalizado = normalizarTipo(nc.factura_tipo);
+          
+          // Intentar diferentes combinaciones de búsqueda
+          const claves = [
+            // Con tipo normalizado, exacto
+            `${tipoNormalizado}-${nc.factura_sucursal}-${nc.factura_numero}`,
+            // Con tipo original, exacto
+            `${nc.factura_tipo.toUpperCase()}-${nc.factura_sucursal}-${nc.factura_numero}`,
+            // Con tipo normalizado, sin ceros
+            `${tipoNormalizado}-${parseInt(nc.factura_sucursal)}-${parseInt(nc.factura_numero)}`
+          ];
+          
+          let encontrada = false;
+          for (const clave of claves) {
+            if (facturasMap.has(clave)) {
+              ncFiltradas.push(nc);
+              encontrada = true;
+              break;
+            }
+          }
+          
+          if (!encontrada) {
+            console.log(`NC no encontrada: ${nc.DocumentoTipo}-${nc.DocumentoSucursal}-${nc.DocumentoNumero}, busca factura: ${nc.factura_tipo}-${nc.factura_sucursal}-${nc.factura_numero}`);
+          }
+        }
+      }
+      
+      console.log(`NC filtradas por vendedor: ${ncFiltradas.length}`);
+      
+      itemsFiltrados = ncFiltradas;
+      totalFiltrado = ncFiltradas.length;
+      
+      // Aplicar paginación manual
+      const start = offset;
+      const end = offset + limit;
+      itemsFiltrados = ncFiltradas.slice(start, end);
+    }
+
     res.json({
-      items: notasCredito.rows,
+      items: itemsFiltrados,
       meta: {
-        totalItems: notasCredito.count,
+        totalItems: totalFiltrado,
         itemsPerPage: limit,
         currentPage: page,
-        totalPages: Math.ceil(notasCredito.count / limit),
+        totalPages: Math.ceil(totalFiltrado / limit),
       },
     });
   } catch (error) {

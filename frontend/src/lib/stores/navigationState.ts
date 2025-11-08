@@ -29,7 +29,8 @@ const getInitialState = (): NavigationState => {
 };
 
 export const createNavigationStore = () => {
-	const { subscribe, set, update } = writable<NavigationState>(getInitialState());
+	const store = writable<NavigationState>(getInitialState());
+	const { subscribe, set, update } = store;
 
 	// Guardar en localStorage cuando el store cambia
 	if (browser) {
@@ -45,10 +46,34 @@ export const createNavigationStore = () => {
 	return {
 		subscribe,
 		saveState: (path: string, state: PageState) => {
-			update((states) => ({ ...states, [path]: state }));
+			update((states) => {
+				const newStates = { ...states, [path]: state };
+				// Guardar inmediatamente en localStorage de forma síncrona
+				if (browser) {
+					try {
+						localStorage.setItem('navigationState', JSON.stringify(newStates));
+					} catch (error) {
+						console.error('Error guardando estado de navegación:', error);
+					}
+				}
+				return newStates;
+			});
 		},
 		getState: (path: string): PageState | null => {
-			const states = get({ subscribe });
+			// Leer directamente desde localStorage para asegurar que tenemos el valor más reciente
+			if (browser) {
+				try {
+					const savedState = localStorage.getItem('navigationState');
+					if (savedState) {
+						const states = JSON.parse(savedState);
+						return states[path] || null;
+					}
+				} catch (error) {
+					console.error('Error recuperando estado de navegación:', error);
+				}
+			}
+			// Fallback al store
+			const states = get(store);
 			return states[path] || null;
 		},
 		clearState: (path: string) => {

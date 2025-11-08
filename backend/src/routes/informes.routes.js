@@ -12,6 +12,8 @@ router.get('/ventas-por-productos', informesController.ventasPorProductos);
 router.get('/vendedores/ventas', informesController.ventasPorVendedor);
 router.get('/vendedores/productos', informesController.productosPorVendedor);
 router.get('/vendedores/detalle', informesController.detalleVentasPorVendedor);
+router.get('/vendedores/informe-completo', informesController.informeVentasVendedor);
+router.get('/vendedores/informe-pdf', informesController.generarPDFInformeVendedor);
 
 // Rutas para estadísticas de productos
 router.get('/productos/mas-vendidos', informesController.productosMasVendidos);

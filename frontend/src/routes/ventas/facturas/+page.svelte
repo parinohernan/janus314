@@ -10,6 +10,7 @@
   import CaeManualModal from '$lib/components/facturas/CaeManualModal.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { AfipService } from '$lib/services/AfipService';
+  import { VendedorService, type VendedorOption as VendedorOptionType } from '$lib/services/VendedorService';
 
   // Definición de interfaces
   interface Factura {
@@ -36,12 +37,6 @@
     razonSocial: string;
   }
   
-  interface VendedorOption {
-    value: string;
-    label: string;
-    descripcion: string;
-  }
-  
   // Actualizar la interfaz PageState para que coincida con los datos reales
   interface PageState {
     currentPage: number;
@@ -52,6 +47,7 @@
       vendedor: string;
       fechaDesde: string;
       fechaHasta: string;
+      clienteBusqueda: string;
     }
   }
   
@@ -105,10 +101,8 @@
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   
   // Estado para el selector de vendedores
-  let vendedoresOptions: VendedorOption[] = [];
-  let vendedorBusqueda = '';
+  let vendedoresOptions: VendedorOptionType[] = [];
   let vendedoresLoading = false;
-  let timeoutVendedorId: ReturnType<typeof setTimeout> | null = null;
   
   // Cargar facturas
   const cargarFacturas = async () => {
@@ -155,7 +149,8 @@
           cliente: filtroCliente,
           vendedor: filtroVendedor,
           fechaDesde: filtroFechaDesde,
-          fechaHasta: filtroFechaHasta
+          fechaHasta: filtroFechaHasta,
+          clienteBusqueda: clienteBusqueda
         }
       });
       
@@ -175,6 +170,25 @@
     }
   };
   
+  // Función auxiliar para guardar el estado actual
+  const guardarEstadoActual = () => {
+    const estadoAGuardar = {
+      currentPage,
+      scroll: window.scrollY,
+      filters: {
+        tipo: filtroTipo,
+        cliente: filtroCliente,
+        vendedor: filtroVendedor,
+        fechaDesde: filtroFechaDesde,
+        fechaHasta: filtroFechaHasta,
+        clienteBusqueda: clienteBusqueda
+      }
+    };
+    
+    console.log('💾 Guardando estado actual:', estadoAGuardar);
+    (navigationState as any).saveState('/ventas/facturas', estadoAGuardar);
+  };
+  
   // Aplicar filtros
   const aplicarFiltros = () => {
     currentPage = 1; // Resetear a primera página al filtrar
@@ -188,12 +202,23 @@
     filtroVendedor = '';
     filtroFechaDesde = fechaFormateada;
     filtroFechaHasta = fechaFormateada;
+    clienteBusqueda = '';
     currentPage = 1;
     cargarFacturas();
   };
   
+  // Ir a nueva factura
+  const irANuevaFactura = () => {
+    guardarEstadoActual();
+    goto('/ventas/facturas/nueva');
+  };
+  
   // Ver detalle de factura
   const verDetalle = (tipo: string, sucursal: string, numero: string) => {
+    // Guardar el estado actual ANTES de navegar
+    guardarEstadoActual();
+    
+    // Navegar a la página de impresión
     goto(`/ventas/facturas/imprimir/${tipo}/${sucursal}/${numero}`);
   };
   
@@ -230,6 +255,9 @@
   const clonarFactura = async (tipo: string, sucursal: string, numero: string) => {
     try {
       console.log('🔍 Iniciando clonación de factura:', { tipo, sucursal, numero });
+      
+      // Guardar el estado actual ANTES de navegar
+      guardarEstadoActual();
       
       // Obtener los datos de la factura para clonar
       const response = await fetchWithAuth(`/facturas/${tipo}/${sucursal}/${numero}`);
@@ -307,66 +335,24 @@
     clientesOptions = [];
   };
   
-  // Función para buscar vendedores
-  const buscarVendedores = async (busqueda = '') => {
-    if (timeoutVendedorId) clearTimeout(timeoutVendedorId);
+  // Al montar el componente
+  onMount(async () => {
+    console.log('🔄 Montando componente de facturas...');
     
-    if (!busqueda || busqueda.length < 2) {
-      vendedoresOptions = [];
-      return;
-    }
-    
+    // Cargar vendedores
+    try {
     vendedoresLoading = true;
-    
-    timeoutVendedorId = setTimeout(async () => {
-      try {
-        const response = await fetchWithAuth('/vendedores', {
-          params: {
-            search: busqueda,
-            limit: 10
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error('Error al buscar vendedores');
-        }
-        
-        const data = await response.json();
-        vendedoresOptions = data.items.map((vendedor: any) => {
-          const nombreVendedor = vendedor.Descripcion || 'Sin nombre';
-          return {
-            value: vendedor.Codigo,
-            label: `${vendedor.Codigo} - ${nombreVendedor}`,
-            descripcion: nombreVendedor
-          };
-        });
-      } catch (error) {
-        console.error('Error buscando vendedores:', error);
-        vendedoresOptions = [];
+      const vendedoresData = await VendedorService.obtenerVendedoresActivos();
+      vendedoresOptions = vendedoresData;
+    } catch (err) {
+      console.error('Error cargando vendedores:', err);
       } finally {
         vendedoresLoading = false;
       }
-    }, 300);
-  };
-  
-  // Seleccionar vendedor
-  const seleccionarVendedor = (codigo: string, descripcion: string) => {
-    filtroVendedor = codigo;
-    vendedorBusqueda = `${codigo} - ${descripcion}`;
-    vendedoresOptions = [];
-  };
-  
-  // Limpiar vendedor seleccionado
-  const limpiarVendedor = () => {
-    filtroVendedor = '';
-    vendedorBusqueda = '';
-    vendedoresOptions = [];
-  };
-  
-  // Al montar el componente
-  onMount(() => {
+    
     // Recuperar estado guardado si existe
     const savedState = (navigationState as any).getState('/ventas/facturas');
+    console.log('📦 Estado recuperado:', savedState);
     
     if (savedState) {
       // Usar currentPage si existe, o 1 por defecto
@@ -380,7 +366,19 @@
         filtroVendedor = filtrosGuardados.vendedor || '';
         filtroFechaDesde = filtrosGuardados.fechaDesde || fechaFormateada;
         filtroFechaHasta = filtrosGuardados.fechaHasta || fechaFormateada;
+        clienteBusqueda = filtrosGuardados.clienteBusqueda || '';
+        
+        console.log('✅ Filtros restaurados:', {
+          filtroTipo,
+          filtroCliente,
+          filtroVendedor,
+          filtroFechaDesde,
+          filtroFechaHasta,
+          clienteBusqueda
+        });
       }
+    } else {
+      console.log('⚠️ No se encontró estado guardado');
     }
     
     cargarFacturas();
@@ -389,7 +387,6 @@
   // Al destruir el componente, limpiar timeout si existe
   onDestroy(() => {
     if (timeoutId) clearTimeout(timeoutId);
-    if (timeoutVendedorId) clearTimeout(timeoutVendedorId);
   });
   
   // Estados visuales
@@ -463,7 +460,7 @@
 <div>
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-2xl font-bold text-gray-800">Facturas</h1>
-    <Button variant="primary" on:click={() => goto('/ventas/facturas/nueva')}>
+    <Button variant="primary" on:click={irANuevaFactura}>
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
       </svg>
@@ -538,54 +535,21 @@
         {/if}
       </div>
       
-      <div class="relative w-full md:w-64 mb-4 md:mb-0">
+      <div class="w-full md:w-64 mb-4 md:mb-0">
         <label for="filtroVendedor" class="block text-sm font-medium text-gray-700 mb-1">Vendedor</label>
-        <div class="relative">
-          <input
-            type="text"
+        <select
             id="filtroVendedor"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-            placeholder="Buscar vendedor..."
-            bind:value={vendedorBusqueda}
-            on:input={() => buscarVendedores(vendedorBusqueda)}
-            autocomplete="off"
-          />
-          {#if filtroVendedor}
-            <button 
-              class="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
-              on:click={limpiarVendedor}
-              aria-label="Limpiar selección de vendedor"
-            >
-              <svg class="h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-              </svg>
-            </button>
-          {/if}
-        </div>
-        
-        {#if vendedoresOptions.length > 0}
-          <div class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base overflow-auto focus:outline-none sm:text-sm">
-            <ul>
+          bind:value={filtroVendedor}
+          disabled={vendedoresLoading}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Todos</option>
               {#each vendedoresOptions as vendedor}
-                <li>
-                  <button 
-                    class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-gray-100 w-full text-left"
-                    on:click={() => seleccionarVendedor(vendedor.value, vendedor.descripcion)}
-                  >
-                    <div class="flex items-center">
-                      <span class="font-normal block truncate">{vendedor.label}</span>
-                    </div>
-                  </button>
-                </li>
+            <option value={vendedor.value}>{vendedor.label}</option>
               {/each}
-            </ul>
-          </div>
-        {/if}
-        
+        </select>
         {#if vendedoresLoading}
-          <div class="absolute right-3 top-1/2 -translate-y-1/2">
-            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-          </div>
+          <p class="mt-1 text-xs text-gray-500">Cargando vendedores...</p>
         {/if}
       </div>
       
