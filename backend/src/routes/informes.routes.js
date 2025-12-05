@@ -23,4 +23,7 @@ router.get('/productos/rotacion-stock', informesController.rotacionStock);
 // Ruta para el informe de ventas por proveedor
 router.get('/ventas-por-proveedor', informesController.ventasPorProveedor);
 
+// Ruta para el informe de ventas por clientes
+router.get('/ventas-por-clientes', informesController.informeVentasPorClientes);
+
 module.exports = router; 

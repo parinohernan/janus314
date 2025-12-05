@@ -1564,4 +1564,249 @@ exports.ventasPorProveedor = async (req, res) => {
       error: error.message
     });
   }
+};
+
+// ================================================================
+// INFORME DE VENTAS POR CLIENTES
+// ================================================================
+
+// Informe de ventas por clientes con filtros
+exports.informeVentasPorClientes = async (req, res) => {
+  try {
+    const { fechaDesde, fechaHasta, localidad, vendedorCodigo, categoriaIva } = req.query;
+    
+    console.log("Parámetros recibidos:", { fechaDesde, fechaHasta, localidad, vendedorCodigo, categoriaIva });
+    
+    if (!fechaDesde || !fechaHasta) {
+      return res.status(400).json({
+        success: false,
+        message: "Se requieren fechaDesde y fechaHasta"
+      });
+    }
+
+    // Obtener los modelos específicos de la empresa
+    const { FacturaCabeza, Cliente, Vendedor, CategoriaIva } = req.models;
+    
+    if (!FacturaCabeza || !Cliente) {
+      return res.status(500).json({
+        success: false,
+        message: "Error: Modelos no disponibles"
+      });
+    }
+
+    // Construir filtros para clientes
+    const clienteWhereClause = {};
+    
+    if (localidad) {
+      clienteWhereClause.Localidad = {
+        [Op.like]: `%${localidad}%`
+      };
+    }
+    
+    if (vendedorCodigo) {
+      clienteWhereClause.CodigoVendedor = vendedorCodigo;
+    }
+    
+    if (categoriaIva) {
+      clienteWhereClause.CategoriaIva = categoriaIva;
+    }
+
+    // Obtener clientes que cumplen con los filtros
+    const clientesFiltrados = await Cliente.findAll({
+      where: clienteWhereClause,
+      attributes: ['Codigo', 'Descripcion', 'Localidad', 'CodigoVendedor', 'CategoriaIva', 'Cuit'],
+      raw: true
+    });
+
+    console.log(`Clientes filtrados: ${clientesFiltrados.length}`);
+
+    if (clientesFiltrados.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          clientes: [],
+          estadisticasGenerales: {
+            totalClientes: 0,
+            totalVentas: 0,
+            totalFacturas: 0,
+            promedioVentaCliente: 0
+          },
+          periodo: {
+            fechaDesde,
+            fechaHasta
+          }
+        }
+      });
+    }
+
+    // Obtener códigos de clientes filtrados
+    const codigosClientes = clientesFiltrados.map(c => c.Codigo);
+
+    // Construir consulta para facturas
+    const facturaWhereClause = {
+      Fecha: {
+        [Op.between]: [fechaDesde, fechaHasta]
+      },
+      FechaAnulacion: null,
+      ClienteCodigo: {
+        [Op.in]: codigosClientes
+      }
+    };
+
+    // Obtener facturas de los clientes filtrados
+    const facturas = await FacturaCabeza.findAll({
+      where: facturaWhereClause,
+      attributes: [
+        'DocumentoTipo',
+        'DocumentoSucursal',
+        'DocumentoNumero',
+        'Fecha',
+        'ClienteCodigo',
+        'ImporteTotal',
+        'ImporteNeto',
+        'ImporteIva1',
+        'ImporteIva2'
+      ],
+      order: [['Fecha', 'DESC']],
+      raw: true
+    });
+
+    console.log(`Facturas encontradas: ${facturas.length}`);
+
+    // Crear un mapa de clientes para acceso rápido
+    const clientesMap = clientesFiltrados.reduce((acc, cliente) => {
+      acc[cliente.Codigo] = cliente;
+      return acc;
+    }, {});
+
+    // Agrupar facturas por cliente
+    const ventasPorCliente = {};
+    
+    facturas.forEach(factura => {
+      const clienteCodigo = factura.ClienteCodigo;
+      const cliente = clientesMap[clienteCodigo];
+      
+      if (!ventasPorCliente[clienteCodigo]) {
+        ventasPorCliente[clienteCodigo] = {
+          codigo: clienteCodigo,
+          descripcion: cliente?.Descripcion || 'Sin descripción',
+          localidad: cliente?.Localidad || 'Sin localidad',
+          vendedorCodigo: cliente?.CodigoVendedor || null,
+          categoriaIva: cliente?.CategoriaIva || null,
+          cuit: cliente?.Cuit || null,
+          cantidadFacturas: 0,
+          totalVentas: 0,
+          totalIva: 0,
+          facturas: []
+        };
+      }
+      
+      ventasPorCliente[clienteCodigo].cantidadFacturas++;
+      ventasPorCliente[clienteCodigo].totalVentas += parseFloat(factura.ImporteTotal) || 0;
+      ventasPorCliente[clienteCodigo].totalIva += (parseFloat(factura.ImporteIva1) || 0) + (parseFloat(factura.ImporteIva2) || 0);
+      
+      ventasPorCliente[clienteCodigo].facturas.push({
+        tipo: factura.DocumentoTipo,
+        numero: `${factura.DocumentoSucursal}-${factura.DocumentoNumero}`,
+        fecha: factura.Fecha,
+        importe: parseFloat(factura.ImporteTotal) || 0
+      });
+    });
+
+    // Obtener información de vendedores si hay alguno
+    const vendedoresCodigos = [...new Set(
+      Object.values(ventasPorCliente)
+        .map(v => v.vendedorCodigo)
+        .filter(Boolean)
+    )];
+
+    let vendedoresMap = {};
+    if (Vendedor && vendedoresCodigos.length > 0) {
+      const vendedores = await Vendedor.findAll({
+        where: { Codigo: { [Op.in]: vendedoresCodigos } },
+        attributes: ['Codigo', 'Descripcion'],
+        raw: true
+      });
+      
+      vendedoresMap = vendedores.reduce((acc, vendedor) => {
+        acc[vendedor.Codigo] = vendedor.Descripcion;
+        return acc;
+      }, {});
+    }
+
+    // Obtener información de categorías IVA si hay alguna
+    const categoriasIvaCodigos = [...new Set(
+      Object.values(ventasPorCliente)
+        .map(v => v.categoriaIva)
+        .filter(Boolean)
+    )];
+
+    let categoriasIvaMap = {};
+    if (CategoriaIva && categoriasIvaCodigos.length > 0) {
+      const categoriasIva = await CategoriaIva.findAll({
+        where: { Codigo: { [Op.in]: categoriasIvaCodigos } },
+        attributes: ['Codigo', 'Descripcion'],
+        raw: true
+      });
+      
+      categoriasIvaMap = categoriasIva.reduce((acc, categoria) => {
+        acc[categoria.Codigo] = categoria.Descripcion;
+        return acc;
+      }, {});
+    }
+
+    // Agregar descripciones de vendedor y categoría IVA
+    Object.values(ventasPorCliente).forEach(cliente => {
+      cliente.vendedorDescripcion = cliente.vendedorCodigo ? 
+        (vendedoresMap[cliente.vendedorCodigo] || 'Vendedor no encontrado') : 
+        'Sin vendedor';
+      
+      cliente.categoriaIvaDescripcion = cliente.categoriaIva ? 
+        (categoriasIvaMap[cliente.categoriaIva] || 'Categoría no encontrada') : 
+        'Sin categoría';
+    });
+
+    // Convertir a array y ordenar por total de ventas
+    const clientesArray = Object.values(ventasPorCliente)
+      .sort((a, b) => b.totalVentas - a.totalVentas);
+
+    // Calcular estadísticas generales
+    const totalVentas = clientesArray.reduce((sum, c) => sum + c.totalVentas, 0);
+    const totalFacturas = clientesArray.reduce((sum, c) => sum + c.cantidadFacturas, 0);
+
+    // Preparar respuesta
+    const respuesta = {
+      clientes: clientesArray,
+      estadisticasGenerales: {
+        totalClientes: clientesArray.length,
+        totalVentas: totalVentas,
+        totalFacturas: totalFacturas,
+        promedioVentaCliente: clientesArray.length > 0 ? totalVentas / clientesArray.length : 0,
+        promedioFacturasCliente: clientesArray.length > 0 ? totalFacturas / clientesArray.length : 0
+      },
+      periodo: {
+        fechaDesde,
+        fechaHasta
+      },
+      filtrosAplicados: {
+        localidad: localidad || 'Todos',
+        vendedor: vendedorCodigo ? (vendedoresMap[vendedorCodigo] || vendedorCodigo) : 'Todos',
+        categoriaIva: categoriaIva ? (categoriasIvaMap[categoriaIva] || categoriaIva) : 'Todas'
+      }
+    };
+
+    res.json({
+      success: true,
+      data: respuesta
+    });
+
+  } catch (error) {
+    console.error("Error al generar informe de ventas por clientes:", error);
+    console.error("Stack trace:", error.stack);
+    res.status(500).json({
+      success: false,
+      message: "Error al generar el informe",
+      error: error.message
+    });
+  }
 }; 
