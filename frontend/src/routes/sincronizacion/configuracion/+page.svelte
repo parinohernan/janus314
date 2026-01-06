@@ -8,13 +8,15 @@
     baseDatos: string;
     usuario: string;
     password: string;
+    puerto: string;
   }
 
   let configuracion: Configuracion = {
     servidor: '',
     baseDatos: '',
     usuario: '',
-    password: ''
+    password: '',
+    puerto: '3306'
   };
 
   let loading = true;
@@ -35,7 +37,8 @@
           servidor: data.data.servidor || '',
           baseDatos: data.data.baseDatos || '',
           usuario: data.data.usuario || '',
-          password: data.data.password || ''
+          password: data.data.password || '',
+          puerto: data.data.puerto || '3306'
         };
       }
       loading = false;
@@ -115,6 +118,20 @@
               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
               placeholder="Ej: localhost"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="puerto" class="block text-sm font-medium text-gray-700 mb-1">Puerto</label>
+            <input
+              type="number"
+              id="puerto"
+              bind:value={configuracion.puerto}
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+              placeholder="Ej: 3306"
+              min="1"
+              max="65535"
             />
           </div>
 

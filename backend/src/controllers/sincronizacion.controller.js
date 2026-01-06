@@ -72,7 +72,8 @@ exports.getConfiguracion = async (req, res) => {
           'PreventasServidor',
           'PreventasBaseDeDatos',
           'PreventaUsuario',
-          'PreventaContraseña'
+          'PreventaContraseña',
+          'PreventasPuerto'
         ]
       }
     });
@@ -88,7 +89,8 @@ exports.getConfiguracion = async (req, res) => {
         servidor: config.PreventasServidor || '',
         baseDatos: config.PreventasBaseDeDatos || '',
         usuario: config.PreventaUsuario || '',
-        password: config.PreventaContraseña || ''
+        password: config.PreventaContraseña || '',
+        puerto: config.PreventasPuerto || '3306'
       }
     });
   } catch (error) {
@@ -104,7 +106,7 @@ exports.getConfiguracion = async (req, res) => {
 exports.saveConfiguracion = async (req, res) => {
   try {
     const { Configuracion } = req.models;
-    const { servidor, baseDatos, usuario, password } = req.body;
+    const { servidor, baseDatos, usuario, password, puerto } = req.body;
 
     // Validar datos requeridos
     if (!servidor || !baseDatos || !usuario || !password) {
@@ -114,12 +116,22 @@ exports.saveConfiguracion = async (req, res) => {
       });
     }
 
+    // Validar puerto
+    const puertoNum = parseInt(puerto || '3306', 10);
+    if (isNaN(puertoNum) || puertoNum < 1 || puertoNum > 65535) {
+      return res.status(400).json({
+        success: false,
+        error: 'El puerto debe ser un número entre 1 y 65535'
+      });
+    }
+
     // Actualizar o crear configuraciones
     const configuraciones = [
       { Codigo: 'PreventasServidor', ValorConfig: servidor },
       { Codigo: 'PreventasBaseDeDatos', ValorConfig: baseDatos },
       { Codigo: 'PreventaUsuario', ValorConfig: usuario },
-      { Codigo: 'PreventaContraseña', ValorConfig: password }
+      { Codigo: 'PreventaContraseña', ValorConfig: password },
+      { Codigo: 'PreventasPuerto', ValorConfig: puerto || '3306' }
     ];
 
     for (const config of configuraciones) {
@@ -149,7 +161,8 @@ exports.verificarConfiguracion = async (req, res) => {
           'PreventasServidor',
           'PreventasBaseDeDatos',
           'PreventaUsuario',
-          'PreventaContraseña'
+          'PreventaContraseña',
+          'PreventasPuerto'
         ]
       }
     });
@@ -188,7 +201,8 @@ exports.verificarConexion = async (req, res) => {
           'PreventasServidor',
           'PreventasBaseDeDatos',
           'PreventaUsuario',
-          'PreventaContraseña'
+          'PreventaContraseña',
+          'PreventasPuerto'
         ]
       }
     });
@@ -208,6 +222,9 @@ exports.verificarConexion = async (req, res) => {
       });
     }
 
+    // Obtener puerto (default 3306)
+    const puerto = parseInt(config.PreventasPuerto || '3306', 10);
+
     // Crear conexión de prueba
     const { Sequelize } = require('sequelize');
     const testSequelize = new Sequelize(
@@ -216,7 +233,7 @@ exports.verificarConexion = async (req, res) => {
       config.PreventaContraseña,
       {
         host: config.PreventasServidor,
-        port: 3306,
+        port: puerto,
         dialect: 'mysql',
         logging: false,
         pool: {
@@ -507,7 +524,8 @@ exports.actualizarArticulos = async (req, res) => {
           'PreventasServidor',
           'PreventasBaseDeDatos',
           'PreventaUsuario',
-          'PreventaContraseña'
+          'PreventaContraseña',
+          'PreventasPuerto'
         ]
       }
     });
@@ -523,6 +541,9 @@ exports.actualizarArticulos = async (req, res) => {
       throw new Error('Configuración incompleta para la base de datos de preventa');
     }
 
+    // Obtener puerto (default 3306)
+    const puerto = parseInt(config.PreventasPuerto || '3306', 10);
+
     // Crear conexión directa a la base de datos de preventas
     const { Sequelize } = require('sequelize');
     preventasSequelize = new Sequelize(
@@ -531,7 +552,7 @@ exports.actualizarArticulos = async (req, res) => {
       config.PreventaContraseña,
       {
         host: config.PreventasServidor,
-        port: 3306,
+        port: puerto,
         dialect: 'mysql',
         logging: false,
         pool: {
@@ -592,7 +613,8 @@ exports.actualizarClientes = async (req, res) => {
           'PreventasServidor',
           'PreventasBaseDeDatos',
           'PreventaUsuario',
-          'PreventaContraseña'
+          'PreventaContraseña',
+          'PreventasPuerto'
         ]
       }
     });
@@ -608,6 +630,9 @@ exports.actualizarClientes = async (req, res) => {
       throw new Error('Configuración incompleta para la base de datos de preventa');
     }
 
+    // Obtener puerto (default 3306)
+    const puerto = parseInt(config.PreventasPuerto || '3306', 10);
+
     // Crear conexión directa a la base de datos de preventas
     const { Sequelize } = require('sequelize');
     preventasSequelize = new Sequelize(
@@ -616,7 +641,7 @@ exports.actualizarClientes = async (req, res) => {
       config.PreventaContraseña,
       {
         host: config.PreventasServidor,
-        port: 3306,
+        port: puerto,
         dialect: 'mysql',
         logging: false,
         pool: {
@@ -679,7 +704,8 @@ exports.actualizarVendedores = async (req, res) => {
           'PreventasServidor',
           'PreventasBaseDeDatos',
           'PreventaUsuario',
-          'PreventaContraseña'
+          'PreventaContraseña',
+          'PreventasPuerto'
         ]
       }
     });
@@ -695,6 +721,9 @@ exports.actualizarVendedores = async (req, res) => {
       throw new Error('Configuración incompleta para la base de datos de preventa');
     }
 
+    // Obtener puerto (default 3306)
+    const puerto = parseInt(config.PreventasPuerto || '3306', 10);
+
     // Crear conexión directa a la base de datos de preventas
     const { Sequelize } = require('sequelize');
     preventasSequelize = new Sequelize(
@@ -703,7 +732,7 @@ exports.actualizarVendedores = async (req, res) => {
       config.PreventaContraseña,
       {
         host: config.PreventasServidor,
-        port: 3306,
+        port: puerto,
         dialect: 'mysql',
         logging: false,
         pool: {
@@ -793,6 +822,9 @@ const procesarUnaPreventa = async (config, req) => {
   let empresaSequelize = null;
 
   try {
+    // Obtener puerto (default 3306)
+    const puerto = parseInt(config.PreventasPuerto || '3306', 10);
+
     // Crear conexión directa a la base de datos de preventas
     const { Sequelize } = require('sequelize');
     testSequelize = new Sequelize(
@@ -801,7 +833,7 @@ const procesarUnaPreventa = async (config, req) => {
       config.PreventaContraseña,
       {
         host: config.PreventasServidor,
-        port: 3306,
+        port: puerto,
         dialect: 'mysql',
         logging: false,
         pool: {
@@ -994,7 +1026,8 @@ exports.descargarPreventas = async (req, res) => {
           'PreventasServidor',
           'PreventasBaseDeDatos',
           'PreventaUsuario',
-          'PreventaContraseña'
+          'PreventaContraseña',
+          'PreventasPuerto'
         ]
       }
     });
