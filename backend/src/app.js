@@ -38,7 +38,7 @@ const configuracionRoutes = require('./routes/configuracion.routes');
 const sincronizacionRoutes = require('./routes/sincronizacion.routes');
 const reciboController = require('./controllers/recibo.controller');
 const telegramRoutes = require('./routes/telegram.routes');
-const telegramController = require('./controllers/telegram.controller');
+// const telegramController = require('./controllers/telegram.controller'); // Bot de Telegram deshabilitado
 const solicitudRoutes = require('./routes/solicitud.routes');
 const adminRoutes = require('./routes/admin.routes');
 const healthRoutes = require('./routes/health.routes');
@@ -226,6 +226,6 @@ app.use((err, req, res, next) => {
 });
 
 // Iniciar el bot de Telegram después de iniciar el servidor
-telegramController.initBot();
+// telegramController.initBot(); // Bot de Telegram deshabilitado
 
 module.exports = app;
