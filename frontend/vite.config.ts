@@ -49,6 +49,7 @@ export default defineConfig(({ mode }) => {
             allowedHosts: [
                 'janus314.osvi.lat',
                 'jano.janus314.com.ar',
+                'erp.janus314.com.ar',
                 'api.janus314.osvi.lat',
                 'localhost',
                 '127.0.0.1'

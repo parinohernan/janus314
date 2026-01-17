@@ -62,7 +62,9 @@ const staticCorsOrigins = [
   'https://janus314-api.com.ar',
   'https://jano.janus314.com.ar',
   'http://jano.janus314.com.ar',
-  'https://janus314.netlify.app'
+  'https://janus314.netlify.app',
+  'https://erp.janus314.com.ar',
+  'http://erp.janus314.com.ar',
 ];
 
 // Permitir agregar orígenes por ENV (separados por comas)
