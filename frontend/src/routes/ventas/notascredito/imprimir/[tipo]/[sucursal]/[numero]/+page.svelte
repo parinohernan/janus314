@@ -1,89 +1,98 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
+  import { goto } from '$app/navigation';
   import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
-  import { goto } from '$app/navigation';
+  import PdfViewer from '$lib/components/documentos/PdfViewer.svelte';
+  import DocumentToolbar from '$lib/components/documentos/DocumentToolbar.svelte';
+  import { DocumentService } from '$lib/services/DocumentService';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
   // Obtener parámetros de la URL
-  const { tipo, sucursal, numero } = $page.params;
+  const tipo = $page.params.tipo;
+  const sucursal = $page.params.sucursal;
+  const numero = $page.params.numero;
 
-  let loading = false;
+  // Estados
+  let loading = true;
   let error: string | null = null;
+  let notaCredito: any = null;
+  let pdfUrl: string | null = null;
 
-  onMount(async () => {
+  // Cargar datos de la nota de crédito
+  async function cargarNotaCredito() {
     try {
       loading = true;
+      error = null;
       
-      // Construir la URL para obtener el PDF
-      const url = `/notascredito/pdf/${tipo}/${sucursal}/${numero}`;
-      
-      // Realizar la solicitud para obtener el PDF usando fetchWithAuth
-      const response = await fetchWithAuth(url);
+      const response = await fetchWithAuth(`/notascredito/${tipo}/${sucursal}/${numero}`);
       
       if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('Nota de crédito no encontrada');
-        }
-        throw new Error('Error al generar el PDF');
+        throw new Error('Error al cargar la nota de crédito');
       }
-
-      // Obtener el blob del PDF
-      const blob = await response.blob();
       
-      // Crear URL del blob
-      const pdfUrl = URL.createObjectURL(blob);
+      notaCredito = await response.json();
       
-      // Abrir el PDF en una nueva pestaña
-      window.open(pdfUrl, '_blank');
-      
-      // Liberar el objeto URL después de un breve delay
-      setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
+      // Generar PDF
+      pdfUrl = await DocumentService.generarPDF(tipo, sucursal, numero);
       
     } catch (err) {
-      console.error('Error:', err);
+      console.error('Error cargando nota de crédito:', err);
       error = err instanceof Error ? err.message : 'Error desconocido';
     } finally {
       loading = false;
     }
-  });
+  }
 
-  // Función para volver a la lista
-  const volverALista = () => {
-    goto('/ventas/notascredito');
-  };
+  // Volver a la lista de notas de crédito usando el historial del navegador
+  function volver() {
+    // Usar history.back() para preservar el estado de la página anterior
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      window.history.back();
+    } else {
+      // Fallback si no hay historial
+      goto('/ventas/notascredito');
+    }
+  }
+
+  // Cargar datos al montar el componente
+  onMount(() => {
+    cargarNotaCredito();
+  });
 </script>
 
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-6">
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-2xl font-bold text-gray-800">
-      Imprimir Nota de Crédito {tipo}-{sucursal}-{numero}
+      Vista previa de nota de crédito {tipo}-{sucursal}-{numero}
     </h1>
-    <Button variant="secondary" on:click={volverALista}>
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-        <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+    <Button variant="secondary" on:click={volver}>
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
       </svg>
-      Volver a la lista
+      Volver
     </Button>
   </div>
-
+  
   {#if loading}
     <div class="flex justify-center items-center py-12">
       <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
-      <span class="ml-3">Generando PDF...</span>
     </div>
   {:else if error}
-    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-      <strong class="font-bold">Error: </strong>
-      <span class="block sm:inline">{error}</span>
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+      <p>{error}</p>
     </div>
   {:else}
-    <div class="bg-gray-50 p-4 rounded-lg text-center">
-      <p class="text-gray-600">
-        El PDF se abrirá en una nueva pestaña. Si no se abre automáticamente, 
-        verifique que su navegador no esté bloqueando las ventanas emergentes.
-      </p>
-    </div>
+    <!-- Barra de herramientas -->
+    <DocumentToolbar 
+      {pdfUrl}
+      documentoTipo={tipo}
+      documentoSucursal={sucursal}
+      documentoNumero={numero}
+    />
+    
+    <!-- Vista previa del PDF -->
+    <PdfViewer {pdfUrl} />
   {/if}
 </div> 

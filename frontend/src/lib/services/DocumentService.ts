@@ -3,13 +3,23 @@ import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
 export class DocumentService {
 	/**
-	 * Genera un PDF para una factura específica
+	 * Genera un PDF para un documento específico (factura o nota de crédito)
 	 */
 	static async generarPDF(tipo: string, sucursal: string, numero: string): Promise<string> {
 		try {
-			console.log('URL', `${PUBLIC_API_URL}/facturas/pdf/${tipo}/${sucursal}/${numero}`);
+			// Determinar el endpoint según el tipo de documento
+			let endpoint = '/facturas/pdf';
+			
+			// Si es nota de crédito (tipos que empiezan con NC)
+			if (tipo.startsWith('NC')) {
+				endpoint = '/notascredito/pdf';
+			}
+			
+			const url = `${endpoint}/${tipo}/${sucursal}/${numero}`;
+			console.log('URL PDF:', url);
+			
 			const response = await fetchWithAuth(
-				`/facturas/pdf/${tipo}/${sucursal}/${numero}`,
+				url,
 				{
 					method: 'GET',
 					headers: {

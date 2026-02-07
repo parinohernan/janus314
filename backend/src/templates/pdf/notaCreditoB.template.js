@@ -1,6 +1,6 @@
 const renderHeader = require("./common/header");
 const renderClienteInfo = require("./common/clienteInfo.js");
-const renderItemsList = require("./common/itemsList.js");
+const renderItemsListConIva = require("./common/itemsListConIva.js");
 const renderElectronicInfo = require("./common/electronicInfo.js");
 const path = require("path");
 
@@ -37,6 +37,7 @@ async function renderNotaCreditoB(doc, data) {
       documentType: "B",
       documentNumber: `${notaCredito.DocumentoSucursal}-${notaCredito.DocumentoNumero}`,
       logoPath: finalLogoPath,
+      isNotaCredito: true,
     });
 
     // Agregar indicador de original o duplicado
@@ -62,10 +63,8 @@ async function renderNotaCreditoB(doc, data) {
       y += 25;
     }
 
-    // Tabla de items
-    y = renderItemsList(doc, items, y, {
-      showIva: false, // No mostrar columna de IVA en notas de crédito B
-    });
+    // Tabla de items CON IVA incluido (igual que Factura B)
+    y = renderItemsListConIva(doc, items, y);
 
     // me posiciono en la parte de los totales
     y = 660;
@@ -74,36 +73,10 @@ async function renderNotaCreditoB(doc, data) {
 
     doc.x = xTotales;
 
-    // Totales
+    // Totales (NO se discrimina IVA en NCB)
     doc.font("Helvetica-Bold");
-    doc.text("Subtotal:", xTotales, y, { width: 90, align: "right" });
-    doc.text(
-      notaCredito.ImporteNeto ? notaCredito.ImporteNeto.toFixed(2) : "0.00",
-      xTotales + 90,
-      y,
-      { width: 70, align: "right" }
-    );
-    y += 20;
 
-    if (notaCredito.ImporteIva1 && notaCredito.ImporteIva1 > 0) {
-      doc.text("IVA 21%:", xTotales, y, { width: 90, align: "right" });
-      doc.text(notaCredito.ImporteIva1.toFixed(2), xTotales + 90, y, {
-        width: 70,
-        align: "right",
-      });
-      y += 20;
-    }
-
-    if (notaCredito.ImporteIva2 && notaCredito.ImporteIva2 > 0) {
-      doc.text("IVA 10.5%:", xTotales, y, { width: 90, align: "right" });
-      doc.text(notaCredito.ImporteIva2.toFixed(2), xTotales + 90, y, {
-        width: 70,
-        align: "right",
-      });
-      y += 20;
-    }
-
-    // Línea antes de los TOTALES
+    // Línea antes del total
     doc.strokeColor("#000000").moveTo(20, 650).lineTo(580, 650).stroke();
     y += 10;
 

@@ -88,26 +88,41 @@ async function renderNotaCreditoA(doc, data) {
     );
     y += 20;
 
-    // IVA 21%
-    if (notaCredito.ImporteIva1 && notaCredito.ImporteIva1 > 0) {
-      doc.text("IVA 21%:", xTotales, y, { width: 90, align: "right" });
-      doc.text(
-        notaCredito.ImporteIva1.toFixed(2),
-        xTotales + 90,
-        y,
-        { width: 70, align: "right" }
-      );
-      y += 20;
-    }
-
-    // IVA 10.5%
-    if (notaCredito.ImporteIva2 && notaCredito.ImporteIva2 > 0) {
-      doc.text("IVA 10.5%:", xTotales, y, { width: 90, align: "right" });
-      doc.text(notaCredito.ImporteIva2.toFixed(2), xTotales + 90, y, {
-        width: 70,
-        align: "right",
+    // IVAs discriminados por porcentaje real
+    if (notaCredito.IvasPorPorcentaje && notaCredito.IvasPorPorcentaje.length > 0) {
+      notaCredito.IvasPorPorcentaje.forEach((iva) => {
+        if (iva.importe > 0) {
+          doc.text(`IVA ${iva.porcentaje}%:`, xTotales, y, { width: 90, align: "right" });
+          doc.text(
+            iva.importe.toFixed(2),
+            xTotales + 90,
+            y,
+            { width: 70, align: "right" }
+          );
+          y += 20;
+        }
       });
-      y += 20;
+    } else {
+      // Fallback para compatibilidad (si no existe IvasPorPorcentaje)
+      if (notaCredito.ImporteIva1 && notaCredito.ImporteIva1 > 0) {
+        doc.text("IVA 21%:", xTotales, y, { width: 90, align: "right" });
+        doc.text(
+          notaCredito.ImporteIva1.toFixed(2),
+          xTotales + 90,
+          y,
+          { width: 70, align: "right" }
+        );
+        y += 20;
+      }
+
+      if (notaCredito.ImporteIva2 && notaCredito.ImporteIva2 > 0) {
+        doc.text("IVA 10.5%:", xTotales, y, { width: 90, align: "right" });
+        doc.text(notaCredito.ImporteIva2.toFixed(2), xTotales + 90, y, {
+          width: 70,
+          align: "right",
+        });
+        y += 20;
+      }
     }
 
     // Línea antes de los TOTALES

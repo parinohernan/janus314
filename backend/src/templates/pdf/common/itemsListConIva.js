@@ -19,22 +19,16 @@ function renderItemsListConIva(doc, items, startY, interlineado=10) { // Reducid
   };
 
   // Preparar los items con la información necesaria
+  // Los precios ya vienen calculados con IVA desde el controlador
   const itemsConSubtotal = items.map((item) => {
     const cantidad = item.Cantidad || 0;
-    const precioBase = item.PrecioUnitario || 0;
-    const porcentajeIva = item.PorcentajeIva || 21; // Usar el porcentaje ya mapeado o 21 por defecto
-    
-    // Calcular precio unitario con IVA incluido
-    const precioConIva = precioBase * (1 + porcentajeIva / 100);
-    
-    // Calcular total con IVA incluido
-    const totalConIva = cantidad * precioConIva;
+    // PrecioUnitario y Subtotal ya vienen con IVA incluido desde el controlador
+    const precioConIva = item.PrecioUnitario || 0;
+    const totalConIva = item.Subtotal || (cantidad * precioConIva);
     
     return {
       ...item,
       Cantidad: cantidad,
-      PrecioBase: precioBase,
-      PorcentajeIVA1: porcentajeIva,
       PrecioConIva: precioConIva,
       TotalConIva: totalConIva
     };

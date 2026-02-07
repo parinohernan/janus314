@@ -251,7 +251,14 @@ exports.obtenerNotaCredito = async (req, res) => {
         DocumentoSucursal: sucursal,
         DocumentoNumero: numero,
       },
-      include: [{ model: ArticuloEmpresa }],
+      attributes: [
+        'DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero',
+        'CodigoArticulo', 'Cantidad', 'PrecioUnitario'
+      ],
+      include: [{ 
+        model: ArticuloEmpresa,
+        attributes: ['Codigo', 'Descripcion', 'UnidadVenta', 'Lista1', 'PorcentajeIVA1', 'PorcentajeIVA2']
+      }],
     });
 
     // Obtener los códigos de artículos para buscarlos

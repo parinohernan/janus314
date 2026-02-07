@@ -437,59 +437,111 @@ exports.generarNotaCreditoPDF = async (req, res) => {
     const itemsConArticulos = items.map((item) => {
       const itemData = item.get({ plain: true });
       const articulo = itemData.Articulo || {};
-      const precioUnitario = itemData.PrecioUnitario || articulo.Lista1 || 0;
+      const precioBase = itemData.PrecioUnitario || articulo.Lista1 || 0;
       const cantidad = itemData.Cantidad || 0;
-      const subtotal = cantidad * precioUnitario;
-      // Para notas de crédito, no hay descuentos por item, se manejan a nivel cabecera
-      const descuento = 0; // Los descuentos se manejan en la cabecera
-      const subtotalConDescuento = subtotal - descuento;
       const porcentajeIva1 = articulo.PorcentajeIVA1 || 0;
       const porcentajeIva2 = articulo.PorcentajeIVA2 || 0;
-      const importeIva1 = subtotalConDescuento * (porcentajeIva1 / 100);
-      const importeIva2 = subtotalConDescuento * (porcentajeIva2 / 100);
+      
+      // Determinar qué porcentaje de IVA usar (normalmente es IVA1, pero puede ser IVA2 o 0)
+      const porcentajeIva = porcentajeIva1 > 0 ? porcentajeIva1 : porcentajeIva2;
+      
+      // Solo NCA discrimina IVA (muestra precios SIN IVA)
+      // NCB y NCF muestran precios CON IVA incluido
+      let precioUnitario, subtotal, importeIva1, importeIva2;
+      
+      if (tipo === 'NCA') {
+        // Para NCA: precios SIN IVA (se discrimina)
+        precioUnitario = precioBase;
+        subtotal = cantidad * precioUnitario;
+        importeIva1 = subtotal * (porcentajeIva1 / 100);
+        importeIva2 = subtotal * (porcentajeIva2 / 100);
+      } else {
+        // Para NCB y NCF: mostrar precios CON IVA incluido
+        precioUnitario = precioBase * (1 + porcentajeIva / 100);
+        subtotal = cantidad * precioUnitario;
+        // El IVA ya está incluido en el precio, pero lo calculamos para los totales
+        importeIva1 = (cantidad * precioBase) * (porcentajeIva1 / 100);
+        importeIva2 = (cantidad * precioBase) * (porcentajeIva2 / 100);
+      }
+      
+      // Para notas de crédito, no hay descuentos por item, se manejan a nivel cabecera
+      const descuento = 0;
+      const subtotalConDescuento = subtotal - descuento;
       
       return {
         ...itemData,
         Descripcion: articulo.Descripcion || '',
         UnidadVenta: articulo.UnidadVenta || '',
         PrecioUnitario: precioUnitario,
+        PrecioBase: precioBase,
         PorcentajeIVA1: porcentajeIva1,
         PorcentajeIVA2: porcentajeIva2,
+        PorcentajeIva: porcentajeIva, // El porcentaje principal aplicado
         Subtotal: subtotal,
         Descuento: descuento,
         SubtotalConDescuento: subtotalConDescuento,
         ImporteIva1: importeIva1,
         ImporteIva2: importeIva2,
-        Total: subtotalConDescuento + importeIva1 + importeIva2
+        Total: tipo === 'NCA' ? subtotalConDescuento + importeIva1 + importeIva2 : subtotalConDescuento,
+        PrecioConIva: precioUnitario, // Para templates que usan este campo
+        TotalConIva: subtotal // Para templates que usan este campo
       };
     });
 
-    // Calcular totales generales
+    // Calcular totales generales y agrupar IVA por porcentaje
     const totales = itemsConArticulos.reduce((acc, item) => {
       acc.subtotal += item.Subtotal || 0;
       acc.descuento += item.Descuento || 0;
       acc.subtotalConDescuento += item.SubtotalConDescuento || 0;
-      acc.iva1 += item.ImporteIva1 || 0;
-      acc.iva2 += item.ImporteIva2 || 0;
       acc.total += item.Total || 0;
+      
+      // Agrupar IVA por porcentaje real
+      const porcentajeIva1 = item.PorcentajeIVA1 || 0;
+      const porcentajeIva2 = item.PorcentajeIVA2 || 0;
+      
+      if (porcentajeIva1 > 0 && item.ImporteIva1 > 0) {
+        if (!acc.ivasPorPorcentaje[porcentajeIva1]) {
+          acc.ivasPorPorcentaje[porcentajeIva1] = 0;
+        }
+        acc.ivasPorPorcentaje[porcentajeIva1] += item.ImporteIva1;
+      }
+      
+      if (porcentajeIva2 > 0 && item.ImporteIva2 > 0) {
+        if (!acc.ivasPorPorcentaje[porcentajeIva2]) {
+          acc.ivasPorPorcentaje[porcentajeIva2] = 0;
+        }
+        acc.ivasPorPorcentaje[porcentajeIva2] += item.ImporteIva2;
+      }
+      
       return acc;
     }, {
       subtotal: 0,
       descuento: 0,
       subtotalConDescuento: 0,
-      iva1: 0,
-      iva2: 0,
-      total: 0
+      total: 0,
+      ivasPorPorcentaje: {}
     });
+
+    // Calcular totales de IVA tradicionales (para compatibilidad)
+    const iva21 = totales.ivasPorPorcentaje[21] || 0;
+    const iva105 = totales.ivasPorPorcentaje[10.5] || 0;
 
     // Asignar los totales calculados a la nota de crédito
     // Usar los valores de la cabecera si están disponibles, sino los calculados
     notaCredito.ImporteBruto = notaCredito.ImporteBruto || totales.subtotal;
     notaCredito.ImporteBonificado = notaCredito.ImporteBonificado || totales.descuento;
     notaCredito.ImporteNeto = notaCredito.ImporteNeto || totales.subtotalConDescuento;
-    notaCredito.ImporteIva1 = notaCredito.ImporteIva1 || totales.iva1;
-    notaCredito.ImporteIva2 = notaCredito.ImporteIva2 || totales.iva2;
+    notaCredito.ImporteIva1 = notaCredito.ImporteIva1 || iva21;
+    notaCredito.ImporteIva2 = notaCredito.ImporteIva2 || iva105;
     notaCredito.ImporteTotal = notaCredito.ImporteTotal || totales.total;
+    
+    // Agregar array de IVAs por porcentaje para el template
+    notaCredito.IvasPorPorcentaje = Object.entries(totales.ivasPorPorcentaje)
+      .map(([porcentaje, importe]) => ({
+        porcentaje: parseFloat(porcentaje),
+        importe: importe
+      }))
+      .sort((a, b) => b.porcentaje - a.porcentaje); // Ordenar de mayor a menor
 
     // Obtener datos de la empresa
     const datosEmpresa = await DatosEmpresa.findOne();

@@ -497,6 +497,12 @@ const initializeModels = (sequelize) => {
     timestamps: false
   });
 
+  // Establecer asociación NotaCreditoItem -> Articulo
+  NotaCreditoItem.belongsTo(Articulo, {
+    foreignKey: 'CodigoArticulo',
+    targetKey: 'Codigo'
+  });
+
   // Definir modelo NotaDebitoCabeza
   console.log('Definiendo modelo NotaDebitoCabeza...');
   const NotaDebitoCabeza = sequelize.define('NotaDebitoCabeza', {
@@ -1149,7 +1155,11 @@ const initializeModels = (sequelize) => {
     FacturaCabeza,
     FacturaItem,
     NotaCredito: NotaCreditoCabeza,
+    NotaCreditoCabeza,
+    NotaCreditoItem,
     NotaDebito: NotaDebitoCabeza,
+    NotaDebitoCabeza,
+    NotaDebitoItem,
     MovimientoStock,
     NumerosControl,
     PreventaCabeza,

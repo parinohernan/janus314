@@ -19,6 +19,9 @@
   // Event dispatcher para comunicarse con el componente padre
   const dispatch = createEventDispatcher();
   
+  // Determinar si es una nota de crédito
+  $: esNotaCredito = factura?.DocumentoTipo?.startsWith('NC');
+  
   // Función para cerrar el modal
   function close() {
     show = false;
@@ -31,15 +34,11 @@
     
     loading = true;
     error = null;
-    // factura.tipo = factura.DocumentoTipo;
-    // factura.puntoVenta = factura.DocumentoSucursal;
-    // factura.numero = factura.DocumentoNumero;
     console.log('Solicitando CAE... t', factura);
     try {
       // Obtener CAE del servicio
       const result = await AfipService.obtenerCae(
         factura.DocumentoTipo,
-
         factura.DocumentoSucursal,
         factura.DocumentoNumero
       );
@@ -106,7 +105,7 @@
         {:else if caeData}
           <div class="success-state">
             <div class="success-icon" aria-hidden="true">✅</div>
-            <h4>Factura autorizada correctamente</h4>
+            <h4>{esNotaCredito ? 'Nota de crédito' : 'Factura'} autorizada correctamente</h4>
             
             <div class="cae-info">
               <div class="info-row">

@@ -70,15 +70,15 @@ async function renderNotaCreditoF(doc, { factura: notaCredito, items, logoPath }
   doc.text("Código", 50, y, { width: 80 });
   doc.text("Descripción", 130, y, { width: 200 });
   doc.text("Cant.", 330, y, { width: 40, align: "right" });
-  doc.text("Precio", 370, y, { width: 70, align: "right" });
-  doc.text("Subtotal", 440, y, { width: 70, align: "right" });
+  doc.text("Precio c/IVA", 370, y, { width: 70, align: "right" });
+  doc.text("Subtotal c/IVA", 440, y, { width: 70, align: "right" });
 
   // Línea separadora
   y += 15;
   doc.moveTo(50, y).lineTo(510, y).stroke();
   y += 10;
 
-  // Items
+  // Items (precios CON IVA incluido - usar valores ya calculados del controlador)
   doc.font("Helvetica");
   items.forEach((item) => {
     if (y > 700) {
@@ -87,13 +87,15 @@ async function renderNotaCreditoF(doc, { factura: notaCredito, items, logoPath }
     }
 
     doc.text(item.CodigoArticulo || "", 50, y, { width: 80 });
-    doc.text(item.Articulo?.Descripcion || "", 130, y, { width: 200 });
+    doc.text(item.Descripcion || item.Articulo?.Descripcion || "", 130, y, { width: 200 });
     doc.text(item.Cantidad.toString(), 330, y, { width: 40, align: "right" });
-    doc.text(formatearNumero(item.PrecioUnitario), 370, y, {
+    // Precio CON IVA incluido (ya viene calculado del controlador)
+    doc.text(formatearNumero(item.PrecioUnitario || 0), 370, y, {
       width: 70,
       align: "right",
     });
-    doc.text(formatearNumero(item.Cantidad * item.PrecioUnitario), 440, y, {
+    // Subtotal CON IVA incluido (ya viene calculado del controlador)
+    doc.text(formatearNumero(item.Subtotal || 0), 440, y, {
       width: 70,
       align: "right",
     });

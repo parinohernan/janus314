@@ -13,6 +13,9 @@
   // Event dispatcher para comunicarse con el componente padre
   const dispatch = createEventDispatcher();
   
+  // Determinar si es una nota de crédito
+  $: esNotaCredito = factura?.DocumentoTipo?.startsWith('NC');
+  
   // Función para cerrar el modal
   function close() {
     show = false;
@@ -45,7 +48,7 @@
       tabindex="-1"
     >
       <div class="modal-header">
-        <h3 id="modal-title">Factura creada exitosamente</h3>
+        <h3 id="modal-title">{esNotaCredito ? 'Nota de crédito' : 'Factura'} creada exitosamente</h3>
         <button 
           class="close-button" 
           on:click={close}
@@ -57,7 +60,7 @@
       <div class="modal-body">
         <div class="success-state">
           <div class="success-icon" aria-hidden="true">✅</div>
-          <h4>¡Factura guardada correctamente!</h4>
+          <h4>¡{esNotaCredito ? 'Nota de crédito' : 'Factura'} guardada correctamente!</h4>
           
           <div class="factura-info">
             <div class="info-row">
@@ -74,7 +77,7 @@
             </div>
           </div>
           
-          <p class="question">¿Desea imprimir la factura ahora?</p>
+          <p class="question">¿Desea imprimir {esNotaCredito ? 'la nota de crédito' : 'la factura'} ahora?</p>
           
           <div class="actions">
             <Button variant="primary" on:click={imprimir}>Sí, imprimir</Button>

@@ -9,9 +9,17 @@
   import { PUBLIC_API_URL } from '$env/static/public';
   import { FacturaService } from '$lib/services/FacturaService';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import CaeModal from '$lib/components/facturas/CaeModal.svelte';
+  import ImprimirModal from '$lib/components/facturas/ImprimirModal.svelte';
 
   // Agregar variable para formas de pago
   let formasPago: { value: string, label: string }[] = [];
+
+  // Variables para el modal de CAE y de impresión
+  let showCaeModal = false;
+  let showImprimirModal = false;
+  let notaCreditoCreada: any = null;
+  let guardadoExitoso = false;
 
   // Inicializar notaCredito con valores por defecto
   let notaCredito: NotaCredito = {
@@ -411,8 +419,16 @@
       const resultado = await NotaCreditoService.crearNotaCredito(notaCredito);
       
       if (resultado.success) {
-        alert('Nota de crédito creada correctamente');
-        goto('/ventas/notascredito');
+        // Guardar la nota de crédito creada para usarla en el modal de impresión
+        notaCreditoCreada = resultado.data;
+        guardadoExitoso = true;
+        
+        // Mostrar modal de CAE para notas de crédito electrónicas (NCA/NCB) o modal de impresión para NCF
+        if (notaCredito.DocumentoTipo !== 'NCF') {
+          showCaeModal = true;
+        } else {
+          showImprimirModal = true;
+        }
       } else {
         throw new Error(resultado.error || 'Error al crear la nota de crédito');
       }
@@ -499,6 +515,54 @@
       error = err instanceof Error ? err.message : 'Error desconocido';
     }
   }
+
+  // Manejador para cuando se obtiene el CAE
+  const handleCaeObtenido = (event: any) => {
+    const caeData = event.detail;
+    console.log('CAE obtenido para nota de crédito:', caeData);
+  };
+
+  // Manejador para cerrar el modal de CAE
+  const handleCloseCaeModal = () => {
+    console.log('Cerrando modal CAE, notaCreditoCreada:', notaCreditoCreada);
+    showCaeModal = false;
+    // Mostrar modal de impresión después del CAE
+    showImprimirModal = true;
+  };
+
+  // Manejador para imprimir la nota de crédito
+  const handleImprimirNotaCredito = () => {
+    console.log('notaCreditoCreada en handleImprimirNotaCredito:', notaCreditoCreada);
+    
+    if (!notaCreditoCreada || !notaCreditoCreada.DocumentoTipo || !notaCreditoCreada.DocumentoSucursal || !notaCreditoCreada.DocumentoNumero) {
+      console.error('Datos de nota de crédito incompletos:', notaCreditoCreada);
+      alert('Error: No se pudieron obtener los datos completos de la nota de crédito creada');
+      return;
+    }
+    
+    const url = `/ventas/notascredito/imprimir/${notaCreditoCreada.DocumentoTipo}/${notaCreditoCreada.DocumentoSucursal}/${notaCreditoCreada.DocumentoNumero}`;
+    console.log('Redirigiendo a:', url);
+    goto(url);
+  };
+
+  // Manejadores para el modal de impresión
+  const handleImprimirModalImprimir = () => {
+    console.log('Imprimiendo nota de crédito:', notaCreditoCreada);
+    showImprimirModal = false;
+    handleImprimirNotaCredito();
+  };
+
+  const handleImprimirModalCancelar = () => {
+    console.log('Cancelando impresión');
+    showImprimirModal = false;
+    goto('/ventas/notascredito/');
+  };
+
+  const handleImprimirModalClose = () => {
+    console.log('Cerrando modal de impresión');
+    showImprimirModal = false;
+    goto('/ventas/notascredito/');
+  };
 </script>
 
 <div class="container mx-auto px-4 py-8">
@@ -807,3 +871,21 @@
     </div>
   </div>
 </div>
+
+<!-- Modal de CAE -->
+<CaeModal 
+  bind:show={showCaeModal} 
+  factura={notaCreditoCreada}
+  on:close={handleCloseCaeModal}
+  on:caeObtenido={handleCaeObtenido}
+  on:imprimir={handleImprimirNotaCredito}
+/>
+
+<!-- Modal de impresión -->
+<ImprimirModal 
+  bind:show={showImprimirModal} 
+  factura={notaCreditoCreada}
+  on:close={handleImprimirModalClose}
+  on:imprimir={handleImprimirModalImprimir}
+  on:cancelar={handleImprimirModalCancelar}
+/>
