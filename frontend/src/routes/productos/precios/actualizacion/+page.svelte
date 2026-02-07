@@ -22,6 +22,7 @@
     PrecioCosto: number;
     RubroCodigo: string;
     ProveedorCodigo: string;
+    seleccionado?: boolean;
     Rubro?: {
       Descripcion: string;
     };
@@ -40,6 +41,10 @@
   let loading = false;
   let error: string | null = null;
   let success: string | null = null;
+  let seleccionarTodos = false;
+
+  // Contador de artículos seleccionados
+  $: articulosSeleccionados = articulos.filter(a => a.seleccionado).length;
 
   // Cargar datos iniciales
   onMount(async () => {
@@ -92,7 +97,8 @@
       if (!response.ok) throw new Error('Error al buscar artículos');
 
       const data = await response.json();
-      articulos = data.items;
+      articulos = data.items.map((a: Articulo) => ({ ...a, seleccionado: true }));
+      seleccionarTodos = true;
     } catch (err) {
       console.error('Error:', err);
       error = 'Error al buscar artículos';
@@ -101,9 +107,17 @@
     }
   }
 
+  // Toggle seleccionar todos
+  function toggleSeleccionarTodos() {
+    // seleccionarTodos ya cambió por bind:checked, solo actualizar los artículos
+    articulos = articulos.map(a => ({ ...a, seleccionado: seleccionarTodos }));
+  }
+
   // Actualizar precios
   async function actualizarPrecios() {
-    if (!porcentajeIncremento || articulos.length === 0) {
+    const articulosSeleccionados = articulos.filter(a => a.seleccionado);
+    
+    if (!porcentajeIncremento || articulosSeleccionados.length === 0) {
       error = 'Debe especificar un porcentaje y tener artículos seleccionados';
       return;
     }
@@ -118,16 +132,17 @@
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          articulos: articulos.map(a => a.Codigo),
+          articulos: articulosSeleccionados.map(a => a.Codigo),
           porcentaje: porcentajeIncremento
         })
       });
 
       if (!response.ok) throw new Error('Error al actualizar precios');
 
-      success = 'Precios actualizados correctamente';
+      success = `Precios actualizados correctamente para ${articulosSeleccionados.length} artículo(s)`;
       // Limpiar la búsqueda después de actualizar
       articulos = [];
+      seleccionarTodos = false;
       porcentajeIncremento = 0;
     } catch (err) {
       console.error('Error:', err);
@@ -198,6 +213,10 @@
           id="porcentaje-input"
           type="number"
           bind:value={porcentajeIncremento}
+          on:input={() => {
+            // Forzar actualización de la lista cuando cambia el porcentaje
+            articulos = articulos;
+          }}
           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Ingrese porcentaje..."
           step="0.01"
@@ -213,9 +232,9 @@
       <Button 
         variant="success" 
         on:click={actualizarPrecios} 
-        disabled={loading || articulos.length === 0}
+        disabled={loading || articulosSeleccionados === 0}
       >
-        {loading ? 'Actualizando...' : 'Actualizar Precios'}
+        {loading ? 'Actualizando...' : `Actualizar Precios (${articulosSeleccionados})`}
       </Button>
       <Button variant="secondary" on:click={salir}>
         Salir
@@ -237,10 +256,34 @@
 
     <!-- Tabla de artículos -->
     {#if articulos.length > 0}
+      <div class="mb-4 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              bind:checked={seleccionarTodos}
+              on:change={toggleSeleccionarTodos}
+              class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <span class="text-sm font-medium text-gray-700">Seleccionar todos</span>
+          </label>
+          <span class="text-sm text-gray-600">
+            {articulosSeleccionados} de {articulos.length} artículo(s) seleccionado(s)
+          </span>
+        </div>
+      </div>
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                <input
+                  type="checkbox"
+                  bind:checked={seleccionarTodos}
+                  on:change={toggleSeleccionarTodos}
+                  class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+              </th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Código
               </th>
@@ -262,24 +305,37 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            {#each articulos as articulo}
-              <tr class="hover:bg-gray-50">
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+            {#each articulos as articulo, index (articulo.Codigo)}
+              <tr class="{articulo.seleccionado ? 'hover:bg-gray-50' : 'opacity-30 bg-gray-50'}">
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    bind:checked={articulo.seleccionado}
+                    on:change={() => {
+                      // Forzar actualización del array para que Svelte detecte el cambio
+                      articulos = articulos;
+                      // Actualizar seleccionarTodos basado en el estado actual
+                      seleccionarTodos = articulos.every(a => a.seleccionado);
+                    }}
+                    class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm {articulo.seleccionado ? 'text-gray-900' : 'text-gray-400'}">
                   {articulo.Codigo}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td class="px-6 py-4 whitespace-nowrap text-sm {articulo.seleccionado ? 'text-gray-900' : 'text-gray-400'}">
                   {articulo.Descripcion}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td class="px-6 py-4 whitespace-nowrap text-sm {articulo.seleccionado ? 'text-gray-500' : 'text-gray-400'}">
                   {articulo.Rubro?.Descripcion || '-'}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td class="px-6 py-4 whitespace-nowrap text-sm {articulo.seleccionado ? 'text-gray-500' : 'text-gray-400'}">
                   {articulo.Proveedor?.Descripcion || '-'}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td class="px-6 py-4 whitespace-nowrap text-sm {articulo.seleccionado ? 'text-gray-900' : 'text-gray-400'}">
                   ${articulo.PrecioCosto.toFixed(2)}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium {articulo.seleccionado ? 'text-gray-900' : 'text-gray-400'}">
                   ${(articulo.PrecioCosto * (1 + porcentajeIncremento/100)).toFixed(2)}
                 </td>
               </tr>
