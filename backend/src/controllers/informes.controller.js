@@ -1412,7 +1412,7 @@ exports.generarPDFInformeVendedor = async (req, res) => {
   }
 };
 
-// Informe de ventas por proveedor
+// Informe de ventas por proveedor - OPTIMIZADO
 exports.ventasPorProveedor = async (req, res) => {
   try {
     const { fechaDesde, fechaHasta, proveedorCodigo } = req.query;
@@ -1436,113 +1436,165 @@ exports.ventasPorProveedor = async (req, res) => {
       });
     }
 
-    // Construir la consulta para facturas
-    const whereClause = {
+    console.time('ventasPorProveedor-total');
+
+    // OPTIMIZACIÓN 1: Obtener solo los DocumentoTipo, DocumentoSucursal, DocumentoNumero de facturas válidas
+    console.time('obtener-facturas-validas');
+    const whereClauseFacturas = {
       Fecha: {
         [Op.between]: [fechaDesde, fechaHasta]
       },
       FechaAnulacion: null // Excluir facturas anuladas
     };
     
-    // Obtener las facturas en el rango de fechas
-    const facturas = await FacturaCabeza.findAll({
-      where: whereClause,
-      attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'ClienteCodigo', 'Fecha'],
+    const facturasValidas = await FacturaCabeza.findAll({
+      where: whereClauseFacturas,
+      attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero'],
       raw: true
     });
 
-    console.log("Facturas encontradas:", facturas.length);
-    
-    // Obtener los items de las facturas con información del proveedor
-    const items = [];
-    for (const factura of facturas) {
-      const itemsFactura = await FacturaItem.findAll({
-        where: {
-          DocumentoTipo: factura.DocumentoTipo,
-          DocumentoSucursal: factura.DocumentoSucursal,
-          DocumentoNumero: factura.DocumentoNumero
-        },
-               include: [{
-                 model: Articulo,
-                 attributes: ['Codigo', 'Descripcion', 'ProveedorCodigo', 'Existencia'],
-                 include: [{
-                   model: Proveedor,
-                   as: 'Proveedor',
-                   attributes: ['Codigo', 'Descripcion'],
-                   required: false
-                 }]
-               }],
-        attributes: ['CodigoArticulo', 'Cantidad', 'PrecioUnitario', 'ImporteBonificado']
+    console.timeEnd('obtener-facturas-validas');
+    console.log("Facturas válidas encontradas:", facturasValidas.length);
+
+    if (facturasValidas.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          proveedores: [],
+          totalVentas: 0,
+          periodo: {
+            fechaDesde,
+            fechaHasta
+          }
+        }
       });
-
-      // Filtrar por proveedor si se especifica
-      const proveedorCodigos = proveedorCodigo ? proveedorCodigo.split(',') : [];
-      const itemsFiltrados = proveedorCodigos.length > 0
-        ? itemsFactura.filter(item => proveedorCodigos.includes(item.Articulo?.ProveedorCodigo))
-        : itemsFactura;
-
-               items.push(...itemsFiltrados.map(item => ({
-                 CodigoArticulo: item.CodigoArticulo,
-                 Cantidad: item.Cantidad,
-                 PrecioUnitario: item.PrecioUnitario,
-                 ImporteBonificado: item.ImporteBonificado,
-                 ArticuloDescripcion: item.Articulo?.Descripcion,
-                 ArticuloExistencia: item.Articulo?.Existencia,
-                 ProveedorCodigo: item.Articulo?.ProveedorCodigo,
-                 ProveedorDescripcion: item.Articulo?.Proveedor?.Descripcion
-               })));
     }
 
-    // Agrupar por proveedor
-    const ventasPorProveedor = items.reduce((acumulado, item) => {
-      const proveedorCodigo = item.ProveedorCodigo || 'SIN_PROVEEDOR';
-      const proveedorDescripcion = item.ProveedorDescripcion || 'Sin Proveedor';
+    // OPTIMIZACIÓN 2: Procesamiento por lotes para evitar consultas SQL demasiado grandes
+    console.time('obtener-items-batch');
+    
+    // Filtro de proveedor para la consulta de Articulo (si se especifica)
+    const proveedorCodigos = proveedorCodigo ? proveedorCodigo.split(',').map(c => c.trim()) : [];
+    const whereClauseArticulo = proveedorCodigos.length > 0 
+      ? { ProveedorCodigo: { [Op.in]: proveedorCodigos } }
+      : {};
+
+    // Configurar el tamaño del lote (ajustar según max_allowed_packet de MySQL)
+    const BATCH_SIZE = 500;
+    const todosLosItems = [];
+    let batchesProcessed = 0;
+
+    // Procesar facturas en lotes
+    for (let i = 0; i < facturasValidas.length; i += BATCH_SIZE) {
+      const batch = facturasValidas.slice(i, i + BATCH_SIZE);
+      batchesProcessed++;
       
-      if (!acumulado[proveedorCodigo]) {
-        acumulado[proveedorCodigo] = {
-          codigo: proveedorCodigo,
-          descripcion: proveedorDescripcion,
+      console.log(`Procesando lote ${batchesProcessed}: ${batch.length} facturas (${i + 1} - ${Math.min(i + BATCH_SIZE, facturasValidas.length)} de ${facturasValidas.length})`);
+      
+      // Construir condiciones OR solo para este lote
+      const condicionesBatch = batch.map(f => ({
+        [Op.and]: [
+          { DocumentoTipo: f.DocumentoTipo },
+          { DocumentoSucursal: f.DocumentoSucursal },
+          { DocumentoNumero: f.DocumentoNumero }
+        ]
+      }));
+
+      // Obtener items para este lote
+      const itemsBatch = await FacturaItem.findAll({
+        where: {
+          [Op.or]: condicionesBatch
+        },
+        attributes: ['CodigoArticulo', 'Cantidad', 'PrecioUnitario', 'ImporteBonificado'],
+        include: [{
+          model: Articulo,
+          attributes: ['Codigo', 'Descripcion', 'ProveedorCodigo', 'Existencia'],
+          where: whereClauseArticulo,
+          required: proveedorCodigos.length > 0, // INNER JOIN si hay filtro, LEFT JOIN si no
+          include: [{
+            model: Proveedor,
+            as: 'Proveedor',
+            attributes: ['Codigo', 'Descripcion'],
+            required: false
+          }]
+        }],
+        raw: true,
+        nest: true
+      });
+
+      todosLosItems.push(...itemsBatch);
+      console.log(`Lote ${batchesProcessed} completado: ${itemsBatch.length} items obtenidos`);
+    }
+
+    console.timeEnd('obtener-items-batch');
+    console.log(`Total de lotes procesados: ${batchesProcessed}`);
+    console.log("Items totales obtenidos:", todosLosItems.length);
+
+    // OPTIMIZACIÓN 3: Procesar los items directamente (sin filtrado adicional)
+    console.time('procesar-items');
+    const ventasPorProveedor = {};
+
+    for (const item of todosLosItems) {
+      // Verificar que el artículo tenga información
+      if (!item.Articulo || !item.Articulo.Codigo) {
+        continue;
+      }
+
+      const provCodigo = item.Articulo.ProveedorCodigo || 'SIN_PROVEEDOR';
+      const provDescripcion = item.Articulo.Proveedor?.Descripcion || 'Sin Proveedor';
+      const codigoArticulo = item.CodigoArticulo;
+      const cantidad = parseFloat(item.Cantidad) || 0;
+      const importe = parseFloat(item.ImporteBonificado) || (parseFloat(item.PrecioUnitario) * cantidad);
+
+      // Inicializar proveedor si no existe
+      if (!ventasPorProveedor[provCodigo]) {
+        ventasPorProveedor[provCodigo] = {
+          codigo: provCodigo,
+          descripcion: provDescripcion,
           productos: {},
           cantidadTotal: 0,
           importeTotal: 0
         };
       }
 
-      // Agrupar por producto dentro del proveedor
-      const codigoArticulo = item.CodigoArticulo;
-      if (!acumulado[proveedorCodigo].productos[codigoArticulo]) {
-        acumulado[proveedorCodigo].productos[codigoArticulo] = {
+      // Inicializar producto si no existe
+      if (!ventasPorProveedor[provCodigo].productos[codigoArticulo]) {
+        ventasPorProveedor[provCodigo].productos[codigoArticulo] = {
           codigo: codigoArticulo,
-          descripcion: item.ArticuloDescripcion,
-          existencia: item.ArticuloExistencia || 0,
+          descripcion: item.Articulo.Descripcion || 'Sin descripción',
+          existencia: parseFloat(item.Articulo.Existencia) || 0,
           cantidad: 0,
           importeTotal: 0
         };
       }
 
-      acumulado[proveedorCodigo].productos[codigoArticulo].cantidad += item.Cantidad;
-      acumulado[proveedorCodigo].productos[codigoArticulo].importeTotal += 
-        item.ImporteBonificado || (item.PrecioUnitario * item.Cantidad);
+      // Acumular cantidades e importes
+      ventasPorProveedor[provCodigo].productos[codigoArticulo].cantidad += cantidad;
+      ventasPorProveedor[provCodigo].productos[codigoArticulo].importeTotal += importe;
+      ventasPorProveedor[provCodigo].cantidadTotal += cantidad;
+      ventasPorProveedor[provCodigo].importeTotal += importe;
+    }
 
-      acumulado[proveedorCodigo].cantidadTotal += item.Cantidad;
-      acumulado[proveedorCodigo].importeTotal += 
-        item.ImporteBonificado || (item.PrecioUnitario * item.Cantidad);
+    console.timeEnd('procesar-items');
 
-      return acumulado;
-    }, {});
-
+    // OPTIMIZACIÓN 4: Convertir y ordenar de forma eficiente
+    console.time('ordenar-resultados');
+    
     // Convertir productos a arrays y ordenar
-    Object.keys(ventasPorProveedor).forEach(proveedorCodigo => {
-      ventasPorProveedor[proveedorCodigo].productos = Object.values(
-        ventasPorProveedor[proveedorCodigo].productos
+    for (const provCodigo in ventasPorProveedor) {
+      ventasPorProveedor[provCodigo].productos = Object.values(
+        ventasPorProveedor[provCodigo].productos
       ).sort((a, b) => b.cantidad - a.cantidad);
-    });
+    }
 
     // Convertir a array y ordenar por importe total
     const resultado = Object.values(ventasPorProveedor)
       .sort((a, b) => b.importeTotal - a.importeTotal);
 
     const totalVentas = resultado.reduce((sum, proveedor) => sum + proveedor.importeTotal, 0);
+
+    console.timeEnd('ordenar-resultados');
+    console.timeEnd('ventasPorProveedor-total');
 
     res.json({
       success: true,
@@ -1558,6 +1610,7 @@ exports.ventasPorProveedor = async (req, res) => {
 
   } catch (error) {
     console.error("Error en ventasPorProveedor:", error);
+    console.error("Stack trace:", error.stack);
     res.status(500).json({
       success: false,
       message: "Error interno del servidor",

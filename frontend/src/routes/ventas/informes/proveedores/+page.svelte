@@ -157,10 +157,53 @@
         plugins: {
           title: {
             display: true,
-            text: tipoGrafico === 'cantidad' ? 'Cantidad de Ventas por Proveedor' : 'Importe de Ventas por Proveedor'
+            text: tipoGrafico === 'cantidad' ? 'Cantidad de Ventas por Proveedor' : 'Importe de Ventas por Proveedor',
+            padding: {
+              top: 10,
+              bottom: 20
+            }
           },
           legend: {
-            position: 'right'
+            position: 'bottom',
+            align: 'start',
+            labels: {
+              boxWidth: 12,
+              padding: 8,
+              font: {
+                size: 11
+              },
+              generateLabels: function(chart) {
+                const data = chart.data;
+                if (data.labels && data.datasets.length) {
+                  return data.labels.map((label, i) => {
+                    const dataset = data.datasets[0];
+                    const value = dataset.data[i];
+                    const backgroundColor = dataset.backgroundColor;
+                    
+                    // Conversión segura de tipos
+                    const numValue = typeof value === 'number' ? value : 0;
+                    const formattedValue = tipoGrafico === 'cantidad' 
+                      ? `${numValue} u`
+                      : formatearMoneda(numValue);
+                    
+                    // Obtener color de forma segura
+                    let fillColor = '#ccc';
+                    if (Array.isArray(backgroundColor)) {
+                      fillColor = backgroundColor[i] as string;
+                    }
+                    
+                    return {
+                      text: `${label}: ${formattedValue}`,
+                      fillStyle: fillColor,
+                      hidden: false,
+                      index: i
+                    };
+                  });
+                }
+                return [];
+              }
+            },
+            maxHeight: 150
           },
           tooltip: {
             callbacks: {
@@ -174,6 +217,14 @@
                 }
               }
             }
+          }
+        },
+        layout: {
+          padding: {
+            top: 10,
+            bottom: 10,
+            left: 10,
+            right: 10
           }
         }
       }
@@ -254,14 +305,14 @@
     }
   }
 
-  // Función para limpiar proveedor seleccionado
-  function limpiarProveedor(proveedor: ProveedorOption) {
-    proveedoresSeleccionados = proveedoresSeleccionados.filter(p => p.codigo !== proveedor.codigo);
-  }
-
   // Función para limpiar todos los proveedores
   function limpiarTodosLosProveedores() {
     proveedoresSeleccionados = [];
+  }
+
+  // Función para seleccionar todos los proveedores
+  function seleccionarTodosLosProveedores() {
+    proveedoresSeleccionados = [...todosLosProveedores];
   }
 
   // Función para filtrar proveedores por búsqueda
@@ -330,7 +381,7 @@
           <select 
             id="proveedor" 
             on:change={cambiarProveedor}
-            class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             disabled={cargandoProveedores}
           >
             <option value="">Agregar proveedor...</option>
@@ -339,11 +390,22 @@
             {/each}
           </select>
           
+          {#if todosLosProveedores.length > 0}
+            <button
+              type="button"
+              on:click={seleccionarTodosLosProveedores}
+              class="px-3 py-2 bg-green-100 text-green-700 hover:bg-green-200 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm whitespace-nowrap flex-shrink-0"
+              title="Seleccionar todos los proveedores"
+            >
+              Todos
+            </button>
+          {/if}
+          
           {#if proveedoresSeleccionados.length > 0}
             <button
               type="button"
               on:click={limpiarTodosLosProveedores}
-              class="px-3 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500"
+              class="px-3 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm whitespace-nowrap flex-shrink-0"
               title="Limpiar todos los proveedores"
             >
               Limpiar
@@ -357,25 +419,11 @@
           </div>
         {/if}
         
-        <!-- Proveedores seleccionados -->
+        <!-- Contador de proveedores seleccionados -->
         {#if proveedoresSeleccionados.length > 0}
           <div class="mb-2">
-            <div class="text-sm font-medium text-gray-700 mb-1">
-              Proveedores seleccionados ({proveedoresSeleccionados.length}):
-            </div>
-            <div class="flex flex-wrap gap-2">
-              {#each proveedoresSeleccionados as proveedor}
-                <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm flex items-center">
-                  {proveedor.descripcion}
-                  <button 
-                    class="ml-2 text-blue-600 hover:text-blue-800" 
-                    on:click={() => limpiarProveedor(proveedor)}
-                    title="Eliminar proveedor"
-                  >
-                    ×
-                  </button>
-                </span>
-              {/each}
+            <div class="text-sm font-medium text-blue-700 bg-blue-50 px-3 py-2 rounded-md inline-block">
+              ✓ {proveedoresSeleccionados.length} proveedor{proveedoresSeleccionados.length !== 1 ? 'es' : ''} seleccionado{proveedoresSeleccionados.length !== 1 ? 's' : ''}
             </div>
           </div>
         {/if}
@@ -394,6 +442,24 @@
           <!-- Dropdown de búsqueda -->
           {#if mostrarDropdownProveedores && filtrarProveedores().length > 0}
             <div class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+              <!-- Opción para seleccionar todos -->
+              <div class="sticky top-0 bg-gray-50 border-b border-gray-200">
+                <button
+                  type="button"
+                  on:click={seleccionarTodosLosProveedores}
+                  class="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center font-medium text-green-600"
+                >
+                  <span class="mr-2">✓</span>
+                  <div class="flex-1">
+                    Seleccionar todos
+                  </div>
+                  <div class="text-xs text-gray-500">
+                    ({todosLosProveedores.length} proveedores)
+                  </div>
+                </button>
+              </div>
+              
+              <!-- Lista de proveedores -->
               {#each filtrarProveedores() as proveedor}
                 <button
                   type="button"
@@ -503,7 +569,7 @@
             </button>
           </div>
         </div>
-        <div class="h-96">
+        <div class="h-[500px]">
           <canvas bind:this={chartCanvas}></canvas>
         </div>
       </div>
