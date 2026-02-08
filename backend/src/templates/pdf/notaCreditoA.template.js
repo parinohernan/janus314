@@ -40,13 +40,9 @@ async function renderNotaCreditoA(doc, data) {
       isNotaCredito: true, // Indicar que es una nota de crédito
     });
 
-    // Agregar indicador de original o duplicado
+    // Agregar indicador de "Nota de Crédito"
     doc.fontSize(12).font("Helvetica-Bold");
-    if (isOriginal) {
-      doc.text("ORIGINAL", 40, 2, { align: "center" });
-    } else {
-      doc.text("DUPLICADO", 36, 2, { align: "center" });
-    }
+    doc.text("Nota de Crédito", 30, 2, { align: "center" });
     doc.font("Helvetica");
 
     // Información del cliente

@@ -11,6 +11,7 @@
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import CaeModal from '$lib/components/facturas/CaeModal.svelte';
   import ImprimirModal from '$lib/components/facturas/ImprimirModal.svelte';
+  import DetalleFacturaModal from '$lib/components/facturas/DetalleFacturaModal.svelte';
 
   // Agregar variable para formas de pago
   let formasPago: { value: string, label: string }[] = [];
@@ -62,6 +63,12 @@
   let facturasLoading = false;
   let articuloSeleccionado: any = null;
   let cantidadArticulo = 1;
+  
+  // Variables para el modal de detalle de factura
+  let showDetalleFacturaModal = false;
+  let facturaSeleccionadaParaDetalle: any = null;
+  let itemsFacturaDetalle: any[] = [];
+  let cargandoDetalleFactura = false;
 
   // Variable reactiva para detectar si hay algún item en edición
   $: hayItemEnEdicion = notaCredito.Items.some(item => item.enEdicion);
@@ -154,6 +161,9 @@
   async function buscarFacturasCliente(codigoCliente: string) {
     try {
       facturasLoading = true;
+      const fechaDesde = new Date();
+      fechaDesde.setMonth(fechaDesde.getMonth() - 3); // Últimos 3 meses
+      
       const resultado = await FacturaService.obtenerUltimasFacturasCliente(codigoCliente);
       
       if (resultado.success && resultado.data) {
@@ -174,6 +184,35 @@
       error = err instanceof Error ? err.message : 'Error desconocido';
     } finally {
       facturasLoading = false;
+    }
+  }
+  
+  // Nueva función para abrir el modal de detalle de factura
+  async function abrirDetalleFactura(factura: any) {
+    try {
+      cargandoDetalleFactura = true;
+      showDetalleFacturaModal = true;
+      facturaSeleccionadaParaDetalle = factura;
+      itemsFacturaDetalle = [];
+      
+      const resultado = await FacturaService.obtenerDetalleFactura(
+        factura.tipo,
+        factura.sucursal,
+        factura.numero
+      );
+      
+      if (resultado.success && resultado.data) {
+        itemsFacturaDetalle = resultado.data.items;
+      } else {
+        error = resultado.error || 'Error al obtener detalle de factura';
+        showDetalleFacturaModal = false;
+      }
+    } catch (err) {
+      console.error('Error al cargar detalle de factura:', err);
+      error = err instanceof Error ? err.message : 'Error desconocido';
+      showDetalleFacturaModal = false;
+    } finally {
+      cargandoDetalleFactura = false;
     }
   }
 
@@ -301,8 +340,8 @@
         articulosOptions = data.items.map((articulo: any) => ({
           codigo: articulo.Codigo,
           descripcion: articulo.Descripcion,
-          precio: articulo.Precio,
-          iva: articulo.PorcentajeIva,
+          precio: articulo.PrecioVenta1 || articulo.Lista1 || 0,
+          iva: articulo.PorcentajeIva || 21,
           label: `${articulo.Codigo} - ${articulo.Descripcion}`
         }));
       } catch (error) {
@@ -419,9 +458,21 @@
       const resultado = await NotaCreditoService.crearNotaCredito(notaCredito);
       
       if (resultado.success) {
-        // Guardar la nota de crédito creada para usarla en el modal de impresión
-        notaCreditoCreada = resultado.data;
+        // El servidor puede devolver resultado.data o resultado.data.data dependiendo del servicio
+        // Manejar ambos casos
+        notaCreditoCreada = resultado.data?.data || resultado.data;
         guardadoExitoso = true;
+        
+        console.log('Nota de crédito creada exitosamente:', notaCreditoCreada);
+        
+        // Verificar que los datos estén completos antes de mostrar el modal
+        if (!notaCreditoCreada?.DocumentoSucursal || !notaCreditoCreada?.DocumentoNumero) {
+          console.error('❌ Datos incompletos en notaCreditoCreada:', notaCreditoCreada);
+          error = 'Nota de crédito creada pero con datos incompletos. Por favor, recargue la página.';
+          return;
+        }
+        
+        console.log('✅ Datos completos, mostrando modal');
         
         // Mostrar modal de CAE para notas de crédito electrónicas (NCA/NCB) o modal de impresión para NCF
         if (notaCredito.DocumentoTipo !== 'NCF') {
@@ -610,6 +661,7 @@
           bind:value={clienteBusqueda}
           on:input={() => buscarClientes(clienteBusqueda)}
           placeholder="Buscar cliente..."
+          autocomplete="off"
           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         {#if clientesLoading}
@@ -631,35 +683,64 @@
           {/if}
         </div>
       </div>
-      <!-- Factura de referencia -->
-      <div class="relative">
-        <label for="facturaRef" class="block text-sm font-medium text-gray-700 mb-1">
-          Factura de Referencia
+      <!-- Panel fijo de Facturas de Referencia -->
+      <div class="md:col-span-3">
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+          Facturas de Referencia
         </label>
-        <input
-          id="facturaRef"
-          type="text"
-          bind:value={facturaReferenciaBusqueda}
-          on:input={() => buscarFacturas(facturaReferenciaBusqueda)}
-          placeholder="Buscar factura..."
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        {#if facturasLoading}
-          <div class="absolute right-3 top-9">
-            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-          </div>
-        {/if}
-        {#if facturasOptions.length > 0}
-          <div class="absolute z-10 w-full mt-1 bg-white shadow-lg max-h-60 rounded-md overflow-auto">
-            {#each facturasOptions as factura}
-              <button
-                class="w-full text-left px-4 py-2 hover:bg-gray-100"
-                on:click={() => seleccionarFactura(factura)}
-              >
-                {factura.label}
-              </button>
-            {/each}
-          </div>
+        <div class="border border-gray-300 rounded-md bg-gray-50" style="height: 300px; overflow-y: auto;">
+          {#if facturasLoading}
+            <div class="flex justify-center items-center h-full">
+              <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            </div>
+          {:else if facturasOptions.length > 0}
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-100 sticky top-0">
+                <tr>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Número</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                  <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                  <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                {#each facturasOptions as factura}
+                  <tr class="hover:bg-blue-50 cursor-pointer" on:click={() => seleccionarFactura(factura)}>
+                    <td class="px-4 py-2 text-sm">{factura.tipo}</td>
+                    <td class="px-4 py-2 text-sm">{factura.sucursal}-{factura.numero}</td>
+                    <td class="px-4 py-2 text-sm">{new Date(factura.fecha).toLocaleDateString('es-AR')}</td>
+                    <td class="px-4 py-2 text-sm text-right">{formatCurrency(factura.total)}</td>
+                    <td class="px-4 py-2 text-center">
+                      <button
+                        on:click|stopPropagation={() => abrirDetalleFactura(factura)}
+                        class="text-blue-600 hover:text-blue-900"
+                        aria-label="Ver detalle"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      </button>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          {:else if notaCredito.CodigoCliente}
+            <div class="flex justify-center items-center h-full text-gray-500">
+              <p>No se encontraron facturas para este cliente</p>
+            </div>
+          {:else}
+            <div class="flex justify-center items-center h-full text-gray-500">
+              <p>Seleccione un cliente para ver sus facturas</p>
+            </div>
+          {/if}
+        </div>
+        {#if notaCredito.FacturaReferencia}
+          <p class="text-sm text-gray-600 mt-2">
+            Factura seleccionada: <span class="font-medium">{notaCredito.FacturaReferencia.tipo}-{notaCredito.FacturaReferencia.sucursal}-{notaCredito.FacturaReferencia.numero}</span>
+          </p>
         {/if}
       </div>
       <!-- Tipo de documento -->
@@ -728,6 +809,87 @@
     <!-- Items -->
     <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
       <h2 class="text-lg font-bold text-gray-800 mb-4">Ítems</h2>
+      
+      <!-- Agregar artículo manualmente -->
+      <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+        <h3 class="text-md font-semibold text-gray-700 mb-3">Agregar artículo</h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <!-- Búsqueda de artículo -->
+          <div class="md:col-span-2 relative">
+            <label for="articulo" class="block text-sm font-medium text-gray-700 mb-1">
+              Artículo
+            </label>
+            <input
+              id="articulo"
+              type="text"
+              bind:value={articuloBusqueda}
+              on:input={() => buscarArticulos(articuloBusqueda)}
+              placeholder="Buscar artículo por código o descripción..."
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {#if articulosLoading}
+              <div class="absolute right-3 top-9">
+                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+              </div>
+            {/if}
+            {#if articulosOptions.length > 0}
+              <div class="absolute z-10 w-full mt-1 bg-white shadow-lg max-h-60 rounded-md overflow-auto">
+                {#each articulosOptions as articulo}
+                  <button
+                    class="w-full text-left px-4 py-2 hover:bg-gray-100"
+                    on:click={() => seleccionarArticulo(articulo)}
+                  >
+                    <div class="font-medium">{articulo.codigo} - {articulo.descripcion}</div>
+                    <div class="text-sm text-gray-600">Precio: {formatCurrency(articulo.precio)} | IVA: {articulo.iva}%</div>
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+          
+          <!-- Cantidad -->
+          <div>
+            <label for="cantidad" class="block text-sm font-medium text-gray-700 mb-1">
+              Cantidad
+            </label>
+            <input
+              id="cantidad"
+              type="number"
+              bind:value={cantidadArticulo}
+              min="1"
+              step="1"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <!-- Botón agregar -->
+          <div class="flex items-end">
+            <button
+              on:click={agregarArticulo}
+              disabled={!articuloSeleccionado}
+              class="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              <div class="flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Agregar
+              </div>
+            </button>
+          </div>
+        </div>
+        
+        {#if articuloSeleccionado}
+          <div class="mt-3 p-3 bg-blue-50 rounded border border-blue-200">
+            <p class="text-sm text-gray-700">
+              <span class="font-semibold">Artículo seleccionado:</span> 
+              {articuloSeleccionado.codigo} - {articuloSeleccionado.descripcion}
+              <span class="ml-2 text-gray-600">| Precio: {formatCurrency(articuloSeleccionado.precio)} | IVA: {articuloSeleccionado.iva}%</span>
+            </p>
+          </div>
+        {/if}
+      </div>
+      
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead>
@@ -783,7 +945,17 @@
                   {/if}
                 </td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
-                  ${item.PrecioUnitario.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                  {#if item.enEdicion}
+                    <input
+                      type="number"
+                      bind:value={item.PrecioUnitario}
+                      min="0"
+                      step="0.01"
+                      class="w-24 px-2 py-1 text-right border border-gray-300 rounded-md"
+                    />
+                  {:else}
+                    ${item.PrecioUnitario.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                  {/if}
                 </td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
                   {#if item.enEdicion}
@@ -888,4 +1060,14 @@
   on:close={handleImprimirModalClose}
   on:imprimir={handleImprimirModalImprimir}
   on:cancelar={handleImprimirModalCancelar}
+/>
+
+<!-- Modal de detalle de factura -->
+<DetalleFacturaModal
+  bind:show={showDetalleFacturaModal}
+  factura={facturaSeleccionadaParaDetalle}
+  items={itemsFacturaDetalle}
+  loading={cargandoDetalleFactura}
+  on:close={() => showDetalleFacturaModal = false}
+  on:seleccionar={(event) => seleccionarFactura(event.detail)}
 />

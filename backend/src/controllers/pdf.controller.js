@@ -559,6 +559,10 @@ exports.generarNotaCreditoPDF = async (req, res) => {
     if (notaCredito.Empresa.InicioActividades) {
       notaCredito.Empresa.InicioActividades = new Date(notaCredito.Empresa.InicioActividades);
     }
+    
+    // Agregar PagoTipo para mostrar en el PDF (derivado de ImporteUtilizado)
+    // Si ImporteUtilizado es 0, es Cuenta Corriente (CC), sino es Contado (CO)
+    notaCredito.PagoTipo = notaCredito.ImporteUtilizado === 0 ? 'CC' : 'CO';
 
     // Preparar el logo de la empresa usando el LogoManager
     console.log('🖼️ Configurando logo de empresa para nota de crédito...');

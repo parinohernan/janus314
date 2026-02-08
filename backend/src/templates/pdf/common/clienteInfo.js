@@ -32,7 +32,7 @@ function renderClienteInfo(doc, factura, y) {
   doc.fontSize(12)
     .text(' ')
     .text(`Pago: ${getTipoPagoTxt(factura.PagoTipo)}`)
-    .text(`Lista: ${factura.ListaNumero || "N/A"}`);
+    .text(`Lista: ${factura.ListaNumero || factura.Cliente?.ListaPrecio || "N/A"}`);
 
   return doc.y+10;
 }

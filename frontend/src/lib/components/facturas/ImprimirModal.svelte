@@ -16,6 +16,9 @@
   // Determinar si es una nota de crédito
   $: esNotaCredito = factura?.DocumentoTipo?.startsWith('NC');
   
+  // Verificar si los datos están completos
+  $: datosCompletos = factura?.DocumentoTipo && factura?.DocumentoSucursal && factura?.DocumentoNumero;
+  
   // Función para cerrar el modal
   function close() {
     show = false;
@@ -33,7 +36,7 @@
   }
 </script>
 
-{#if show}
+{#if show && datosCompletos}
   <div 
     class="modal-backdrop" 
     on:click|self={close}
