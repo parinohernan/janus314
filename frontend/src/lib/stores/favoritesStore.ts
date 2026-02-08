@@ -57,7 +57,10 @@ export interface FavoriteItem {
       // Sincronización
     { id: 'sincronizacion', label: 'Sincronizar Móviles', url: '/sincronizacion', icon: '📱', category: 'Sincronización' },
     { id: 'actualizar-datos', label: 'Actualizar Datos', url: '/sincronizacion/actualizar-datos', icon: '🔄', category: 'Sincronización' },
-    { id: 'configuracion-sincronizacion', label: 'Configuración', url: '/sincronizacion/configuracion', icon: '⚙️', category: 'Sincronización' }
+    { id: 'configuracion-sincronizacion', label: 'Configuración Sincronización', url: '/sincronizacion/configuracion', icon: '⚙️', category: 'Sincronización' },
+  
+  // Configuración
+  { id: 'configuracion-general', label: 'Configuración General', url: '/configuracion', icon: '⚙️', category: 'Configuración' }
 ];
 
 // Crear el store

@@ -9,6 +9,6 @@ router.get("/:codigo", configuracionController.getConfiguracionPorCodigo);
 router.get("/", configuracionController.getAllConfiguraciones);
 
 // Actualizar una configuración
-// router.put("/:codigo", configuracionController.actualizarConfiguracion);
+router.put("/:codigo", configuracionController.actualizarConfiguracion);
 
 module.exports = router;

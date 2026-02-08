@@ -66,6 +66,7 @@ exports.getAllConfiguraciones = async (req, res) => {
  */
 exports.actualizarConfiguracion = async (req, res) => {
   try {
+    const { Configuracion } = req.models;
     const { codigo } = req.params;
     const { valor } = req.body;
 
@@ -83,9 +84,12 @@ exports.actualizarConfiguracion = async (req, res) => {
       });
     }
 
-    // Verificar que la configuración existe
-    const configExistente = await Configuracion.buscarPorCodigo(codigo);
-    if (!configExistente) {
+    // Buscar la configuración
+    const config = await Configuracion.findOne({
+      where: { Codigo: codigo }
+    });
+
+    if (!config) {
       return res.status(404).json({
         success: false,
         message: `No se encontró la configuración con código: ${codigo}`,
@@ -93,18 +97,12 @@ exports.actualizarConfiguracion = async (req, res) => {
     }
 
     // Actualizar la configuración
-    const actualizado = await Configuracion.actualizar(codigo, valor);
-
-    if (!actualizado) {
-      return res.status(500).json({
-        success: false,
-        message: "No se pudo actualizar la configuración",
-      });
-    }
+    await config.update({ ValorConfig: valor });
 
     return res.status(200).json({
       success: true,
       message: "Configuración actualizada correctamente",
+      data: config,
     });
   } catch (error) {
     console.error("Error al actualizar configuración:", error);

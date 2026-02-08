@@ -103,6 +103,13 @@
         { label: 'Actualizar Datos', url: '/sincronizacion/actualizar-datos' },
         { label: 'Configuración', url: '/sincronizacion/configuracion' }
       ]
+    },
+    {
+      id: 'configuracion',
+      label: 'Configuración',
+      items: [
+        { label: 'General', url: '/configuracion' }
+      ]
     }
   ];
 
