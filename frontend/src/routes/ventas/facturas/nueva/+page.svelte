@@ -516,42 +516,72 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   
   // Obtener precio según la lista seleccionada
   const obtenerPrecioSegunLista = (articulo: Articulo, listaId: string): number => {
-    // Usar directamente los valores de las listas del artículo
-    // Si la lista está en 0, usar el precio de costo como fallback
-    
     const precioCosto = articulo.PrecioCosto || 0;
     console.log("articulo", articulo);
     
-    let precioLista = 0;
+    let valorLista = 0;
     
+    // Obtener el valor de la lista seleccionada
     switch(listaId) {
       case '1': 
-        precioLista = articulo.Lista1 || 0;
+        valorLista = articulo.Lista1 || 0;
         break;
       case '2': 
-        precioLista = articulo.Lista2 || 0;
+        valorLista = articulo.Lista2 || 0;
         break;
       case '3': 
-        precioLista = articulo.Lista3 || 0;
+        valorLista = articulo.Lista3 || 0;
         break;
       case '4': 
-        precioLista = articulo.Lista4 || 0;
+        valorLista = articulo.Lista4 || 0;
         break;
       case '5': 
-        precioLista = articulo.Lista5 || 0;
+        valorLista = articulo.Lista5 || 0;
         break;
       default: 
-        precioLista = articulo.Lista1 || 0;
+        valorLista = articulo.Lista1 || 0;
         break;
     }
     
-    // Si el precio de lista es 0, usar el precio de costo
-    if (precioLista === 0) {
+    // Si el valor de lista es 0, usar el precio de costo
+    if (valorLista === 0) {
       console.log(`Lista ${listaId} está en 0, usando precio de costo: ${precioCosto}`);
       return precioCosto;
     }
     
-    console.log(`Usando precio de lista ${listaId}: ${precioLista}`);
+    // Detectar automáticamente si es precio directo o porcentaje
+    // Si el valor es mayor que el precio de costo (o mayor que un umbral razonable),
+    // entonces es un precio directo. Si es menor, es un porcentaje.
+    // Umbral: si el valor es mayor que precioCosto * 1.05 (5% más), es precio directo
+    // Si el valor es menor o igual a 1000 y menor que precioCosto, es porcentaje
+    
+    let precioLista = 0;
+    
+    if (precioCosto > 0) {
+      // Si el valor es significativamente mayor que el costo, es precio directo
+      if (valorLista > precioCosto * 1.05) {
+        precioLista = valorLista;
+        console.log(`Lista ${listaId}: Detectado precio directo (${valorLista})`);
+      } 
+      // Si el valor es menor o igual al costo pero mayor que 0, podría ser porcentaje
+      // También verificamos si el valor es razonable como porcentaje (típicamente 0-1000)
+      else if (valorLista <= 1000 && valorLista > 0) {
+        // Es porcentaje: calcular precio = costo * (1 + porcentaje/100)
+        precioLista = precioCosto * (1 + valorLista / 100);
+        console.log(`Lista ${listaId}: Detectado porcentaje (${valorLista}%), precio calculado: ${precioLista}`);
+      }
+      // Si el valor es muy grande pero menor que costo*1.05, podría ser un caso especial
+      // En este caso, asumimos que es precio directo
+      else {
+        precioLista = valorLista;
+        console.log(`Lista ${listaId}: Usando valor como precio directo (${valorLista})`);
+      }
+    } else {
+      // Si no hay precio de costo, usar el valor directamente
+      precioLista = valorLista;
+      console.log(`Lista ${listaId}: Sin precio de costo, usando valor directo: ${precioLista}`);
+    }
+    
     return precioLista;
   };
   

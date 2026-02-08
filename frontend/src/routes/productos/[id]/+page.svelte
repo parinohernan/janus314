@@ -128,6 +128,25 @@
   let error: string | null = null;
   let successMessage: string | null = null;
   
+  // Función helper para calcular precios de lista
+  const calcularPrecioLista = (porcentajeLista: number): { sinIva: number; conIva: number } => {
+    if (articulo.PrecioCosto > 0 && porcentajeLista >= 0) {
+      const sinIva = formatearADosDecimales(articulo.PrecioCosto * (1 + porcentajeLista / 100));
+      const conIva = articulo.PorcentajeIVA1 >= 0
+        ? formatearADosDecimales(sinIva * (1 + articulo.PorcentajeIVA1 / 100))
+        : sinIva;
+      return { sinIva, conIva };
+    }
+    return { sinIva: 0, conIva: 0 };
+  };
+  
+  // Variables reactivas calculadas para todas las listas
+  $: preciosLista1 = calcularPrecioLista(articulo.Lista1);
+  $: preciosLista2 = calcularPrecioLista(articulo.Lista2);
+  $: preciosLista3 = calcularPrecioLista(articulo.Lista3);
+  $: preciosLista4 = calcularPrecioLista(articulo.Lista4);
+  $: preciosLista5 = calcularPrecioLista(articulo.Lista5);
+  
   // Cargar datos de proveedores y rubros para los selectores
   const loadProveedores = async (): Promise<void> => {
     try {
@@ -192,6 +211,14 @@
     }
   });
   
+  // Formatear un valor numérico a 2 decimales
+  const formatearADosDecimales = (valor: number): number => {
+    if (valor === null || valor === undefined || isNaN(valor)) {
+      return 0;
+    }
+    return Number(Number(valor).toFixed(2));
+  };
+  
   // Calcular el precio costo a partir del precio con impuestos
   const calcularPrecioCosto = (): void => {
     if (articulo.PrecioCostoMasImp > 0 && articulo.PorcentajeIVA1 > 0) {
@@ -205,6 +232,37 @@
     if (articulo.PrecioCosto > 0 && articulo.PorcentajeIVA1 > 0) {
       const factor = 1 + (articulo.PorcentajeIVA1 / 100);
       articulo.PrecioCostoMasImp = Number((articulo.PrecioCosto * factor).toFixed(2));
+    }
+  };
+  
+  // Formatear precio costo a 2 decimales
+  const formatearPrecioCosto = (): void => {
+    articulo.PrecioCosto = formatearADosDecimales(articulo.PrecioCosto);
+  };
+  
+  // Formatear precio costo con IVA a 2 decimales
+  const formatearPrecioCostoMasImp = (): void => {
+    articulo.PrecioCostoMasImp = formatearADosDecimales(articulo.PrecioCostoMasImp);
+  };
+  
+  // Formatear lista de precios a 2 decimales
+  const formatearLista = (numeroLista: 1 | 2 | 3 | 4 | 5): void => {
+    switch (numeroLista) {
+      case 1:
+        articulo.Lista1 = formatearADosDecimales(articulo.Lista1);
+        break;
+      case 2:
+        articulo.Lista2 = formatearADosDecimales(articulo.Lista2);
+        break;
+      case 3:
+        articulo.Lista3 = formatearADosDecimales(articulo.Lista3);
+        break;
+      case 4:
+        articulo.Lista4 = formatearADosDecimales(articulo.Lista4);
+        break;
+      case 5:
+        articulo.Lista5 = formatearADosDecimales(articulo.Lista5);
+        break;
     }
   };
   
@@ -228,6 +286,15 @@
       return false;
     }
     return true;
+  };
+  
+  // Prevenir el envío del formulario al presionar Enter en campos de precio
+  const prevenirSubmitEnEnter = (event: KeyboardEvent): void => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      // Quitar el foco del campo actual
+      (event.target as HTMLInputElement)?.blur();
+    }
   };
 
   // Manejar el envío del formulario
@@ -428,6 +495,8 @@
               </select>
             </div>
             
+            <!-- Familia - Campo comentado por el momento no se usa -->
+            <!--
             <div>
               <label for="familia" class="block text-sm font-medium text-gray-700 mb-1">
                 Familia
@@ -440,7 +509,10 @@
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            -->
             
+            <!-- Subfamilia - Campo comentado por el momento no se usa -->
+            <!--
             <div>
               <label for="subfamilia" class="block text-sm font-medium text-gray-700 mb-1">
                 Subfamilia
@@ -453,6 +525,7 @@
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            -->
           </div>
         </div>
         
@@ -469,6 +542,7 @@
                 id="existencia"
                 bind:value={articulo.Existencia}
                 step="0.01"
+                on:keydown={prevenirSubmitEnEnter}
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -495,6 +569,7 @@
                 id="existenciaMaxima"
                 bind:value={articulo.ExistenciaMaxima}
                 step="0.01"
+                on:keydown={prevenirSubmitEnEnter}
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -521,6 +596,7 @@
                 id="peso"
                 bind:value={articulo.Peso}
                 step="0.01"
+                on:keydown={prevenirSubmitEnEnter}
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -553,7 +629,11 @@
                 id="precioCosto"
                 bind:value={articulo.PrecioCosto}
                 step="0.01"
-                on:change={calcularPrecioCostoMasImp}
+                on:keydown={prevenirSubmitEnEnter}
+                on:blur={() => {
+                  formatearPrecioCosto();
+                  calcularPrecioCostoMasImp();
+                }}
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -567,7 +647,10 @@
                 id="precioCostoMasImp"
                 bind:value={articulo.PrecioCostoMasImp}
                 step="0.01"
-                on:change={calcularPrecioCosto}
+                on:blur={() => {
+                  formatearPrecioCostoMasImp();
+                  calcularPrecioCosto();
+                }}
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -579,6 +662,11 @@
               <select
                 id="porcentajeIVA1"
                 bind:value={articulo.PorcentajeIVA1}
+                on:change={() => {
+                  // Resetear ambos campos de precio cuando cambia el porcentaje de IVA
+                  articulo.PrecioCosto = 0;
+                  articulo.PrecioCostoMasImp = 0;
+                }}
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value={0}>0%</option>
@@ -613,71 +701,214 @@
             Actualizar Listas de Precios
           </Button>
           
+          <!-- Listas de Precios: Diseño compacto en una sola línea -->
+          <div class="mb-4 border border-gray-200 rounded-md p-3">
+            <h3 class="text-sm font-medium text-gray-700 mb-3">Listas de Precios</h3>
+            <div class="grid grid-cols-5 gap-3">
+              <!-- Lista 1 -->
+              <div>
+                <div class="block text-xs font-medium text-gray-600 mb-1 text-center">Lista 1</div>
+                <div class="space-y-2">
+                  <div>
+                    <label for="lista1" class="block text-xs font-medium text-gray-500 mb-1 text-center">% Lista 1</label>
+                    <input
+                      type="number"
+                      id="lista1"
+                      bind:value={articulo.Lista1}
+                      step="0.01"
+                      on:keydown={prevenirSubmitEnEnter}
+                      on:blur={() => formatearLista(1)}
+                      class="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
+                      placeholder="%"
+                    />
+                  </div>
+                  <div>
+                    <label for="precioLista1SinIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 1 sin IVA</label>
+                    <input
+                      type="text"
+                      id="precioLista1SinIva"
+                      readonly
+                      value={preciosLista1.sinIva.toFixed(2)}
+                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
+                    />
+                  </div>
+                  <div>
+                    <label for="precioLista1ConIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 1 con IVA</label>
+                    <input
+                      type="text"
+                      id="precioLista1ConIva"
+                      readonly
+                      value={preciosLista1.conIva.toFixed(2)}
+                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Lista 2 -->
+              <div>
+                <div class="block text-xs font-medium text-gray-600 mb-1 text-center">Lista 2</div>
+                <div class="space-y-2">
+                  <div>
+                    <label for="lista2" class="block text-xs font-medium text-gray-500 mb-1 text-center">% Lista 2</label>
+                    <input
+                      type="number"
+                      id="lista2"
+                      bind:value={articulo.Lista2}
+                      step="0.01"
+                      on:blur={() => formatearLista(2)}
+                      class="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
+                      placeholder="%"
+                    />
+                  </div>
+                  <div>
+                    <label for="precioLista2SinIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 2 sin IVA</label>
+                    <input
+                      type="text"
+                      id="precioLista2SinIva"
+                      readonly
+                      value={preciosLista2.sinIva.toFixed(2)}
+                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
+                    />
+                  </div>
+                  <div>
+                    <label for="precioLista2ConIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 2 con IVA</label>
+                    <input
+                      type="text"
+                      id="precioLista2ConIva"
+                      readonly
+                      value={preciosLista2.conIva.toFixed(2)}
+                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Lista 3 -->
+              <div>
+                <div class="block text-xs font-medium text-gray-600 mb-1 text-center">Lista 3</div>
+                <div class="space-y-2">
+                  <div>
+                    <label for="lista3" class="block text-xs font-medium text-gray-500 mb-1 text-center">% Lista 3</label>
+                    <input
+                      type="number"
+                      id="lista3"
+                      bind:value={articulo.Lista3}
+                      step="0.01"
+                      on:keydown={prevenirSubmitEnEnter}
+                      on:blur={() => formatearLista(3)}
+                      class="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
+                      placeholder="%"
+                    />
+                  </div>
+                  <div>
+                    <label for="precioLista3SinIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 3 sin IVA</label>
+                    <input
+                      type="text"
+                      id="precioLista3SinIva"
+                      readonly
+                      value={preciosLista3.sinIva.toFixed(2)}
+                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
+                    />
+                  </div>
+                  <div>
+                    <label for="precioLista3ConIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 3 con IVA</label>
+                    <input
+                      type="text"
+                      id="precioLista3ConIva"
+                      readonly
+                      value={preciosLista3.conIva.toFixed(2)}
+                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Lista 4 -->
+              <div>
+                <div class="block text-xs font-medium text-gray-600 mb-1 text-center">Lista 4</div>
+                <div class="space-y-2">
+                  <div>
+                    <label for="lista4" class="block text-xs font-medium text-gray-500 mb-1 text-center">% Lista 4</label>
+                    <input
+                      type="number"
+                      id="lista4"
+                      bind:value={articulo.Lista4}
+                      step="0.01"
+                      on:keydown={prevenirSubmitEnEnter}
+                      on:blur={() => formatearLista(4)}
+                      class="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
+                      placeholder="%"
+                    />
+                  </div>
+                  <div>
+                    <label for="precioLista4SinIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 4 sin IVA</label>
+                    <input
+                      type="text"
+                      id="precioLista4SinIva"
+                      readonly
+                      value={preciosLista4.sinIva.toFixed(2)}
+                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
+                    />
+                  </div>
+                  <div>
+                    <label for="precioLista4ConIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 4 con IVA</label>
+                    <input
+                      type="text"
+                      id="precioLista4ConIva"
+                      readonly
+                      value={preciosLista4.conIva.toFixed(2)}
+                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Lista 5 -->
+              <div>
+                <div class="block text-xs font-medium text-gray-600 mb-1 text-center">Lista 5</div>
+                <div class="space-y-2">
+                  <div>
+                    <label for="lista5" class="block text-xs font-medium text-gray-500 mb-1 text-center">% Lista 5</label>
+                    <input
+                      type="number"
+                      id="lista5"
+                      bind:value={articulo.Lista5}
+                      step="0.01"
+                      on:keydown={prevenirSubmitEnEnter}
+                      on:blur={() => formatearLista(5)}
+                      class="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
+                      placeholder="%"
+                    />
+                  </div>
+                  <div>
+                    <label for="precioLista5SinIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 5 sin IVA</label>
+                    <input
+                      type="text"
+                      id="precioLista5SinIva"
+                      readonly
+                      value={preciosLista5.sinIva.toFixed(2)}
+                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
+                    />
+                  </div>
+                  <div>
+                    <label for="precioLista5ConIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 5 con IVA</label>
+                    <input
+                      type="text"
+                      id="precioLista5ConIva"
+                      readonly
+                      value={preciosLista5.conIva.toFixed(2)}
+                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Porcentaje Vendedor - Campo comentado por el momento no se usa -->
+          <!--
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label for="lista1" class="block text-sm font-medium text-gray-700 mb-1">
-                Precio Lista 1
-              </label>
-              <input
-                type="number"
-                id="lista1"
-                bind:value={articulo.Lista1}
-                step="0.01"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div>
-              <label for="lista2" class="block text-sm font-medium text-gray-700 mb-1">
-                Precio Lista 2
-              </label>
-              <input
-                type="number"
-                id="lista2"
-                bind:value={articulo.Lista2}
-                step="0.01"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div>
-              <label for="lista3" class="block text-sm font-medium text-gray-700 mb-1">
-                Precio Lista 3
-              </label>
-              <input
-                type="number"
-                id="lista3"
-                bind:value={articulo.Lista3}
-                step="0.01"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div>
-              <label for="lista4" class="block text-sm font-medium text-gray-700 mb-1">
-                Precio Lista 4
-              </label>
-              <input
-                type="number"
-                id="lista4"
-                bind:value={articulo.Lista4}
-                step="0.01"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div>
-              <label for="lista5" class="block text-sm font-medium text-gray-700 mb-1">
-                Precio Lista 5
-              </label>
-              <input
-                type="number"
-                id="lista5"
-                bind:value={articulo.Lista5}
-                step="0.01"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
             
             <div>
               <label for="porcentajeVendedor" class="block text-sm font-medium text-gray-700 mb-1">
@@ -688,10 +919,14 @@
                 id="porcentajeVendedor"
                 bind:value={articulo.PorcentajeVendedor}
                 step="0.01"
+                on:blur={() => {
+                  articulo.PorcentajeVendedor = formatearADosDecimales(articulo.PorcentajeVendedor);
+                }}
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
+          -->
         </div>
         
         <!-- Configuración -->
@@ -726,6 +961,8 @@
               </select>
             </div>
             
+            <!-- Requiere Frío - Campo comentado -->
+            <!--
             <div>
               <label for="requiereFrio" class="block text-sm font-medium text-gray-700 mb-1">
                 Requiere Frío
@@ -739,7 +976,10 @@
                 <option value={1}>Sí</option>
               </select>
             </div>
+            -->
             
+            <!-- Siempre Se Descarga - Campo comentado -->
+            <!--
             <div>
               <label for="siempreSeDescarga" class="block text-sm font-medium text-gray-700 mb-1">
                 Siempre Se Descarga
@@ -753,7 +993,10 @@
                 <option value={1}>Sí</option>
               </select>
             </div>
+            -->
             
+            <!-- IVA 2 Sobre Neto - Campo comentado -->
+            <!--
             <div>
               <label for="iva2SobreNeto" class="block text-sm font-medium text-gray-700 mb-1">
                 IVA 2 Sobre Neto
@@ -767,7 +1010,10 @@
                 <option value={1}>Sí</option>
               </select>
             </div>
+            -->
             
+            <!-- Es Compuesto - Campo comentado -->
+            <!--
             <div>
               <label for="esCompuesto" class="block text-sm font-medium text-gray-700 mb-1">
                 Es Compuesto
@@ -781,6 +1027,7 @@
                 <option value={1}>Sí</option>
               </select>
             </div>
+            -->
           </div>
         </div>
       </div>
