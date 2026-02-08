@@ -1620,6 +1620,217 @@ exports.ventasPorProveedor = async (req, res) => {
 };
 
 // ================================================================
+// INFORME DE VENTAS POR RUBROS
+// ================================================================
+
+// Informe de ventas por rubro - OPTIMIZADO
+exports.ventasPorRubro = async (req, res) => {
+  try {
+    const { fechaDesde, fechaHasta, rubroCodigo } = req.query;
+    
+    console.log("Parámetros recibidos:", { fechaDesde, fechaHasta, rubroCodigo });
+    
+    if (!fechaDesde || !fechaHasta) {
+      return res.status(400).json({
+        success: false,
+        message: "Se requieren fechaDesde y fechaHasta"
+      });
+    }
+
+    // Obtener los modelos específicos de la empresa
+    const { FacturaCabeza, FacturaItem, Articulo, Rubro } = req.models;
+    
+    if (!FacturaCabeza || !FacturaItem || !Articulo || !Rubro) {
+      return res.status(500).json({
+        success: false,
+        message: "Error: Modelos no disponibles"
+      });
+    }
+
+    console.time('ventasPorRubro-total');
+
+    // OPTIMIZACIÓN 1: Obtener solo los DocumentoTipo, DocumentoSucursal, DocumentoNumero de facturas válidas
+    console.time('obtener-facturas-validas');
+    const whereClauseFacturas = {
+      Fecha: {
+        [Op.between]: [fechaDesde, fechaHasta]
+      },
+      FechaAnulacion: null // Excluir facturas anuladas
+    };
+    
+    const facturasValidas = await FacturaCabeza.findAll({
+      where: whereClauseFacturas,
+      attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero'],
+      raw: true
+    });
+
+    console.timeEnd('obtener-facturas-validas');
+    console.log("Facturas válidas encontradas:", facturasValidas.length);
+
+    if (facturasValidas.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          rubros: [],
+          totalVentas: 0,
+          periodo: {
+            fechaDesde,
+            fechaHasta
+          }
+        }
+      });
+    }
+
+    // OPTIMIZACIÓN 2: Procesamiento por lotes para evitar consultas SQL demasiado grandes
+    console.time('obtener-items-batch');
+    
+    // Filtro de rubro para la consulta de Articulo (si se especifica)
+    const rubroCodigos = rubroCodigo ? rubroCodigo.split(',').map(c => c.trim()) : [];
+    const whereClauseArticulo = rubroCodigos.length > 0 
+      ? { RubroCodigo: { [Op.in]: rubroCodigos } }
+      : {};
+
+    // Configurar el tamaño del lote (ajustar según max_allowed_packet de MySQL)
+    const BATCH_SIZE = 500;
+    const todosLosItems = [];
+    let batchesProcessed = 0;
+
+    // Procesar facturas en lotes
+    for (let i = 0; i < facturasValidas.length; i += BATCH_SIZE) {
+      const batch = facturasValidas.slice(i, i + BATCH_SIZE);
+      batchesProcessed++;
+      
+      console.log(`Procesando lote ${batchesProcessed}: ${batch.length} facturas (${i + 1} - ${Math.min(i + BATCH_SIZE, facturasValidas.length)} de ${facturasValidas.length})`);
+      
+      // Construir condiciones OR solo para este lote
+      const condicionesBatch = batch.map(f => ({
+        [Op.and]: [
+          { DocumentoTipo: f.DocumentoTipo },
+          { DocumentoSucursal: f.DocumentoSucursal },
+          { DocumentoNumero: f.DocumentoNumero }
+        ]
+      }));
+
+      // Obtener items para este lote
+      const itemsBatch = await FacturaItem.findAll({
+        where: {
+          [Op.or]: condicionesBatch
+        },
+        attributes: ['CodigoArticulo', 'Cantidad', 'PrecioUnitario', 'ImporteBonificado'],
+        include: [{
+          model: Articulo,
+          attributes: ['Codigo', 'Descripcion', 'RubroCodigo', 'Existencia'],
+          where: whereClauseArticulo,
+          required: rubroCodigos.length > 0, // INNER JOIN si hay filtro, LEFT JOIN si no
+          include: [{
+            model: Rubro,
+            as: 'Rubro',
+            attributes: ['Codigo', 'Descripcion'],
+            required: false
+          }]
+        }],
+        raw: true,
+        nest: true
+      });
+
+      todosLosItems.push(...itemsBatch);
+      console.log(`Lote ${batchesProcessed} completado: ${itemsBatch.length} items obtenidos`);
+    }
+
+    console.timeEnd('obtener-items-batch');
+    console.log(`Total de lotes procesados: ${batchesProcessed}`);
+    console.log("Items totales obtenidos:", todosLosItems.length);
+
+    // OPTIMIZACIÓN 3: Procesar los items directamente (sin filtrado adicional)
+    console.time('procesar-items');
+    const ventasPorRubro = {};
+
+    for (const item of todosLosItems) {
+      // Verificar que el artículo tenga información
+      if (!item.Articulo || !item.Articulo.Codigo) {
+        continue;
+      }
+
+      const rubroCod = item.Articulo.RubroCodigo || 'SIN_RUBRO';
+      const rubroDesc = item.Articulo.Rubro?.Descripcion || 'Sin Rubro';
+      const codigoArticulo = item.CodigoArticulo;
+      const cantidad = parseFloat(item.Cantidad) || 0;
+      const importe = parseFloat(item.ImporteBonificado) || (parseFloat(item.PrecioUnitario) * cantidad);
+
+      // Inicializar rubro si no existe
+      if (!ventasPorRubro[rubroCod]) {
+        ventasPorRubro[rubroCod] = {
+          codigo: rubroCod,
+          descripcion: rubroDesc,
+          productos: {},
+          cantidadTotal: 0,
+          importeTotal: 0
+        };
+      }
+
+      // Inicializar producto si no existe
+      if (!ventasPorRubro[rubroCod].productos[codigoArticulo]) {
+        ventasPorRubro[rubroCod].productos[codigoArticulo] = {
+          codigo: codigoArticulo,
+          descripcion: item.Articulo.Descripcion || 'Sin descripción',
+          existencia: parseFloat(item.Articulo.Existencia) || 0,
+          cantidad: 0,
+          importeTotal: 0
+        };
+      }
+
+      // Acumular cantidades e importes
+      ventasPorRubro[rubroCod].productos[codigoArticulo].cantidad += cantidad;
+      ventasPorRubro[rubroCod].productos[codigoArticulo].importeTotal += importe;
+      ventasPorRubro[rubroCod].cantidadTotal += cantidad;
+      ventasPorRubro[rubroCod].importeTotal += importe;
+    }
+
+    console.timeEnd('procesar-items');
+
+    // OPTIMIZACIÓN 4: Convertir y ordenar de forma eficiente
+    console.time('ordenar-resultados');
+    
+    // Convertir productos a arrays y ordenar
+    for (const rubroCod in ventasPorRubro) {
+      ventasPorRubro[rubroCod].productos = Object.values(
+        ventasPorRubro[rubroCod].productos
+      ).sort((a, b) => b.cantidad - a.cantidad);
+    }
+
+    // Convertir a array y ordenar por importe total
+    const resultado = Object.values(ventasPorRubro)
+      .sort((a, b) => b.importeTotal - a.importeTotal);
+
+    const totalVentas = resultado.reduce((sum, rubro) => sum + rubro.importeTotal, 0);
+
+    console.timeEnd('ordenar-resultados');
+    console.timeEnd('ventasPorRubro-total');
+
+    res.json({
+      success: true,
+      data: {
+        rubros: resultado,
+        totalVentas: totalVentas,
+        periodo: {
+          fechaDesde,
+          fechaHasta
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("Error en ventasPorRubro:", error);
+    console.error("Stack trace:", error.stack);
+    res.status(500).json({
+      success: false,
+      message: "Error interno del servidor",
+      error: error.message
+    });
+  }
+};
+
+// ================================================================
 // INFORME DE VENTAS POR CLIENTES
 // ================================================================
 
