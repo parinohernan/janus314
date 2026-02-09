@@ -778,9 +778,58 @@ const initializeModels = (sequelize) => {
     FechaAnulacion: {
       type: DataTypes.DATE,
       allowNull: true,
+    },
+    VendedorCodigo: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+    },
+    CodigoUsuario: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+    },
+    ImporteNeto: {
+      type: DataTypes.DECIMAL(15, 4),
+      allowNull: true,
+      defaultValue: 0.0000
+    },
+    ImporteIva1: {
+      type: DataTypes.DECIMAL(15, 4),
+      allowNull: true,
+      defaultValue: 0.0000
     }
   }, {
     tableName: "notadebitocabeza",
+    timestamps: false
+  });
+
+  // Definir modelo NotaDebitoItem
+  const NotaDebitoItem = sequelize.define('NotaDebitoItem', {
+    DocumentoTipo: {
+      type: DataTypes.STRING(3),
+      primaryKey: true,
+      allowNull: false,
+    },
+    DocumentoSucursal: {
+      type: DataTypes.STRING(4),
+      primaryKey: true,
+      allowNull: false,
+    },
+    DocumentoNumero: {
+      type: DataTypes.STRING(8),
+      primaryKey: true,
+      allowNull: false,
+    },
+    Descripcion: {
+      type: DataTypes.STRING(254),
+      allowNull: false
+    },
+    Importe: {
+      type: DataTypes.DECIMAL(15, 3),
+      allowNull: true,
+      defaultValue: 0.000
+    }
+  }, {
+    tableName: 'notadebitoitems',
     timestamps: false
   });
 
@@ -1364,6 +1413,29 @@ const initializeModels = (sequelize) => {
     targetKey: "Codigo",
   });
 
+  // Establecer relaciones de NotaDebitoCabeza
+  NotaDebitoCabeza.belongsTo(Cliente, {
+    foreignKey: "ClienteCodigo",
+    targetKey: "Codigo",
+    as: 'ClienteRelacion'
+  });
+
+  NotaDebitoCabeza.belongsTo(Vendedor, {
+    foreignKey: "VendedorCodigo",
+    targetKey: "Codigo",
+    as: 'VendedorRelacion'
+  });
+
+  // Relación entre NotaDebitoCabeza y NotaDebitoItem
+  // Nota: Sequelize no soporta bien foreign keys compuestas en hasMany,
+  // pero podemos definir la relación para que funcione con include
+  NotaDebitoItem.removeAttribute('id');
+  NotaDebitoCabeza.hasMany(NotaDebitoItem, {
+    foreignKey: 'DocumentoTipo',
+    sourceKey: 'DocumentoTipo',
+    as: 'Items'
+  });
+
   // Las asociaciones de caja se manejan en cajaAssociations.js para evitar duplicaciones
 
   // Crear el objeto de modelos
@@ -1386,6 +1458,8 @@ const initializeModels = (sequelize) => {
     FacturaItem,
     NotaCredito: NotaCreditoCabeza,
     NotaDebito: NotaDebitoCabeza,
+    NotaDebitoCabeza,
+    NotaDebitoItem,
     MovimientoStock,
     NumerosControl,
     PreventaCabeza,

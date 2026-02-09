@@ -1,13 +1,11 @@
-const NotaDebitoCabeza = require('../models/notaDebitoCabeza.model');
-const NotaDebitoItem = require('../models/notaDebitoItem.model');
-const Cliente = require('../models/cliente.model');
-const Vendedor = require('../models/vendedor.model');
 const { Op } = require('sequelize');
-const sequelize = require('../config/database');
+const numerosControl = require('./numerosControl.controller');
 
 // Obtener todas las notas de débito (con filtros y paginación)
 exports.getAllNotasDebito = async (req, res) => {
   try {
+    const { NotaDebitoCabeza, Cliente, Vendedor } = req.models;
+    
     const {
       page = 1,
       limit = 10,
@@ -91,6 +89,7 @@ exports.getAllNotasDebito = async (req, res) => {
 // Obtener una nota de débito por ID
 exports.getNotaDebitoById = async (req, res) => {
   try {
+    const { NotaDebitoCabeza, NotaDebitoItem, Cliente, Vendedor } = req.models;
     const { tipo, sucursal, numero } = req.params;
     
     const notaDebito = await NotaDebitoCabeza.findOne({
@@ -103,16 +102,12 @@ exports.getNotaDebitoById = async (req, res) => {
         {
           model: Cliente,
           as: 'ClienteRelacion',
-          attributes: ['Descripcion', 'NombreFantasia', 'Cuit']
+          attributes: ['Codigo', 'Descripcion', 'NombreFantasia', 'Cuit']
         },
         {
           model: Vendedor,
           as: 'VendedorRelacion',
-          attributes: ['Descripcion']
-        },
-        {
-          model: NotaDebitoItem,
-          as: 'Items'
+          attributes: ['Codigo', 'Descripcion']
         }
       ]
     });
@@ -121,101 +116,143 @@ exports.getNotaDebitoById = async (req, res) => {
       return res.status(404).json({ message: 'Nota de débito no encontrada' });
     }
 
-    return res.status(200).json(notaDebito);
+    // Obtener items por separado debido a la clave compuesta
+    const items = await NotaDebitoItem.findAll({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero
+      }
+    });
+
+    // Convertir a JSON y agregar los items
+    const notaDebitoJSON = notaDebito.toJSON();
+    notaDebitoJSON.Items = items;
+
+    return res.status(200).json(notaDebitoJSON);
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: 'Error al obtener la nota de débito' });
+    return res.status(500).json({ 
+      message: 'Error al obtener la nota de débito',
+      error: error.message 
+    });
   }
 };
 
 // Crear una nueva nota de débito
 exports.createNotaDebito = async (req, res) => {
-  const transaction = await sequelize.transaction();
-  
   try {
-    const { cabeza, items } = req.body;
-    
-    // Validar datos obligatorios
-    if (!cabeza.DocumentoTipo || !cabeza.DocumentoSucursal || !cabeza.DocumentoNumero || !cabeza.ClienteCodigo) {
-      return res.status(400).json({ message: 'Faltan datos obligatorios en la nota de débito' });
-    }
-    
-    // Verificar si ya existe una nota de débito con ese número
-    const existingNota = await NotaDebitoCabeza.findOne({
-      where: {
-        DocumentoTipo: cabeza.DocumentoTipo,
-        DocumentoSucursal: cabeza.DocumentoSucursal,
-        DocumentoNumero: cabeza.DocumentoNumero
-      }
-    });
-    
-    if (existingNota) {
-      return res.status(400).json({ message: 'Ya existe una nota de débito con ese número' });
-    }
-    
-    // Crear la nota de débito
-    const nuevaNotaDebito = await NotaDebitoCabeza.create(cabeza, { transaction });
-    
-    // Crear los items de la nota de débito
-    if (items && items.length > 0) {
-      const itemsToCreate = items.map(item => ({
-        ...item,
-        DocumentoTipo: cabeza.DocumentoTipo,
-        DocumentoSucursal: cabeza.DocumentoSucursal,
-        DocumentoNumero: cabeza.DocumentoNumero
-      }));
-      
-      await NotaDebitoItem.bulkCreate(itemsToCreate, { transaction });
-    }
-    
-    // Actualizar el importe de deuda del cliente (siempre en cuenta corriente)
+    const { NotaDebitoCabeza, NotaDebitoItem, Cliente } = req.models;
+    const connection = req.db;
+
+    const transaction = await connection.transaction();
+
     try {
+      const { cabeza, items } = req.body;
+
+      // Validar datos obligatorios (DocumentoNumero lo asigna el backend)
+      if (!cabeza.DocumentoTipo || !cabeza.DocumentoSucursal || !cabeza.ClienteCodigo) {
+        await transaction.rollback();
+        return res.status(400).json({ message: 'Faltan datos obligatorios en la nota de débito' });
+      }
+
+      // Obtener y reservar el próximo número de control (dentro de la transacción)
+      const numeroAsignado = await numerosControl.actualizarNumeroDirecto(
+        cabeza.DocumentoTipo,
+        cabeza.DocumentoSucursal,
+        cabeza.ImporteTotal,
+        transaction,
+        req.models
+      );
+      cabeza.DocumentoNumero = numeroAsignado;
+      console.log("*/*/*/*/*/numeroAsignado", numeroAsignado);
+
+      // Verificar si ya existe una nota de débito con ese número (por si hubiera race)
+      const existingNota = await NotaDebitoCabeza.findOne({
+        where: {
+          DocumentoTipo: cabeza.DocumentoTipo,
+          DocumentoSucursal: cabeza.DocumentoSucursal,
+          DocumentoNumero: cabeza.DocumentoNumero
+        },
+        transaction
+      });
+
+      if (existingNota) {
+        await transaction.rollback();
+        return res.status(400).json({ message: 'Ya existe una nota de débito con ese número' });
+      }
+
+      // Crear la nota de débito
+      const nuevaNotaDebito = await NotaDebitoCabeza.create(cabeza, { transaction });
+
+      // Crear los items de la nota de débito
+      if (items && items.length > 0) {
+        const itemsToCreate = items.map(item => ({
+          ...item,
+          DocumentoTipo: cabeza.DocumentoTipo,
+          DocumentoSucursal: cabeza.DocumentoSucursal,
+          DocumentoNumero: cabeza.DocumentoNumero
+        }));
+
+        await NotaDebitoItem.bulkCreate(itemsToCreate, { transaction });
+      }
+
+      // Actualizar el importe de deuda del cliente (siempre en cuenta corriente)
       console.log("Actualizando deuda del cliente para nota de débito", cabeza);
-      
+
       // Obtener el cliente
       const cliente = await Cliente.findByPk(cabeza.ClienteCodigo, { transaction });
-      
+
       if (!cliente) {
-        throw new Error(`Cliente no encontrado: ${cabeza.ClienteCodigo}`);
+        await transaction.rollback();
+        return res.status(404).json({
+          success: false,
+          message: `Cliente no encontrado: ${cabeza.ClienteCodigo}`
+        });
       }
-      
+
       // Actualizar la deuda del cliente (sumar el importe de la nota de débito)
       await cliente.update(
-        { 
-          ImporteDeuda: (cliente.ImporteDeuda || 0) + cabeza.ImporteTotal 
+        {
+          ImporteDeuda: (cliente.ImporteDeuda || 0) + cabeza.ImporteTotal
         },
         { transaction }
       );
-    } catch (errorCliente) {
-      // Si hay error en la actualización del cliente, hacemos rollback
+
+      await transaction.commit();
+
+      return res.status(201).json({
+        message: 'Nota de débito creada correctamente',
+        notaDebito: nuevaNotaDebito
+      });
+    } catch (error) {
       await transaction.rollback();
+      console.error(error);
       return res.status(500).json({
-        success: false,
-        message: "Error al actualizar la deuda del cliente",
-        error: errorCliente.message,
+        message: 'Error al crear la nota de débito',
+        error: error.message
       });
     }
-    
-    await transaction.commit();
-    
-    return res.status(201).json({
-      message: 'Nota de débito creada correctamente',
-      notaDebito: nuevaNotaDebito
-    });
   } catch (error) {
-    await transaction.rollback();
     console.error(error);
-    return res.status(500).json({ message: 'Error al crear la nota de débito' });
+    return res.status(500).json({
+      message: 'Error al crear la nota de débito',
+      error: error.message
+    });
   }
 };
 
 // Actualizar una nota de débito
 exports.updateNotaDebito = async (req, res) => {
-  const transaction = await sequelize.transaction();
-  
   try {
-    const { tipo, sucursal, numero } = req.params;
-    const { cabeza, items } = req.body;
+    const { NotaDebitoCabeza, NotaDebitoItem } = req.models;
+    const connection = req.db;
+    
+    const transaction = await connection.transaction();
+    
+    try {
+      const { tipo, sucursal, numero } = req.params;
+      const { cabeza, items } = req.body;
     
     // Buscar la nota de débito
     const notaDebito = await NotaDebitoCabeza.findOne({
@@ -271,15 +308,23 @@ exports.updateNotaDebito = async (req, res) => {
     console.error(error);
     return res.status(500).json({ message: 'Error al actualizar la nota de débito' });
   }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Error al actualizar la nota de débito' });
+  }
 };
 
 // Anular una nota de débito
 exports.anularNotaDebito = async (req, res) => {
-  const transaction = await sequelize.transaction();
-  
   try {
-    const { tipo, sucursal, numero } = req.params;
-    const { motivoAnulacion } = req.body;
+    const { NotaDebitoCabeza } = req.models;
+    const connection = req.db;
+    
+    const transaction = await connection.transaction();
+    
+    try {
+      const { tipo, sucursal, numero } = req.params;
+      const { motivoAnulacion } = req.body;
     
     // Buscar la nota de débito
     const notaDebito = await NotaDebitoCabeza.findOne({
@@ -312,6 +357,10 @@ exports.anularNotaDebito = async (req, res) => {
     });
   } catch (error) {
     await transaction.rollback();
+    console.error(error);
+    return res.status(500).json({ message: 'Error al anular la nota de débito' });
+  }
+  } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Error al anular la nota de débito' });
   }

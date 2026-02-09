@@ -54,6 +54,7 @@
         { label: 'Preventas', url: '/ventas/preventas' },
         { label: 'Facturas', url: '/ventas/facturas' },
         { label: 'Notas de Crédito', url: '/ventas/notascredito' },
+        { label: 'Notas de Débito', url: '/ventas/notasdebito' },
         { label: 'Recibos', url: '/ventas/recibos' },
         { label: 'Informes', url: '/ventas/informes' ,submenus: [
         { label: 'Facturación', url: '/ventas/informes/facturacion' },

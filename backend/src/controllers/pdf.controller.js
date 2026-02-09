@@ -14,6 +14,9 @@ const renderPrefactura = require("../templates/pdf/prefactura.template.js");
 const renderNotaCreditoA = require("../templates/pdf/notaCreditoA.template.js");
 const renderNotaCreditoB = require("../templates/pdf/notaCreditoB.template.js");
 const renderNotaCreditoF = require("../templates/pdf/notaCreditoF.template.js");
+const renderNotaDebitoA = require("../templates/pdf/notaDebitoA.template.js");
+const renderNotaDebitoB = require("../templates/pdf/notaDebitoB.template.js");
+const renderNotaDebitoF = require("../templates/pdf/notaDebitoF.template.js");
 const renderCuentaCorriente = require("../templates/pdf/cuentaCorriente.template.js");
 // const renderNotaCreditoC = require("../templates/pdf/notaCreditoC.template");
 // const renderNotaCreditoF = require("../templates/pdf/notaCreditoF.template");
@@ -828,3 +831,131 @@ exports.generarCuentaCorrientePDF = async (req, res) => {
     });
   }
 };
+
+// Función para generar PDF de nota de débito
+exports.generarNotaDebitoPDF = async (req, res) => {
+  try {
+    const { tipo, sucursal, numero } = req.params;
+    
+    console.log(`Generando PDF para nota de débito: ${tipo}-${sucursal}-${numero}`);
+    
+    // Obtener los modelos dinámicos de la empresa actual
+    const { NotaDebitoCabeza, NotaDebitoItem, Cliente, DatosEmpresa } = req.models;
+
+    // Obtener datos de la nota de débito con el cliente
+    const notaDebito = await NotaDebitoCabeza.findOne({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero,
+      },
+      include: [{ model: Cliente, as: 'ClienteRelacion' }],
+      raw: false,
+    });
+
+    if (!notaDebito) {
+      return res.status(404).json({
+        success: false,
+        message: "Nota de débito no encontrada",
+      });
+    }
+
+    console.log('Nota de débito encontrada:', notaDebito.DocumentoTipo);
+
+    // Obtener ítems de la nota de débito
+    const items = await NotaDebitoItem.findAll({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero,
+      },
+      attributes: ['Descripcion', 'Importe'],
+      raw: true,
+    });
+
+    console.log('Items encontrados:', items.length);
+
+    // Obtener datos de la empresa
+    const datosEmpresa = await DatosEmpresa.findOne();
+    if (!datosEmpresa) {
+      return res.status(404).json({
+        success: false,
+        message: "Datos de empresa no encontrados",
+      });
+    }
+
+    // Convertir la cadena de fecha InicioActividades a un objeto Date
+    if (datosEmpresa.InicioActividades && typeof datosEmpresa.InicioActividades === 'string') {
+      try {
+        datosEmpresa.InicioActividades = new Date(datosEmpresa.InicioActividades);
+      } catch (error) {
+        console.warn('⚠️ Error convirtiendo fecha InicioActividades:', error);
+        datosEmpresa.InicioActividades = null;
+      }
+    }
+
+    // Asignar datos de empresa a la nota de débito
+    notaDebito.Empresa = datosEmpresa;
+
+    // Asignar el cliente desde la relación
+    if (notaDebito.ClienteRelacion) {
+      notaDebito.Cliente = notaDebito.ClienteRelacion;
+    }
+
+    console.log('Cliente encontrado:', notaDebito.Cliente ? 'Sí' : 'No');
+
+    // Preparar el logo de la empresa
+    const logoPath = await logoManager.getLogoPath(datosEmpresa.LogoURL);
+    console.log('✅ Logo configurado:', logoPath);
+
+    // Crear documento PDF
+    const doc = new PDFDocument(docFacturaA4);
+
+    // Configurar respuesta HTTP
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="nota-debito-${tipo}-${sucursal}-${numero}.pdf"`
+    );
+
+    // Pipe PDF a la respuesta
+    doc.pipe(res);
+
+    // Seleccionar plantilla según el tipo de nota de débito
+    let renderFunction;
+    if (tipo === "NDA") {
+      renderFunction = renderNotaDebitoA;
+    } else if (tipo === "NDB") {
+      renderFunction = renderNotaDebitoB;
+    } else if (tipo === "NDF") {
+      renderFunction = renderNotaDebitoF;
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Tipo de nota de débito no soportado",
+      });
+    }
+
+    console.log(`Aplicando plantilla para ${tipo}...`);
+
+    // Aplicar plantilla
+    await renderFunction(doc, {
+      notaDebito: notaDebito,
+      items: items,
+      logoPath: logoPath,
+    });
+
+    console.log("Finalizando documento...");
+
+    // Finalizar documento
+    doc.end();
+  } catch (error) {
+    console.error("Error generando PDF de nota de débito:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al generar PDF de nota de débito",
+      error: error.message,
+    });
+  }
+};
+

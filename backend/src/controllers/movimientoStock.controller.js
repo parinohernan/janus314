@@ -6,7 +6,16 @@ exports.getMovimientos = async (req, res) => {
   try {
     // Obtener sequelize directamente del request (no destructuring)
     const sequelize = req.db;
-    
+    const allowedFields = ['Fecha', 'DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'MovimientoTipo'];
+    const allowedOrders = ['ASC', 'DESC'];
+    let field = (req.query.field && allowedFields.includes(req.query.field)) ? req.query.field : 'Fecha';
+    let order = (req.query.order && allowedOrders.includes(req.query.order.toUpperCase())) ? req.query.order.toUpperCase() : 'DESC';
+
+    const orderBy = field === 'Fecha'
+      ? `ORDER BY Fecha ${order}, DocumentoNumero DESC`
+      : `ORDER BY \`${field}\` ${order}, DocumentoNumero DESC`;
+
+    // Query para obtener encabezados agrupados por documento
     // Query para obtener encabezados agrupados por documento
     const movimientos = await sequelize.query(
       `
@@ -21,7 +30,7 @@ exports.getMovimientos = async (req, res) => {
         MAX(Observacion) as Observacion
       FROM movimientosstock
       GROUP BY DocumentoTipo, DocumentoSucursal, DocumentoNumero
-      ORDER BY Fecha DESC, DocumentoTipo, DocumentoSucursal, DocumentoNumero
+      ${orderBy}
       LIMIT :limit OFFSET :offset
     `,
       {
@@ -224,6 +233,18 @@ exports.crearMovimiento = async (req, res) => {
 
     await MovimientoStock.bulkCreate(itemsParaCrear, { transaction: t });
 
+    console.log("*/*/*/*/*/itemsParaCrear", itemsParaCrear);
+    const { Articulo } = req.models;
+    for (const item of itemsParaCrear) {
+      const articulo = await Articulo.findByPk(item.CodigoArticulo, { transaction: t });
+      if (articulo) {
+        const cantidadActualizada =
+          encabezado.MovimientoTipo === "ING"
+            ? parseFloat(articulo.Existencia) + parseFloat(item.Cantidad)
+            : parseFloat(articulo.Existencia) - parseFloat(item.Cantidad);
+        await articulo.update({ Existencia: cantidadActualizada }, { transaction: t });
+      }
+    }
     await t.commit();
 
     res.status(201).json({

@@ -246,7 +246,7 @@ exports.incrementNumber = async (req, res) => {
 exports.actualizarNumeroDirecto = async (tipo, sucursal, importe, transaction, models) => {
   try {
     const { NumerosControl } = models;
-    
+
     // Buscar y actualizar el número de control
     const numeroControl = await NumerosControl.findOne({
       where: {
@@ -262,7 +262,6 @@ exports.actualizarNumeroDirecto = async (tipo, sucursal, importe, transaction, m
 
     // Obtener el número actual antes de incrementarlo
     const numeroActual = numeroControl.NumeroProximo;
-
     // Incrementar el número próximo y acumular el importe
     await numeroControl.update({
       NumeroProximo: numeroActual + 1,

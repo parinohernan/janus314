@@ -527,7 +527,7 @@
             <input
               id="cliente-search"
               type="text"
-              class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm pr-10"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm pr-10"
               placeholder="Buscar cliente..."
               bind:value={clienteSearch}
               on:input={() => buscarClientes(clienteSearch)}
@@ -545,7 +545,7 @@
           
           <!-- Resultados de búsqueda de clientes -->
           {#if clientesOptions.length > 0}
-            <div class="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-300 max-h-60 overflow-auto">
+            <div class="absolute z-10 mt-1 w-full bg-white border border-gray-300 shadow-lg rounded-md max-h-60 overflow-auto">
               {#each clientesOptions as cliente}
                 <button
                   type="button"

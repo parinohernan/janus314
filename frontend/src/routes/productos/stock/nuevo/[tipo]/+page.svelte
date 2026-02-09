@@ -339,7 +339,15 @@
       </div>
     {/if}
     
-    <form on:submit={handleSubmit}>
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <form
+    on:submit={handleSubmit}
+    on:keydown={(e) => {
+      if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+        e.preventDefault();
+      }
+    }}
+  >
       <!-- Datos del encabezado -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <!-- Tipo de documento 

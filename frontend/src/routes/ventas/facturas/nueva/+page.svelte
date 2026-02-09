@@ -1343,7 +1343,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
         <input
           type="text"
           id="cliente"
-          class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
           placeholder="Buscar cliente..."
           bind:value={clientesBusqueda}
           on:input={() => {
@@ -1365,13 +1365,13 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
         />
         
         {#if clientesLoading}
-          <div class="absolute right-3 top-1/2 -translate-y-1/2">
+          <div class="absolute right-3 top-9">
             <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
           </div>
         {/if}
         
         {#if mostrarSelectorClientes && clientesOptions.length > 0}
-          <div class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base overflow-auto focus:outline-none sm:text-sm">
+          <div class="absolute z-10 mt-1 w-full bg-white border border-gray-300 shadow-lg max-h-60 rounded-md py-1 text-base overflow-auto focus:outline-none sm:text-sm">
             <ul>
               {#each clientesOptions as cliente}
                 <li>

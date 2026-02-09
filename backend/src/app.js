@@ -114,6 +114,7 @@ app.use("/api/stockmovimientos", (req, res) => {
 });
 app.use("/api/facturas", getEmpresaConnection, facturaRoutes);
 app.use("/api/notascredito", getEmpresaConnection, notaCreditoRoutes);
+app.use("/api/notasdebito", getEmpresaConnection, notaDebitoRoutes);
 app.use("/api/vendedores", getEmpresaConnection, vendedorRoutes);
 app.use("/api/usuarios", getEmpresaConnection, usuarioRoutes);
 

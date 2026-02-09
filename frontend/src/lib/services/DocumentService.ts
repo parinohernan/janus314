@@ -3,7 +3,7 @@ import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 
 export class DocumentService {
 	/**
-	 * Genera un PDF para un documento específico (factura o nota de crédito)
+	 * Genera un PDF para un documento específico (factura, nota de crédito o nota de débito)
 	 */
 	static async generarPDF(tipo: string, sucursal: string, numero: string): Promise<string> {
 		try {
@@ -13,6 +13,10 @@ export class DocumentService {
 			// Si es nota de crédito (tipos que empiezan con NC)
 			if (tipo.startsWith('NC')) {
 				endpoint = '/notascredito/pdf';
+			}
+			// Si es nota de débito (tipos que empiezan con ND)
+			else if (tipo.startsWith('ND')) {
+				endpoint = '/notasdebito/pdf';
 			}
 			
 			const url = `${endpoint}/${tipo}/${sucursal}/${numero}`;
