@@ -39,11 +39,13 @@ router.post("/actualizar-precios", articuloController.actualizarPrecios);
 router.post("/actualizar-precios-lista", articuloController.actualizarPreciosLista);
 router.post("/listado-precios-pdf", articuloController.generarListadoPreciosPDF);
 router.get("/listado-precios", articuloController.getAllArticulosForPricing);
+router.get("/by-proveedor-articulo", articuloController.getArticuloByProveedorYCodigoProveedor);
 
 // Rutas con parámetros después
 router.get("/:id", articuloController.getArticuloById);
 router.put("/:id", articuloController.updateArticulo);
 router.delete("/:id", articuloController.deleteArticulo);
+// Buscar artículo por proveedor + código artículo proveedor (para ingreso por remito)
 
 // Rutas genéricas al final
 router.get("/", articuloController.getAllArticulos);

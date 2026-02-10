@@ -11,6 +11,7 @@ dotenv.config();
 
 // Importar rutas
 const authRoutes = require('./routes/auth.routes');
+const relacionesArticuloProveedorRoutes = require('./routes/relacionesArticuloProveedor.routes');
 // Comentamos las rutas que aún no existen
 const productoRoutes = require("./routes/articulo.routes");
 const proveedorRoutes = require("./routes/proveedor.routes");
@@ -112,6 +113,7 @@ app.use("/api/datos-empresa", getEmpresaConnection, datosEmpresaRoutes);
 app.use("/api/stockmovimientos", (req, res) => {
   res.json({ message: "API de Gestión Comercial funcionando correctamente. v1.0.1" });
 });
+app.use("/api/relaciones-articulo-proveedor", getEmpresaConnection, relacionesArticuloProveedorRoutes);
 app.use("/api/facturas", getEmpresaConnection, facturaRoutes);
 app.use("/api/notascredito", getEmpresaConnection, notaCreditoRoutes);
 app.use("/api/notasdebito", getEmpresaConnection, notaDebitoRoutes);

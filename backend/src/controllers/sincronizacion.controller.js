@@ -324,91 +324,74 @@ const eliminarArticulos = async (preventasSequelize) => {
 // Función para copiar artículos
 const copiarArticulos = async (empresaSequelize, preventasSequelize) => {
   console.log('Copiando artículos desde la empresa específica a la base de datos de preventas...');
-  
-  // Obtener artículos activos de la empresa específica
+
+  const num = (v) => {
+    if (v === null || v === undefined) return 0;
+    const s = String(v).trim().replace(',', '.');
+    const n = Number(s);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const str = (v) => {
+    return (v ?? '')
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "''")
+      .replace(/\r/g, ' ')
+      .replace(/\n/g, ' ');
+  };
+
   const articulos = await empresaSequelize.query(`
     SELECT 
-      Codigo, 
-      Descripcion, 
-      Existencia, 
-      ExistenciaMinima, 
-      ExistenciaMaxima, 
-      PrecioCostoMasImp, 
-      PorcentajeIVA1, 
-      PorcentajeIVA2, 
-      PrecioCosto, 
-      UnidadVenta, 
-      Lista1, 
-      Lista2, 
-      Lista3, 
-      Lista4, 
-      Lista5, 
-      ProveedorCodigo, 
-      RubroCodigo, 
-      Peso, 
-      SiempreSeDescarga, 
-      Iva2SobreNeto, 
-      PorcentajeVendedor, 
-      DescuentoXCantidad
+      Codigo, Descripcion, Existencia, ExistenciaMinima, ExistenciaMaxima,
+      PrecioCostoMasImp, PorcentajeIVA1, PorcentajeIVA2, PrecioCosto, UnidadVenta,
+      Lista1, Lista2, Lista3, Lista4, Lista5, ProveedorCodigo, RubroCodigo,
+      Peso, SiempreSeDescarga, Iva2SobreNeto, PorcentajeVendedor, DescuentoXCantidad
     FROM t_articulos
     WHERE Activo = 1
   `, { type: empresaSequelize.QueryTypes.SELECT });
 
-  // Insertar en la base de datos de preventas
   if (articulos.length > 0) {
     const values = articulos.map(articulo => `(
-      '${articulo.Codigo || ''}',
-      '${(articulo.Descripcion || '').replace(/'/g, "''")}',
-      ${articulo.Existencia || 0},
-      ${articulo.ExistenciaMinima || 0},
-      ${articulo.ExistenciaMaxima || 0},
-      ${articulo.PrecioCostoMasImp || 0},
-      ${articulo.PorcentajeIVA1 || 0},
-      ${articulo.PorcentajeIVA2 || 0},
-      ${articulo.PrecioCosto || 0},
-      '${articulo.UnidadVenta || ''}',
-      ${articulo.Lista1 || 0},
-      ${articulo.Lista2 || 0},
-      ${articulo.Lista3 || 0},
-      ${articulo.Lista4 || 0},
-      ${articulo.Lista5 || 0},
-      '${articulo.ProveedorCodigo || ''}',
-      '${articulo.RubroCodigo || ''}',
-      ${articulo.Peso || 0},
+      '${str(articulo.Codigo)}',
+      '${str(articulo.Descripcion)}',
+      ${num(articulo.Existencia)},
+      ${num(articulo.ExistenciaMinima)},
+      ${num(articulo.ExistenciaMaxima)},
+      ${num(articulo.PrecioCostoMasImp)},
+      ${num(articulo.PorcentajeIVA1)},
+      ${num(articulo.PorcentajeIVA2)},
+      ${num(articulo.PrecioCosto)},
+      '${str(articulo.UnidadVenta)}',
+      ${num(articulo.Lista1)},
+      ${num(articulo.Lista2)},
+      ${num(articulo.Lista3)},
+      ${num(articulo.Lista4)},
+      ${num(articulo.Lista5)},
+      '${str(articulo.ProveedorCodigo)}',
+      '${str(articulo.RubroCodigo)}',
+      ${num(articulo.Peso)},
       ${articulo.SiempreSeDescarga ? 1 : 0},
       ${articulo.Iva2SobreNeto ? 1 : 0},
-      ${articulo.PorcentajeVendedor || 0},
-      ${articulo.DescuentoXCantidad || 0}
+      ${num(articulo.PorcentajeVendedor)},
+      ${num(articulo.DescuentoXCantidad)}
     )`).join(',');
 
-    await preventasSequelize.query(`
-      INSERT INTO t_articulos (
-      Codigo, 
-      Descripcion, 
-      Existencia,
-      ExistenciaMinima,
-      ExistenciaMaxima,
-      PrecioCostoMasImp,
-      PorcentajeIVA1,
-      PorcentajeIVA2,
-      PrecioCosto,
-      UnidadVenta,
-      Lista1,
-      Lista2,
-      Lista3,
-      Lista4,
-      Lista5,
-      ProveedorCodigo,
-      RubroCodigo,
-      Peso,
-      SiempreSeDescarga,
-      Iva2SobreNeto,
-      PorcentajeVendedor,
-      DescuentoXCantidad
-      ) VALUES ${values}
-    `);
+    try {
+      await preventasSequelize.query(`
+        INSERT INTO t_articulos (
+          Codigo, Descripcion, Existencia, ExistenciaMinima, ExistenciaMaxima,
+          PrecioCostoMasImp, PorcentajeIVA1, PorcentajeIVA2, PrecioCosto, UnidadVenta,
+          Lista1, Lista2, Lista3, Lista4, Lista5, ProveedorCodigo, RubroCodigo,
+          Peso, SiempreSeDescarga, Iva2SobreNeto, PorcentajeVendedor, DescuentoXCantidad
+        ) VALUES ${values}
+      `);
+    } catch (err) {
+      const mensaje = err?.original?.sqlMessage || err?.original?.message || err?.message;
+      const codigo = err?.original?.code;
+      console.error('Error en INSERT de artículos:', mensaje, codigo || '');
+      throw new Error(`Copiar artículos: ${mensaje}${codigo ? ` (${codigo})` : ''}`);
+    }
   }
-  
+
   console.log(`Copia de artículos completada: ${articulos.length} artículos copiados`);
 };
 
@@ -569,7 +552,7 @@ exports.actualizarArticulos = async (req, res) => {
     console.log('✅ Conexión a base de datos de preventas establecida');
 
     try {
-      await eliminarArticulos(preventasSequelize);
+       await eliminarArticulos(preventasSequelize);
       await copiarArticulos(req.db, preventasSequelize);
 
       console.log('Actualización de artículos completada');

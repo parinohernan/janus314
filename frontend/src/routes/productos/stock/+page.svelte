@@ -239,6 +239,9 @@
       <Button variant="primary" on:click={() => goto('/productos/stock/nuevo/ingreso')}>
         Nuevo Ingreso
       </Button>
+      <Button variant="secondary" on:click={() => goto('/productos/stock/nuevo/ingreso-remito')}>
+        Ingreso por remito
+      </Button>
       <Button variant="danger" on:click={() => goto('/productos/stock/nuevo/egreso')}>
         Nuevo Egreso
       </Button>

@@ -253,6 +253,37 @@ const initializeModels = (sequelize) => {
     tableName: 't_proveedores',
     timestamps: false
   });
+  // Definir modelo RelacionArticuloProveedor
+  const RelacionArticuloProveedor = sequelize.define('RelacionArticuloProveedor', {
+    ProveedorCodigo: {
+      type: DataTypes.STRING(8),
+      primaryKey: true,
+      allowNull: false
+    },
+    CodigoArticuloProveedor: {
+      type: DataTypes.STRING(30),
+      primaryKey: true,
+      allowNull: false,
+      defaultValue: ''
+    },
+    CodigoArticuloEmpresa: {
+      type: DataTypes.STRING(13),
+      allowNull: false,
+      defaultValue: ''
+    },
+    Relacion: {
+      type: DataTypes.DOUBLE(15, 4),
+      allowNull: false,
+      defaultValue: 1
+    },
+    DescripcionProveedor: {
+      type: DataTypes.STRING(200),
+      allowNull: true
+    }
+  }, {
+    tableName: 't_relaciones_articulo_proveedor',
+    timestamps: false
+  });
 
   // Definir modelo Rubro
   const Rubro = sequelize.define('Rubro', {
@@ -968,6 +999,16 @@ const initializeModels = (sequelize) => {
     foreignKey: 'RubroCodigo',
     as: 'Rubro'
   });
+  RelacionArticuloProveedor.belongsTo(Proveedor, {
+    foreignKey: 'ProveedorCodigo',
+    targetKey: 'Codigo',
+    as: 'ProveedorRelacion'
+  });
+  RelacionArticuloProveedor.belongsTo(Articulo, {
+    foreignKey: 'CodigoArticuloEmpresa',
+    targetKey: 'Codigo',
+    as: 'ArticuloRelacion'
+  });
 
   Cliente.belongsTo(CategoriaIva, {
     foreignKey: 'CategoriaIva',
@@ -1466,6 +1507,7 @@ const initializeModels = (sequelize) => {
     PreventaItem,
     Configuracion,
     TipoDePago,
+    RelacionArticuloProveedor,
     // Modelos de caja
     CajaCabeza,
     CajaMovimientos,

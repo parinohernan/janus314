@@ -212,7 +212,41 @@ exports.getAllArticulos = async (req, res) => {
     return res.status(500).json({ message: "Error al obtener los artículos" });
   }
 };
+// Buscar artículo de la empresa por código de proveedor y código de artículo del proveedor
+exports.getArticuloByProveedorYCodigoProveedor = async (req, res) => {
+  try {
+    const { Articulo } = req.models;
+    const { proveedorCodigo, codigoProveedor } = req.query;
 
+    if (!proveedorCodigo || !codigoProveedor) {
+      return res.status(400).json({
+        success: false,
+        message: 'proveedorCodigo y codigoProveedor son requeridos'
+      });
+    }
+
+    const articulo = await Articulo.findOne({
+      where: {
+        ProveedorCodigo: proveedorCodigo.trim(),
+        ProveedorArticuloCodigo: (codigoProveedor + '').trim()
+      },
+      attributes: ['Codigo', 'Descripcion', 'ProveedorCodigo', 'ProveedorArticuloCodigo', 'Existencia']
+    });
+
+    if (!articulo) {
+      return res.status(404).json({ message: 'Artículo no encontrado para ese proveedor y código' });
+    }
+
+    return res.status(200).json(articulo);
+  } catch (error) {
+    console.error('Error al buscar artículo por proveedor/código proveedor:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al buscar artículo',
+      error: error.message
+    });
+  }
+};
 // Obtener un artículo por Código
 exports.getArticuloById = async (req, res) => {
   try {
