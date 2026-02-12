@@ -370,15 +370,17 @@
 				
 				// Información de la cabecera simplificada
 				texto += `CLIENTE: ${cabecera.Cliente?.Descripcion || 'No especificado'} - DOCUMENTO: ${cabecera.DocumentoTipo}-${cabecera.DocumentoSucursal}-${cabecera.DocumentoNumero}\n`;
-				
+				if (cabecera.Observacion && cabecera.Observacion.trim()) {
+				texto += `OBSERVACIÓN: ${cabecera.Observacion.trim()}\n`;
+				}
 				texto += "-".repeat(70) + "\n";
-				texto += "CANT.  DESCRIPCIÓN                                    CÓDIGO\n";
+				texto += "CANT.  DESCRIPCIÓN                                            CÓDIGO\n";
 				texto += "-".repeat(70) + "\n";
 				
 				// Listar cada ítem
 				for (const item of preventa.items) {
 					const cantidad = (item.Cantidad || 0).toString().padStart(6);
-					const descripcion = (item.Articulo?.Descripcion || 'Sin descripción').padEnd(40);
+					const descripcion = (item.Articulo?.Descripcion || 'Sin descripción').padEnd(56);
 					const codigo = (item.CodigoArticulo || '').padEnd(10);
 					
 					texto += `${cantidad}  ${descripcion} ${codigo}\n`;
