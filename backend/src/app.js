@@ -44,6 +44,7 @@ const solicitudRoutes = require('./routes/solicitud.routes');
 const adminRoutes = require('./routes/admin.routes');
 const healthRoutes = require('./routes/health.routes');
 const cajaRoutes = require('./routes/caja.routes');
+const remitoRoutes = require('./routes/remito.routes');
 
 // Crear app Express
 const app = express();
@@ -150,6 +151,8 @@ app.use("/api/cajas", getEmpresaConnection, cajaRoutes);
 // Rutas de Telegram
 app.use('/api/telegram', telegramRoutes);
 
+// Rutas de remitos
+app.use('/api/remito', remitoRoutes);
 // Rutas de solicitudes
 app.use('/api/solicitudes', solicitudRoutes);
 
