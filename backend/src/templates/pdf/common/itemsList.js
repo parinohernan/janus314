@@ -42,21 +42,21 @@ function renderItemsList(doc, items, y, options = {}) {
     {
       header: "Descripción",
       property: "Descripcion",
-      width: options.showIva ? 230 : 280, // Ajustar ancho si mostramos IVA
+      width: options.showIva ? 280 : 280, // Ajustar ancho si mostramos IVA
       align: "left",
     },
   ];
 
   // Si mostramos IVA, agregar columna de % IVA
-  if (options.showIva) {
-    columns.push({
-      header: "% IVA",
-      property: "PorcentajeIvaPrincipal",
-      width: 45,
-      align: "right",
-      format: (value) => value > 0 ? `${value}%` : "0%",
-    });
-  }
+  // if (options.showIva) {
+  //   columns.push({
+  //     header: "% IVA",
+  //     property: "PorcentajeIvaPrincipal",
+  //     width: 45,
+  //     align: "right",
+  //     format: (value) => value > 0 ? `${value}%` : "0%",
+  //   });
+  // }
 
   // Agregar columnas comunes
   columns.push(

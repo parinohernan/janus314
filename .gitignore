@@ -19,6 +19,7 @@ node_modules/
 /backend/build
 /frontend/build
 /backend/public
+/backend/logs/combined1.log
 /frontend/public
 # Archivos generados por Svelte Kit
 /frontend/.svelte-kit/
