@@ -94,8 +94,8 @@ function renderTable(doc, items, options = {}) {
   doc.font(font).fontSize(fontSize).fillColor(textColor);
 
   items.forEach((item, i) => {
-    // Calcular subtotal si no existe
-    if (!item.Subtotal && item.Cantidad && item.PrecioUnitario) {
+    // Calcular subtotal solo si no fue enviado (null/undefined); 0 es válido (ej. 100% descuento)
+    if ((item.Subtotal === undefined || item.Subtotal === null) && item.Cantidad && item.PrecioUnitario) {
       item.Subtotal = item.Cantidad * item.PrecioUnitario;
     }
 

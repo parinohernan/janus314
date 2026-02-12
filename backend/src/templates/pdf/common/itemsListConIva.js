@@ -1,126 +1,137 @@
 /**
  * Renderiza la lista de ítems con IVA individual para facturas B
+ * Misma lógica que Factura A (PrecioLista, descuento) pero con IVA incluido en Precio Unit. y Total
  * @param {PDFDocument} doc - Documento PDF
  * @param {Array} items - Lista de ítems
  * @param {number} startY - Posición Y inicial
  * @returns {number} - Posición Y final
  */
-function renderItemsListConIva(doc, items, startY, interlineado=10) { // Reducido de 20 a 10
-  // Configuración de la tabla
+function renderItemsListConIva(doc, items, startY, interlineado = 10) {
   const tableTop = startY + 20;
   const tableLeft = 20;
   const tableWidth = doc.page.width - 40;
   const columnWidth = {
     codigo: 40,
-    cantidad: 30,
-    descripcion: 260,
-    precioUnitario: 90,
-    total: 90
+    cantidad: 26,
+    descripcion: 200,
+    iva: 40,
+    precioUnitario: 70,
+    descuento: 45,
+    total: 70
   };
 
-  // Preparar los items con la información necesaria
-  // Los precios ya vienen calculados con IVA desde el controlador
   const itemsConSubtotal = items.map((item) => {
     const cantidad = item.Cantidad || 0;
-    // PrecioUnitario y Subtotal ya vienen con IVA incluido desde el controlador
-    const precioConIva = item.PrecioUnitario || 0;
-    const totalConIva = item.Subtotal || (cantidad * precioConIva);
-    
+    const precioLista = item.PrecioLista || 0;
+    const descuento = item.PorcentajeBonificado || 0;
+    const porcentajeIva = item.PorcentajeIVA1 || item.PorcentajeIVA2 || 0;
+
+    // Precio unitario sin IVA (lista con descuento aplicado)
+    const precioUnitarioSinIva = precioLista * (1 - descuento / 100);
+    // Precio unitario con IVA
+    const precioUnitarioConIva = precioUnitarioSinIva * (1 + porcentajeIva / 100);
+    // Total línea = cantidad × precio unitario con IVA
+    const totalConIva = cantidad * precioUnitarioConIva;
+
     return {
       ...item,
       Cantidad: cantidad,
-      PrecioConIva: precioConIva,
+      PrecioLista: precioLista,
+      Descuento: descuento,
+      PorcentajeIva: porcentajeIva,
+      PrecioUnitarioConIva: precioUnitarioConIva,
       TotalConIva: totalConIva
     };
   });
 
-  // Encabezados de la tabla
   doc.font("Helvetica-Bold");
   doc.fontSize(10);
-  
+
   let x = tableLeft;
   doc.text("Código", x, tableTop, { width: columnWidth.codigo });
   x += columnWidth.codigo;
-  
+
   doc.text("Cant.", x, tableTop, { width: columnWidth.cantidad, align: "right" });
   x += columnWidth.cantidad;
-  
-  doc.text("Descripción", x+4, tableTop, { width: columnWidth.descripcion });
+
+  doc.text("Descripción", x + 4, tableTop, { width: columnWidth.descripcion });
   x += columnWidth.descripcion;
-  
-  doc.text("Precio Unit.", x + 6, tableTop, { width: columnWidth.precioUnitario, align: "right" });
+
+  doc.text("% IVA", x, tableTop, { width: columnWidth.iva, align: "right" });
+  x += columnWidth.iva;
+
+  doc.text("Precio U.", x + 6, tableTop, { width: columnWidth.precioUnitario, align: "right" });
   x += columnWidth.precioUnitario + 6;
-  
+
+  doc.text("Desc.", x, tableTop, { width: columnWidth.descuento, align: "right" });
+  x += columnWidth.descuento;
+
   doc.text("Total", x, tableTop, { width: columnWidth.total, align: "right" });
-  
-  // Línea horizontal debajo de los encabezados
-  doc.moveTo(tableLeft, tableTop + (interlineado)).lineTo(tableLeft + tableWidth, tableTop + interlineado).stroke();
-  
-  // Restaurar fuente normal
+
+  doc.moveTo(tableLeft, tableTop + interlineado).lineTo(tableLeft + tableWidth, tableTop + interlineado).stroke();
   doc.font("Helvetica");
-  
-  // Renderizar ítems
-  let y = tableTop + interlineado + interlineado/2;
+
+  let y = tableTop + interlineado + interlineado / 2;
   let maxY = y;
-  
-  itemsConSubtotal.forEach((item, i) => {
-    // Verificar si necesitamos una nueva página
+
+  itemsConSubtotal.forEach((item) => {
     if (y > doc.page.height - 100) {
       doc.addPage();
       y = 50;
-      
-      // Repetir encabezados en la nueva página
+
       doc.font("Helvetica-Bold");
       doc.fontSize(10);
-      
       x = tableLeft;
       doc.text("Código", x, y, { width: columnWidth.codigo });
       x += columnWidth.codigo;
-      
       doc.text("Cant.", x, y, { width: columnWidth.cantidad, align: "right" });
       x += columnWidth.cantidad;
-      
-      doc.text("Descripción", x+4, y, { width: columnWidth.descripcion + 20 });
+      doc.text("Descripción", x + 4, y, { width: columnWidth.descripcion + 20 });
       x += columnWidth.descripcion;
-      
-      doc.text("Precio Unit.", x + 6, y, { width: columnWidth.precioUnitario, align: "right" });
+      doc.text("% IVA", x, y, { width: columnWidth.iva, align: "right" });
+      x += columnWidth.iva;
+      doc.text("Precio U.", x + 6, y, { width: columnWidth.precioUnitario, align: "right" });
       x += columnWidth.precioUnitario + 6;
-      
+      doc.text("Desc.", x, y, { width: columnWidth.descuento, align: "right" });
+      x += columnWidth.descuento;
       doc.text("Total", x, y, { width: columnWidth.total, align: "right" });
-      
-      // Línea horizontal debajo de los encabezados
-      doc.moveTo(tableLeft, y + 10).lineTo(tableLeft + tableWidth, y + 10).stroke(); // Reducido de 15 a 10
-      
-      // Restaurar fuente normal
+      doc.moveTo(tableLeft, y + 10).lineTo(tableLeft + tableWidth, y + 10).stroke();
       doc.font("Helvetica");
-      
       y += interlineado;
     }
-    
-    // Renderizar fila
+
     x = tableLeft;
     doc.text(item.CodigoArticulo || "", x, y, { width: columnWidth.codigo });
     x += columnWidth.codigo;
-    
+
     doc.text(item.Cantidad.toString(), x, y, { width: columnWidth.cantidad, align: "right" });
     x += columnWidth.cantidad;
-    
-    doc.text(item.Descripcion || "", x+4, y, { width: columnWidth.descripcion + 20 });
+
+    doc.text(item.Descripcion || "", x + 4, y, { width: columnWidth.descripcion + 20 });
     x += columnWidth.descripcion;
-    
-    doc.text(item.PrecioConIva.toFixed(2), x + 6, y, { width: columnWidth.precioUnitario, align: "right" });
+
+    doc.text(
+      item.PorcentajeIva > 0 ? `${item.PorcentajeIva}%` : "0%",
+      x,
+      y,
+      { width: columnWidth.iva, align: "right" }
+    );
+    x += columnWidth.iva;
+
+    doc.text(item.PrecioUnitarioConIva.toFixed(2), x + 6, y, { width: columnWidth.precioUnitario, align: "right" });
     x += columnWidth.precioUnitario + 6;
-    
+
+    doc.text(item.Descuento.toFixed(2), x, y, { width: columnWidth.descuento, align: "right" });
+    x += columnWidth.descuento;
+
     doc.text(item.TotalConIva.toFixed(2), x, y, { width: columnWidth.total, align: "right" });
-    
+
     y += interlineado;
     maxY = Math.max(maxY, y);
   });
-  
-  // Línea horizontal debajo de la tabla
+
   doc.moveTo(tableLeft, maxY).lineTo(tableLeft + tableWidth, maxY).stroke();
-  
   return maxY + 10;
 }
 
-module.exports = renderItemsListConIva; 
+module.exports = renderItemsListConIva;

@@ -8,22 +8,28 @@
  */
 function renderItemsList(doc, items, y, options = {}) {
   // Preparar los items con la información necesaria
+  
   const itemsConSubtotal = items.map((item) => {
-    // Determinar el porcentaje de IVA principal del item
+    const cantidad = item.Cantidad || 0;
+    const precioLista = item.PrecioLista || 0;
+    const descuento = item.PorcentajeBonificado || 0;
+    // Subtotal = cantidad × precioLista menos el descuento (%)
+    const subtotal = cantidad * precioLista * (1 - descuento / 100);
+
     const porcentajeIva1 = item.PorcentajeIVA1 || 0;
     const porcentajeIva2 = item.PorcentajeIVA2 || 0;
     const porcentajeIvaPrincipal = porcentajeIva1 > 0 ? porcentajeIva1 : porcentajeIva2;
-    
+
     return {
       ...item,
+      Cantidad: cantidad,
+      PrecioLista: precioLista,
       PrecioUnitario: item.PrecioUnitario || 0,
-      Cantidad: item.Cantidad || 0,
-      Descuento: item.PorcentajeBonificado || 0,
-      Subtotal: item.Subtotal || (item.Cantidad * item.PrecioUnitario) || 0,
+      Descuento: descuento,
+      Subtotal: subtotal,
       PorcentajeIvaPrincipal: porcentajeIvaPrincipal
     };
   });
-
   // Configurar columnas según si se muestra IVA o no
   let columns = [
     {
@@ -56,7 +62,7 @@ function renderItemsList(doc, items, y, options = {}) {
   columns.push(
     {
       header: "Precio U.",
-      property: "PrecioUnitario",
+      property: "PrecioLista",
       width: 70,
       align: "right",
       format: (value) => value.toFixed(2),

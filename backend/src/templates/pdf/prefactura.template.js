@@ -1,5 +1,5 @@
 const renderClienteInfo = require("./common/clienteInfo.js");
-const renderItemsListPrefactura = require("./common/itemsListPrefactura.js");
+const renderItemsListConIva = require("./common/itemsListConIva.js");
 const path = require("path");
 
 /**
@@ -47,10 +47,9 @@ async function renderPrefactura(doc, data) {
     let y = 80;
     y = renderClienteInfo(doc, prefactura, y);
     
-    // Tabla de items con descuentos para prefactura
-    y=110
-    y = renderItemsListPrefactura(doc, items, y, interlineado);
-
+        // Tabla de ítems con IVA (igual que Factura B)
+        y = 110;
+        y = renderItemsListConIva(doc, items, y, interlineado);
     // me posiciono en la parte de los totales
     //y = 660;
     let yTotales = y;
