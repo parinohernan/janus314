@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
   import { formatDate } from '$lib/utils/dateUtils';
@@ -21,6 +22,7 @@
     ImporteTotal: number;
     FechaAnulacion: string | null;
     afip_cae?: string;
+    PagoTipo?: string;
     Cliente?: {
       Codigo: string;
       Descripcion: string;
@@ -79,8 +81,12 @@
   let filtroTipo = '';
   let filtroCliente = '';
   let filtroVendedor = '';
+  let filtroPagoTipo = '';
   let filtroFechaDesde = fechaFormateada;
   let filtroFechaHasta = fechaFormateada;
+  
+  // Formas de pago para el filtro
+  let formasPago: { value: string; label: string }[] = [];
   
   // Tipos de documento actualizados
   const tiposDocumento = [
@@ -120,6 +126,7 @@
       if (filtroTipo) params.append('tipo', filtroTipo);
       if (filtroCliente) params.append('cliente', filtroCliente);
       if (filtroVendedor) params.append('vendedor', filtroVendedor);
+      if (filtroPagoTipo) params.append('pagoTipo', filtroPagoTipo);
       if (filtroFechaDesde) params.append('fechaDesde', filtroFechaDesde);
       if (filtroFechaHasta) params.append('fechaHasta', filtroFechaHasta);
       
@@ -148,6 +155,7 @@
           tipo: filtroTipo,
           cliente: filtroCliente,
           vendedor: filtroVendedor,
+          pagoTipo: filtroPagoTipo,
           fechaDesde: filtroFechaDesde,
           fechaHasta: filtroFechaHasta,
           clienteBusqueda: clienteBusqueda
@@ -200,6 +208,7 @@
     filtroTipo = '';
     filtroCliente = '';
     filtroVendedor = '';
+    filtroPagoTipo = '';
     filtroFechaDesde = fechaFormateada;
     filtroFechaHasta = fechaFormateada;
     clienteBusqueda = '';
@@ -213,13 +222,27 @@
     goto('/ventas/facturas/nueva');
   };
   
-  // Ver detalle de factura
+  // Construir query string de filtros y scroll para pasar a vista imprimir y poder volver con estado
+  const buildListQueryString = () => {
+    const params = new URLSearchParams();
+    if (filtroTipo) params.set('tipo', filtroTipo);
+    if (filtroCliente) params.set('cliente', filtroCliente);
+    if (filtroVendedor) params.set('vendedor', filtroVendedor);
+    if (filtroPagoTipo) params.set('pagoTipo', filtroPagoTipo);
+    params.set('fechaDesde', filtroFechaDesde);
+    params.set('fechaHasta', filtroFechaHasta);
+    params.set('page', currentPage.toString());
+    params.set('scroll', Math.round(window.scrollY).toString());
+    if (clienteBusqueda) params.set('clienteBusqueda', clienteBusqueda);
+    return params.toString();
+  };
+
+  // Ver detalle de factura (vista previa / imprimir)
   const verDetalle = (tipo: string, sucursal: string, numero: string) => {
-    // Guardar el estado actual ANTES de navegar
     guardarEstadoActual();
-    
-    // Navegar a la página de impresión
-    goto(`/ventas/facturas/imprimir/${tipo}/${sucursal}/${numero}`);
+    const queryString = buildListQueryString();
+    const url = `/ventas/facturas/imprimir/${tipo}/${sucursal}/${numero}${queryString ? '?' + queryString : ''}`;
+    goto(url);
   };
   
   // Anular factura
@@ -347,41 +370,68 @@
     } catch (err) {
       console.error('Error cargando vendedores:', err);
       } finally {
-        vendedoresLoading = false;
+      vendedoresLoading = false;
       }
     
-    // Recuperar estado guardado si existe
-    const savedState = (navigationState as any).getState('/ventas/facturas');
-    console.log('📦 Estado recuperado:', savedState);
-    
-    if (savedState) {
-      // Usar currentPage si existe, o 1 por defecto
-      currentPage = savedState.currentPage || 1;
-      
-      // Usar filters si existe
-      const filtrosGuardados = savedState.filters;
-      if (filtrosGuardados) {
-        filtroTipo = filtrosGuardados.tipo || '';
-        filtroCliente = filtrosGuardados.cliente || '';
-        filtroVendedor = filtrosGuardados.vendedor || '';
-        filtroFechaDesde = filtrosGuardados.fechaDesde || fechaFormateada;
-        filtroFechaHasta = filtrosGuardados.fechaHasta || fechaFormateada;
-        clienteBusqueda = filtrosGuardados.clienteBusqueda || '';
-        
-        console.log('✅ Filtros restaurados:', {
-          filtroTipo,
-          filtroCliente,
-          filtroVendedor,
-          filtroFechaDesde,
-          filtroFechaHasta,
-          clienteBusqueda
-        });
+    // Cargar formas de pago para filtro y columna
+    try {
+      const resPago = await fetchWithAuth('/tipos-pago');
+      if (resPago.ok) {
+        const dataPago = await resPago.json();
+        formasPago = (dataPago.items || []).map((item: { Codigo: string; Descripcion: string }) => ({
+          value: item.Codigo,
+          label: item.Descripcion
+        }));
       }
-    } else {
-      console.log('⚠️ No se encontró estado guardado');
+    } catch (err) {
+      console.error('Error cargando formas de pago:', err);
     }
     
-    cargarFacturas();
+    const searchParams = $page.url.searchParams;
+    const hasUrlState = searchParams.has('tipo') || searchParams.has('cliente') || searchParams.has('fechaDesde') || searchParams.has('page') || searchParams.has('pagoTipo');
+    
+    let scrollToRestore: number | null = null;
+    
+    if (hasUrlState) {
+      // Prioridad: estado en la URL (vuelta desde vista imprimir)
+      filtroTipo = searchParams.get('tipo') || '';
+      filtroCliente = searchParams.get('cliente') || '';
+      filtroVendedor = searchParams.get('vendedor') || '';
+      filtroPagoTipo = searchParams.get('pagoTipo') || '';
+      filtroFechaDesde = searchParams.get('fechaDesde') || fechaFormateada;
+      filtroFechaHasta = searchParams.get('fechaHasta') || fechaFormateada;
+      clienteBusqueda = searchParams.get('clienteBusqueda') || '';
+      const pageParam = searchParams.get('page');
+      currentPage = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
+      const scrollParam = searchParams.get('scroll');
+      if (scrollParam) scrollToRestore = Math.max(0, parseInt(scrollParam, 10));
+      console.log('✅ Filtros y scroll restaurados desde URL');
+    } else {
+      // Fallback: estado guardado en store/localStorage
+      const savedState = (navigationState as any).getState('/ventas/facturas');
+      console.log('📦 Estado recuperado del store:', savedState);
+      if (savedState) {
+        currentPage = savedState.currentPage || 1;
+        const filtrosGuardados = savedState.filters;
+        if (filtrosGuardados) {
+          filtroTipo = filtrosGuardados.tipo || '';
+          filtroCliente = filtrosGuardados.cliente || '';
+          filtroVendedor = filtrosGuardados.vendedor || '';
+          filtroFechaDesde = filtrosGuardados.fechaDesde || fechaFormateada;
+          filtroFechaHasta = filtrosGuardados.fechaHasta || fechaFormateada;
+          clienteBusqueda = filtrosGuardados.clienteBusqueda || '';
+        }
+        if (typeof savedState.scroll === 'number') scrollToRestore = savedState.scroll;
+      }
+    }
+    
+    await cargarFacturas();
+    
+    if (scrollToRestore != null) {
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollToRestore!);
+      });
+    }
   });
   
   // Al destruir el componente, limpiar timeout si existe
@@ -470,7 +520,7 @@
   
   <!-- Filtros -->
   <div class="bg-white p-4 rounded-lg shadow-sm mb-6">
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
       <div>
         <label for="filtroTipo" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento</label>
         <select 
@@ -554,6 +604,20 @@
       </div>
       
       <div>
+        <label for="filtroPagoTipo" class="block text-sm font-medium text-gray-700 mb-1">Pago</label>
+        <select
+          id="filtroPagoTipo"
+          bind:value={filtroPagoTipo}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Todas</option>
+          {#each formasPago as fp}
+            <option value={fp.value}>{fp.label}</option>
+          {/each}
+        </select>
+      </div>
+      
+      <div>
         <label for="filtroFechaDesde" class="block text-sm font-medium text-gray-700 mb-1">Fecha Desde</label>
         <input 
           id="filtroFechaDesde" 
@@ -573,7 +637,7 @@
         />
       </div>
       
-      <div class="md:col-span-5 flex justify-end space-x-2">
+      <div class="md:col-span-6 flex justify-end space-x-2">
         <Button variant="secondary" on:click={resetearFiltros}>Limpiar Filtros</Button>
         <Button variant="primary" on:click={aplicarFiltros}>Aplicar Filtros</Button>
       </div>
@@ -604,6 +668,7 @@
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendedor</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pago</th>
             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">CAE</th>
             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
@@ -642,6 +707,9 @@
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 {factura.Vendedor ? factura.Vendedor.Descripcion || 'Vendedor no asignado' : 'Vendedor no asignado'}
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                {factura.PagoTipo ? (formasPago.find(fp => fp.value === factura.PagoTipo)?.value ?? factura.PagoTipo) : '—'}
               </td>
               <td class="px-4 py-3 whitespace-nowrap text-right">
                 {factura.ImporteTotal ? factura.ImporteTotal.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' }) : '$0,00'}

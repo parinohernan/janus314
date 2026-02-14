@@ -17,12 +17,14 @@ exports.listarFacturas = async (req, res) => {
     const fechaHasta = req.query.fechaHasta || null;
     const fecha = req.query.fecha || null;
     const vendedor = req.query.vendedor || null;
+    const pagoTipo = req.query.pagoTipo || null;
 
     // Construir condiciones de filtrado
     const whereClause = {};
     if (tipo) whereClause.DocumentoTipo = tipo;
     if (clienteCodigo) whereClause.ClienteCodigo = clienteCodigo;
     if (vendedor) whereClause.VendedorCodigo = vendedor;
+    if (pagoTipo) whereClause.PagoTipo = pagoTipo;
 
     // Manejo de fechas con ajuste de zona horaria GMT-3
     if (fecha) {
@@ -58,7 +60,8 @@ exports.listarFacturas = async (req, res) => {
         'Fecha',
         'ImporteTotal',
         'FechaAnulacion',
-        'afip_cae'
+        'afip_cae',
+        'PagoTipo'
       ],
       include: [
         {

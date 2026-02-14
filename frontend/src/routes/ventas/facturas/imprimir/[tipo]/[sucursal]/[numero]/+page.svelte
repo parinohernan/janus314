@@ -45,15 +45,11 @@
     }
   }
   
-  // Volver a la lista de facturas usando el historial del navegador
+  // Volver al listado con los mismos filtros y scroll (query viene en la URL al abrir esta vista)
   function volver() {
-    // Usar history.back() para preservar el estado de la página anterior
-    if (typeof window !== 'undefined' && window.history.length > 1) {
-      window.history.back();
-    } else {
-      // Fallback si no hay historial
-      goto('/ventas/facturas');
-    }
+    const returnQuery = typeof window !== 'undefined' ? $page.url.searchParams.toString() : '';
+    const url = returnQuery ? `/ventas/facturas?${returnQuery}` : '/ventas/facturas';
+    goto(url);
   }
   
   // Cargar datos al montar el componente
