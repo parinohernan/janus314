@@ -13,8 +13,8 @@ function renderItemsListConIva(doc, items, startY, interlineado = 10) {
   const columnWidth = {
     codigo: 40,
     cantidad: 26,
-    descripcion: 200,
-    iva: 40,
+    descripcion: 280,
+    // iva: 40,
     precioUnitario: 70,
     descuento: 45,
     total: 70
@@ -57,8 +57,8 @@ function renderItemsListConIva(doc, items, startY, interlineado = 10) {
   doc.text("Descripción", x + 4, tableTop, { width: columnWidth.descripcion });
   x += columnWidth.descripcion;
 
-  doc.text("% IVA", x, tableTop, { width: columnWidth.iva, align: "right" });
-  x += columnWidth.iva;
+  // doc.text("% IVA", x, tableTop, { width: columnWidth.iva, align: "right" });
+  // x += columnWidth.iva;
 
   doc.text("Precio U.", x + 6, tableTop, { width: columnWidth.precioUnitario, align: "right" });
   x += columnWidth.precioUnitario + 6;
@@ -88,8 +88,8 @@ function renderItemsListConIva(doc, items, startY, interlineado = 10) {
       x += columnWidth.cantidad;
       doc.text("Descripción", x + 4, y, { width: columnWidth.descripcion + 20 });
       x += columnWidth.descripcion;
-      doc.text("% IVA", x, y, { width: columnWidth.iva, align: "right" });
-      x += columnWidth.iva;
+      // doc.text("% IVA", x, y, { width: columnWidth.iva, align: "right" });
+      // x += columnWidth.iva;
       doc.text("Precio U.", x + 6, y, { width: columnWidth.precioUnitario, align: "right" });
       x += columnWidth.precioUnitario + 6;
       doc.text("Desc.", x, y, { width: columnWidth.descuento, align: "right" });
@@ -110,13 +110,13 @@ function renderItemsListConIva(doc, items, startY, interlineado = 10) {
     doc.text(item.Descripcion || "", x + 4, y, { width: columnWidth.descripcion + 20 });
     x += columnWidth.descripcion;
 
-    doc.text(
-      item.PorcentajeIva > 0 ? `${item.PorcentajeIva}%` : "0%",
-      x,
-      y,
-      { width: columnWidth.iva, align: "right" }
-    );
-    x += columnWidth.iva;
+    // doc.text(
+    //   item.PorcentajeIva > 0 ? `${item.PorcentajeIva}%` : "0%",
+    //   x,
+    //   y,
+    //   { width: columnWidth.iva, align: "right" }
+    // );
+    // x += columnWidth.iva;
 
     doc.text(item.PrecioUnitarioConIva.toFixed(2), x + 6, y, { width: columnWidth.precioUnitario, align: "right" });
     x += columnWidth.precioUnitario + 6;
