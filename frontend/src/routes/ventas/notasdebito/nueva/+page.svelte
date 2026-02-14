@@ -186,16 +186,14 @@
     recalcularTotales();
   }
 
-  // Recalcular totales
+  // Recalcular totales (los importes de los ítems ya tienen IVA incluido)
   function recalcularTotales() {
-    const totalNeto = items.reduce((sum, item) => sum + (item.Importe || 0), 0);
+    const total = items.reduce((sum, item) => sum + (item.Importe || 0), 0);
     
-    // Calcular IVA 21% sobre el total neto
-    const iva = totalNeto * 0.21;
-    
-    notaDebito.ImporteNeto = parseFloat(totalNeto.toFixed(2));
-    notaDebito.ImporteIva1 = parseFloat(iva.toFixed(2));
-    notaDebito.ImporteTotal = parseFloat((totalNeto + iva).toFixed(2));
+    // Total = suma de ítems (sin sumar 21% extra). Neto e IVA son solo desglose.
+    notaDebito.ImporteTotal = parseFloat(total.toFixed(2));
+    notaDebito.ImporteNeto = parseFloat((total / 1.21).toFixed(2));
+    notaDebito.ImporteIva1 = parseFloat((notaDebito.ImporteTotal - notaDebito.ImporteNeto).toFixed(2));
   }
 
   // Cancelar

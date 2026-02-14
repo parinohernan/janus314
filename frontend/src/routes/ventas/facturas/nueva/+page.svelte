@@ -157,10 +157,6 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
       }
       cargandoConfiguracion = false;
       
-      // Cargar una preventa si viene en los parámetros de URL
-      if (preventaParam) {
-        await cargarPreventa();
-      }
       
       try {
         // Obtener sucursal usando el servicio
@@ -188,13 +184,13 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
       }
         
       const { data } = await responseEmpresa.json();
-        
+      
       if (!data || !data.Sucursal) {
         throw new Error('No se encontró configuración de sucursal');
       }
       // Establecer la sucursal automáticamente
       factura.DocumentoSucursal = data.Sucursal;
-
+      
       // Cargar vendedores
       try {
         const responseVendedores = await fetchWithAuth(`/vendedores`);
@@ -207,11 +203,11 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
           if (data  && Array.isArray(data)) {
             // Filtrar solo vendedores activos antes de mapear
             vendedoresOptions = data
-              .filter((item: { Codigo: string, Descripcion: string, Activo: number }) => item.Activo == 1)
-              .map((item: { Codigo: string, Descripcion: string }) => ({
-                value: item.Codigo || '',
-                label: item.Descripcion || 'Sin nombre'
-              }));
+            .filter((item: { Codigo: string, Descripcion: string, Activo: number }) => item.Activo == 1)
+            .map((item: { Codigo: string, Descripcion: string }) => ({
+              value: item.Codigo || '',
+              label: item.Descripcion || 'Sin nombre'
+            }));
             console.log("vendedoresOptions procesados:", vendedoresOptions);
           } else {
             console.error("Estructura de datos de vendedores inesperada:", data);
@@ -221,7 +217,11 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
         console.error('Error cargando vendedores:', error);
         vendedoresOptions = [];
       }
-
+      
+      // Cargar una preventa si viene en los parámetros de URL
+      if (preventaParam) {
+        await cargarPreventa();
+      }
       // Verificar si viene de una clonación
       const esClonacion = $page.url.searchParams.get('clonada') === 'true';
       if (esClonacion) {
@@ -1092,7 +1092,14 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
         
         // Setear observación
         factura.Observacion = preventaCargada.preventa.Observacion || '';
-        
+        // Forma de pago por defecto según la preventa
+        if (preventaCargada?.preventa?.PagoTipo) {
+          factura.FormaPagoCodigo = preventaCargada.preventa.PagoTipo;
+          const formaPagoEncontrada = formasPago.find(fp => fp.value === preventaCargada?.preventa?.PagoTipo);
+          if (formaPagoEncontrada) {
+            factura.FormaPago = formaPagoEncontrada;
+          }
+       }
         // Cargar items de la preventa
         if (preventaCargada.items && preventaCargada.items.length > 0) {
           // Limpiar items actuales
