@@ -8,6 +8,7 @@
   import { navigationState } from '$lib/stores/navigationState';
   import { ClienteService } from '$lib/services/ClienteService';
   import type { Cliente } from '$lib/types/cliente';
+  import { smartNavigate } from '$lib/utils/navigation';
    
   interface Pagination {
     currentPage: number;
@@ -152,8 +153,16 @@
   };
   
   // Navegar a editar
-  const handleEdit = (id: string): void => {
-    goto(`/clientes/${id}`);
+  const handleEdit = (id: string, descripcion: string, event?: MouseEvent): void => {
+    const url = `/clientes/${id}`;
+    const label = `Cliente: ${descripcion}`;
+    const icon = '👤';
+    
+    if (event) {
+      smartNavigate(url, event, { label, icon, type: 'edit' });
+    } else {
+      goto(url);
+    }
   };
   
   // Cambiar estado del cliente
@@ -343,7 +352,12 @@
                 </span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-right border-b border-gray-200">
-                <Button variant="secondary" size="sm" on:click={() => handleEdit(cliente.Codigo)}>
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  on:click={(e) => handleEdit(cliente.Codigo, cliente.Descripcion || 'Sin nombre', e)}
+                  title="Click para editar, Ctrl+Click para abrir en nuevo tab"
+                >
                   Editar
                 </Button>
                 

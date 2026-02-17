@@ -1,15 +1,23 @@
 <script lang="ts">
 	import '../app.css';
 	import MainBar from '$lib/components/MainBar.svelte';
-	import Navbar from '$lib/components/Navbar.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
+	import TabBar from '$lib/components/TabBar.svelte';
 	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { navigationState } from '$lib/stores/navigationState';
 	import { auth } from '$lib/stores/authStore';
+	import { sidebarCollapsed } from '$lib/stores/sidebarStore';
+	import { tabsStore } from '$lib/stores/tabsStore';
+	import { getLabelFromUrl, getIconFromUrl } from '$lib/utils/navigation';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
+	
+	// Margen izquierdo basado en el estado del sidebar
+	let leftMargin = $derived(!$page.url.pathname.includes('/ventas/bot/') 
+		? ($sidebarCollapsed ? 'ml-16' : 'ml-60')
+		: '');
 	
 	let { children } = $props();
 	let isLoading = $state(true);
@@ -71,6 +79,27 @@
 				// Si es una página nueva, ir al inicio
 				window.scrollTo(0, 0);
 			}
+			
+			// Crear tab automáticamente para la página actual (excepto login y bot)
+			if (browser && !to.url.pathname.includes('/ventas/bot/') && to.url.pathname !== '/login' && to.url.pathname !== '/') {
+				const label = getLabelFromUrl(to.url.pathname);
+				const icon = getIconFromUrl(to.url.pathname);
+				
+				// Determinar el tipo de tab basado en la URL
+				let type: 'view' | 'edit' | 'create' = 'view';
+				if (to.url.pathname.includes('/nueva') || to.url.pathname.includes('/nuevo')) {
+					type = 'create';
+				} else if (to.url.pathname.includes('/editar') || to.url.pathname.match(/\/[^/]+\/[a-zA-Z0-9-]+$/)) {
+					type = 'edit';
+				}
+				
+				tabsStore.openTab({
+					url: to.url.pathname,
+					label,
+					icon,
+					type
+				});
+			}
 		}
 	});
 </script>
@@ -83,14 +112,14 @@
 	<div class="min-h-screen flex flex-col">
 		{#if !$page.url.pathname.includes('/ventas/bot/')}
 			<MainBar />
-			<Navbar />
+			<TabBar />
 			<Sidebar />
 		{/if}
-		<main class="flex-grow container mx-auto px-4 py-6">
+		<main class="flex-grow container mx-auto px-4 py-6 transition-all duration-300 {leftMargin}">
 			{@render children()}
 		</main>
 		{#if !$page.url.pathname.includes('/ventas/bot/')}
-			<footer class="bg-gray-800 text-white text-center py-4 text-sm">
+			<footer class="bg-gray-800 text-white text-center py-4 text-sm transition-all duration-300 {leftMargin}">
 				<div class="flex items-center justify-center">
 					<img src="/janus314.png" alt="janus314" class="w-10 h-10">
 					<span>janus314 - sistema de gestión comercial &copy; 2025 - Hernan Parino - v1.0.1</span>

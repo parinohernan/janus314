@@ -9,6 +9,7 @@
   import { beforeNavigate } from '$app/navigation';
   import { RubroService } from '$lib/services/RubroService';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { smartNavigate } from '$lib/utils/navigation';
   
   // Definir interfaces para los tipos
   interface Articulo {
@@ -239,8 +240,16 @@
     updateState();
   };
   
-  const handleEdit = (id: string): void => {
-    goto(`/productos/${id}`);
+  const handleEdit = (id: string, descripcion: string, event?: MouseEvent): void => {
+    const url = `/productos/${id}`;
+    const label = `Artículo: ${descripcion}`;
+    const icon = '📦';
+    
+    if (event) {
+      smartNavigate(url, event, { label, icon, type: 'edit' });
+    } else {
+      goto(url);
+    }
   };
 
   const handleDelete = async (id: string): Promise<void> => {
@@ -552,7 +561,12 @@
                 </span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-right border-b border-gray-200">
-                <Button variant="secondary" size="sm" on:click={() => handleEdit(articulo.Codigo)}>
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  on:click={(e) => handleEdit(articulo.Codigo, articulo.Descripcion || 'Sin descripción', e)}
+                  title="Click para editar, Ctrl+Click para abrir en nuevo tab"
+                >
                   Editar
                 </Button>
                 <Button variant="danger" size="sm" on:click={() => handleDelete(articulo.Codigo)}>

@@ -12,6 +12,7 @@
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { AfipService } from '$lib/services/AfipService';
   import { VendedorService, type VendedorOption as VendedorOptionType } from '$lib/services/VendedorService';
+  import { smartNavigate } from '$lib/utils/navigation';
 
   // Definición de interfaces
   interface Factura {
@@ -217,9 +218,17 @@
   };
   
   // Ir a nueva factura
-  const irANuevaFactura = () => {
+  const irANuevaFactura = (event?: MouseEvent) => {
     guardarEstadoActual();
-    goto('/ventas/facturas/nueva');
+    const url = '/ventas/facturas/nueva';
+    const label = 'Nueva Factura';
+    const icon = '📝';
+    
+    if (event) {
+      smartNavigate(url, event, { label, icon, type: 'create' });
+    } else {
+      goto(url);
+    }
   };
   
   // Construir query string de filtros y scroll para pasar a vista imprimir y poder volver con estado
@@ -238,11 +247,18 @@
   };
 
   // Ver detalle de factura (vista previa / imprimir)
-  const verDetalle = (tipo: string, sucursal: string, numero: string) => {
+  const verDetalle = (tipo: string, sucursal: string, numero: string, event?: MouseEvent) => {
     guardarEstadoActual();
     const queryString = buildListQueryString();
     const url = `/ventas/facturas/imprimir/${tipo}/${sucursal}/${numero}${queryString ? '?' + queryString : ''}`;
-    goto(url);
+    const label = `Factura ${tipo} ${sucursal}-${numero}`;
+    const icon = '📄';
+    
+    if (event) {
+      smartNavigate(url, event, { label, icon, type: 'view' });
+    } else {
+      goto(url);
+    }
   };
   
   // Anular factura
@@ -510,7 +526,11 @@
 <div>
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-2xl font-bold text-gray-800">Facturas</h1>
-    <Button variant="primary" on:click={irANuevaFactura}>
+    <Button 
+      variant="primary" 
+      on:click={(e) => irANuevaFactura(e)}
+      title="Click para crear, Ctrl+Click para abrir en nuevo tab"
+    >
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
       </svg>
@@ -751,8 +771,9 @@
                 <div class="flex justify-center space-x-2">
                   <button 
                     class="text-blue-600 hover:text-blue-900"
-                    on:click={() => verDetalle(factura.DocumentoTipo, factura.DocumentoSucursal, factura.DocumentoNumero)}
+                    on:click={(e) => verDetalle(factura.DocumentoTipo, factura.DocumentoSucursal, factura.DocumentoNumero, e)}
                     aria-label="Imprimir factura"
+                    title="Click para ver, Ctrl+Click para abrir en nuevo tab"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
