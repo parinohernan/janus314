@@ -40,6 +40,7 @@
   function formatearFecha(fecha: string | null) {
     if (!fecha) return 'Sin pedidos';
     
+    // Crear fecha ajustando a timezone de Argentina (GMT-3)
     const fechaPedido = new Date(fecha);
     const hoy = new Date();
     const ayer = new Date(hoy);
@@ -51,9 +52,17 @@
       d1.getFullYear() === d2.getFullYear();
     
     if (esMismoDia(fechaPedido, hoy)) {
-      return `Hoy ${fechaPedido.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`;
+      return `Hoy ${fechaPedido.toLocaleTimeString('es-AR', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        timeZone: 'America/Argentina/Buenos_Aires'
+      })}`;
     } else if (esMismoDia(fechaPedido, ayer)) {
-      return `Ayer ${fechaPedido.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`;
+      return `Ayer ${fechaPedido.toLocaleTimeString('es-AR', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        timeZone: 'America/Argentina/Buenos_Aires'
+      })}`;
     } else {
       const diasAtras = Math.floor((hoy.getTime() - fechaPedido.getTime()) / (1000 * 60 * 60 * 24));
       return `Hace ${diasAtras} día${diasAtras !== 1 ? 's' : ''}`;
