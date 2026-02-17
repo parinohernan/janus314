@@ -46,6 +46,17 @@
     day: 'numeric'
   });
   
+  // Hora local del navegador
+  let horaLocal = $state('');
+  
+  function actualizarHoraLocal() {
+    horaLocal = new Date().toLocaleTimeString('es-AR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  }
+  
   // Cargar datos del dashboard
   async function cargarDashboard() {
     try {
@@ -112,12 +123,21 @@
   }
   
   onMount(() => {
+    // Actualizar hora local inmediatamente
+    actualizarHoraLocal();
+    
+    // Actualizar hora local cada segundo
+    const horaInterval = setInterval(actualizarHoraLocal, 1000);
+    
     cargarDashboard();
     
-    // Recargar cada 5 minutos
-    const interval = setInterval(cargarDashboard, 5 * 60 * 1000);
+    // Recargar dashboard cada 5 minutos
+    const dashboardInterval = setInterval(cargarDashboard, 5 * 60 * 1000);
     
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(horaInterval);
+      clearInterval(dashboardInterval);
+    };
   });
 </script>
 
@@ -127,7 +147,12 @@
     <div class="flex items-start justify-between">
       <div>
         <h1 class="text-3xl font-bold mb-2">{saludo}, {userName}! 👋</h1>
-        <p class="text-blue-100 capitalize">{fechaActual}</p>
+        <p class="text-blue-100 capitalize">
+          {fechaActual}
+          {#if horaLocal}
+            <span class="ml-3 font-semibold">• {horaLocal}</span>
+          {/if}
+        </p>
         <p class="text-sm text-blue-200 mt-1">{companyName}</p>
       </div>
       {#if serverTime}
