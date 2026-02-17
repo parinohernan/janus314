@@ -380,6 +380,15 @@ exports.anularNotaCredito = async (req, res) => {
       });
     }
 
+    // Solo se pueden anular notas de crédito tipo F (NCF). NCA y NCB no se anulan.
+    if (tipo !== "NCF") {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Solo se pueden anular notas de crédito tipo F (NCF). Las notas de crédito A y B no pueden anularse.",
+      });
+    }
+
     // Obtener ítems para restaurar stock si es necesario
     if (notaCredito.PorStock) {
       const items = await NotaCreditoItem.findAll({

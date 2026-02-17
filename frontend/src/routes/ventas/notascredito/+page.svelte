@@ -640,7 +640,7 @@
                     </svg>
                   </button>
                   
-                  {#if !nc.FechaAnulacion}
+                  {#if !nc.FechaAnulacion && nc.DocumentoTipo === 'NCF'}
                     <button 
                       class="text-red-600 hover:text-red-900"
                       on:click={() => anularNotaCredito(nc.DocumentoTipo, nc.DocumentoSucursal, nc.DocumentoNumero)}
