@@ -6,7 +6,7 @@ const moment = require('moment-timezone');
  */
 exports.getEstadoVendedores = async (req, res) => {
   try {
-    const { PedidoCabeza, Vendedor, Cliente } = req.models;
+    const { PreventaCabeza, Vendedor, Cliente } = req.models;
 
     // Obtener todos los vendedores activos
     const vendedores = await Vendedor.findAll({
@@ -25,69 +25,74 @@ exports.getEstadoVendedores = async (req, res) => {
     // Obtener información de cada vendedor
     const vendedoresConInfo = await Promise.all(
       vendedores.map(async (vendedor) => {
-        // Buscar el último pedido del vendedor
-        const ultimoPedido = await PedidoCabeza.findOne({
+        // Buscar la última preventa del vendedor
+        const ultimaPreventa = await PreventaCabeza.findOne({
           where: {
-            CodigoVendedor: vendedor.Codigo,
-            FechaPedido: {
+            VendedorCodigo: vendedor.Codigo,
+            Fecha: {
               [Op.gte]: hace7Dias
             }
           },
           include: [{
             model: Cliente,
-            as: 'cliente',
+            as: 'Cliente',
             attributes: ['Descripcion']
           }],
-          order: [['FechaPedido', 'DESC']],
+          order: [['Fecha', 'DESC']],
           limit: 1
         });
 
-        // Contar pedidos sin facturar (pendientes)
-        const pedidosSinFacturar = await PedidoCabeza.count({
+        // Contar preventas sin facturar (pendientes)
+        // Una preventa está sin facturar si FacturaNumero es null o vacío y no está anulada
+        const preventasSinFacturar = await PreventaCabeza.count({
           where: {
-            CodigoVendedor: vendedor.Codigo,
-            Enviado: false,
-            Anulado: false,
-            Facturado: false
+            VendedorCodigo: vendedor.Codigo,
+            FechaAnulacion: null,
+            [Op.or]: [
+              { FacturaNumero: null },
+              { FacturaNumero: '' }
+            ]
           }
         });
 
-        // Obtener lista de pedidos pendientes
-        const pedidosPendientes = await PedidoCabeza.findAll({
+        // Obtener lista de preventas pendientes
+        const preventasPendientes = await PreventaCabeza.findAll({
           where: {
-            CodigoVendedor: vendedor.Codigo,
-            Enviado: false,
-            Anulado: false,
-            Facturado: false
+            VendedorCodigo: vendedor.Codigo,
+            FechaAnulacion: null,
+            [Op.or]: [
+              { FacturaNumero: null },
+              { FacturaNumero: '' }
+            ]
           },
           include: [{
             model: Cliente,
-            as: 'cliente',
+            as: 'Cliente',
             attributes: ['Descripcion']
           }],
-          order: [['FechaPedido', 'DESC']],
+          order: [['Fecha', 'DESC']],
           limit: 10
         });
 
         // Determinar si el vendedor está activo hoy
-        const activoHoy = ultimoPedido && 
-          moment(ultimoPedido.FechaPedido).tz('America/Argentina/Buenos_Aires').isAfter(inicioHoy);
+        const activoHoy = ultimaPreventa && 
+          moment(ultimaPreventa.Fecha).tz('America/Argentina/Buenos_Aires').isAfter(inicioHoy);
 
         return {
           codigo: vendedor.Codigo,
           nombre: vendedor.Descripcion,
           activo: activoHoy,
-          ultimoPedido: ultimoPedido ? {
-            fecha: ultimoPedido.FechaPedido,
-            numero: `${ultimoPedido.Tipo}-${ultimoPedido.Sucursal.toString().padStart(4, '0')}-${ultimoPedido.Numero.toString().padStart(8, '0')}`,
-            cliente: ultimoPedido.cliente?.Descripcion || 'Sin cliente'
+          ultimoPedido: ultimaPreventa ? {
+            fecha: ultimaPreventa.Fecha,
+            numero: `${ultimaPreventa.DocumentoTipo}-${ultimaPreventa.DocumentoSucursal.toString().padStart(4, '0')}-${ultimaPreventa.DocumentoNumero.toString().padStart(8, '0')}`,
+            cliente: ultimaPreventa.Cliente?.Descripcion || 'Sin cliente'
           } : null,
-          pedidosSinFacturar,
-          pedidosPendientes: pedidosPendientes.map(p => ({
-            numero: `${p.Tipo}-${p.Sucursal.toString().padStart(4, '0')}-${p.Numero.toString().padStart(8, '0')}`,
-            fecha: p.FechaPedido,
-            cliente: p.cliente?.Descripcion || 'Sin cliente',
-            programado: p.Programado
+          pedidosSinFacturar: preventasSinFacturar,
+          pedidosPendientes: preventasPendientes.map(p => ({
+            numero: `${p.DocumentoTipo}-${p.DocumentoSucursal.toString().padStart(4, '0')}-${p.DocumentoNumero.toString().padStart(8, '0')}`,
+            fecha: p.Fecha,
+            cliente: p.Cliente?.Descripcion || 'Sin cliente',
+            enviado: !!p.FechaHoraEnvio
           }))
         };
       })
