@@ -174,7 +174,7 @@
     {
       id: 'ventas',
       label: 'Ventas',
-      icon: '🛒',
+      icon: 'ventas',
       items: [
         { label: 'Preventas', url: '/ventas/preventas', icon: 'preventas' },
         { label: 'Facturas', url: '/ventas/facturas', icon: 'facturas' },
