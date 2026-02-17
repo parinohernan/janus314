@@ -83,16 +83,16 @@ exports.getEstadoVendedores = async (req, res) => {
           nombre: vendedor.Descripcion,
           activo: activoHoy,
           ultimoPedido: ultimaPreventa ? {
-            // Interpretar la fecha de la BD como UTC y convertir a Argentina
-            fecha: moment.utc(ultimaPreventa.Fecha).tz('America/Argentina/Buenos_Aires').format('YYYY-MM-DDTHH:mm:ss'),
+            // Enviar fecha en formato ISO UTC para que el frontend la convierta a hora local
+            fecha: moment.utc(ultimaPreventa.Fecha).toISOString(),
             numero: `${ultimaPreventa.DocumentoTipo}-${ultimaPreventa.DocumentoSucursal.toString().padStart(4, '0')}-${ultimaPreventa.DocumentoNumero.toString().padStart(8, '0')}`,
             cliente: ultimaPreventa.Cliente?.Descripcion || 'Sin cliente'
           } : null,
           pedidosSinFacturar: preventasSinFacturar,
           pedidosPendientes: preventasPendientes.map(p => ({
             numero: `${p.DocumentoTipo}-${p.DocumentoSucursal.toString().padStart(4, '0')}-${p.DocumentoNumero.toString().padStart(8, '0')}`,
-            // Interpretar la fecha de la BD como UTC y convertir a Argentina
-            fecha: moment.utc(p.Fecha).tz('America/Argentina/Buenos_Aires').format('YYYY-MM-DDTHH:mm:ss'),
+            // Enviar fecha en formato ISO UTC para que el frontend la convierta a hora local
+            fecha: moment.utc(p.Fecha).toISOString(),
             cliente: p.Cliente?.Descripcion || 'Sin cliente',
             enviado: !!p.FechaHoraEnvio
           }))

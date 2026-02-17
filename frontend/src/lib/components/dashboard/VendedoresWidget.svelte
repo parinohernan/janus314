@@ -25,6 +25,12 @@
   
   let { vendedores, loading = false }: Props = $props();
   
+  // Detectar timezone del usuario
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timezoneOffset = new Date().toLocaleTimeString('es-AR', { 
+    timeZoneName: 'short' 
+  }).split(' ').pop() || 'GMT-3';
+  
   function getEstadoColor(vendedor: Vendedor) {
     if (vendedor.pedidosSinFacturar > 5) return 'text-red-500';
     if (vendedor.pedidosSinFacturar > 0) return 'text-yellow-500';
@@ -80,7 +86,12 @@
         <Icon icon={UserCircle} size={24} strokeWidth={2.5} glass={true} />
         <h2 class="text-lg font-semibold text-gray-900">Estado de Vendedores</h2>
       </div>
-      <span class="text-sm text-gray-600">{vendedores.length} vendedores</span>
+      <div class="flex items-center gap-3">
+        <span class="text-xs text-gray-500" title={`Timezone: ${userTimezone}`}>
+          Hora local ({timezoneOffset})
+        </span>
+        <span class="text-sm text-gray-600">{vendedores.length} vendedores</span>
+      </div>
     </div>
   </div>
 
