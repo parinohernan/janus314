@@ -8,7 +8,6 @@
   // Componentes del dashboard
   import DashboardCard from '$lib/components/dashboard/DashboardCard.svelte';
   import VendedoresWidget from '$lib/components/dashboard/VendedoresWidget.svelte';
-  import ActividadRecienteWidget from '$lib/components/dashboard/ActividadRecienteWidget.svelte';
   import StockCriticoWidget from '$lib/components/dashboard/StockCriticoWidget.svelte';
   import AccesosRapidosWidget from '$lib/components/dashboard/AccesosRapidosWidget.svelte';
   
@@ -20,7 +19,6 @@
   let resumenDia = $state<any>(null);
   let vendedores = $state<any[]>([]);
   let stockCritico = $state<any>({ sinStock: [], bajoMinimo: [], pagination: null });
-  let actividadReciente = $state<any[]>([]);
   let stockPage = $state(1);
   
   // Información del usuario
@@ -54,11 +52,10 @@
       error = null;
       
       // Cargar todos los datos en paralelo
-      const [resumenData, vendedoresData, stockData, actividadData] = await Promise.all([
+      const [resumenData, vendedoresData, stockData] = await Promise.all([
         fetchWithAuth('/dashboard/resumen-dia').then(r => r.json()),
         fetchWithAuth('/dashboard/vendedores-estado').then(r => r.json()),
-        fetchWithAuth(`/dashboard/stock-critico?page=${stockPage}&limit=10`).then(r => r.json()),
-        fetchWithAuth('/dashboard/actividad-reciente').then(r => r.json())
+        fetchWithAuth(`/dashboard/stock-critico?page=${stockPage}&limit=10`).then(r => r.json())
       ]);
       
       if (resumenData.success) {
@@ -75,10 +72,6 @@
           bajoMinimo: stockData.bajoMinimo || [],
           pagination: stockData.pagination || null
         };
-      }
-      
-      if (actividadData.success) {
-        actividadReciente = actividadData.ultimasFacturas || [];
       }
       
     } catch (err) {
@@ -171,18 +164,15 @@
     <!-- Widget de Vendedores -->
     <VendedoresWidget {vendedores} {loading} />
     
-    <!-- Actividad Reciente -->
-    <ActividadRecienteWidget facturas={actividadReciente} {loading} />
+    <!-- Stock Crítico -->
+    <StockCriticoWidget
+      sinStock={stockCritico.sinStock}
+      bajoMinimo={stockCritico.bajoMinimo}
+      pagination={stockCritico.pagination}
+      {loading}
+      onPageChange={handleStockPageChange}
+    />
   </div>
-  
-  <!-- Stock Crítico (ancho completo) -->
-  <StockCriticoWidget
-    sinStock={stockCritico.sinStock}
-    bajoMinimo={stockCritico.bajoMinimo}
-    pagination={stockCritico.pagination}
-    {loading}
-    onPageChange={handleStockPageChange}
-  />
   
   <!-- Mensaje de error -->
   {#if error}
