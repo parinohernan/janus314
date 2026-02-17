@@ -218,13 +218,16 @@ exports.getStockCritico = async (req, res) => {
   try {
     const { Articulo } = req.models;
 
-    // Productos sin stock (usando la misma lógica que funciona en otros lugares)
+    // Productos sin stock (solo los que tienen ExistenciaMinima definida > 0)
     const sinStock = await Articulo.findAll({
       where: {
-        [Op.and]: [
-          { Activo: 1 },
-          { Existencia: { [Op.lte]: 0 } }
-        ]
+        Activo: 1,
+        ExistenciaMinima: { 
+          [Op.gt]: 0
+        },
+        Existencia: { 
+          [Op.lte]: 0 
+        }
       },
       order: [['Descripcion', 'ASC']],
       limit: 10,
