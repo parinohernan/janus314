@@ -54,10 +54,10 @@
       
       // Cargar todos los datos en paralelo
       const [resumenData, vendedoresData, stockData, actividadData] = await Promise.all([
-        fetchWithAuth('/api/dashboard/resumen-dia').then(r => r.json()),
-        fetchWithAuth('/api/dashboard/vendedores-estado').then(r => r.json()),
-        fetchWithAuth('/api/dashboard/stock-critico').then(r => r.json()),
-        fetchWithAuth('/api/dashboard/actividad-reciente').then(r => r.json())
+        fetchWithAuth('/dashboard/resumen-dia').then(r => r.json()),
+        fetchWithAuth('/dashboard/vendedores-estado').then(r => r.json()),
+        fetchWithAuth('/dashboard/stock-critico').then(r => r.json()),
+        fetchWithAuth('/dashboard/actividad-reciente').then(r => r.json())
       ]);
       
       if (resumenData.success) {
