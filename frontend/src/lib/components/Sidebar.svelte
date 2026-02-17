@@ -42,7 +42,10 @@
     Download,
     Upload,
     Sliders,
-    Zap
+    Zap,
+    PieChart,
+    TrendingUp as TrendingUpIcon,
+    Calendar
   } from 'lucide-svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
 
@@ -86,6 +89,7 @@
     'compras': Package,
     'productos': Package,
     'clientes': Users,
+    'informes': BarChart3,
     'sincronizacion': RefreshCw,
     'configuracion': Settings,
     
@@ -108,18 +112,24 @@
     'notascredito': Receipt,
     'notasdebito': Receipt,
     'recibos': CreditCard,
-    'informes': BarChart3,
     'presupuestos': ClipboardList,
     
-    // Submenús - Informes (sub-submenús)
-    'facturacion': BarChart3,
-    'productos-informe': Box,
-    'clientes-informe': Users,
+    // Submenús - Informes (nivel 1)
+    'informes-ventas': ShoppingCart,
+    'informes-productos': Package,
+    'informes-clientes': Users,
+    'informes-proveedores': Factory,
+    'informes-fechas': Calendar,
+    
+    // Submenús - Informes (nivel 2 - detalles)
+    'facturacion': PieChart,
     'vendedores': UserCircle,
+    'productos-informe': Box,
     'rubros': Tag,
     'marcas': Tag,
-    'proveedores-informe': Factory,
-    'fechas': Map,
+    'informes-clientes': Users,
+    'informes-proveedores': Factory,
+    'informes-fechas': Calendar,
     
     // Submenús - Compras
     'proveedores': Factory,
@@ -181,21 +191,6 @@
         { label: 'Notas de Crédito', url: '/ventas/notascredito', icon: 'notascredito' },
         { label: 'Notas de Débito', url: '/ventas/notasdebito', icon: 'notasdebito' },
         { label: 'Recibos', url: '/ventas/recibos', icon: 'recibos' },
-        { 
-          label: 'Informes', 
-          url: '/ventas/informes',
-          icon: 'informes',
-          submenus: [
-            { label: 'Facturación', url: '/ventas/informes/facturacion', icon: 'facturacion' },
-            { label: 'Productos', url: '/ventas/informes/productos', icon: 'productos-informe' },
-            { label: 'Clientes', url: '/ventas/informes/clientes', icon: 'clientes-informe' },
-            { label: 'Vendedores', url: '/ventas/informes/vendedores', icon: 'vendedores' },
-            { label: 'Rubros', url: '/ventas/informes/rubros', icon: 'rubros' },
-            { label: 'Marcas', url: '/ventas/informes/marcas', icon: 'marcas' },
-            { label: 'Proveedores', url: '/ventas/informes/proveedores', icon: 'proveedores-informe' },
-            { label: 'Fechas', url: '/ventas/informes/fechas', icon: 'fechas' }
-          ]
-        },
         { label: 'Presupuestos', url: '/ventas/presupuestos', icon: 'presupuestos' }
       ]
     },
@@ -227,6 +222,35 @@
       items: [
         { label: 'Listado', url: '/clientes', icon: 'listado' },
         { label: 'Cuentas Corrientes', url: '/clientes/cuentascorrientes', icon: 'cuentascorrientes' }
+      ]
+    },
+    {
+      id: 'informes',
+      label: 'Informes',
+      icon: 'informes',
+      items: [
+        { 
+          label: 'Ventas', 
+          url: '/ventas/informes',
+          icon: 'informes-ventas',
+          submenus: [
+            { label: 'Facturación', url: '/ventas/informes/facturacion', icon: 'facturacion' },
+            { label: 'Vendedores', url: '/ventas/informes/vendedores', icon: 'vendedores' }
+          ]
+        },
+        { 
+          label: 'Productos', 
+          url: '/ventas/informes/productos',
+          icon: 'informes-productos',
+          submenus: [
+            { label: 'Productos', url: '/ventas/informes/productos', icon: 'productos-informe' },
+            { label: 'Rubros', url: '/ventas/informes/rubros', icon: 'rubros' },
+            { label: 'Marcas', url: '/ventas/informes/marcas', icon: 'marcas' }
+          ]
+        },
+        { label: 'Clientes', url: '/ventas/informes/clientes', icon: 'informes-clientes' },
+        { label: 'Proveedores', url: '/ventas/informes/proveedores', icon: 'informes-proveedores' },
+        { label: 'Fechas', url: '/ventas/informes/fechas', icon: 'informes-fechas' }
       ]
     },
     {
