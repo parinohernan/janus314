@@ -218,16 +218,12 @@ exports.getStockCritico = async (req, res) => {
   try {
     const { Articulo } = req.models;
 
-    // Productos sin stock o con stock 0
+    // Productos sin stock (usando la misma lógica que funciona en otros lugares)
     const sinStock = await Articulo.findAll({
       where: {
-        [Op.or]: [
-          { Existencia: { [Op.lte]: 0 } },
-          { Existencia: null }
-        ],
-        [Op.or]: [
+        [Op.and]: [
           { Activo: 1 },
-          { Estado: 'A' }
+          { Existencia: { [Op.lte]: 0 } }
         ]
       },
       order: [['Descripcion', 'ASC']],
@@ -235,20 +231,17 @@ exports.getStockCritico = async (req, res) => {
       raw: true
     });
 
-    // Productos bajo mínimo
-    // Intentar con ExistenciaMinima y StockMinimo
+    // Productos bajo mínimo (usando ExistenciaMinima como en /stock-bajo)
     const bajoMinimo = await Articulo.findAll({
       where: {
-        Existencia: { [Op.gt]: 0 },
-        [Op.or]: [
-          req.db.literal('Existencia < COALESCE(ExistenciaMinima, StockMinimo, 999999)'),
-          req.db.literal('(ExistenciaMinima > 0 AND Existencia < ExistenciaMinima)'),
-          req.db.literal('(StockMinimo > 0 AND Existencia < StockMinimo)')
-        ],
-        [Op.or]: [
-          { Activo: 1 },
-          { Estado: 'A' }
-        ]
+        Activo: 1,
+        ExistenciaMinima: { 
+          [Op.gt]: 0
+        },
+        Existencia: {
+          [Op.lt]: req.db.col('ExistenciaMinima'),
+          [Op.gt]: 0
+        }
       },
       order: [['Existencia', 'ASC']],
       limit: 10,
@@ -261,13 +254,13 @@ exports.getStockCritico = async (req, res) => {
         codigo: a.Codigo,
         descripcion: a.Descripcion,
         existencia: a.Existencia || 0,
-        stockMinimo: a.ExistenciaMinima || a.StockMinimo || 0
+        stockMinimo: a.ExistenciaMinima || 0
       })),
       bajoMinimo: bajoMinimo.map(a => ({
         codigo: a.Codigo,
         descripcion: a.Descripcion,
         existencia: a.Existencia || 0,
-        stockMinimo: a.ExistenciaMinima || a.StockMinimo || 0
+        stockMinimo: a.ExistenciaMinima || 0
       }))
     });
 
