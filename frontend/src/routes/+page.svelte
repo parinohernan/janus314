@@ -20,6 +20,7 @@
   let vendedores = $state<any[]>([]);
   let stockCritico = $state<any>({ sinStock: [], bajoMinimo: [], pagination: null });
   let stockPage = $state(1);
+  let serverTime = $state<string>('');
   
   // Información del usuario
   const userName = $derived($auth.user?.nombre || 'Usuario');
@@ -52,10 +53,11 @@
       error = null;
       
       // Cargar todos los datos en paralelo
-      const [resumenData, vendedoresData, stockData] = await Promise.all([
+      const [resumenData, vendedoresData, stockData, serverTimeData] = await Promise.all([
         fetchWithAuth('/dashboard/resumen-dia').then(r => r.json()),
         fetchWithAuth('/dashboard/vendedores-estado').then(r => r.json()),
-        fetchWithAuth(`/dashboard/stock-critico?page=${stockPage}&limit=10`).then(r => r.json())
+        fetchWithAuth(`/dashboard/stock-critico?page=${stockPage}&limit=10`).then(r => r.json()),
+        fetchWithAuth('/dashboard/server-time').then(r => r.json())
       ]);
       
       if (resumenData.success) {
@@ -72,6 +74,15 @@
           bajoMinimo: stockData.bajoMinimo || [],
           pagination: stockData.pagination || null
         };
+      }
+
+      if (serverTimeData.success) {
+        const serverDate = new Date(serverTimeData.serverTime);
+        serverTime = serverDate.toLocaleString('es-AR', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          timeZone: 'UTC'
+        });
       }
       
     } catch (err) {
@@ -113,9 +124,19 @@
 <div class="space-y-6 pb-8" transition:fade={{ duration: 200 }}>
   <!-- Encabezado con saludo -->
   <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white shadow-lg">
-    <h1 class="text-3xl font-bold mb-2">{saludo}, {userName}! 👋</h1>
-    <p class="text-blue-100 capitalize">{fechaActual}</p>
-    <p class="text-sm text-blue-200 mt-1">{companyName}</p>
+    <div class="flex items-start justify-between">
+      <div>
+        <h1 class="text-3xl font-bold mb-2">{saludo}, {userName}! 👋</h1>
+        <p class="text-blue-100 capitalize">{fechaActual}</p>
+        <p class="text-sm text-blue-200 mt-1">{companyName}</p>
+      </div>
+      {#if serverTime}
+        <div class="text-right">
+          <p class="text-xs text-blue-200 mb-1">Hora del servidor (UTC)</p>
+          <p class="text-lg font-semibold">{serverTime}</p>
+        </div>
+      {/if}
+    </div>
   </div>
   
   <!-- Tarjetas de resumen -->

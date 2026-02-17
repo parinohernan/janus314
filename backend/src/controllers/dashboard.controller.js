@@ -449,3 +449,27 @@ exports.getGraficos = async (req, res) => {
     });
   }
 };
+
+/**
+ * Obtener hora del servidor
+ */
+exports.getServerTime = async (req, res) => {
+  try {
+    const now = new Date();
+    
+    res.json({
+      success: true,
+      serverTime: now.toISOString(),
+      serverTimezone: process.env.TZ || 'UTC',
+      serverTimeFormatted: now.toLocaleString('es-AR', { timeZone: 'UTC' })
+    });
+
+  } catch (error) {
+    console.error('Error al obtener hora del servidor:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener hora del servidor',
+      error: error.message
+    });
+  }
+};

@@ -17,4 +17,7 @@ router.get("/actividad-reciente", dashboardController.getActividadReciente);
 // Obtener datos para gráficos
 router.get("/graficos", dashboardController.getGraficos);
 
+// Obtener hora del servidor
+router.get("/server-time", dashboardController.getServerTime);
+
 module.exports = router;
