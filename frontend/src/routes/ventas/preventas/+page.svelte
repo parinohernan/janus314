@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 	import Button from '$lib/components/ui/Button.svelte';
 	import { formatDate, formatDateTime } from '$lib/utils/dateUtils';
 	import { PreventaService } from '$lib/services/PreventaService';
@@ -60,6 +61,13 @@
 	
 	// Cargar preventas al montar el componente
 	onMount(() => {
+		// Leer parámetro de vendedor desde la URL
+		const vendedorParam = $page.url.searchParams.get('vendedor');
+		if (vendedorParam) {
+			vendedoresSeleccionados = [vendedorParam];
+			filtros.vendedores = [vendedorParam];
+		}
+		
 		cargarPreventas();
 		cargarVendedores();
 	});

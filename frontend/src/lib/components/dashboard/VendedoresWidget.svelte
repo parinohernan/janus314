@@ -61,8 +61,8 @@
   }
   
   function handleVendedorClick(vendedor: Vendedor, event: MouseEvent) {
-    // Navegar a la página de pedidos del vendedor
-    smartNavigate(`/ventas/pedidos?vendedor=${vendedor.codigo}`, event);
+    // Navegar a la página de preventas con filtro del vendedor
+    smartNavigate(`/ventas/preventas?vendedor=${vendedor.codigo}`, event);
   }
 </script>
 
