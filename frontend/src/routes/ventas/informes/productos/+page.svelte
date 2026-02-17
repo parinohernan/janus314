@@ -4,6 +4,8 @@
   import DatePicker from '$lib/components/DatePicker.svelte';
   import EntitySelector from '$lib/components/ui/EntitySelector.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { Box } from 'lucide-svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
 
   // Inicializar fechas con valores válidos
   let fechaDesde: Date = new Date();
@@ -149,7 +151,10 @@
 </script>
 
 <div class="container mx-auto p-4">
-  <h1 class="text-2xl font-bold mb-6">Informe de Ventas por Productos</h1>
+  <h1 class="text-2xl font-bold mb-6 flex items-center gap-3">
+    <Icon icon={Box} size={28} strokeWidth={2.5} glass={true} />
+    Informe de Ventas por Productos
+  </h1>
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
     <div>

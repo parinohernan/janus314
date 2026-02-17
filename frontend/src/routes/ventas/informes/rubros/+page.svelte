@@ -3,6 +3,8 @@
   import { Chart } from 'chart.js/auto';
   import DatePicker from '$lib/components/DatePicker.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { Tag, BarChart3 } from 'lucide-svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
 
   // Interfaces
   interface RubroOption {
@@ -519,7 +521,7 @@
             <p class="text-blue-100 text-sm font-medium">Total Rubros</p>
             <p class="text-3xl font-bold">{datosVentas.rubros.length}</p>
           </div>
-          <div class="text-4xl">📂</div>
+          <Icon icon={Tag} size={40} strokeWidth={2.5} glass={true} />
         </div>
       </div>
 
@@ -610,7 +612,10 @@
 
     <!-- Tabla Detallada -->
     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-      <h2 class="text-xl font-semibold mb-6">📊 Detalle Completo por Rubro</h2>
+      <h2 class="text-xl font-semibold mb-6 flex items-center gap-2">
+        <Icon icon={BarChart3} size={20} strokeWidth={2.5} glass={true} />
+        Detalle Completo por Rubro
+      </h2>
       <div class="overflow-x-auto">
         <table class="w-full">
           <thead>
@@ -654,7 +659,9 @@
     </div>
   {:else if !loading}
     <div class="text-center py-12">
-      <div class="text-6xl mb-4">📂</div>
+      <div class="mb-4">
+        <Icon icon={Tag} size={64} strokeWidth={2} glass={true} />
+      </div>
       <h3 class="text-xl font-semibold text-gray-900 mb-2">Selecciona un rango de fechas</h3>
       <p class="text-gray-600">Para ver el informe de ventas por rubro, selecciona las fechas de inicio y fin.</p>
     </div>

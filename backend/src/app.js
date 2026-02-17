@@ -46,6 +46,7 @@ const healthRoutes = require('./routes/health.routes');
 const cajaRoutes = require('./routes/caja.routes');
 const remitoRoutes = require('./routes/remito.routes');
 const optimizacionRoutes = require('./routes/optimizacion.routes');
+const dashboardRoutes = require('./routes/dashboard.routes');
 const requireAdmin = require('./middleware/requireAdmin');
 
 // Crear app Express
@@ -164,6 +165,9 @@ app.use('/api/solicitudes', solicitudRoutes);
 // Rutas de administración y monitoreo
 app.use('/api/admin', adminRoutes);
 app.use('/health', healthRoutes);
+
+// Rutas de dashboard
+app.use('/api/dashboard', getEmpresaConnection, dashboardRoutes);
 
 // Ruta de prueba
 app.get("/", (req, res) => {

@@ -4,6 +4,8 @@
   import DatePicker from '$lib/components/DatePicker.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { formatDate } from '$lib/utils/dateUtils';
+  import { Users, BarChart3 } from 'lucide-svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
 
   // Estado
   let loading = false;
@@ -155,7 +157,10 @@
   <!-- Encabezado -->
   <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">👥 Informe de Ventas por Clientes</h1>
+      <h1 class="text-3xl font-bold text-gray-900 flex items-center gap-3">
+        <Icon icon={Users} size={32} strokeWidth={2.5} glass={true} />
+        Informe de Ventas por Clientes
+      </h1>
       <p class="text-gray-600 mt-2">Análisis detallado de ventas por cliente con filtros avanzados</p>
     </div>
     
@@ -307,7 +312,7 @@
             <p class="text-orange-100 text-sm font-medium">Promedio x Cliente</p>
             <p class="text-3xl font-bold">{formatearMoneda(datos.estadisticasGenerales.promedioVentaCliente)}</p>
           </div>
-          <div class="text-4xl">📊</div>
+          <Icon icon={BarChart3} size={40} strokeWidth={2} glass={true} />
         </div>
       </div>
     </div>

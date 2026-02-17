@@ -4,6 +4,8 @@
   import DatePicker from '$lib/components/DatePicker.svelte';
   import EntitySelector from '$lib/components/ui/EntitySelector.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { Factory, BarChart3 } from 'lucide-svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
 
   // Interfaces
   interface ProveedorOption {
@@ -354,7 +356,10 @@
   <!-- Encabezado -->
   <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">🏭 Informe de Ventas por Proveedor</h1>
+      <h1 class="text-3xl font-bold text-gray-900 flex items-center gap-3">
+        <Icon icon={Factory} size={32} strokeWidth={2.5} glass={true} />
+        Informe de Ventas por Proveedor
+      </h1>
       <p class="text-gray-600 mt-2">Análisis de ventas de productos agrupados por proveedor</p>
     </div>
   </div>
@@ -612,7 +617,10 @@
 
     <!-- Tabla Detallada -->
     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-      <h2 class="text-xl font-semibold mb-6">📊 Detalle Completo por Proveedor</h2>
+      <h2 class="text-xl font-semibold mb-6 flex items-center gap-2">
+        <Icon icon={BarChart3} size={20} strokeWidth={2.5} glass={true} />
+        Detalle Completo por Proveedor
+      </h2>
       <div class="overflow-x-auto">
         <table class="w-full">
           <thead>

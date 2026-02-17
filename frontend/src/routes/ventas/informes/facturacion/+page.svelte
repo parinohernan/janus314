@@ -5,6 +5,8 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Chart from '$lib/components/Chart.svelte';
   import { formatDate } from '$lib/utils/dateUtils';
+  import { PieChart, TrendingUp, FileText } from 'lucide-svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
 
   // Estado
   let loading = false;
@@ -102,7 +104,10 @@
   <!-- Encabezado -->
   <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">📊 Informe de Facturación</h1>
+      <h1 class="text-3xl font-bold text-gray-900 flex items-center gap-3">
+        <Icon icon={PieChart} size={32} strokeWidth={2.5} glass={true} />
+        Informe de Facturación
+      </h1>
       <p class="text-gray-600 mt-2">Análisis completo de ventas y facturación</p>
     </div>
     
@@ -261,7 +266,9 @@
       {:else}
         <div class="h-80 flex items-center justify-center text-gray-500">
           <div class="text-center">
-            <div class="text-4xl mb-4">📊</div>
+            <div class="mb-4">
+              <Icon icon={TrendingUp} size={40} strokeWidth={2} glass={true} />
+            </div>
             <p>No hay datos de evolución de ventas para el período seleccionado</p>
           </div>
         </div>
@@ -389,7 +396,10 @@
       </div>
 
       <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <h2 class="text-xl font-semibold mb-6">📊 Resumen Financiero</h2>
+        <h2 class="text-xl font-semibold mb-6 flex items-center gap-2">
+          <Icon icon={FileText} size={20} strokeWidth={2.5} glass={true} />
+          Resumen Financiero
+        </h2>
         <div class="space-y-4">
           <div class="flex justify-between items-center">
             <span class="text-gray-600">Ventas Brutas:</span>
@@ -461,7 +471,9 @@
     </div>
   {:else if !loading}
     <div class="text-center py-12">
-      <div class="text-6xl mb-4">📊</div>
+      <div class="mb-4">
+        <Icon icon={PieChart} size={64} strokeWidth={2} glass={true} />
+      </div>
       <h3 class="text-xl font-semibold text-gray-900 mb-2">Selecciona un rango de fechas</h3>
       <p class="text-gray-600">Para ver el informe de facturación, selecciona las fechas de inicio y fin.</p>
     </div>

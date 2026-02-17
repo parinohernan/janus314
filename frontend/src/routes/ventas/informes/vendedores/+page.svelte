@@ -3,6 +3,8 @@
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import Button from '$lib/components/ui/Button.svelte';
   import { VendedorService, type VendedorOption } from '$lib/services/VendedorService';
+  import { UserCircle } from 'lucide-svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
 
   // Interfaces
 
@@ -174,7 +176,10 @@
 </script>
 
 <div class="container mx-auto px-4 py-6">
-  <h1 class="text-3xl font-bold text-gray-800 mb-6">Informe de Ventas por Vendedor</h1>
+  <h1 class="text-3xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+    <Icon icon={UserCircle} size={32} strokeWidth={2.5} glass={true} />
+    Informe de Ventas por Vendedor
+  </h1>
 
   <!-- Formulario de filtros -->
   <div class="bg-white p-6 rounded-lg shadow-md mb-6">
