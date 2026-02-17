@@ -217,6 +217,35 @@ exports.getResumenDia = async (req, res) => {
 exports.getStockCritico = async (req, res) => {
   try {
     const { Articulo } = req.models;
+    const { page = 1, limit = 10 } = req.query;
+    const offset = (page - 1) * limit;
+
+    // Contar total de productos sin stock
+    const countSinStock = await Articulo.count({
+      where: {
+        Activo: 1,
+        ExistenciaMinima: { 
+          [Op.gt]: 0
+        },
+        Existencia: { 
+          [Op.lte]: 0 
+        }
+      }
+    });
+
+    // Contar total de productos bajo mínimo
+    const countBajoMinimo = await Articulo.count({
+      where: {
+        Activo: 1,
+        ExistenciaMinima: { 
+          [Op.gt]: 0
+        },
+        Existencia: {
+          [Op.lt]: req.db.col('ExistenciaMinima'),
+          [Op.gt]: 0
+        }
+      }
+    });
 
     // Productos sin stock (solo los que tienen ExistenciaMinima definida > 0)
     const sinStock = await Articulo.findAll({
@@ -230,7 +259,8 @@ exports.getStockCritico = async (req, res) => {
         }
       },
       order: [['Descripcion', 'ASC']],
-      limit: 10,
+      limit: parseInt(limit),
+      offset: parseInt(offset),
       raw: true
     });
 
@@ -247,7 +277,8 @@ exports.getStockCritico = async (req, res) => {
         }
       },
       order: [['Existencia', 'ASC']],
-      limit: 10,
+      limit: parseInt(limit),
+      offset: parseInt(offset),
       raw: true
     });
 
@@ -264,7 +295,15 @@ exports.getStockCritico = async (req, res) => {
         descripcion: a.Descripcion,
         existencia: a.Existencia || 0,
         stockMinimo: a.ExistenciaMinima || 0
-      }))
+      })),
+      pagination: {
+        currentPage: parseInt(page),
+        limit: parseInt(limit),
+        totalSinStock: countSinStock,
+        totalBajoMinimo: countBajoMinimo,
+        totalPagesSinStock: Math.ceil(countSinStock / limit),
+        totalPagesBajoMinimo: Math.ceil(countBajoMinimo / limit)
+      }
     });
 
   } catch (error) {

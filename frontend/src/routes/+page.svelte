@@ -19,8 +19,9 @@
   // Datos del dashboard
   let resumenDia = $state<any>(null);
   let vendedores = $state<any[]>([]);
-  let stockCritico = $state<any>({ sinStock: [], bajoMinimo: [] });
+  let stockCritico = $state<any>({ sinStock: [], bajoMinimo: [], pagination: null });
   let actividadReciente = $state<any[]>([]);
+  let stockPage = $state(1);
   
   // Información del usuario
   const userName = $derived($auth.user?.nombre || 'Usuario');
@@ -56,7 +57,7 @@
       const [resumenData, vendedoresData, stockData, actividadData] = await Promise.all([
         fetchWithAuth('/dashboard/resumen-dia').then(r => r.json()),
         fetchWithAuth('/dashboard/vendedores-estado').then(r => r.json()),
-        fetchWithAuth('/dashboard/stock-critico').then(r => r.json()),
+        fetchWithAuth(`/dashboard/stock-critico?page=${stockPage}&limit=10`).then(r => r.json()),
         fetchWithAuth('/dashboard/actividad-reciente').then(r => r.json())
       ]);
       
@@ -71,7 +72,8 @@
       if (stockData.success) {
         stockCritico = {
           sinStock: stockData.sinStock || [],
-          bajoMinimo: stockData.bajoMinimo || []
+          bajoMinimo: stockData.bajoMinimo || [],
+          pagination: stockData.pagination || null
         };
       }
       
@@ -84,6 +86,24 @@
       error = 'Error al cargar los datos del dashboard';
     } finally {
       loading = false;
+    }
+  }
+
+  // Manejar cambio de página en el widget de stock
+  async function handleStockPageChange(newPage: number) {
+    stockPage = newPage;
+    try {
+      const stockData = await fetchWithAuth(`/dashboard/stock-critico?page=${stockPage}&limit=10`).then(r => r.json());
+      
+      if (stockData.success) {
+        stockCritico = {
+          sinStock: stockData.sinStock || [],
+          bajoMinimo: stockData.bajoMinimo || [],
+          pagination: stockData.pagination || null
+        };
+      }
+    } catch (err) {
+      console.error('Error al cambiar página de stock:', err);
     }
   }
   
@@ -127,7 +147,7 @@
       
       <DashboardCard
         title="Stock Crítico"
-        value={(stockCritico.sinStock.length + stockCritico.bajoMinimo.length).toString()}
+        value={(stockCritico.pagination?.totalSinStock + stockCritico.pagination?.totalBajoMinimo || stockCritico.sinStock.length + stockCritico.bajoMinimo.length).toString()}
         subtitle="Productos alertados"
         icon={Package}
         color={stockCritico.sinStock.length > 0 ? 'red' : stockCritico.bajoMinimo.length > 0 ? 'orange' : 'green'}
@@ -159,7 +179,9 @@
   <StockCriticoWidget
     sinStock={stockCritico.sinStock}
     bajoMinimo={stockCritico.bajoMinimo}
+    pagination={stockCritico.pagination}
     {loading}
+    onPageChange={handleStockPageChange}
   />
   
   <!-- Mensaje de error -->

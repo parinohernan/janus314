@@ -1,6 +1,6 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
-  import { PackageX, AlertTriangle, Package } from 'lucide-svelte';
+  import { PackageX, AlertTriangle, Package, ChevronLeft, ChevronRight } from 'lucide-svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
   import { smartNavigate } from '$lib/utils/navigation';
   
@@ -10,19 +10,52 @@
     existencia: number;
     stockMinimo: number;
   }
+
+  interface Pagination {
+    currentPage: number;
+    limit: number;
+    totalSinStock: number;
+    totalBajoMinimo: number;
+    totalPagesSinStock: number;
+    totalPagesBajoMinimo: number;
+  }
   
   interface Props {
     sinStock: Producto[];
     bajoMinimo: Producto[];
+    pagination?: Pagination;
     loading?: boolean;
+    onPageChange?: (page: number) => void;
   }
   
-  let { sinStock, bajoMinimo, loading = false }: Props = $props();
+  let { sinStock, bajoMinimo, pagination, loading = false, onPageChange }: Props = $props();
   
-  const totalProductosCriticos = $derived(sinStock.length + bajoMinimo.length);
+  // Determinar qué categoría tiene más páginas para controlar la paginación principal
+  const activeCategory = $derived(
+    pagination 
+      ? (pagination.totalSinStock > 0 ? 'sinStock' : 'bajoMinimo')
+      : null
+  );
+  
+  const currentPage = $derived(pagination?.currentPage || 1);
+  const totalPages = $derived(
+    activeCategory === 'sinStock' 
+      ? (pagination?.totalPagesSinStock || 1)
+      : (pagination?.totalPagesBajoMinimo || 1)
+  );
+  const totalProductosCriticos = $derived(
+    (pagination?.totalSinStock || sinStock.length) + 
+    (pagination?.totalBajoMinimo || bajoMinimo.length)
+  );
   
   function handleProductoClick(producto: Producto, event: MouseEvent) {
     smartNavigate(`/productos/${producto.codigo}`, event);
+  }
+
+  function handlePageChange(newPage: number) {
+    if (onPageChange && newPage >= 1 && newPage <= totalPages) {
+      onPageChange(newPage);
+    }
   }
 </script>
 
@@ -62,7 +95,9 @@
           <div class="px-6 py-3 bg-red-50">
             <div class="flex items-center gap-2">
               <Icon icon={PackageX} size={18} strokeWidth={2.5} class="text-red-600" />
-              <h3 class="font-semibold text-red-900 text-sm">Sin Stock ({sinStock.length})</h3>
+              <h3 class="font-semibold text-red-900 text-sm">
+                Sin Stock ({pagination?.totalSinStock || sinStock.length})
+              </h3>
             </div>
           </div>
           <div class="divide-y divide-gray-100">
@@ -96,7 +131,9 @@
           <div class="px-6 py-3 bg-yellow-50">
             <div class="flex items-center gap-2">
               <Icon icon={Package} size={18} strokeWidth={2.5} class="text-yellow-600" />
-              <h3 class="font-semibold text-yellow-900 text-sm">Bajo Mínimo ({bajoMinimo.length})</h3>
+              <h3 class="font-semibold text-yellow-900 text-sm">
+                Bajo Mínimo ({pagination?.totalBajoMinimo || bajoMinimo.length})
+              </h3>
             </div>
           </div>
           <div class="divide-y divide-gray-100">
@@ -120,6 +157,35 @@
                 </div>
               </button>
             {/each}
+          </div>
+        </div>
+      {/if}
+
+      <!-- Paginación -->
+      {#if pagination && totalPages > 1}
+        <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+          <div class="flex items-center justify-between">
+            <button
+              class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              disabled={currentPage === 1}
+              onclick={() => handlePageChange(currentPage - 1)}
+            >
+              <Icon icon={ChevronLeft} size={16} strokeWidth={2.5} />
+              Anterior
+            </button>
+            
+            <span class="text-sm text-gray-600">
+              Página {currentPage} de {totalPages}
+            </span>
+            
+            <button
+              class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              disabled={currentPage === totalPages}
+              onclick={() => handlePageChange(currentPage + 1)}
+            >
+              Siguiente
+              <Icon icon={ChevronRight} size={16} strokeWidth={2.5} />
+            </button>
           </div>
         </div>
       {/if}
