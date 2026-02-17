@@ -1,12 +1,25 @@
 <script lang="ts">
-  let activeMenu: string | null = null;
-  let activeSubmenu: string | null = null;
+  import { auth } from '$lib/stores/authStore';
 
   interface SubmenuItem {
     label: string;
     url: string;
     submenus?: SubmenuItem[];
   }
+
+  let activeMenu = $state<string | null>(null);
+  let activeSubmenu = $state<string | null>(null);
+
+  const VENDEDOR_ADMIN = 'admin';
+  const esAdmin = $derived($auth?.user?.usuario === VENDEDOR_ADMIN);
+  const configuracionItems: SubmenuItem[] = $derived(
+    esAdmin
+      ? [
+          { label: 'General', url: '/configuracion' },
+          { label: 'Optimización', url: '/configuracion/optimizacion' }
+        ]
+      : [{ label: 'General', url: '/configuracion' }]
+  );
 
   interface MenuItem {
     id: string;
@@ -155,7 +168,7 @@
         <div class="relative">
           <button 
             class="px-4 py-3 hover:bg-gray-600 font-medium flex items-center space-x-1 {activeMenu === item.id ? 'bg-gray-500' : ''}"
-            on:click|stopPropagation={() => toggleMenu(item.id)}
+            onclick={(e) => { e.stopPropagation(); toggleMenu(item.id); }}
           >
             <span>{item.label}</span>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -167,12 +180,12 @@
             <div 
               class="absolute left-0 mt-0 w-48 bg-gray-800 shadow-lg z-10 py-1 rounded-b-md border border-gray-200"
             >
-              {#each (item.submenus || item.items || []) as submenu}
+              {#each (item.id === 'configuracion' ? configuracionItems : (item.submenus || item.items || [])) as submenu}
                 {#if submenu.submenus}
                   <div class="relative">
                     <button
                       class="w-full text-left px-4 py-2 text-white hover:bg-gray-600 flex items-center justify-between"
-                      on:click|stopPropagation={(e) => toggleSubmenu(submenu.label, e)}
+                      onclick={(e) => { e.stopPropagation(); toggleSubmenu(submenu.label, e); }}
                     >
                       <span>{submenu.label}</span>
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -185,7 +198,8 @@
                           <a 
                             href={subsubmenu.url} 
                             class="block px-4 py-2 text-white hover:bg-gray-600"
-                            on:click|stopPropagation={() => {
+                            onclick={(e) => {
+                              e.stopPropagation();
                               activeMenu = null;
                               activeSubmenu = null;
                             }}
@@ -200,7 +214,7 @@
                   <a 
                     href={submenu.url} 
                     class="block px-4 py-2 text-white hover:bg-gray-600"
-                    on:click|stopPropagation={() => activeMenu = null}
+                    onclick={(e) => { e.stopPropagation(); activeMenu = null; }}
                   >
                     {submenu.label}
                   </a>
@@ -214,7 +228,7 @@
   </div>
 </nav>
 
-<svelte:window on:click={handleClickOutside} />
+<svelte:window onclick={handleClickOutside} />
 
 <style>
   /* Mantener solo los selectores que sí están siendo utilizados */

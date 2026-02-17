@@ -45,6 +45,8 @@ const adminRoutes = require('./routes/admin.routes');
 const healthRoutes = require('./routes/health.routes');
 const cajaRoutes = require('./routes/caja.routes');
 const remitoRoutes = require('./routes/remito.routes');
+const optimizacionRoutes = require('./routes/optimizacion.routes');
+const requireAdmin = require('./middleware/requireAdmin');
 
 // Crear app Express
 const app = express();
@@ -138,6 +140,9 @@ app.use('/api/sincronizacion', getEmpresaConnection, sincronizacionRoutes);
 
 // Rutas de configuración 
 app.use('/api/config', getEmpresaConnection, configRoutes);
+
+// Optimización (solo vendedor Codigo=admin)
+app.use('/api/optimizacion', getEmpresaConnection, requireAdmin, optimizacionRoutes);
 
 // Rutas de informes
 app.use("/api/informes", getEmpresaConnection, informesRoutes);
