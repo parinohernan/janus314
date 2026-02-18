@@ -28,3 +28,7 @@ node_modules/
 /backend/config/config.json
 /backend/config/config.js
 /backend/config/config.json
+# Logs de backend
+/backend/logs/combined.log
+/backend/logs/error.log
+/backend/logs/combined1.log

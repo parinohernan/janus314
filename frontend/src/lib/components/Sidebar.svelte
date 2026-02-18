@@ -174,11 +174,8 @@
       label: 'Caja',
       icon: 'caja',
       submenus: [
-        { label: 'Administración', url: '/ventas/bot/caja', icon: 'administracion' },
-        { label: 'Cajas Cerradas', url: '/ventas/bot/caja/cerradas', icon: 'cerradas' },
-        { label: 'Arqueo', url: '/ventas/bot/caja/arqueo', icon: 'arqueo' },
-        { label: 'Ingresos', url: '/ventas/bot/caja/ingreso', icon: 'ingreso' },
-        { label: 'Egresos', url: '/ventas/bot/caja/egreso', icon: 'egreso' }
+        { label: 'Administración', url: '/caja', icon: 'administracion' },
+        { label: 'Cajas Cerradas', url: '/caja/cerradas', icon: 'cerradas' }
       ]
     },
     {

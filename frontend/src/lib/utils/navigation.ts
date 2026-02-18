@@ -121,9 +121,11 @@ export function getLabelFromUrl(url: string): string {
     'arca': 'Estado ARCA',
     'presupuestos': 'Presupuestos',
     'arqueo': 'Arqueo',
-    'cerradas': 'Cerradas',
+    'cerradas': 'Cajas Cerradas',
     'ingreso': 'Ingreso',
     'egreso': 'Egreso',
+    'detalle': 'Detalle',
+    'cierre': 'Cierre de Caja',
     'optimizacion': 'Optimización'
   };
   
@@ -198,6 +200,11 @@ export function getIconFromUrl(url: string): string {
     'vendedores': '👔',
     'presupuestos': '📋',
     'arqueo': '🔢',
+    'cerradas': '🔒',
+    'ingreso': '💵',
+    'egreso': '💸',
+    'detalle': '📋',
+    'cierre': '🔐',
     'optimizacion': '⚡'
   };
   
