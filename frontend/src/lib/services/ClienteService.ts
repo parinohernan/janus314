@@ -8,6 +8,7 @@ interface PaginationParams {
 	search: string;
 	field: string;
 	order: 'ASC' | 'DESC';
+	localidad?: string;
 }
 
 interface PaginatedResponse<T> {
@@ -45,6 +46,9 @@ export class ClienteService {
 				field: params.field,
 				order: params.order
 			});
+			if (params.localidad) {
+				searchParams.set('localidad', params.localidad);
+			}
 
 			const response = await fetchWithAuth(`/clientes?${searchParams}`);
 
@@ -63,6 +67,23 @@ export class ClienteService {
 		} catch (error) {
 			console.error('Error cargando clientes:', error);
 			throw error;
+		}
+	}
+
+	/**
+	 * Obtiene la lista de localidades distintas de clientes (para filtros)
+	 */
+	public static async obtenerLocalidadesDistinct(): Promise<string[]> {
+		try {
+			const response = await fetchWithAuth('/clientes/localidades');
+			if (!response.ok) {
+				throw new Error('Error al cargar las localidades');
+			}
+			const data = await response.json();
+			return Array.isArray(data) ? data : [];
+		} catch (error) {
+			console.error('Error cargando localidades de clientes:', error);
+			return [];
 		}
 	}
 

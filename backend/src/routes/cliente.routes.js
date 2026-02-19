@@ -4,8 +4,9 @@ const clienteController = require("../controllers/cliente.controller");
 const pdfController = require("../controllers/pdf.controller");
 const getEmpresaConnection = require("../middleware/dbConnection");
 
-// Rutas para clientes
+// Rutas para clientes (localidades debe ir antes de /:id)
 router.get("/", clienteController.getAllClientes);
+router.get("/localidades", clienteController.getLocalidadesDistinct);
 router.get("/cuentascorrientes", clienteController.getCuentasCorrientes);
 router.get("/:id/comprobantes", clienteController.getComprobantesCliente);
 router.get("/:id", clienteController.getClienteById);

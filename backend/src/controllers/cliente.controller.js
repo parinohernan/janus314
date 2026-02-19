@@ -14,6 +14,7 @@ const getAllClientes = async (req, res) => {
       field = "Descripcion",
       order = "ASC",
       Activo,
+      localidad,
     } = req.query;
 
     // Calcular offset para paginación
@@ -30,6 +31,11 @@ const getAllClientes = async (req, res) => {
         { NombreFantasia: { [Op.like]: `%${search}%` } },
         // { Localidad: { [Op.like]: `%${search}%` } },
       ];
+    }
+
+    // Agregar filtro por localidad si se proporciona
+    if (localidad && String(localidad).trim() !== "") {
+      whereClause.Localidad = { [Op.like]: `%${String(localidad).trim()}%` };
     }
 
     // Agregar filtro de Activo si se proporciona
@@ -71,6 +77,7 @@ const getAllClientes = async (req, res) => {
         "NombreFantasia",
         "Cuit",
         "Telefono",
+        "Localidad",
         "ImporteDeuda",
         "Activo",
         "CategoriaIva",
@@ -94,6 +101,34 @@ const getAllClientes = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Error al obtener los clientes" });
+  }
+};
+
+// Obtener localidades distintas de clientes (para filtros)
+const getLocalidadesDistinct = async (req, res) => {
+  try {
+    const { Cliente } = req.models;
+    const clientes = await Cliente.findAll({
+      attributes: ["Localidad"],
+      where: {
+        Localidad: {
+          [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: "" }],
+        },
+      },
+      group: ["Localidad"],
+      order: [["Localidad", "ASC"]],
+      raw: true,
+    });
+    const localidades = clientes
+      .map((c) => c.Localidad)
+      .filter(Boolean)
+      .sort();
+    return res.status(200).json(localidades);
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "Error al obtener las localidades de clientes" });
   }
 };
 
@@ -555,6 +590,7 @@ const actualizarSaldoCliente = async (req, res) => {
 
 module.exports = {
   getAllClientes,
+  getLocalidadesDistinct,
   getClienteById,
   createCliente,
   updateCliente,

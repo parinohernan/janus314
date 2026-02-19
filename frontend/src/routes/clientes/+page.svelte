@@ -2,7 +2,6 @@
   import { onMount } from 'svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { goto } from '$app/navigation';
-  import { PUBLIC_API_URL } from '$env/static/public';
   import { debounce } from 'lodash-es';
   import { page } from '$app/stores';
   import { navigationState } from '$lib/stores/navigationState';
@@ -21,14 +20,19 @@
     search: string;
     field: string;
     order: 'ASC' | 'DESC';
+    localidad: string;
   }
   
   // Estado de filtros y paginación con tipos
   let filters: Filters = {
     search: '',
     field: 'Descripcion',
-    order: 'ASC'
+    order: 'ASC',
+    localidad: ''
   };
+  
+  let localidadesOptions: string[] = [];
+  let generatingPdf = false;
   
   let pagination: Pagination = {
     currentPage: 1,
@@ -52,7 +56,8 @@
         limit: pagination.limit,
         search: filters.search,
         field: filters.field,
-        order: filters.order
+        order: filters.order,
+        localidad: filters.localidad || undefined
       });
       
       // Actualizar lista de clientes y paginación
@@ -72,8 +77,95 @@
     }
   };
   
+  // Cargar localidades para el filtro
+  const loadLocalidades = async () => {
+    localidadesOptions = await ClienteService.obtenerLocalidadesDistinct();
+  };
+
+  // Generar PDF del listado de clientes con jsPDF (evita PDF en blanco de html2canvas)
+  const handleExportarPdf = async () => {
+    try {
+      generatingPdf = true;
+      const data = await ClienteService.obtenerClientes({
+        page: 1,
+        limit: 5000,
+        search: filters.search,
+        field: filters.field,
+        order: filters.order,
+        localidad: filters.localidad || undefined
+      });
+      const items = data.items || [];
+      if (items.length === 0) {
+        alert('No hay clientes para exportar con los filtros actuales.');
+        return;
+      }
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const margin = 10;
+      let y = margin;
+      const fontSize = 9;
+      doc.setFontSize(14);
+      doc.text('Listado de clientes', margin, y);
+      y += 8;
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Generado: ${new Date().toLocaleString('es-AR')}${filters.localidad ? ` · Localidad: ${filters.localidad}` : ''}`, margin, y);
+      y += 8;
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(fontSize);
+      const colW = [(pageW - 2 * margin) * 0.08, (pageW - 2 * margin) * 0.22, (pageW - 2 * margin) * 0.18, (pageW - 2 * margin) * 0.12, (pageW - 2 * margin) * 0.15, (pageW - 2 * margin) * 0.1, (pageW - 2 * margin) * 0.15];
+      const headers = ['Código', 'Razón Social', 'Nombre Fantasía', 'CUIT', 'Localidad', 'Deuda', 'Estado'];
+      let x = margin;
+      doc.setFillColor(245, 245, 245);
+      doc.rect(margin, y, pageW - 2 * margin, 7, 'F');
+      headers.forEach((h, i) => {
+        doc.text(h, x + 2, y + 5);
+        x += colW[i];
+      });
+      y += 8;
+      for (const c of items) {
+        if (y > pageH - 15) {
+          doc.addPage('a4', 'l');
+          y = margin;
+          doc.setFillColor(245, 245, 245);
+          doc.rect(margin, y, pageW - 2 * margin, 7, 'F');
+          x = margin;
+          headers.forEach((h, i) => {
+            doc.text(h, x + 2, y + 5);
+            x += colW[i];
+          });
+          y += 8;
+        }
+        x = margin;
+        const row = [
+          String(c.Codigo ?? ''),
+          String((c.Descripcion ?? '-').slice(0, 35)),
+          String((c.NombreFantasia ?? '-').slice(0, 30)),
+          String((c.Cuit ?? '-').slice(0, 15)),
+          String((c.Localidad ?? '-').slice(0, 25)),
+          String((c.ImporteDeuda?.toFixed(2) ?? '0.00')),
+          c.Activo ? 'Activo' : 'Inactivo'
+        ];
+        row.forEach((cell, i) => {
+          doc.text(cell, x + 2, y + 4);
+          x += colW[i];
+        });
+        y += 6;
+      }
+      doc.save(`clientes-${filters.localidad ? filters.localidad.replace(/\s/g, '-') : 'listado'}-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (err) {
+      console.error('Error generando PDF:', err);
+      alert('Error al generar el PDF. Intente de nuevo.');
+    } finally {
+      generatingPdf = false;
+    }
+  };
+  
   // Cargar datos al inicializar el componente
   onMount(() => {
+    loadLocalidades();
     // Recuperar estado guardado al montar el componente
     const savedState = navigationState.getState($page.url.pathname);
     
@@ -151,6 +243,15 @@
     loadClientes();
     updateState();
   };
+
+  // Cambio de filtro por localidad (leer valor del evento para evitar desfase con bind)
+  const handleLocalidadChange = (event: Event): void => {
+    const target = event.target as HTMLSelectElement;
+    filters.localidad = target.value ?? '';
+    pagination.currentPage = 1;
+    loadClientes();
+    updateState();
+  };
   
   // Navegar a editar
   const handleEdit = (id: string, descripcion: string, event?: MouseEvent): void => {
@@ -199,9 +300,18 @@
 <div class="container mx-auto p-4">
   <div class="flex justify-between items-center mb-4">
     <h1 class="text-2xl font-bold">Clientes</h1>
-    <Button variant="primary" on:click={() => goto('/clientes/nuevo')}>
-      Nuevo Cliente
-    </Button>
+    <div class="flex gap-2">
+      <Button
+        variant="secondary"
+        on:click={handleExportarPdf}
+        disabled={generatingPdf || loading}
+      >
+        {generatingPdf ? 'Generando PDF...' : 'Exportar PDF'}
+      </Button>
+      <Button variant="primary" on:click={() => goto('/clientes/nuevo')}>
+        Nuevo Cliente
+      </Button>
+    </div>
   </div>
   
   <div class="mb-6 bg-white p-4 rounded-lg shadow-sm">
@@ -223,6 +333,22 @@
             </svg>
           </div>
         </div>
+      </div>
+      
+      <!-- Filtro por localidad -->
+      <div class="md:w-52">
+        <label for="localidad" class="block text-sm font-medium text-gray-700 mb-1">Localidad</label>
+        <select
+          id="localidad"
+          bind:value={filters.localidad}
+          on:change={handleLocalidadChange}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Todas</option>
+          {#each localidadesOptions as loc}
+            <option value={loc}>{loc}</option>
+          {/each}
+        </select>
       </div>
       
       <!-- Selector de resultados por página -->
@@ -302,6 +428,9 @@
               CUIT
             </th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Localidad
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               <button class="flex items-center" on:click={() => toggleOrderBy('ImporteDeuda')}>
                 Deuda
                 {#if filters.field === 'ImporteDeuda'}
@@ -340,6 +469,9 @@
               </td>
               <td class="px-6 py-4 whitespace-nowrap border-b border-gray-200">
                 {cliente.Cuit || '-'}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap border-b border-gray-200">
+                {cliente.Localidad || '-'}
               </td>
               <td class="px-6 py-4 whitespace-nowrap border-b border-gray-200">
                 ${cliente.ImporteDeuda?.toFixed(2) || '0.00'}
