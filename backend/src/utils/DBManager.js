@@ -80,10 +80,7 @@ class DBManager {
     });
 
     // Inicializar modelos de caja y sus asociaciones
-    await initializeAssociations(sequelize, {
-      Vendedor: VendedorDef,
-      TipoDePago
-    });
+    await initializeAssociations(sequelize);
 
     // Establecer las asociaciones
     NotaCreditoCabeza.belongsTo(Cliente, {
@@ -261,6 +258,32 @@ class DBManager {
       };
     }
     return status;
+  }
+
+  /**
+   * Cierra la conexión de una empresa y la quita del pool (p. ej. al hacer logout).
+   * Invalida también la config de esa empresa en caché para que el próximo login use datos frescos.
+   */
+  async closeConnectionForEmpresa(empresaId) {
+    if (!this.pools.has(empresaId)) {
+      return;
+    }
+    const sequelize = this.pools.get(empresaId);
+    try {
+      await Promise.race([
+        sequelize.close(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout cerrando conexión')), 3000)
+        )
+      ]);
+    } catch (error) {
+      console.warn(`⚠️ Error cerrando conexión empresa ${empresaId}:`, error.message);
+    } finally {
+      this.pools.delete(empresaId);
+      console.log(`✅ Conexión cerrada y eliminada del pool para empresa ${empresaId}`);
+    }
+    const cacheKey = cache.getKeyForEmpresa(empresaId);
+    await cache.del(cacheKey);
   }
 
   async shutdown() {

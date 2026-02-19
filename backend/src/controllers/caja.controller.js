@@ -85,7 +85,6 @@ exports.listarCajas = async (req, res) => {
     // Formatear los resultados
     const cajasFormateadas = cajas.map(caja => ({
       ...caja,
-      VendedorNombre: caja.VendedorDescripcion || null,
       Vendedor: {
         Codigo: caja.VendedorCodigo,
         Descripcion: caja.VendedorDescripcion
@@ -141,15 +140,9 @@ exports.obtenerCaja = async (req, res) => {
       });
     }
 
-    // Formatear respuesta con VendedorNombre
-    const cajaFormateada = {
-      ...caja.toJSON(),
-      VendedorNombre: caja.CajaVendedor?.Descripcion || null
-    };
-
     res.json({
       success: true,
-      data: cajaFormateada,
+      data: caja,
     });
   } catch (error) {
     console.error("Error al obtener detalle de caja:", error);
@@ -230,7 +223,7 @@ exports.crearCaja = async (req, res) => {
 exports.registrarMovimiento = async (req, res) => {
   const t = await req.db.transaction();
   try {
-    const { CajaCabeza, CajaMovimientos } = req.models;
+    const { CajaCabeza, CajaMovimientos, TipoDePago } = req.models;
     const {
       cajaCabezaId,
       tipo,
@@ -244,6 +237,54 @@ exports.registrarMovimiento = async (req, res) => {
       tipoDocumento,
       usuarioId,
     } = req.body;
+
+    // Log: datos de la conexión antes de chequear tipo de pago / tabla
+    const config = req.db && req.db.config ? req.db.config : {};
+    const connInfo = {
+      database: config.database,
+      host: config.host,
+      port: config.port,
+      username: config.username,
+      dialect: config.dialect,
+    };
+    console.log('[Caja] Conexión:', connInfo);
+    try {
+      const [dbResult] = await req.db.query('SELECT DATABASE() as currentDb');
+      console.log('[Caja] Base de datos en uso:', dbResult && dbResult[0] ? dbResult[0].currentDb : '?');
+      const [tablesResult] = await req.db.query("SHOW TABLES LIKE 't_tiposdepago'");
+      console.log('[Caja] SHOW TABLES LIKE \'t_tiposdepago\':', tablesResult && tablesResult.length > 0 ? 'encontrada' : 'ninguna fila');
+      const [allTables] = await req.db.query('SHOW TABLES');
+      const tableNames = (allTables || []).map((r) => Object.values(r)[0]).filter(Boolean);
+      const tiposdepagoVariants = tableNames.filter((n) => String(n).toLowerCase().includes('tiposdepago'));
+      console.log('[Caja] Tablas que contienen "tiposdepago":', tiposdepagoVariants.length ? tiposdepagoVariants : 'ninguna');
+    } catch (errConn) {
+      console.error('[Caja] Error al leer datos de conexión:', errConn.message);
+    }
+
+    // Verificar que exista el tipo de pago (ej. CO) y la tabla t_tiposdepago
+    const metodoPagoCodigo = metodoPago || 'CO';
+    const tablaTipoPago = TipoDePago && TipoDePago.tableName ? TipoDePago.tableName : 't_tiposdepago';
+    console.log('[Caja] Antes de registrar movimiento:', {
+      metodoPago: metodoPagoCodigo,
+      tablaTipoPago,
+      modeloTipoDePago: !!TipoDePago,
+    });
+    if (TipoDePago) {
+      const tipoPagoExiste = await TipoDePago.findOne({
+        where: { Codigo: metodoPagoCodigo },
+        transaction: t,
+      });
+      console.log('[Caja] Tipo de pago en BD:', tipoPagoExiste ? { Codigo: tipoPagoExiste.Codigo, Descripcion: tipoPagoExiste.Descripcion } : 'NO ENCONTRADO');
+      if (!tipoPagoExiste) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `El tipo de pago "${metodoPagoCodigo}" no existe en ${tablaTipoPago}. Agregue el registro o use un código existente.`,
+        });
+      }
+    } else {
+      console.warn('[Caja] Modelo TipoDePago no disponible en req.models');
+    }
     
     if (!cajaCabezaId) {
       await t.rollback();
@@ -684,20 +725,21 @@ exports.listarCajasCerradas = async (req, res) => {
     // Normalizar los valores numéricos
     const cajasNormalizadas = cajas.rows.map(caja => ({
       ...caja.toJSON(),
-      VendedorNombre: caja.CajaVendedor?.Descripcion || null,
-      SaldoTeorico: parseFloat(caja.SaldoTeorico || 0),
-      SaldoInicial: parseFloat(caja.SaldoInicial || 0),
-      SaldoCierre: caja.SaldoCierre ? parseFloat(caja.SaldoCierre) : null
+      SaldoTeorico: parseFloat(caja.SaldoTeorico || 0).toFixed(2),
+      SaldoInicial: parseFloat(caja.SaldoInicial || 0).toFixed(2),
+      SaldoCierre: caja.SaldoCierre ? parseFloat(caja.SaldoCierre).toFixed(2) : null
     }));
 
     res.json({
       success: true,
-      data: cajasNormalizadas,
-      meta: {
-        totalItems: cajas.count,
-        itemsPerPage: limit,
-        currentPage: page,
-        totalPages: Math.ceil(cajas.count / limit),
+      data: {
+        items: cajasNormalizadas,
+        meta: {
+          totalItems: cajas.count,
+          itemsPerPage: limit,
+          currentPage: page,
+          totalPages: Math.ceil(cajas.count / limit),
+        }
       }
     });
   } catch (error) {

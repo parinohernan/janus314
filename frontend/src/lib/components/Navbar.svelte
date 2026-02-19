@@ -46,11 +46,11 @@
       id: 'caja',
       label: 'Caja',
       submenus: [
-        { label: 'Administración', url: '/ventas/bot/caja' },
-        { label: 'Cajas Cerradas', url: '/ventas/bot/caja/cerradas' },
-        { label: 'Arqueo', url: '/ventas/bot/caja/arqueo' },
-        { label: 'Ingresos', url: '/ventas/bot/caja/ingreso' },
-        { label: 'Egresos', url: '/ventas/bot/caja/egreso' }
+        { label: 'Administración', url: '/caja' },
+        { label: 'Cajas Cerradas', url: '/caja/cerradas' },
+        { label: 'Arqueo', url: '/caja/arqueo' },
+        { label: 'Ingresos', url: '/caja/ingreso' },
+        { label: 'Egresos', url: '/caja/egreso' }
       ]
     },
     // {

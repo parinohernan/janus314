@@ -175,7 +175,10 @@
       icon: 'caja',
       submenus: [
         { label: 'Administración', url: '/caja', icon: 'administracion' },
-        { label: 'Cajas Cerradas', url: '/caja/cerradas', icon: 'cerradas' }
+        { label: 'Cajas Cerradas', url: '/caja/cerradas', icon: 'cerradas' },
+        { label: 'Arqueo', url: '/caja/arqueo', icon: 'arqueo' },
+        { label: 'Ingresos', url: '/caja/ingreso', icon: 'ingreso' },
+        { label: 'Egresos', url: '/caja/egreso', icon: 'egreso' }
       ]
     },
     {

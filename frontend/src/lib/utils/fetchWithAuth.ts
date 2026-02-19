@@ -14,6 +14,12 @@ let tokenCache: string | null = null;
 let lastTokenCheck = 0;
 const TOKEN_CACHE_DURATION = 30 * 60 * 1000; // 30 minutos en lugar de 5
 
+/** Limpia el caché del token (llamar al hacer logout para que no quede el token viejo en memoria). */
+export function clearAuthTokenCache(): void {
+  tokenCache = null;
+  lastTokenCheck = 0;
+}
+
 // Cache para reducir llamadas a headers repetidos
 const headerCache: Record<string, HeadersInit> = {};
 

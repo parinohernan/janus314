@@ -48,11 +48,11 @@ export interface FavoriteItem {
   { id: 'provincias', label: 'Provincias', url: '/provincias', icon: '🗺️', category: 'General' },
   
   // Caja
-  { id: 'caja-admin', label: 'Administración de Caja', url: '/ventas/bot/caja', icon: '💼', category: 'Caja' },
-  { id: 'cajas-cerradas', label: 'Cajas Cerradas', url: '/ventas/bot/caja/cerradas', icon: '🔒', category: 'Caja' },
-  { id: 'arqueo', label: 'Arqueo', url: '/ventas/bot/caja/arqueo', icon: '💰', category: 'Caja' },
-  { id: 'ingresos', label: 'Ingresos', url: '/ventas/bot/caja/ingreso', icon: '➕', category: 'Caja' },
-  { id: 'egresos', label: 'Egresos', url: '/ventas/bot/caja/egreso', icon: '➖', category: 'Caja' },
+  { id: 'caja-admin', label: 'Administración de Caja', url: '/caja', icon: '💼', category: 'Caja' },
+  { id: 'cajas-cerradas', label: 'Cajas Cerradas', url: '/caja/cerradas', icon: '🔒', category: 'Caja' },
+  { id: 'arqueo', label: 'Arqueo', url: '/caja/arqueo', icon: '💰', category: 'Caja' },
+  { id: 'ingresos', label: 'Ingresos', url: '/caja/ingreso', icon: '➕', category: 'Caja' },
+  { id: 'egresos', label: 'Egresos', url: '/caja/egreso', icon: '➖', category: 'Caja' },
   
       // Sincronización
     { id: 'sincronizacion', label: 'Sincronizar Móviles', url: '/sincronizacion', icon: '📱', category: 'Sincronización' },

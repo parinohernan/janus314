@@ -237,9 +237,25 @@ router.get('/online/verify', async (req, res) => {
   }
 });
 
-// Logout
-router.post('/online/logout', (req, res) => {
-  // En el frontend se eliminará el token del localStorage
+// Logout: cerrar conexión de la empresa del token para que no queden datos activos
+router.post('/online/logout', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.slice(7);
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const empresaId = decoded.empresaId;
+        if (empresaId) {
+          await DBManager.closeConnectionForEmpresa(empresaId);
+        }
+      } catch (err) {
+        // Token inválido o expirado: no hacer nada, el frontend limpiará igual
+      }
+    }
+  } catch (err) {
+    console.warn('Error al cerrar conexión en logout:', err.message);
+  }
   res.json({
     success: true,
     message: 'Sesión cerrada correctamente'

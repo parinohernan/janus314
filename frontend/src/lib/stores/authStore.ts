@@ -3,6 +3,7 @@ import type { Usuario } from '$lib/types/usuario.types';
 import { authConfig } from '$lib/config/auth.config';
 import { PUBLIC_API_URL } from '$env/static/public';
 import { browser } from '$app/environment';
+import { clearAuthTokenCache } from '$lib/utils/fetchWithAuth';
 
 interface AuthState {
   user: Usuario | null;
@@ -129,6 +130,7 @@ function createAuthStore() {
           localStorage.removeItem('authToken');
           console.log('Token eliminado del localStorage');
         }
+        clearAuthTokenCache();
         set({
           user: null,
           isAuthenticated: false,
@@ -156,6 +158,7 @@ function createAuthStore() {
           localStorage.removeItem('authToken');
           console.log('Token eliminado del localStorage');
         }
+        clearAuthTokenCache();
         set({
           user: null,
           isAuthenticated: false,
