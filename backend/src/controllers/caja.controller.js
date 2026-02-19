@@ -85,6 +85,7 @@ exports.listarCajas = async (req, res) => {
     // Formatear los resultados
     const cajasFormateadas = cajas.map(caja => ({
       ...caja,
+      VendedorNombre: caja.VendedorDescripcion || null,
       Vendedor: {
         Codigo: caja.VendedorCodigo,
         Descripcion: caja.VendedorDescripcion
@@ -140,9 +141,15 @@ exports.obtenerCaja = async (req, res) => {
       });
     }
 
+    // Formatear respuesta con VendedorNombre
+    const cajaFormateada = {
+      ...caja.toJSON(),
+      VendedorNombre: caja.CajaVendedor?.Descripcion || null
+    };
+
     res.json({
       success: true,
-      data: caja,
+      data: cajaFormateada,
     });
   } catch (error) {
     console.error("Error al obtener detalle de caja:", error);
@@ -677,21 +684,20 @@ exports.listarCajasCerradas = async (req, res) => {
     // Normalizar los valores numéricos
     const cajasNormalizadas = cajas.rows.map(caja => ({
       ...caja.toJSON(),
-      SaldoTeorico: parseFloat(caja.SaldoTeorico || 0).toFixed(2),
-      SaldoInicial: parseFloat(caja.SaldoInicial || 0).toFixed(2),
-      SaldoCierre: caja.SaldoCierre ? parseFloat(caja.SaldoCierre).toFixed(2) : null
+      VendedorNombre: caja.CajaVendedor?.Descripcion || null,
+      SaldoTeorico: parseFloat(caja.SaldoTeorico || 0),
+      SaldoInicial: parseFloat(caja.SaldoInicial || 0),
+      SaldoCierre: caja.SaldoCierre ? parseFloat(caja.SaldoCierre) : null
     }));
 
     res.json({
       success: true,
-      data: {
-        items: cajasNormalizadas,
-        meta: {
-          totalItems: cajas.count,
-          itemsPerPage: limit,
-          currentPage: page,
-          totalPages: Math.ceil(cajas.count / limit),
-        }
+      data: cajasNormalizadas,
+      meta: {
+        totalItems: cajas.count,
+        itemsPerPage: limit,
+        currentPage: page,
+        totalPages: Math.ceil(cajas.count / limit),
       }
     });
   } catch (error) {
