@@ -159,6 +159,24 @@ async function initializeAssociations(sequelize) {
       });
     }
 
+    // Verificar y agregar asociación hasMany de CajaCabeza a CajaArqueoDetalle
+    const hasArqueosAssociation = Object.values(associations).some(assoc => assoc.as === 'Arqueos');
+    if (!hasArqueosAssociation) {
+      CajaCabeza.hasMany(CajaArqueoDetalle, {
+        foreignKey: 'CajaCabezaId',
+        as: 'Arqueos'
+      });
+    }
+
+    // Verificar y agregar asociación hasMany de CajaCabeza a CajaMovimientos
+    const hasMovimientosAssociation = Object.values(associations).some(assoc => assoc.as === 'Movimientos');
+    if (!hasMovimientosAssociation) {
+      CajaCabeza.hasMany(CajaMovimientos, {
+        foreignKey: 'CajaCabezaId',
+        as: 'Movimientos'
+      });
+    }
+
     console.log('✅ Asociaciones inicializadas correctamente');
   } catch (error) {
     console.error('Error al inicializar asociaciones:', error);
