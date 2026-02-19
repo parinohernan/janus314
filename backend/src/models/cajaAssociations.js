@@ -2,15 +2,25 @@ const { Model, DataTypes } = require('sequelize');
 const CajaCabeza = require('./cajaCabeza.model');
 const CajaMovimientos = require('./cajaMovimientos.model');
 const CajaArqueoDetalle = require('./cajaArqueoDetalle.model');
-const Vendedor = require('./vendedor.model');
-const TipoDePago = require('./tipoDePago.model');
 
-async function initializeAssociations(sequelize) {
+async function initializeAssociations(sequelize, models = {}) {
   try {
-    console.log('Iniciando inicialización de modelos y asociaciones...');
+    console.log('Iniciando inicialización de modelos y asociaciones de caja...');
 
-    // Inicializar Vendedor primero ya que es una dependencia
-    if (!Vendedor.sequelize) {
+    // Obtener el modelo Vendedor desde los modelos disponibles o importarlo
+    let Vendedor = models.Vendedor;
+    let TipoDePago = models.TipoDePago;
+
+    // Si no está en models, intentar importarlo
+    if (!Vendedor) {
+      Vendedor = require('./vendedor.model');
+    }
+    if (!TipoDePago) {
+      TipoDePago = require('./tipoDePago.model');
+    }
+
+    // Inicializar Vendedor primero si no está inicializado
+    if (Vendedor && !Vendedor.sequelize) {
       console.log('Inicializando modelo Vendedor...');
       Vendedor.init({
         Codigo: {
@@ -81,7 +91,7 @@ async function initializeAssociations(sequelize) {
     }
 
     // Inicializar TipoDePago si no está inicializado
-    if (!TipoDePago.sequelize) {
+    if (TipoDePago && !TipoDePago.sequelize) {
       console.log('Inicializando modelo TipoDePago...');
       TipoDePago.init(TipoDePago.getAttributes(), {
         sequelize,
@@ -98,13 +108,14 @@ async function initializeAssociations(sequelize) {
     const associations = CajaCabeza.associations || {};
     const hasCajaVendedorAssociation = Object.values(associations).some(assoc => assoc.as === 'CajaVendedor');
 
-    if (!hasCajaVendedorAssociation) {
+    if (!hasCajaVendedorAssociation && Vendedor) {
     // Asociaciones CajaCabeza
     CajaCabeza.belongsTo(Vendedor, { 
       foreignKey: 'VendedorId', 
         as: 'CajaVendedor',
       targetKey: 'Codigo'
     });
+      console.log('✅ Asociación CajaCabeza -> Vendedor (CajaVendedor) creada');
     }
 
     // Verificar si las asociaciones de CajaMovimientos ya están definidas
@@ -132,31 +143,34 @@ async function initializeAssociations(sequelize) {
 
     // Verificar y agregar asociaciones con TipoDePago
     const hasTipoPagoAssociation = Object.values(cajaMovimientosAssociations).some(assoc => assoc.as === 'TipoPago');
-    if (!hasTipoPagoAssociation) {
+    if (!hasTipoPagoAssociation && TipoDePago) {
       CajaMovimientos.belongsTo(TipoDePago, {
         foreignKey: "MetodoPago",
         targetKey: "Codigo",
         as: "TipoPago"
       });
+      console.log('✅ Asociación CajaMovimientos -> TipoDePago creada');
     }
 
     const hasArqueoTipoPagoAssociation = Object.values(cajaArqueoAssociations).some(assoc => assoc.as === 'TipoPago');
-    if (!hasArqueoTipoPagoAssociation) {
+    if (!hasArqueoTipoPagoAssociation && TipoDePago) {
       CajaArqueoDetalle.belongsTo(TipoDePago, {
         foreignKey: "MetodoPago",
         targetKey: "Codigo",
         as: "TipoPago"
       });
+      console.log('✅ Asociación CajaArqueoDetalle -> TipoDePago creada');
     }
 
     // Verificar y agregar asociación de CajaMovimientos con Vendedor
     const hasUsuarioAssociation = Object.values(cajaMovimientosAssociations).some(assoc => assoc.as === 'Usuario');
-    if (!hasUsuarioAssociation) {
+    if (!hasUsuarioAssociation && Vendedor) {
       CajaMovimientos.belongsTo(Vendedor, {
         foreignKey: "UsuarioId",
         targetKey: "Codigo",
         as: "Usuario"
       });
+      console.log('✅ Asociación CajaMovimientos -> Vendedor (Usuario) creada');
     }
 
     // Verificar y agregar asociación hasMany de CajaCabeza a CajaArqueoDetalle

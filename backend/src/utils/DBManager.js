@@ -80,7 +80,10 @@ class DBManager {
     });
 
     // Inicializar modelos de caja y sus asociaciones
-    await initializeAssociations(sequelize);
+    await initializeAssociations(sequelize, {
+      Vendedor: VendedorDef,
+      TipoDePago
+    });
 
     // Establecer las asociaciones
     NotaCreditoCabeza.belongsTo(Cliente, {
