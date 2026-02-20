@@ -43,8 +43,12 @@
   let vendedores: Vendedor[] = [];
   let vendedoresMap = new Map<string, string>();
 
-  const today = new Date().toISOString().split('T')[0];
-  let fechaDesde = today;
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const lastWeek = new Date(now);
+  lastWeek.setDate(lastWeek.getDate() - 7);
+  const lastWeekStr = lastWeek.toISOString().split('T')[0];
+  let fechaDesde = lastWeekStr;
   let fechaHasta = today;
   let estado = '';
 

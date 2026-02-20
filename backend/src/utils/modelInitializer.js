@@ -1477,7 +1477,12 @@ const initializeModels = (sequelize) => {
     as: 'Items'
   });
 
-  // Las asociaciones de caja se manejan en cajaAssociations.js para evitar duplicaciones
+  // Asociaciones de caja (necesarias para arqueo/resumen cuando se usa modelInitializer)
+  CajaMovimientos.belongsTo(TipoDePago, {
+    foreignKey: 'MetodoPago',
+    targetKey: 'Codigo',
+    as: 'TipoPago'
+  });
 
   // Crear el objeto de modelos
   const modelos = {
