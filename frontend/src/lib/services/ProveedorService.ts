@@ -16,6 +16,37 @@ export interface ProveedorCompleto extends Proveedor {
   Mail?: string;
 }
 
+export interface ProveedorCuentaCorriente extends Proveedor {
+  Saldo: number;
+}
+
+export interface ComprobanteProveedor {
+  Fecha: string;
+  Detalle: string;
+  Debitos: number;
+  Creditos: number;
+  Saldo: number;
+  TipoComprobante: string;
+}
+
+export interface CuentasCorrientesResult {
+  items: ProveedorCuentaCorriente[];
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  limit: number;
+}
+
+export interface ComprobantesProveedorResult {
+  items: ComprobanteProveedor[];
+  meta: {
+    totalItems: number;
+    itemsPerPage: number;
+    currentPage: number;
+    totalPages: number;
+  };
+}
+
 export class ProveedorService {
   /**
    * Obtiene la lista de proveedores
@@ -94,5 +125,79 @@ export class ProveedorService {
       console.error('Error al crear proveedor:', error);
       throw error;
     }
+  }
+
+  /**
+   * Obtiene cuentas corrientes de proveedores (listado con saldo)
+   */
+  public static async obtenerCuentasCorrientes(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    field?: string;
+    order?: 'ASC' | 'DESC';
+  } = {}): Promise<CuentasCorrientesResult> {
+    const searchParams = new URLSearchParams();
+    if (params.page != null) searchParams.append('page', String(params.page));
+    if (params.limit != null) searchParams.append('limit', String(params.limit));
+    if (params.search) searchParams.append('search', params.search);
+    if (params.field) searchParams.append('field', params.field);
+    if (params.order) searchParams.append('order', params.order);
+    const response = await fetchWithAuth(`/proveedores/cuentascorrientes?${searchParams}`);
+    if (!response.ok) throw new Error('Error al obtener cuentas corrientes');
+    const data = await response.json();
+    return {
+      items: data.items ?? [],
+      currentPage: data.meta?.currentPage ?? 1,
+      totalPages: data.meta?.totalPages ?? 1,
+      totalItems: data.meta?.totalItems ?? 0,
+      limit: data.meta?.itemsPerPage ?? 10
+    };
+  }
+
+  /**
+   * Obtiene comprobantes de un proveedor (para detalle de cuenta corriente)
+   */
+  public static async obtenerComprobantesProveedor(
+    codigoProveedor: string,
+    page: number = 1,
+    limit: number = 50
+  ): Promise<ComprobantesProveedorResult> {
+    const response = await fetchWithAuth(
+      `/proveedores/${encodeURIComponent(codigoProveedor)}/comprobantes?page=${page}&limit=${limit}`
+    );
+    if (!response.ok) throw new Error('Error al obtener comprobantes');
+    const data = await response.json();
+    return {
+      items: data.items ?? [],
+      meta: data.meta ?? {
+        totalItems: 0,
+        itemsPerPage: limit,
+        currentPage: 1,
+        totalPages: 0
+      }
+    };
+  }
+
+  /**
+   * Genera y descarga el PDF de cuenta corriente de un proveedor
+   */
+  public static async generarPDFCuentaCorriente(codigoProveedor: string): Promise<void> {
+    const response = await fetchWithAuth(`/proveedores/${encodeURIComponent(codigoProveedor)}/cuenta-corriente/pdf`, {
+      method: 'GET'
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || `Error ${response.status} al generar el PDF`);
+    }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cuenta-corriente-proveedor-${codigoProveedor}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   }
 } 

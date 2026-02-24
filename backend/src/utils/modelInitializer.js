@@ -1448,6 +1448,168 @@ const initializeModels = (sequelize) => {
   });
   console.log('ReciboValor definido:', ReciboValor ? 'Sí' : 'No');
 
+  // --- Modelos Compras y Proveedores (cuenta corriente, recibos, NC, ND) ---
+  const ComprasCabeza = sequelize.define('ComprasCabeza', {
+    DocumentoTipo: { type: DataTypes.CHAR(3), primaryKey: true, allowNull: false },
+    DocumentoSucursal: { type: DataTypes.STRING(4), primaryKey: true, allowNull: false },
+    DocumentoNumero: { type: DataTypes.STRING(8), primaryKey: true, allowNull: false },
+    Fecha: { type: DataTypes.DATEONLY, allowNull: true },
+    FechaDePago: { type: DataTypes.DATEONLY, allowNull: true },
+    ProveedorCodigo: { type: DataTypes.STRING(8), allowNull: false },
+    TipoPago: { type: DataTypes.CHAR(2), allowNull: true },
+    ImporteBruto: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 },
+    ImporteBonificado: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 },
+    ImporteNeto: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 },
+    ImporteAdicional: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 },
+    ImporteIva1: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 },
+    ImporteIva2: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 },
+    Percepcion: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 },
+    ImporteTotal: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 },
+    ImportePagado: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 },
+    Observacion: { type: DataTypes.STRING(300), allowNull: true },
+    ObservacionAnula: { type: DataTypes.STRING(500), allowNull: true },
+    RemitoNro: { type: DataTypes.STRING(20), allowNull: true },
+    OrdenCompraNro: { type: DataTypes.STRING(8), allowNull: true },
+    FechaAnulacion: { type: DataTypes.DATE, allowNull: true },
+    Anulado: { type: DataTypes.TINYINT(1), allowNull: true, defaultValue: 0 },
+    IngresosBrutos: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 },
+    OtrosImpuestos1: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 },
+    OtrosImpuestos2: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 },
+    OtrosImpuestos3: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 }
+  }, { tableName: 'comprascabeza', timestamps: false });
+
+  const ComprasItem = sequelize.define('ComprasItem', {
+    DocumentoTipo: { type: DataTypes.CHAR(3), primaryKey: true, allowNull: false },
+    DocumentoSucursal: { type: DataTypes.STRING(4), primaryKey: true, allowNull: false },
+    DocumentoNumero: { type: DataTypes.STRING(8), primaryKey: true, allowNull: false },
+    ProveedorCodigo: { type: DataTypes.STRING(7), allowNull: true },
+    CodigoArticulo: { type: DataTypes.STRING(13), primaryKey: true, allowNull: false },
+    Cantidad: { type: DataTypes.DOUBLE, allowNull: true },
+    PrecioCostoUnitario: { type: DataTypes.DOUBLE, allowNull: true }
+  }, { tableName: 'comprasitems', timestamps: false });
+
+  const ProveedoresReciboCabeza = sequelize.define('ProveedoresReciboCabeza', {
+    DocumentoTipo: { type: DataTypes.CHAR(3), primaryKey: true, allowNull: false },
+    DocumentoSucursal: { type: DataTypes.STRING(4), primaryKey: true, allowNull: false },
+    DocumentoNumero: { type: DataTypes.STRING(8), primaryKey: true, allowNull: false },
+    Fecha: { type: DataTypes.DATEONLY, allowNull: false },
+    ProveedorCodigo: { type: DataTypes.STRING(8), allowNull: false },
+    ImporteTotal: { type: DataTypes.DOUBLE(15, 2), allowNull: true },
+    FechaAnulacion: { type: DataTypes.DATE, allowNull: true },
+    VendedorCodigo: { type: DataTypes.STRING(20), allowNull: true }
+  }, { tableName: 'proveedoresreciboscabeza', timestamps: false });
+
+  const ProveedoresReciboItem = sequelize.define('ProveedoresReciboItem', {
+    DocumentoTipo: { type: DataTypes.STRING(3), primaryKey: true, allowNull: false },
+    DocumentoSucursal: { type: DataTypes.STRING(4), primaryKey: true, allowNull: false },
+    DocumentoNumero: { type: DataTypes.STRING(8), primaryKey: true, allowNull: false },
+    FacturaTipo: { type: DataTypes.CHAR(4), primaryKey: true, allowNull: false },
+    FacturaSucursal: { type: DataTypes.STRING(4), primaryKey: true, allowNull: false },
+    FacturaNumero: { type: DataTypes.STRING(8), primaryKey: true, allowNull: false },
+    ProveedorCodigo: { type: DataTypes.STRING(8), allowNull: true },
+    ImportePagado: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 }
+  }, { tableName: 'proveedoresrecibositems', timestamps: false });
+
+  const ProveedoresReciboValor = sequelize.define('ProveedoresReciboValor', {
+    DocumentoTipo: { type: DataTypes.STRING(3), primaryKey: true, allowNull: false },
+    DocumentoSucursal: { type: DataTypes.STRING(4), primaryKey: true, allowNull: false },
+    DocumentoNumero: { type: DataTypes.STRING(8), primaryKey: true, allowNull: false },
+    ValorCodigo: { type: DataTypes.STRING(4), allowNull: false },
+    ValorFecha: { type: DataTypes.DATEONLY, allowNull: true },
+    ValorSucursal: { type: DataTypes.STRING(4), allowNull: true },
+    ValorNumero: { type: DataTypes.STRING(50), allowNull: true },
+    Valorbanco: { type: DataTypes.STRING(4), allowNull: true },
+    ValorImporte: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 },
+    ChequeCodigo: { type: DataTypes.INTEGER, allowNull: true },
+    ValorObservaciones: { type: DataTypes.STRING(254), allowNull: true }
+  }, { tableName: 'proveedoresrecibosvalores', timestamps: false });
+
+  const ProveedoresNotaCreditoCabeza = sequelize.define('ProveedoresNotaCreditoCabeza', {
+    DocumentoTipo: { type: DataTypes.CHAR(4), primaryKey: true, allowNull: false },
+    DocumentoSucursal: { type: DataTypes.STRING(4), primaryKey: true, allowNull: false },
+    DocumentoNumero: { type: DataTypes.STRING(8), primaryKey: true, allowNull: false },
+    CodigoProveedor: { type: DataTypes.STRING(8), allowNull: false },
+    Fecha: { type: DataTypes.DATEONLY, allowNull: false },
+    ImporteTotal: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 },
+    ImporteUtilizado: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 },
+    FechaAnulacion: { type: DataTypes.DATE, allowNull: true },
+    ImporteNeto: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 }
+  }, { tableName: 'proveedoresnotacreditocabeza', timestamps: false });
+
+  const ProveedoresNotaCreditoItem = sequelize.define('ProveedoresNotaCreditoItem', {
+    DocumentoTipo: { type: DataTypes.CHAR(4), primaryKey: true, allowNull: false },
+    DocumentoSucursal: { type: DataTypes.STRING(4), primaryKey: true, allowNull: false },
+    DocumentoNumero: { type: DataTypes.STRING(8), primaryKey: true, allowNull: false },
+    ProveedorCodigo: { type: DataTypes.STRING(7), allowNull: true },
+    CodigoArticulo: { type: DataTypes.STRING(13), primaryKey: true, allowNull: false },
+    Cantidad: { type: DataTypes.DOUBLE, allowNull: true },
+    PrecioCostoUnitario: { type: DataTypes.DOUBLE, allowNull: true }
+  }, { tableName: 'proveedoresnotacreditoitems', timestamps: false });
+
+  const ProveedoresNotaCreditoValor = sequelize.define('ProveedoresNotaCreditoValor', {
+    DocumentoTipo: { type: DataTypes.CHAR(4), allowNull: false },
+    DocumentoSucursal: { type: DataTypes.STRING(4), allowNull: false },
+    DocumentoNumero: { type: DataTypes.STRING(8), allowNull: false },
+    ValorCodigo: { type: DataTypes.STRING(4), allowNull: false },
+    ValorFecha: { type: DataTypes.DATEONLY, allowNull: true },
+    ValorNumero: { type: DataTypes.STRING(50), allowNull: true },
+    Valorbanco: { type: DataTypes.STRING(4), allowNull: true },
+    ValorImporte: { type: DataTypes.DOUBLE(15, 3), allowNull: true },
+    ChequeCodigo: { type: DataTypes.INTEGER, allowNull: true }
+  }, { tableName: 'proveedoresnotacreditovalores', timestamps: false });
+
+  const ProveedoresNotaDebitoCabeza = sequelize.define('ProveedoresNotaDebitoCabeza', {
+    DocumentoTipo: { type: DataTypes.CHAR(4), primaryKey: true, allowNull: false },
+    DocumentoSucursal: { type: DataTypes.STRING(4), primaryKey: true, allowNull: false },
+    DocumentoNumero: { type: DataTypes.STRING(8), primaryKey: true, allowNull: false },
+    ProveedorCodigo: { type: DataTypes.STRING(8), allowNull: false },
+    Fecha: { type: DataTypes.DATEONLY, allowNull: false },
+    ImporteTotal: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 },
+    ImportePagado: { type: DataTypes.DOUBLE, allowNull: true, defaultValue: 0 },
+    FechaAnulacion: { type: DataTypes.DATEONLY, allowNull: true },
+    ImporteNeto: { type: DataTypes.DOUBLE(15, 2), allowNull: true, defaultValue: 0 }
+  }, { tableName: 'proveedoresnotadebitocabeza', timestamps: false });
+
+  const ProveedoresNotaDebitoItem = sequelize.define('ProveedoresNotaDebitoItem', {
+    DocumentoTipo: { type: DataTypes.CHAR(4), allowNull: false },
+    DocumentoSucursal: { type: DataTypes.STRING(4), allowNull: false },
+    DocumentoNumero: { type: DataTypes.STRING(8), allowNull: false },
+    Descripcion: { type: DataTypes.STRING(254), allowNull: false },
+    Importe: { type: DataTypes.DOUBLE(15, 2), allowNull: true }
+  }, { tableName: 'proveedoresnotadebitoitems', timestamps: false });
+
+  // Asociaciones Compras / Proveedores
+  ComprasCabeza.belongsTo(Proveedor, { foreignKey: 'ProveedorCodigo', targetKey: 'Codigo', as: 'ProveedorRelacion' });
+  ComprasCabeza.hasMany(ComprasItem, {
+    foreignKey: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero']
+  });
+  ComprasItem.belongsTo(ComprasCabeza, {
+    foreignKey: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero']
+  });
+  ComprasItem.belongsTo(Articulo, {
+    foreignKey: 'CodigoArticulo',
+    targetKey: 'Codigo',
+    as: 'Articulo'
+  });
+
+  ProveedoresReciboCabeza.belongsTo(Proveedor, { foreignKey: 'ProveedorCodigo', targetKey: 'Codigo', as: 'ProveedorRelacion' });
+  ProveedoresReciboCabeza.hasMany(ProveedoresReciboItem, {
+    foreignKey: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero']
+  });
+  ProveedoresReciboCabeza.hasMany(ProveedoresReciboValor, {
+    foreignKey: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero']
+  });
+
+  ProveedoresNotaCreditoCabeza.belongsTo(Proveedor, { foreignKey: 'CodigoProveedor', targetKey: 'Codigo', as: 'ProveedorRelacion' });
+  ProveedoresNotaCreditoCabeza.hasMany(ProveedoresNotaCreditoItem, {
+    foreignKey: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero']
+  });
+
+  ProveedoresNotaDebitoCabeza.belongsTo(Proveedor, { foreignKey: 'ProveedorCodigo', targetKey: 'Codigo', as: 'ProveedorRelacion' });
+  ProveedoresNotaDebitoCabeza.hasMany(ProveedoresNotaDebitoItem, {
+    foreignKey: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero']
+  });
+
   // Establecer las asociaciones
   NotaCreditoCabeza.belongsTo(Cliente, {
     foreignKey: "CodigoCliente",
@@ -1516,7 +1678,18 @@ const initializeModels = (sequelize) => {
     // Modelos de caja
     CajaCabeza,
     CajaMovimientos,
-    CajaArqueoDetalle
+    CajaArqueoDetalle,
+    // Compras y proveedores (cuenta corriente, recibos, NC, ND)
+    ComprasCabeza,
+    ComprasItem,
+    ProveedoresReciboCabeza,
+    ProveedoresReciboItem,
+    ProveedoresReciboValor,
+    ProveedoresNotaCreditoCabeza,
+    ProveedoresNotaCreditoItem,
+    ProveedoresNotaCreditoValor,
+    ProveedoresNotaDebitoCabeza,
+    ProveedoresNotaDebitoItem
   };
 
   console.log('Modelos inicializados:', Object.keys(modelos));

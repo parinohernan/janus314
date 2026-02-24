@@ -168,11 +168,19 @@
 	function facturarPreventa(preventa: PreventaCabeza) {
 		goto(`/ventas/facturas/nueva?preventa=${preventa.DocumentoTipo}/${preventa.DocumentoSucursal}/${preventa.DocumentoNumero}`);
 	}
+
+	// Generar nota de crédito RÁPIDA (NCF) desde preventa - devolución
+	function generarNotaCreditoPreventa(preventa: PreventaCabeza) {
+		goto(`/ventas/notascredito/rapida?preventa=${preventa.DocumentoTipo}/${preventa.DocumentoSucursal}/${preventa.DocumentoNumero}`);
+	}
 	
 	// Determinar el estado de la preventa
 	function getEstadoPreventa(preventa: PreventaCabeza): string {
 		if (preventa.FechaAnulacion) return 'Anulada';
-		if (preventa.FacturaNumero) return 'Facturada';
+		if (preventa.FacturaNumero) {
+			// Si el comprobante asociado es NCF = devolución (NC rápida)
+			return (preventa.FacturaTipo === 'NCF') ? 'Devolución' : 'Facturada';
+		}
 		return 'Pendiente';
 	}
 	
@@ -183,6 +191,8 @@
 				return 'bg-red-100 text-red-800';
 			case 'Facturada':
 				return 'bg-green-100 text-green-800';
+			case 'Devolución':
+				return 'bg-blue-100 text-blue-800';
 			case 'Pendiente':
 				return 'bg-yellow-100 text-yellow-800';
 			default:
@@ -716,6 +726,9 @@
 						<th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
 							Vendedor
 						</th>
+						<th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+							Observación
+						</th>
 						<th scope="col" class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
 							Total
 						</th>
@@ -755,6 +768,11 @@
 							<td class="px-3 py-4 whitespace-nowrap">
 								{preventa.Vendedor?.Descripcion || 'No especificado'}
 							</td>
+							<td class="px-3 py-4 max-w-[180px]" title={preventa.Observacion || ''}>
+								<span class="block truncate text-gray-600" title={preventa.Observacion || ''}>
+									{preventa.Observacion ? (preventa.Observacion.length > 40 ? preventa.Observacion.slice(0, 40) + '…' : preventa.Observacion) : '—'}
+								</span>
+							</td>
 							<td class="px-3 py-4 whitespace-nowrap text-right">
 								${preventa.ImporteTotal?.toFixed(2) || '0.00'}
 							</td>
@@ -790,7 +808,18 @@
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
 										</svg>
 									</button>
-									
+									<!-- Generar nota de crédito rápida (devolución) -->
+									<button 
+										class="text-blue-600 hover:text-blue-900"
+										on:click={() => generarNotaCreditoPreventa(preventa)}
+										title="Generar nota de crédito (devolución)"
+										aria-label="Generar nota de crédito"
+										disabled={preventa.FechaAnulacion !== null}
+									>
+										<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+										</svg>
+									</button>
 									<!-- Anular (siempre disponible) -->
 									<button 
 										class="text-red-600 hover:text-red-900"

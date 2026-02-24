@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
+  import { Plus, Minus, Zap } from 'lucide-svelte';
   import { goto } from '$app/navigation';
   import { PUBLIC_API_URL } from '$env/static/public';
   import { debounce } from 'lodash-es';
@@ -235,15 +237,18 @@
   <!-- Encabezado -->
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-2xl font-bold">Gestión de Movimientos de Stock</h1>
-    <div class="space-x-2">
-      <Button variant="primary" on:click={() => goto('/productos/stock/nuevo/ingreso')}>
-        Nuevo Ingreso
+    <div class="flex flex-wrap gap-2">
+      <Button variant="success" on:click={() => goto('/productos/stock/nuevo/ingreso')} class="inline-flex items-center gap-2" title="Registrar entrada de mercadería cargando artículos y cantidades manualmente">
+        <Icon icon={Plus} size={18} />
+        Ingreso
       </Button>
-      <Button variant="secondary" on:click={() => goto('/productos/stock/nuevo/ingreso-remito')}>
-        Ingreso por remito
+      <Button variant="danger" on:click={() => goto('/productos/stock/nuevo/egreso')} class="inline-flex items-center gap-2" title="Registrar salida de mercadería (ventas, mermas, devoluciones, etc.)">
+        <Icon icon={Minus} size={18} />
+        Egreso
       </Button>
-      <Button variant="danger" on:click={() => goto('/productos/stock/nuevo/egreso')}>
-        Nuevo Egreso
+      <Button variant="primary" on:click={() => goto('/productos/stock/nuevo/ingreso-remito')} class="inline-flex items-center gap-2" title="Ingreso desde remito: suba una foto o escaneo del remito para extraer los ítems automáticamente">
+        <Icon icon={Zap} size={18} />
+        Ingreso Automático
       </Button>
     </div>
   </div>

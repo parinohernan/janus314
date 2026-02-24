@@ -10,6 +10,9 @@ router.use(authenticateToken);
 // Listar notas de crédito con paginación y filtros
 router.get("/", notaCreditoController.listarNotasCredito);
 
+// Crear nota de crédito RÁPIDA (NCF) desde preventa - debe ir antes de /:tipo/:sucursal/:numero
+router.post("/rapida-from-preventa", notaCreditoController.crearNotaCreditoRapidaDesdePreventa);
+
 // Obtener detalle de una nota de crédito
 router.get(
   "/:tipo/:sucursal/:numero",

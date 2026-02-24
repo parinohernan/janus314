@@ -832,6 +832,126 @@ exports.generarCuentaCorrientePDF = async (req, res) => {
   }
 };
 
+// Función para generar PDF de cuenta corriente de proveedor
+exports.generarCuentaCorrienteProveedorPDF = async (req, res) => {
+  try {
+    const codigoProveedor = req.params.id || req.params.codigo;
+    const {
+      Proveedor,
+      ComprasCabeza,
+      ProveedoresNotaCreditoCabeza,
+      ProveedoresNotaDebitoCabeza,
+      ProveedoresReciboCabeza,
+      DatosEmpresa,
+    } = req.models;
+
+    const proveedor = await Proveedor.findByPk(codigoProveedor);
+    if (!proveedor) {
+      return res.status(404).json({ success: false, message: "Proveedor no encontrado" });
+    }
+
+    let comprobantes = [];
+    const compras = await ComprasCabeza.findAll({
+      where: { ProveedorCodigo: codigoProveedor, FechaAnulacion: null },
+      attributes: ["Fecha", "DocumentoTipo", "DocumentoSucursal", "DocumentoNumero", "ImporteTotal", "ImportePagado"],
+      order: [["Fecha", "ASC"]],
+      raw: true,
+    });
+    comprobantes = comprobantes.concat(
+      compras.map((c) => ({
+        Fecha: c.Fecha,
+        Detalle: `${c.DocumentoTipo} - ${c.DocumentoSucursal} - ${c.DocumentoNumero}`,
+        Debitos: c.ImporteTotal,
+        Creditos: c.ImportePagado || 0,
+        Saldo: (c.ImporteTotal || 0) - (c.ImportePagado || 0),
+        TipoComprobante: "COM",
+      }))
+    );
+
+    const ncs = await ProveedoresNotaCreditoCabeza.findAll({
+      where: { CodigoProveedor: codigoProveedor, FechaAnulacion: null },
+      attributes: ["Fecha", "DocumentoTipo", "DocumentoSucursal", "DocumentoNumero", "ImporteTotal", "ImporteUtilizado"],
+      order: [["Fecha", "ASC"]],
+      raw: true,
+    });
+    comprobantes = comprobantes.concat(
+      ncs.map((n) => ({
+        Fecha: n.Fecha,
+        Detalle: `${n.DocumentoTipo} - ${n.DocumentoSucursal} - ${n.DocumentoNumero}`,
+        Debitos: n.ImporteUtilizado || 0,
+        Creditos: n.ImporteTotal,
+        Saldo: -(n.ImporteTotal || 0) + (n.ImporteUtilizado || 0),
+        TipoComprobante: "NC",
+      }))
+    );
+
+    const nds = await ProveedoresNotaDebitoCabeza.findAll({
+      where: { ProveedorCodigo: codigoProveedor, FechaAnulacion: null },
+      attributes: ["Fecha", "DocumentoTipo", "DocumentoSucursal", "DocumentoNumero", "ImporteTotal", "ImportePagado"],
+      order: [["Fecha", "ASC"]],
+      raw: true,
+    });
+    comprobantes = comprobantes.concat(
+      nds.map((n) => ({
+        Fecha: n.Fecha,
+        Detalle: `${n.DocumentoTipo} - ${n.DocumentoSucursal} - ${n.DocumentoNumero}`,
+        Debitos: n.ImporteTotal || 0,
+        Creditos: n.ImportePagado || 0,
+        Saldo: (n.ImporteTotal || 0) - (n.ImportePagado || 0),
+        TipoComprobante: "ND",
+      }))
+    );
+
+    const recs = await ProveedoresReciboCabeza.findAll({
+      where: { ProveedorCodigo: codigoProveedor, FechaAnulacion: null },
+      attributes: ["Fecha", "DocumentoTipo", "DocumentoSucursal", "DocumentoNumero", "ImporteTotal"],
+      order: [["Fecha", "ASC"]],
+      raw: true,
+    });
+    comprobantes = comprobantes.concat(
+      recs.map((r) => ({
+        Fecha: r.Fecha,
+        Detalle: `${r.DocumentoTipo} - ${r.DocumentoSucursal} - ${r.DocumentoNumero}`,
+        Debitos: 0,
+        Creditos: r.ImporteTotal,
+        Saldo: -(r.ImporteTotal || 0),
+        TipoComprobante: "REC",
+      }))
+    );
+
+    comprobantes.sort((a, b) => new Date(a.Fecha) - new Date(b.Fecha));
+    let saldoAcumulado = 0;
+    for (let i = 0; i < comprobantes.length; i++) {
+      saldoAcumulado += comprobantes[i].Saldo;
+      comprobantes[i].Saldo = saldoAcumulado;
+    }
+
+    const datosEmpresa = await DatosEmpresa.findOne();
+    if (!datosEmpresa) {
+      return res.status(404).json({ success: false, message: "Datos de empresa no encontrados" });
+    }
+    const logoPath = await logoManager.getLogoPath(datosEmpresa.LogoURL);
+    const doc = new PDFDocument(docFacturaA4);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="cuenta-corriente-proveedor-${codigoProveedor}.pdf"`);
+    doc.pipe(res);
+    await renderCuentaCorriente(doc, {
+      cliente: { Codigo: proveedor.Codigo, Descripcion: proveedor.Descripcion },
+      comprobantes,
+      datosEmpresa,
+      logoPath,
+    });
+    doc.end();
+  } catch (error) {
+    console.error("Error generando PDF cuenta corriente proveedor:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al generar PDF de cuenta corriente del proveedor",
+      error: error.message,
+    });
+  }
+};
+
 // Función para generar PDF de nota de débito
 exports.generarNotaDebitoPDF = async (req, res) => {
   try {

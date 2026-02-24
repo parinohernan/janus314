@@ -1,9 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { browser } from '$app/environment';
   import Button from '$lib/components/ui/Button.svelte';
   import { goto } from '$app/navigation';
   import { getTodayISOArgentina } from '$lib/utils/dateUtils';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { Check, Pencil, X } from 'lucide-svelte';
+
+  const STORAGE_KEY_PROVIDER_IA = 'janus314_ingreso_remito_provider_ia';
 
   interface ItemRemito {
     codigoProveedor: string;
@@ -40,7 +44,7 @@
     DocumentoSucursal: '',
     Fecha: getTodayISOArgentina(),
     MovimientoTipo: 'ING' as const,
-    Observacion: ''
+    Observacion: 'ING - automatico'
   };
   let loading = false;
   let error: string | null = null;
@@ -54,6 +58,9 @@
   let pasoActual: 1 | 2 | 3 = 1;
   let mostrarJsonParaEditar = false;
   let extraccionLista = false;
+  let entradaDesdeJson = false;
+  let tablaCargando = false;
+  let skeletonFilasCount = 0;
 
   interface ProveedorOption {
     Codigo: string;
@@ -62,6 +69,10 @@
   let proveedores: ProveedorOption[] = [];
 
   onMount(async () => {
+    if (browser) {
+      const saved = localStorage.getItem(STORAGE_KEY_PROVIDER_IA);
+      if (saved === 'groq' || saved === 'gemini') providerIA = saved;
+    }
     try {
       const res = await fetchWithAuth('/datos-empresa');
       if (!res.ok) throw new Error('Error al cargar datos de la empresa');
@@ -79,6 +90,22 @@
       error = err instanceof Error ? err.message : 'Error desconocido';
     }
   });
+
+  function guardarProviderIA() {
+    if (browser) localStorage.setItem(STORAGE_KEY_PROVIDER_IA, providerIA);
+  }
+
+  function irADesdeJson() {
+    entradaDesdeJson = true;
+    textoPegado = '';
+    pasoActual = 2;
+    mostrarJsonParaEditar = true;
+  }
+
+  function volverAPaso1() {
+    entradaDesdeJson = false;
+    pasoActual = 1;
+  }
 
   function parsearTexto(): ItemRemito[] {
     const t = textoPegado.trim();
@@ -183,36 +210,42 @@
       error = 'No hay ítems válidos. Verifique el JSON.';
       return;
     }
-    await cargarRelaciones();
-    const mapRelacion = new Map<string, RelacionApi>();
-    relacionesGuardadas.forEach((r) => mapRelacion.set(r.CodigoArticuloProveedor, r));
-    filas = [];
-    for (const item of items) {
-      const rel = mapRelacion.get(item.codigoProveedor);
-      let codigoEmpresa = rel?.CodigoArticuloEmpresa ?? '';
-      let descEmpresa = rel?.ArticuloEmpresa?.Descripcion ?? '';
-      let relacion = rel ? rel.Relacion : 1;
-      if (!codigoEmpresa && proveedorCodigo.trim() && item.codigoProveedor) {
-        const art = await buscarArticuloPorProveedorYCodigo(proveedorCodigo, item.codigoProveedor);
-        if (art) {
-          codigoEmpresa = art.Codigo;
-          descEmpresa = art.Descripcion;
-        }
-      }
-      const cantidadEmpresa = (item.cantidad || 0) * relacion;
-      filas.push({
-        codigoProveedor: item.codigoProveedor,
-        descripcionProveedor: item.descripcionProveedor,
-        cantidadProveedor: item.cantidad,
-        relacion,
-        codigoArticuloEmpresa: codigoEmpresa,
-        descripcionArticuloEmpresa: descEmpresa,
-        cantidadEmpresa,
-        relacionGuardada: !!rel
-      });
-    }
-    filas = [...filas];
+    tablaCargando = true;
+    skeletonFilasCount = items.length;
     pasoActual = 3;
+    try {
+      await cargarRelaciones();
+      const mapRelacion = new Map<string, RelacionApi>();
+      relacionesGuardadas.forEach((r) => mapRelacion.set(r.CodigoArticuloProveedor, r));
+      filas = [];
+      for (const item of items) {
+        const rel = mapRelacion.get(item.codigoProveedor);
+        let codigoEmpresa = rel?.CodigoArticuloEmpresa ?? '';
+        let descEmpresa = rel?.ArticuloEmpresa?.Descripcion ?? '';
+        let relacion = rel ? rel.Relacion : 1;
+        if (!codigoEmpresa && proveedorCodigo.trim() && item.codigoProveedor) {
+          const art = await buscarArticuloPorProveedorYCodigo(proveedorCodigo, item.codigoProveedor);
+          if (art) {
+            codigoEmpresa = art.Codigo;
+            descEmpresa = art.Descripcion;
+          }
+        }
+        const cantidadEmpresa = (item.cantidad || 0) * relacion;
+        filas.push({
+          codigoProveedor: item.codigoProveedor,
+          descripcionProveedor: item.descripcionProveedor,
+          cantidadProveedor: item.cantidad,
+          relacion,
+          codigoArticuloEmpresa: codigoEmpresa,
+          descripcionArticuloEmpresa: descEmpresa,
+          cantidadEmpresa,
+          relacionGuardada: !!rel
+        });
+      }
+      filas = [...filas];
+    } finally {
+      tablaCargando = false;
+    }
   }
 
   async function buscarArticulo(codigo: string): Promise<{ Codigo: string; Descripcion: string } | null> {
@@ -236,6 +269,21 @@
     filas[index].relacion = value;
     filas[index].cantidadEmpresa = filas[index].cantidadProveedor * value;
     filas = [...filas];
+  }
+
+  function actualizarCantidadProveedor(index: number, value: number) {
+    const v = value < 0 ? 0 : value;
+    filas[index].cantidadProveedor = v;
+    filas[index].cantidadEmpresa = v * filas[index].relacion;
+    filas = [...filas];
+  }
+
+  function eliminarFila(index: number) {
+    filas = filas.filter((_, j) => j !== index);
+  }
+
+  function focusEditarFila(index: number) {
+    if (browser) setTimeout(() => document.getElementById(`codigo-prov-${index}`)?.focus(), 0);
   }
 
   async function elegirArticulo(index: number, codigo: string) {
@@ -389,6 +437,7 @@
             <label for="providerIA" class="block text-sm font-medium text-slate-700 mb-1.5">Proveedor de IA</label>
             <select
               bind:value={providerIA}
+              on:change={guardarProviderIA}
               id="providerIA"
               class="w-full max-w-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
             >
@@ -429,6 +478,10 @@
               </div>
             {/if}
             <p class="mt-2 text-xs text-slate-500">Suba una foto o escaneo del remito para extraer los ítems.</p>
+            <p class="mt-3 text-sm text-slate-600">O bien:</p>
+            <Button variant="secondary" on:click={irADesdeJson} class="mt-1">
+              agregar texto manualmente
+            </Button>
           </div>
         </div>
       {/if}
@@ -436,21 +489,29 @@
       <!-- Paso 2: Extracción ok + opción ver/editar JSON -->
       {#if pasoActual === 2}
         <div class="p-6 space-y-6">
-          <div class="flex flex-wrap items-center gap-3">
-            <span class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 text-sm font-medium">
-              <span aria-hidden="true">✓</span> Extracción desde la imagen ok
-            </span>
-            <button
-              type="button"
-              class="text-sm text-blue-600 hover:underline font-medium"
-              on:click={() => (mostrarJsonParaEditar = !mostrarJsonParaEditar)}
-            >
-              {mostrarJsonParaEditar ? 'Ocultar JSON' : 'Ver/editar JSON'}
-            </button>
-          </div>
+          {#if entradaDesdeJson}
+            <div class="flex flex-wrap items-center gap-3">
+              <span class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm font-medium">
+                Agregue el JSON del remito a continuación
+              </span>
+            </div>
+          {:else}
+            <div class="flex flex-wrap items-center gap-3">
+              <span class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 text-sm font-medium">
+                <span aria-hidden="true">✓</span> Extracción desde la imagen ok
+              </span>
+              <button
+                type="button"
+                class="text-sm text-blue-600 hover:underline font-medium"
+                on:click={() => (mostrarJsonParaEditar = !mostrarJsonParaEditar)}
+              >
+                {mostrarJsonParaEditar ? 'Ocultar JSON' : 'Ver/editar JSON'}
+              </button>
+            </div>
+          {/if}
           {#if mostrarJsonParaEditar}
             <div>
-              <label for="texto" class="block text-sm font-medium text-slate-700 mb-1.5">JSON (solo para edición ocasional)</label>
+              <label for="texto" class="block text-sm font-medium text-slate-700 mb-1.5">JSON {entradaDesdeJson ? 'del remito' : '(solo para edición ocasional)'}</label>
               <textarea
                 id="texto"
                 bind:value={textoPegado}
@@ -460,7 +521,11 @@
             </div>
           {/if}
           <div class="flex flex-wrap gap-3">
-            <Button variant="secondary" on:click={() => (pasoActual = 1)}>Cambiar imagen</Button>
+            {#if entradaDesdeJson}
+              <Button variant="secondary" on:click={volverAPaso1}>Volver al paso 1</Button>
+            {:else}
+              <Button variant="secondary" on:click={() => (pasoActual = 1)}>Cambiar imagen</Button>
+            {/if}
             <Button variant="primary" on:click={armarTabla} disabled={loading}>
               Cargar tabla
             </Button>
@@ -468,9 +533,49 @@
         </div>
       {/if}
 
-      <!-- Paso 3: Tabla y crear movimiento -->
-      {#if pasoActual === 3 && filas.length > 0}
+      <!-- Paso 3: Tabla y crear movimiento (o skeleton mientras carga) -->
+      {#if pasoActual === 3 && (tablaCargando || filas.length > 0)}
         <div class="p-6 space-y-6">
+          {#if tablaCargando}
+            <!-- Skeleton del paso 3 -->
+            <div>
+              <div class="h-4 w-24 bg-slate-200 rounded animate-pulse mb-1.5"></div>
+              <div class="h-10 w-full bg-slate-200 rounded-lg animate-pulse"></div>
+            </div>
+            <div class="overflow-x-auto -mx-6 px-6">
+              <table class="min-w-full border border-slate-200 text-sm">
+                <thead class="bg-slate-50">
+                  <tr>
+                    <th class="px-3 py-2.5 text-left font-medium text-slate-600">Cód. prov.</th>
+                    <th class="px-3 py-2.5 text-left font-medium text-slate-600">Desc. prov.</th>
+                    <th class="px-3 py-2.5 text-right font-medium text-slate-600">Cant.</th>
+                    <th class="px-3 py-2.5 text-right font-medium text-slate-600">Rel.</th>
+                    <th class="px-3 py-2.5 text-left font-medium text-slate-600">Cód. artículo</th>
+                    <th class="px-3 py-2.5 text-left font-medium text-slate-600">Desc. artículo</th>
+                    <th class="px-3 py-2.5 text-right font-medium text-slate-600">Cant. empresa</th>
+                    <th class="px-3 py-2.5 text-center font-medium text-slate-600">Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each Array.from({ length: skeletonFilasCount }) as _, i}
+                    <tr class="border-b border-slate-100">
+                      <td class="px-3 py-2"><div class="h-8 w-16 bg-slate-200 rounded animate-pulse"></div></td>
+                      <td class="px-3 py-2"><div class="h-8 w-24 bg-slate-200 rounded animate-pulse"></div></td>
+                      <td class="px-3 py-2"><div class="h-8 w-12 bg-slate-200 rounded animate-pulse ml-auto"></div></td>
+                      <td class="px-3 py-2"><div class="h-8 w-14 bg-slate-200 rounded animate-pulse ml-auto"></div></td>
+                      <td class="px-3 py-2"><div class="h-8 w-20 bg-slate-200 rounded animate-pulse"></div></td>
+                      <td class="px-3 py-2"><div class="h-8 w-32 bg-slate-200 rounded animate-pulse"></div></td>
+                      <td class="px-3 py-2"><div class="h-8 w-12 bg-slate-200 rounded animate-pulse ml-auto"></div></td>
+                      <td class="px-3 py-2"><div class="flex justify-center gap-1"><div class="h-7 w-7 bg-slate-200 rounded animate-pulse"></div><div class="h-7 w-7 bg-slate-200 rounded animate-pulse"></div><div class="h-7 w-7 bg-slate-200 rounded animate-pulse"></div></div></td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+            <div class="flex justify-end pt-2">
+              <div class="h-10 w-48 bg-slate-200 rounded animate-pulse"></div>
+            </div>
+          {:else}
           <div>
             <label for="observacion" class="block text-sm font-medium text-slate-700 mb-1.5">Observación (opcional)</label>
             <input
@@ -498,9 +603,25 @@
               <tbody>
                 {#each filas as fila, i}
                   <tr class="border-b border-slate-100 hover:bg-slate-50/50">
-                    <td class="px-3 py-2 text-slate-800">{fila.codigoProveedor}</td>
-                    <td class="px-3 py-2 text-slate-800">{fila.descripcionProveedor}</td>
-                    <td class="px-3 py-2 text-right">{fila.cantidadProveedor}</td>
+                    <td class="px-3 py-2">
+                      <input
+                        id="codigo-prov-{i}"
+                        type="text"
+                        bind:value={fila.codigoProveedor}
+                        class="w-full min-w-[5rem] px-2 py-1.5 border border-slate-300 rounded text-slate-800"
+                      />
+                    </td>
+                    <td class="px-3 py-2 text-slate-800">{fila.descripcionProveedor || '—'}</td>
+                    <td class="px-3 py-2">
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={fila.cantidadProveedor}
+                        on:input={(e) => actualizarCantidadProveedor(i, parseFloat(e.currentTarget.value) || 0)}
+                        class="w-20 px-2 py-1.5 border border-slate-300 rounded text-right"
+                      />
+                    </td>
                     <td class="px-3 py-2">
                       <input
                         type="number"
@@ -522,15 +643,34 @@
                     </td>
                     <td class="px-3 py-2 text-slate-700">{fila.descripcionArticuloEmpresa || '—'}</td>
                     <td class="px-3 py-2 text-right">{fila.cantidadEmpresa.toFixed(2)}</td>
-                    <td class="px-3 py-2 text-center">
-                      <button
-                        type="button"
-                        class="text-blue-600 hover:underline text-sm font-medium"
-                        on:click={() => guardarRelacion(i)}
-                        disabled={loading}
-                      >
-                        {fila.relacionGuardada ? '✓ Guardada' : 'Guardar relación'}
-                      </button>
+                    <td class="px-3 py-2">
+                      <div class="flex items-center justify-center gap-1">
+                        <button
+                          type="button"
+                          class="p-1.5 rounded {fila.relacionGuardada ? 'text-green-600 bg-green-50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}"
+                          on:click={() => guardarRelacion(i)}
+                          disabled={loading}
+                          title={fila.relacionGuardada ? 'Relación guardada' : 'Guardar relación'}
+                        >
+                          <Check size={18} class={fila.relacionGuardada ? 'text-green-600 stroke-[3]' : 'text-slate-400'} />
+                        </button>
+                        <button
+                          type="button"
+                          class="p-1.5 rounded text-slate-500 hover:text-blue-600 hover:bg-blue-50"
+                          on:click={() => focusEditarFila(i)}
+                          title="Editar línea"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          class="p-1.5 rounded text-slate-500 hover:text-red-600 hover:bg-red-50"
+                          on:click={() => eliminarFila(i)}
+                          title="Eliminar línea"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 {/each}
@@ -542,6 +682,7 @@
               {loading ? 'Creando…' : 'Crear movimiento de ingreso'}
             </Button>
           </div>
+          {/if}
         </div>
       {/if}
     </main>

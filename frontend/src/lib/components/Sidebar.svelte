@@ -199,7 +199,12 @@
       label: 'Compras',
       icon: 'compras',
       submenus: [
-        { label: 'Proveedores', url: '/compras/proveedores', icon: 'proveedores' }
+        { label: 'Proveedores', url: '/compras/proveedores', icon: 'proveedores' },
+        { label: 'Facturas de compra', url: '/compras/facturas', icon: 'facturas' },
+        { label: 'Comprobantes de pago (recibos)', url: '/compras/recibos', icon: 'recibos' },
+        { label: 'Notas de Crédito', url: '/compras/notascredito', icon: 'notascredito' },
+        { label: 'Notas de Débito', url: '/compras/notasdebito', icon: 'notasdebito' },
+        { label: 'Cuentas Corrientes', url: '/compras/cuentascorrientes', icon: 'cuentascorrientes' }
       ]
     },
     {

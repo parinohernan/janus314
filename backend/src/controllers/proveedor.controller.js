@@ -1,4 +1,5 @@
 const { Op } = require("sequelize");
+const sequelize = require("sequelize");
 
 // Obtener todos los proveedores (con filtros y paginación)
 exports.getAllProveedores = async (req, res) => {
@@ -59,6 +60,211 @@ exports.getAllProveedores = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Error al obtener los proveedores" });
+  }
+};
+
+// Obtener cuentas corrientes de proveedores (listado con saldo)
+exports.getCuentasCorrientes = async (req, res) => {
+  try {
+    const { Proveedor } = req.models;
+    const {
+      page = 1,
+      limit = 10,
+      search = "",
+      field = "Descripcion",
+      order = "ASC",
+    } = req.query;
+
+    const offset = (page - 1) * limit;
+    const whereClause = {};
+    if (search) {
+      whereClause[Op.or] = [
+        { Codigo: { [Op.like]: `%${search}%` } },
+        { Descripcion: { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    const validFields = ["Codigo", "Descripcion", "Saldo"];
+    const sortField = validFields.includes(field) ? field : "Descripcion";
+    const sortOrder = order === "DESC" ? "DESC" : "ASC";
+
+    const proveedores = await Proveedor.findAll({
+      where: whereClause,
+      order: [[sortField, sortOrder]],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      attributes: [
+        "Codigo",
+        "Descripcion",
+        [sequelize.literal("COALESCE(ImporteDeuda, 0) - COALESCE(SaldoNTCNoAplicado, 0)"), "Saldo"],
+      ],
+    });
+
+    const total = await Proveedor.count({ where: whereClause });
+
+    return res.status(200).json({
+      items: proveedores,
+      meta: {
+        totalItems: total,
+        itemsPerPage: parseInt(limit),
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error al obtener cuentas corrientes de proveedores:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error al obtener las cuentas corrientes",
+      error: error.message,
+    });
+  }
+};
+
+// Obtener comprobantes de un proveedor (para detalle de cuenta corriente)
+exports.getComprobantesProveedor = async (req, res) => {
+  try {
+    const {
+      Proveedor,
+      ComprasCabeza,
+      ProveedoresNotaCreditoCabeza,
+      ProveedoresNotaDebitoCabeza,
+      ProveedoresReciboCabeza,
+    } = req.models;
+    const { id } = req.params;
+    const { page = 1, limit = 50 } = req.query;
+
+    const proveedor = await Proveedor.findByPk(id);
+    if (!proveedor) {
+      return res.status(404).json({ message: "Proveedor no encontrado" });
+    }
+
+    let comprobantes = [];
+
+    const compras = await ComprasCabeza.findAll({
+      where: { ProveedorCodigo: id, FechaAnulacion: null },
+      attributes: [
+        "Fecha",
+        "DocumentoTipo",
+        "DocumentoSucursal",
+        "DocumentoNumero",
+        "ImporteTotal",
+        "ImportePagado",
+      ],
+      order: [["Fecha", "DESC"]],
+      raw: true,
+    });
+    comprobantes = comprobantes.concat(
+      compras.map((c) => ({
+        Fecha: c.Fecha,
+        Detalle: `${c.DocumentoTipo} - ${c.DocumentoSucursal} - ${c.DocumentoNumero}`,
+        Debitos: c.ImporteTotal,
+        Creditos: c.ImportePagado || 0,
+        Saldo: (c.ImporteTotal || 0) - (c.ImportePagado || 0),
+        TipoComprobante: "COM",
+      }))
+    );
+
+    const notasCredito = await ProveedoresNotaCreditoCabeza.findAll({
+      where: { CodigoProveedor: id, FechaAnulacion: null },
+      attributes: [
+        "Fecha",
+        "DocumentoTipo",
+        "DocumentoSucursal",
+        "DocumentoNumero",
+        "ImporteTotal",
+        "ImporteUtilizado",
+      ],
+      order: [["Fecha", "DESC"]],
+      raw: true,
+    });
+    comprobantes = comprobantes.concat(
+      notasCredito.map((n) => ({
+        Fecha: n.Fecha,
+        Detalle: `${n.DocumentoTipo} - ${n.DocumentoSucursal} - ${n.DocumentoNumero}`,
+        Debitos: n.ImporteUtilizado || 0,
+        Creditos: n.ImporteTotal,
+        Saldo: -(n.ImporteTotal || 0) + (n.ImporteUtilizado || 0),
+        TipoComprobante: "NC",
+      }))
+    );
+
+    const notasDebito = await ProveedoresNotaDebitoCabeza.findAll({
+      where: { ProveedorCodigo: id, FechaAnulacion: null },
+      attributes: [
+        "Fecha",
+        "DocumentoTipo",
+        "DocumentoSucursal",
+        "DocumentoNumero",
+        "ImporteTotal",
+        "ImportePagado",
+      ],
+      order: [["Fecha", "DESC"]],
+      raw: true,
+    });
+    comprobantes = comprobantes.concat(
+      notasDebito.map((n) => ({
+        Fecha: n.Fecha,
+        Detalle: `${n.DocumentoTipo} - ${n.DocumentoSucursal} - ${n.DocumentoNumero}`,
+        Debitos: n.ImporteTotal || 0,
+        Creditos: n.ImportePagado || 0,
+        Saldo: (n.ImporteTotal || 0) - (n.ImportePagado || 0),
+        TipoComprobante: "ND",
+      }))
+    );
+
+    const recibos = await ProveedoresReciboCabeza.findAll({
+      where: { ProveedorCodigo: id, FechaAnulacion: null },
+      attributes: [
+        "Fecha",
+        "DocumentoTipo",
+        "DocumentoSucursal",
+        "DocumentoNumero",
+        "ImporteTotal",
+      ],
+      order: [["Fecha", "DESC"]],
+      raw: true,
+    });
+    comprobantes = comprobantes.concat(
+      recibos.map((r) => ({
+        Fecha: r.Fecha,
+        Detalle: `${r.DocumentoTipo} - ${r.DocumentoSucursal} - ${r.DocumentoNumero}`,
+        Debitos: 0,
+        Creditos: r.ImporteTotal,
+        Saldo: -(r.ImporteTotal || 0),
+        TipoComprobante: "REC",
+      }))
+    );
+
+    comprobantes.sort((a, b) => new Date(b.Fecha) - new Date(a.Fecha));
+
+    let saldoAcumulado = 0;
+    for (let i = comprobantes.length - 1; i >= 0; i--) {
+      saldoAcumulado += comprobantes[i].Saldo;
+      comprobantes[i].Saldo = saldoAcumulado;
+    }
+
+    const totalItems = comprobantes.length;
+    const totalPages = Math.ceil(totalItems / limit);
+    const offset = (page - 1) * limit;
+    const paginatedComprobantes = comprobantes.slice(offset, offset + parseInt(limit));
+
+    return res.status(200).json({
+      items: paginatedComprobantes,
+      meta: {
+        totalItems,
+        itemsPerPage: parseInt(limit),
+        currentPage: parseInt(page),
+        totalPages,
+      },
+    });
+  } catch (error) {
+    console.error("Error al obtener comprobantes del proveedor:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error al obtener los comprobantes",
+      error: error.message,
+    });
   }
 };
 

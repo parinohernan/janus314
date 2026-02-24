@@ -161,6 +161,47 @@ export class NotaCreditoService {
 	}
 
 	/**
+	 * Crea una nota de crédito RÁPIDA (tipo NCF) desde una preventa (devolución).
+	 * Comprobante asociado = el mismo número de la NC.
+	 */
+	public static async crearNotaCreditoRapidaDesdePreventa(
+		preventaTipo: string,
+		preventaSucursal: string,
+		preventaNumero: string,
+		formaPagoCodigo: string = 'CC'
+	): Promise<{ success: boolean; data?: any; error?: string }> {
+		try {
+			const response = await fetchWithAuth('/notascredito/rapida-from-preventa', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					preventaTipo,
+					preventaSucursal,
+					preventaNumero,
+					FormaPagoCodigo: formaPagoCodigo
+				})
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				return {
+					success: false,
+					error: errorData.message || 'Error al crear la nota de crédito rápida'
+				};
+			}
+
+			const data = await response.json();
+			return { success: true, data: data.data };
+		} catch (error) {
+			console.error('Error al crear nota de crédito rápida:', error);
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : 'Error desconocido'
+			};
+		}
+	}
+
+	/**
 	 * Anula una nota de crédito existente
 	 */
 	public static async anularNotaCredito(

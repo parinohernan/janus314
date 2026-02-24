@@ -304,6 +304,190 @@ exports.obtenerNotaCredito = async (req, res) => {
   }
 };
 
+/**
+ * Crea una nota de crédito RÁPIDA (tipo NCF) desde una preventa (devolución).
+ * Comprobante asociado = el mismo número de la NC (si mismo).
+ */
+exports.crearNotaCreditoRapidaDesdePreventa = async (req, res) => {
+  try {
+    const { preventaTipo, preventaSucursal, preventaNumero, FormaPagoCodigo } = req.body;
+    if (!preventaTipo || !preventaSucursal || !preventaNumero) {
+      return res.status(400).json({
+        success: false,
+        message: "Faltan datos de la preventa (preventaTipo, preventaSucursal, preventaNumero)",
+      });
+    }
+
+    const { PreventaCabeza, PreventaItem, Cliente, Articulo, DatosEmpresa } = req.models;
+    const dbConnection = req.dbConnection;
+
+    // Obtener sucursal de la empresa
+    const datosEmpresa = await DatosEmpresa.findOne({ raw: true });
+    const sucursal = (datosEmpresa && datosEmpresa.Sucursal) ? String(datosEmpresa.Sucursal).trim() : "0001";
+    const sucursalPadded = sucursal.padStart(4, "0");
+
+    // Cargar preventa (cabeza + items)
+    const preventaCabeza = await PreventaCabeza.findOne({
+      where: {
+        DocumentoTipo: preventaTipo,
+        DocumentoSucursal: preventaSucursal,
+        DocumentoNumero: preventaNumero,
+      },
+      include: [{ model: Cliente, attributes: ["Codigo", "Descripcion", "CategoriaIva"] }],
+    });
+
+    if (!preventaCabeza) {
+      return res.status(404).json({
+        success: false,
+        message: "Preventa no encontrada",
+      });
+    }
+
+    if (preventaCabeza.FechaAnulacion) {
+      return res.status(400).json({
+        success: false,
+        message: "No se puede generar NC rápida desde una preventa anulada",
+      });
+    }
+
+    const preventaItems = await PreventaItem.findAll({
+      where: {
+        DocumentoTipo: preventaTipo,
+        DocumentoSucursal: preventaSucursal,
+        DocumentoNumero: preventaNumero,
+      },
+      include: [{ model: Articulo, attributes: ["Codigo", "Descripcion"] }],
+    });
+
+    if (!preventaItems || preventaItems.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "La preventa no tiene ítems",
+      });
+    }
+
+    const cabeza = preventaCabeza.get ? preventaCabeza.get({ plain: true }) : preventaCabeza;
+    const cliente = cabeza.Cliente || {};
+
+    // Mapear ítems preventa -> ítems nota de crédito (con campos que espera el servicio/validador)
+    let importeBruto = 0;
+    let baseImponible1 = 0;
+    let baseImponible2 = 0;
+    const Items = preventaItems.map((pi) => {
+      const plain = pi.get ? pi.get({ plain: true }) : pi;
+      const articulo = plain.Articulo || {};
+      const cantidad = parseFloat(plain.Cantidad) || 0;
+      const precioUnitario = parseFloat(plain.PrecioUnitario) || 0;
+      // IVA: la tabla t_articulos puede no tener PorcentajeIva; usar 21 por defecto
+      const porcIva = (articulo.PorcentajeIva != null && articulo.PorcentajeIva !== undefined)
+        ? parseFloat(articulo.PorcentajeIva)
+        : 21;
+      const subtotal = cantidad * precioUnitario;
+      importeBruto += subtotal;
+      if (porcIva === 21) baseImponible1 += subtotal;
+      else if (porcIva === 10.5) baseImponible2 += subtotal;
+      return {
+        CodigoArticulo: plain.CodigoArticulo,
+        Descripcion: articulo.Descripcion || "",
+        Cantidad: cantidad,
+        PrecioUnitario: precioUnitario,
+        PorcentajeIva: porcIva,
+        PorcentajeBonificacion: parseFloat(plain.PorcentajeBonificacion) || 0,
+        // No enviar DocummentoLiq*: la tabla notacreditoitems no tiene esas columnas (igual que notas de crédito comunes)
+      };
+    });
+
+    const importeIva1 = baseImponible1 * 0.21;
+    const importeIva2 = baseImponible2 * 0.105;
+    const importeTotal = importeBruto + importeIva1 + importeIva2;
+    const hoy = new Date().toISOString().slice(0, 10);
+
+    const notaCreditoData = {
+      DocumentoTipo: "NCF",
+      DocumentoSucursal: sucursalPadded,
+      DocumentoNumero: "", // lo asigna el servicio
+      Fecha: hoy,
+      CodigoCliente: cabeza.ClienteCodigo,
+      Cliente: { Codigo: cliente.Codigo, Descripcion: cliente.Descripcion, CategoriaIva: cliente.CategoriaIva },
+      ListaNumero: String(cabeza.ListaNumero || "1"),
+      ImporteBruto: importeBruto,
+      ImporteBonificado: 0,
+      ImporteNeto: importeBruto,
+      ImporteIva1: importeIva1,
+      ImporteIva2: importeIva2,
+      BaseImponible1: baseImponible1,
+      BaseImponible2: baseImponible2,
+      PorcentajeIva1: 21,
+      PorcentajeIva2: 10.5,
+      ImporteTotal: importeTotal,
+      ImporteUtilizado: 0,
+      Observacion: (cabeza.Observacion || "") + (cabeza.Observacion ? " " : "") + `[NC rápida desde ${preventaTipo}-${preventaSucursal}-${preventaNumero}]`,
+      PorStock: true,
+      Items,
+      FormaPagoCodigo: FormaPagoCodigo || "CC",
+      CodigoVendedor: cabeza.VendedorCodigo || "1",
+      // No enviar FacturaReferencia; después actualizamos factura_* al mismo comprobante
+    };
+
+    const notaCreditoCreada = await NotaCreditoService.crearNotaCredito(notaCreditoData, dbConnection);
+
+    // Comprobante asociado = el mismo número (si mismo)
+    const NotaCreditoCabezaEmpresa = require("../models/notaCreditoCabeza.model");
+    NotaCreditoCabezaEmpresa.init(NotaCreditoCabezaEmpresa.getAttributes(), {
+      sequelize: dbConnection,
+      tableName: "notacreditocabeza",
+      timestamps: false,
+    });
+    await NotaCreditoCabezaEmpresa.update(
+      {
+        factura_tipo: "NCF",
+        factura_sucursal: notaCreditoCreada.DocumentoSucursal,
+        factura_numero: notaCreditoCreada.DocumentoNumero,
+      },
+      {
+        where: {
+          DocumentoTipo: "NCF",
+          DocumentoSucursal: notaCreditoCreada.DocumentoSucursal,
+          DocumentoNumero: notaCreditoCreada.DocumentoNumero,
+        },
+      }
+    );
+
+    // Marcar la preventa para que no siga pendiente (usada para devolución)
+    await PreventaCabeza.update(
+      {
+        FacturaTipo: "NCF",
+        FacturaSucursal: notaCreditoCreada.DocumentoSucursal,
+        FacturaNumero: notaCreditoCreada.DocumentoNumero,
+      },
+      {
+        where: {
+          DocumentoTipo: preventaTipo,
+          DocumentoSucursal: preventaSucursal,
+          DocumentoNumero: preventaNumero,
+        },
+      }
+    );
+
+    res.json({
+      success: true,
+      data: {
+        ...notaCreditoCreada,
+        factura_tipo: "NCF",
+        factura_sucursal: notaCreditoCreada.DocumentoSucursal,
+        factura_numero: notaCreditoCreada.DocumentoNumero,
+      },
+    });
+  } catch (error) {
+    console.error("Error al crear nota de crédito rápida desde preventa:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al crear nota de crédito rápida",
+      error: error.message,
+    });
+  }
+};
+
 // Crear nueva nota de crédito
 exports.crearNotaCredito = async (req, res) => {
   try {

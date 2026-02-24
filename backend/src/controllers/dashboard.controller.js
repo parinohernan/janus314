@@ -8,10 +8,11 @@ exports.getEstadoVendedores = async (req, res) => {
   try {
     const { PreventaCabeza, Vendedor, Cliente } = req.models;
 
-    // Obtener todos los vendedores activos
+    // Obtener solo vendedores activos con permisos = "vendor"
     const vendedores = await Vendedor.findAll({
       where: {
-        Activo: true
+        Activo: true,
+        Permisos: 'vendor'
       },
       order: [['Descripcion', 'ASC']]
     });
