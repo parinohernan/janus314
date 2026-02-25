@@ -5,7 +5,7 @@
   import { goto } from '$app/navigation';
   import { getTodayISOArgentina } from '$lib/utils/dateUtils';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
-  import { Check, Pencil, X } from 'lucide-svelte';
+  import { Check, CheckCircle2, Pencil, X } from 'lucide-svelte';
 
   const STORAGE_KEY_PROVIDER_IA = 'janus314_ingreso_remito_provider_ia';
 
@@ -47,6 +47,7 @@
     Observacion: 'ING - automatico'
   };
   let loading = false;
+  let savingRelacionRow: number | null = null;
   let error: string | null = null;
   let successMessage: string | null = null;
   let articulosCache: Map<string, { Codigo: string; Descripcion: string }> = new Map();
@@ -66,7 +67,19 @@
     Codigo: string;
     Descripcion: string;
   }
-  let proveedores: ProveedorOption[] = [];
+  let proveedoresOptions: ProveedorOption[] = [];
+  let proveedoresLoading = false;
+  let proveedorSearch = '';
+  let proveedorLabel = ''; // "Codigo – Descripcion" cuando hay uno seleccionado
+  let timeoutProveedor: ReturnType<typeof setTimeout> | null = null;
+
+  // Selector de artículo por fila (paso 3): búsqueda solo proveedor o todos
+  let buscarSoloProveedor = true;
+  let focusedArticuloRow: number | null = null;
+  let articuloSearchByRow: Record<number, string> = {};
+  let articuloOptions: { Codigo: string; Descripcion: string }[] = [];
+  let articuloLoading = false;
+  let timeoutArticulo: ReturnType<typeof setTimeout> | null = null;
 
   onMount(async () => {
     if (browser) {
@@ -78,18 +91,123 @@
       if (!res.ok) throw new Error('Error al cargar datos de la empresa');
       const { data } = await res.json();
       if (data?.Sucursal) documento.DocumentoSucursal = data.Sucursal;
-
-      const resProv = await fetchWithAuth('/proveedores', {
-        params: { limit: 500, page: 1 }
-      });
-      if (resProv.ok) {
-        const dataProv = await resProv.json();
-        proveedores = dataProv.items || [];
-      }
     } catch (err) {
       error = err instanceof Error ? err.message : 'Error desconocido';
     }
   });
+
+  async function buscarProveedores(q: string) {
+    if (timeoutProveedor) clearTimeout(timeoutProveedor);
+    if (!q || q.trim().length < 2) {
+      proveedoresOptions = [];
+      return;
+    }
+    proveedoresLoading = true;
+    timeoutProveedor = setTimeout(async () => {
+      try {
+        const res = await fetchWithAuth('/proveedores', {
+          params: { search: q.trim(), limit: 15 }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        proveedoresOptions = data.items || [];
+      } catch (_) {
+        proveedoresOptions = [];
+      } finally {
+        proveedoresLoading = false;
+      }
+    }, 300);
+  }
+
+  function seleccionarProveedor(p: ProveedorOption) {
+    proveedorCodigo = p.Codigo;
+    proveedorLabel = `${p.Codigo} – ${p.Descripcion}`;
+    proveedorSearch = proveedorLabel;
+    proveedoresOptions = [];
+  }
+
+  function onProveedorInput() {
+    if (proveedorLabel && proveedorSearch.trim() !== proveedorLabel) {
+      proveedorCodigo = '';
+      proveedorLabel = '';
+    }
+    buscarProveedores(proveedorSearch);
+  }
+
+  async function buscarArticulosParaFila(q: string) {
+    if (timeoutArticulo) clearTimeout(timeoutArticulo);
+    if (!q || q.trim().length < 2) {
+      articuloOptions = [];
+      return;
+    }
+    articuloLoading = true;
+    timeoutArticulo = setTimeout(async () => {
+      try {
+        const params: Record<string, string | number> = { search: q.trim(), limit: 15 };
+        if (buscarSoloProveedor && proveedorCodigo.trim()) {
+          params.proveedor = proveedorCodigo.trim();
+        }
+        const res = await fetchWithAuth('/articulos', { params });
+        if (!res.ok) return;
+        const data = await res.json();
+        articuloOptions = (data.items || []).map((a: { Codigo: string; Descripcion: string }) => ({
+          Codigo: a.Codigo,
+          Descripcion: a.Descripcion
+        }));
+      } catch (_) {
+        articuloOptions = [];
+      } finally {
+        articuloLoading = false;
+      }
+    }, 300);
+  }
+
+  function seleccionarArticuloFila(rowIndex: number, art: { Codigo: string; Descripcion: string }) {
+    filas[rowIndex].codigoArticuloEmpresa = art.Codigo;
+    filas[rowIndex].descripcionArticuloEmpresa = art.Descripcion;
+    filas[rowIndex].cantidadEmpresa = filas[rowIndex].cantidadProveedor * filas[rowIndex].relacion;
+    filas[rowIndex].relacionGuardada = false;
+    filas = [...filas];
+    focusedArticuloRow = null;
+    articuloOptions = [];
+    delete articuloSearchByRow[rowIndex];
+    articuloSearchByRow = articuloSearchByRow;
+    error = null;
+  }
+
+  function onArticuloFocus(rowIndex: number) {
+    focusedArticuloRow = rowIndex;
+    const term = articuloSearchByRow[rowIndex] ?? filas[rowIndex].codigoArticuloEmpresa;
+    articuloSearchByRow = { ...articuloSearchByRow, [rowIndex]: term };
+    if (term && term.trim().length >= 2) buscarArticulosParaFila(term.trim());
+    else articuloOptions = [];
+  }
+
+  function onArticuloBlur(rowIndex: number) {
+    if (!browser) return;
+    const term = articuloSearchByRow[rowIndex]?.trim();
+    const blurredRow = rowIndex;
+    setTimeout(() => {
+      // Solo cerrar si nadie más tomó el foco (ej. otra fila); así no se cierra al pasar de fila 1 a fila 2
+      if (focusedArticuloRow === blurredRow) {
+        focusedArticuloRow = null;
+        articuloOptions = [];
+        if (term && term !== filas[blurredRow]?.codigoArticuloEmpresa) {
+          elegirArticulo(blurredRow, term);
+        }
+      }
+    }, 150);
+  }
+
+  function onArticuloInput(rowIndex: number, value: string) {
+    articuloSearchByRow = { ...articuloSearchByRow, [rowIndex]: value };
+    buscarArticulosParaFila(value);
+  }
+
+  function getArticuloInputValue(rowIndex: number, fila: FilaTabla): string {
+    if (focusedArticuloRow === rowIndex) return articuloSearchByRow[rowIndex] ?? fila.codigoArticuloEmpresa;
+    return fila.codigoArticuloEmpresa;
+  }
 
   function guardarProviderIA() {
     if (browser) localStorage.setItem(STORAGE_KEY_PROVIDER_IA, providerIA);
@@ -295,17 +413,22 @@
     filas[index].codigoArticuloEmpresa = art.Codigo;
     filas[index].descripcionArticuloEmpresa = art.Descripcion;
     filas[index].cantidadEmpresa = filas[index].cantidadProveedor * filas[index].relacion;
+    filas[index].relacionGuardada = false;
     filas = [...filas];
     error = null;
   }
 
   async function guardarRelacion(index: number) {
     const f = filas[index];
-    if (!proveedorCodigo.trim() || !f.codigoProveedor || !f.codigoArticuloEmpresa) {
-      error = 'Complete código proveedor, código artículo proveedor y código artículo empresa.';
+    if (!proveedorCodigo.trim()) {
+      error = 'Falta el proveedor del remito. Vaya al paso 1 (botón «Cambiar imagen») y seleccione el proveedor antes de guardar relaciones.';
       return;
     }
-    loading = true;
+    if (!f.codigoProveedor || !f.codigoArticuloEmpresa) {
+      error = 'Complete en esta fila: código artículo del proveedor y artículo de la empresa.';
+      return;
+    }
+    savingRelacionRow = index;
     error = null;
     try {
       const res = await fetchWithAuth('/relaciones-articulo-proveedor', {
@@ -319,14 +442,17 @@
           DescripcionProveedor: f.descripcionProveedor || null
         })
       });
-      if (!res.ok) throw new Error('Error al guardar la relación');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || 'Error al guardar la relación');
+      }
       filas[index].relacionGuardada = true;
       filas = [...filas];
       await cargarRelaciones();
     } catch (err) {
       error = err instanceof Error ? err.message : 'Error al guardar relación';
     } finally {
-      loading = false;
+      savingRelacionRow = null;
     }
   }
 
@@ -409,18 +535,43 @@
       {#if pasoActual === 1}
         <div class="p-6 space-y-6">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label for="proveedor" class="block text-sm font-medium text-slate-700 mb-1.5">Proveedor *</label>
-              <select
-                id="proveedor"
-                bind:value={proveedorCodigo}
-                class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-              >
-                <option value="">Seleccione un proveedor</option>
-                {#each proveedores as p}
-                  <option value={p.Codigo}>{p.Codigo} – {p.Descripcion}</option>
-                {/each}
-              </select>
+            <div class="relative">
+              <label for="proveedor-search" class="block text-sm font-medium text-slate-700 mb-1.5">Proveedor *</label>
+              <div class="relative">
+                <input
+                  id="proveedor-search"
+                  type="text"
+                  bind:value={proveedorSearch}
+                  on:input={onProveedorInput}
+                  placeholder="Buscar por código o descripción (mín. 2 caracteres)..."
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white pr-10"
+                  autocomplete="off"
+                />
+                {#if proveedoresLoading}
+                  <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <svg class="animate-spin h-5 w-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  </div>
+                {/if}
+              </div>
+              {#if proveedoresOptions.length > 0}
+                <div class="absolute z-10 mt-1 w-full bg-white border border-slate-300 shadow-lg rounded-lg max-h-60 overflow-auto" role="listbox">
+                  {#each proveedoresOptions as p (p.Codigo)}
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={p.Codigo === proveedorCodigo}
+                      class="block w-full text-left px-4 py-2.5 hover:bg-slate-100 text-sm border-b border-slate-100 last:border-b-0 first:rounded-t-lg last:rounded-b-lg"
+                      on:click={() => seleccionarProveedor(p)}
+                    >
+                      <span class="font-medium text-slate-800">{p.Descripcion}</span>
+                      <span class="text-slate-500 ml-1">({p.Codigo})</span>
+                    </button>
+                  {/each}
+                </div>
+              {/if}
             </div>
             <div>
               <label for="fecha" class="block text-sm font-medium text-slate-700 mb-1.5">Fecha</label>
@@ -576,6 +727,27 @@
               <div class="h-10 w-48 bg-slate-200 rounded animate-pulse"></div>
             </div>
           {:else}
+          <div class="flex flex-wrap items-center gap-4 mb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium text-slate-600">Proveedor del remito (paso 1):</span>
+              {#if proveedorCodigo && proveedorLabel}
+                <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-slate-100 text-slate-800 text-sm">
+                  {proveedorLabel}
+                </span>
+              {:else}
+                <span class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-amber-50 text-amber-800 text-sm border border-amber-200">
+                  No seleccionado
+                </span>
+                <button
+                  type="button"
+                  class="text-sm text-blue-600 hover:underline font-medium"
+                  on:click={() => (pasoActual = 1)}
+                >
+                  Ir al paso 1 para seleccionar
+                </button>
+              {/if}
+            </div>
+          </div>
           <div>
             <label for="observacion" class="block text-sm font-medium text-slate-700 mb-1.5">Observación (opcional)</label>
             <input
@@ -585,6 +757,17 @@
               placeholder="Ej: Remito 123"
               class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
+          </div>
+          <div class="flex items-center gap-2">
+            <input
+              id="buscar-solo-proveedor"
+              type="checkbox"
+              bind:checked={buscarSoloProveedor}
+              class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label for="buscar-solo-proveedor" class="text-sm text-slate-700">
+              Buscar solo artículos del proveedor seleccionado
+            </label>
           </div>
           <div class="overflow-x-auto -mx-6 px-6">
             <table class="min-w-full border border-slate-200 text-sm">
@@ -632,14 +815,51 @@
                         class="w-20 px-2 py-1.5 border border-slate-300 rounded text-right"
                       />
                     </td>
-                    <td class="px-3 py-2">
-                      <input
-                        type="text"
-                        bind:value={fila.codigoArticuloEmpresa}
-                        on:blur={() => elegirArticulo(i, fila.codigoArticuloEmpresa)}
-                        placeholder="Código"
-                        class="w-28 px-2 py-1.5 border border-slate-300 rounded"
-                      />
+                    <td class="px-3 py-2 align-top">
+                      <div class="relative min-w-[10rem]">
+                        <input
+                          type="text"
+                          value={getArticuloInputValue(i, fila)}
+                          on:input={(e) => onArticuloInput(i, e.currentTarget.value)}
+                          on:focus={() => onArticuloFocus(i)}
+                          on:blur={() => onArticuloBlur(i)}
+                          placeholder="Buscar artículo..."
+                          class="w-full min-w-[8rem] px-2 py-1.5 border border-slate-300 rounded pr-6"
+                          autocomplete="off"
+                        />
+                        {#if articuloLoading && focusedArticuloRow === i}
+                          <div class="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                            <svg class="animate-spin h-4 w-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                          </div>
+                        {/if}
+                        {#if focusedArticuloRow === i && (articuloOptions.length > 0 || articuloLoading)}
+                          <div
+                            class="absolute z-20 left-0 right-0 mt-0.5 bg-white border border-slate-300 shadow-lg rounded-lg max-h-48 overflow-auto"
+                            role="listbox"
+                          >
+                            {#if articuloLoading && articuloOptions.length === 0}
+                              <div class="px-3 py-2 text-sm text-slate-500">Buscando...</div>
+                            {:else}
+                              {#each articuloOptions as art (art.Codigo)}
+                                <button
+                                  type="button"
+                                  role="option"
+                                  aria-selected={fila.codigoArticuloEmpresa === art.Codigo}
+                                  class="block w-full text-left px-3 py-2 hover:bg-slate-100 text-sm border-b border-slate-100 last:border-b-0 first:rounded-t-lg last:rounded-b-lg"
+                                  on:mousedown|preventDefault
+                                  on:click={() => seleccionarArticuloFila(i, art)}
+                                >
+                                  <span class="font-medium text-slate-800">{art.Descripcion}</span>
+                                  <span class="text-slate-500 ml-1">({art.Codigo})</span>
+                                </button>
+                              {/each}
+                            {/if}
+                          </div>
+                        {/if}
+                      </div>
                     </td>
                     <td class="px-3 py-2 text-slate-700">{fila.descripcionArticuloEmpresa || '—'}</td>
                     <td class="px-3 py-2 text-right">{fila.cantidadEmpresa.toFixed(2)}</td>
@@ -647,12 +867,20 @@
                       <div class="flex items-center justify-center gap-1">
                         <button
                           type="button"
-                          class="p-1.5 rounded {fila.relacionGuardada ? 'text-green-600 bg-green-50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}"
+                          class="p-1.5 rounded flex items-center gap-1 {fila.relacionGuardada ? 'text-green-600 bg-green-100' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}"
                           on:click={() => guardarRelacion(i)}
-                          disabled={loading}
-                          title={fila.relacionGuardada ? 'Relación guardada' : 'Guardar relación'}
+                          disabled={savingRelacionRow !== null}
+                          title={fila.relacionGuardada ? 'Guardado. Clic para regrabar y reemplazar' : 'Guardar relación en la tabla'}
                         >
-                          <Check size={18} class={fila.relacionGuardada ? 'text-green-600 stroke-[3]' : 'text-slate-400'} />
+                          {#if savingRelacionRow === i}
+                            <span class="text-xs text-slate-500">Guardando…</span>
+                          {:else if fila.relacionGuardada}
+                            <CheckCircle2 size={18} class="text-green-600 shrink-0" />
+                            <span class="text-xs font-medium text-green-700">Guardado</span>
+                          {:else}
+                            <Check size={18} class="text-slate-400 shrink-0" />
+                            <span class="text-xs">Guardar</span>
+                          {/if}
                         </button>
                         <button
                           type="button"
