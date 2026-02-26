@@ -38,6 +38,7 @@ router.post("/asociar-codigo", articuloController.asociarCodigoBarras);
 router.post("/actualizar-precios", articuloController.actualizarPrecios);
 router.post("/actualizar-precios-lista", articuloController.actualizarPreciosLista);
 router.post("/listado-precios-pdf", articuloController.generarListadoPreciosPDF);
+router.post("/resumen-existencia-pdf", articuloController.generarResumenExistenciaPDF);
 router.get("/listado-precios", articuloController.getAllArticulosForPricing);
 router.get("/by-proveedor-articulo", articuloController.getArticuloByProveedorYCodigoProveedor);
 

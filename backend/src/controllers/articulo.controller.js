@@ -1022,3 +1022,154 @@ exports.generarListadoPreciosPDF = async (req, res) => {
     });
   }
 };
+
+// Generar resumen de existencia en PDF
+exports.generarResumenExistenciaPDF = async (req, res) => {
+  try {
+    const PDFDocument = require('pdfkit');
+    const { empresa, fecha, agrupamiento, gruposOrdenados } = req.body;
+    // gruposOrdenados: [{ nombre: string, articulos: [{ Codigo, Descripcion, Existencia, ExistenciaMinima }] }]
+
+    const doc = new PDFDocument({
+      size: 'A4',
+      margin: 30
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    const nombreEmpresa = empresa?.RazonSocial || 'Empresa';
+    const nombreArchivo = `${nombreEmpresa}_resumen_existencia_${fecha}.pdf`;
+    res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);
+
+    doc.pipe(res);
+    doc.font('Helvetica');
+
+    const margin = 30;
+    const pageWidth = doc.page.width - margin * 2;
+    const pageHeight = doc.page.height - 60;
+
+    const getEstado = (articulo) => {
+      const existencia = articulo.Existencia || 0;
+      const minima = articulo.ExistenciaMinima || 0;
+      if (existencia === 0) return 'SIN STOCK';
+      if (existencia <= minima) return 'BAJO';
+      return 'OK';
+    };
+
+    // Contadores globales
+    let totalArticulos = 0;
+    let totalOk = 0;
+    let totalBajo = 0;
+    let totalSinStock = 0;
+
+    for (const grupo of gruposOrdenados) {
+      for (const art of grupo.articulos) {
+        totalArticulos++;
+        const estado = getEstado(art);
+        if (estado === 'OK') totalOk++;
+        else if (estado === 'BAJO') totalBajo++;
+        else totalSinStock++;
+      }
+    }
+
+    // Encabezado
+    doc.fontSize(20).font('Helvetica-Bold').text(empresa?.RazonSocial || 'Empresa', { align: 'center' });
+    doc.moveDown(0.5);
+    const etiquetaAgrupamiento = agrupamiento === 'rubro' ? 'Rubro' : 'Proveedor';
+    doc.fontSize(16).font('Helvetica').text(`Resumen de Existencia - por ${etiquetaAgrupamiento}`, { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(11).text(`Fecha: ${fecha}`, { align: 'center' });
+    doc.moveDown(0.5);
+
+    // Resumen rápido
+    doc.fontSize(10).font('Helvetica');
+    const resumenTexto = `Total: ${totalArticulos}  |  Stock OK: ${totalOk}  |  Stock Bajo: ${totalBajo}  |  Sin Stock: ${totalSinStock}`;
+    doc.text(resumenTexto, { align: 'center' });
+    doc.moveDown(1.5);
+
+    const columnWidth = {
+      codigo: 80,
+      descripcion: pageWidth - 80 - 80 - 80,
+      existencia: 80,
+      minima: 80
+    };
+
+    const drawTableHeader = () => {
+      const headerY = doc.y;
+      let x = margin;
+      doc.fontSize(9).font('Helvetica-Bold');
+      doc.text('Codigo', x, headerY, { width: columnWidth.codigo, ellipsis: true });
+      x += columnWidth.codigo;
+      doc.text('Descripcion', x, headerY, { width: columnWidth.descripcion, ellipsis: true });
+      x += columnWidth.descripcion;
+      doc.text('Existencia', x, headerY, { width: columnWidth.existencia, align: 'right' });
+      x += columnWidth.existencia;
+      doc.text('Minima', x, headerY, { width: columnWidth.minima, align: 'right' });
+
+      doc.moveDown(0.5);
+      doc.x = margin;
+      doc.strokeColor('#000000').moveTo(margin, doc.y).lineTo(margin + pageWidth, doc.y).stroke();
+      doc.moveDown(0.4);
+      doc.x = margin;
+    };
+
+    for (const grupo of gruposOrdenados) {
+      if (doc.y > pageHeight - 80) {
+        doc.addPage();
+      }
+
+      doc.fontSize(13).font('Helvetica-Bold').text(`${grupo.nombre}`, margin);
+      doc.fontSize(9).font('Helvetica').text(`${grupo.articulos.length} articulos`, margin);
+      doc.moveDown(0.5);
+      doc.x = margin;
+
+      drawTableHeader();
+
+      doc.fontSize(8).font('Helvetica');
+
+      for (const articulo of grupo.articulos) {
+        if (doc.y > pageHeight - 30) {
+          doc.addPage();
+          drawTableHeader();
+          doc.fontSize(8).font('Helvetica');
+        }
+
+        const currentY = doc.y;
+        let x = margin;
+        doc.text(articulo.Codigo || '', x, currentY, { width: columnWidth.codigo, ellipsis: true });
+        x += columnWidth.codigo;
+        doc.text(articulo.Descripcion || '', x, currentY, { width: columnWidth.descripcion, ellipsis: true });
+        x += columnWidth.descripcion;
+
+        const existencia = articulo.Existencia || 0;
+        const minima = articulo.ExistenciaMinima || 0;
+        doc.text(String(existencia), x, currentY, { width: columnWidth.existencia, align: 'right' });
+        x += columnWidth.existencia;
+        doc.text(String(minima), x, currentY, { width: columnWidth.minima, align: 'right' });
+
+        doc.y = currentY + 14;
+        doc.x = margin;
+      }
+
+      doc.moveDown(1);
+    }
+
+    // Pie de página
+    if (doc.y > pageHeight - 60) {
+      doc.addPage();
+    }
+    doc.moveDown(1);
+    doc.fontSize(9).font('Helvetica').text(resumenTexto, { align: 'center' });
+    doc.moveDown(0.3);
+    doc.text(`Generado el ${fecha}`, { align: 'center' });
+
+    doc.end();
+
+  } catch (error) {
+    console.error('Error al generar PDF de existencia:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al generar PDF de existencia',
+      error: error.message
+    });
+  }
+};
