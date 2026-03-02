@@ -248,6 +248,11 @@ const initializeModels = (sequelize) => {
     InvCuentaCompras: {
       type: DataTypes.INTEGER,
       allowNull: true
+    },
+    Activo: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true
     }
   }, {
     tableName: 't_proveedores',

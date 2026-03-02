@@ -1,9 +1,10 @@
-import { n as copy_payload, o as assign_payload, c as pop, p as push, h as head, j as attr, g as ensure_array_like, e as escape_html } from "../../../../../chunks/index3.js";
+import { z as copy_payload, A as assign_payload, c as pop, p as push, h as head, k as attr, l as ensure_array_like, e as escape_html, m as attr_class, n as stringify } from "../../../../../chunks/index3.js";
 import { B as Button } from "../../../../../chunks/Button.js";
 import { M as MultiSelect } from "../../../../../chunks/MultiSelect.js";
 import "../../../../../chunks/authStore.js";
 function _page($$payload, $$props) {
   push();
+  let articulosSeleccionados;
   let proveedores = [];
   let rubros = [];
   let articulos = [];
@@ -11,6 +12,8 @@ function _page($$payload, $$props) {
   let rubrosSeleccionados = [];
   let porcentajeIncremento = 0;
   let loading = false;
+  let seleccionarTodos = false;
+  articulosSeleccionados = articulos.filter((a) => a.seleccionado).length;
   let $$settled = true;
   let $$inner_payload;
   function $$render_inner($$payload2) {
@@ -56,9 +59,9 @@ function _page($$payload, $$props) {
     $$payload2.out += `<!----> `;
     Button($$payload2, {
       variant: "success",
-      disabled: articulos.length === 0,
+      disabled: articulosSeleccionados === 0,
       children: ($$payload3) => {
-        $$payload3.out += `<!---->${escape_html("Actualizar Precios")}`;
+        $$payload3.out += `<!---->${escape_html(`Actualizar Precios (${articulosSeleccionados})`)}`;
       },
       $$slots: { default: true }
     });
@@ -82,10 +85,10 @@ function _page($$payload, $$props) {
     if (articulos.length > 0) {
       $$payload2.out += "<!--[-->";
       const each_array = ensure_array_like(articulos);
-      $$payload2.out += `<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rubro</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proveedor</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Actual</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nuevo Precio</th></tr></thead><tbody class="bg-white divide-y divide-gray-200"><!--[-->`;
-      for (let $$index = 0, $$length = each_array.length; $$index < $$length; $$index++) {
-        let articulo = each_array[$$index];
-        $$payload2.out += `<tr class="hover:bg-gray-50"><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${escape_html(articulo.Codigo)}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${escape_html(articulo.Descripcion)}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escape_html(articulo.Rubro?.Descripcion || "-")}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escape_html(articulo.Proveedor?.Descripcion || "-")}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${escape_html(articulo.PrecioCosto.toFixed(2))}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${escape_html((articulo.PrecioCosto * (1 + porcentajeIncremento / 100)).toFixed(2))}</td></tr>`;
+      $$payload2.out += `<div class="mb-4 flex items-center justify-between"><div class="flex items-center gap-4"><label class="flex items-center gap-2 cursor-pointer"><input type="checkbox"${attr("checked", seleccionarTodos, true)} class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"> <span class="text-sm font-medium text-gray-700">Seleccionar todos</span></label> <span class="text-sm text-gray-600">${escape_html(articulosSeleccionados)} de ${escape_html(articulos.length)} artículo(s) seleccionado(s)</span></div></div> <div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12"><input type="checkbox"${attr("checked", seleccionarTodos, true)} class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"></th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rubro</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proveedor</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Actual</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nuevo Precio</th></tr></thead><tbody class="bg-white divide-y divide-gray-200"><!--[-->`;
+      for (let index = 0, $$length = each_array.length; index < $$length; index++) {
+        let articulo = each_array[index];
+        $$payload2.out += `<tr${attr_class(articulo.seleccionado ? "hover:bg-gray-50" : "opacity-30 bg-gray-50")}><td class="px-6 py-4 whitespace-nowrap"><input type="checkbox"${attr("checked", articulo.seleccionado, true)} class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"></td><td${attr_class(`px-6 py-4 whitespace-nowrap text-sm ${stringify(articulo.seleccionado ? "text-gray-900" : "text-gray-400")}`)}>${escape_html(articulo.Codigo)}</td><td${attr_class(`px-6 py-4 whitespace-nowrap text-sm ${stringify(articulo.seleccionado ? "text-gray-900" : "text-gray-400")}`)}>${escape_html(articulo.Descripcion)}</td><td${attr_class(`px-6 py-4 whitespace-nowrap text-sm ${stringify(articulo.seleccionado ? "text-gray-500" : "text-gray-400")}`)}>${escape_html(articulo.Rubro?.Descripcion || "-")}</td><td${attr_class(`px-6 py-4 whitespace-nowrap text-sm ${stringify(articulo.seleccionado ? "text-gray-500" : "text-gray-400")}`)}>${escape_html(articulo.Proveedor?.Descripcion || "-")}</td><td${attr_class(`px-6 py-4 whitespace-nowrap text-sm ${stringify(articulo.seleccionado ? "text-gray-900" : "text-gray-400")}`)}>$${escape_html(articulo.PrecioCosto.toFixed(2))}</td><td${attr_class(`px-6 py-4 whitespace-nowrap text-sm font-medium ${stringify(articulo.seleccionado ? "text-gray-900" : "text-gray-400")}`)}>$${escape_html((articulo.PrecioCosto * (1 + porcentajeIncremento / 100)).toFixed(2))}</td></tr>`;
       }
       $$payload2.out += `<!--]--></tbody></table></div>`;
     } else {

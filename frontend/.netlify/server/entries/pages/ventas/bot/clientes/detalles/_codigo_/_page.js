@@ -1,5 +1,5 @@
 import { e as error } from "../../../../../../../chunks/index.js";
-import { f as fetchWithAuth } from "../../../../../../../chunks/fetchWithAuth.js";
+import { f as fetchWithAuth } from "../../../../../../../chunks/authStore.js";
 const ssr = false;
 async function load({ params }) {
   try {

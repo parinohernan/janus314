@@ -1,4 +1,4 @@
-import { d as store_get, g as ensure_array_like, k as attr_class, l as stringify, j as attr, e as escape_html, u as unsubscribe_stores, x as bind_props, c as pop, p as push } from "./index3.js";
+import { d as store_get, l as ensure_array_like, m as attr_class, n as stringify, k as attr, e as escape_html, u as unsubscribe_stores, v as bind_props, c as pop, p as push } from "./index3.js";
 import "./client.js";
 import { p as page } from "./stores.js";
 /* empty css                                    */

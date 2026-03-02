@@ -9,6 +9,7 @@
   let isEditing = $page.params.id !== 'nuevo';
   
   interface ProveedorCompleto extends Proveedor {
+    Activo?: boolean;
     Cuit: string;
     Calle: string;
     Numero: string;
@@ -40,6 +41,7 @@
   let proveedor: ProveedorCompleto = {
     Codigo: '',
     Descripcion: '',
+    Activo: true,
     Cuit: '',
     Calle: '',
     Numero: '',

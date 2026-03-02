@@ -1,14 +1,10 @@
-import { d as store_get, h as head, e as escape_html, j as attr, g as ensure_array_like, u as unsubscribe_stores, c as pop, p as push } from "../../../../../../chunks/index3.js";
+import { d as store_get, h as head, e as escape_html, k as attr, l as ensure_array_like, u as unsubscribe_stores, c as pop, p as push } from "../../../../../../chunks/index3.js";
 import { B as Button } from "../../../../../../chunks/Button.js";
 import "../../../../../../chunks/client.js";
 import { p as page } from "../../../../../../chunks/stores.js";
 import { debounce } from "lodash-es";
-import { f as fetchWithAuth } from "../../../../../../chunks/fetchWithAuth.js";
-function getTodayISOArgentina() {
-  const now = /* @__PURE__ */ new Date();
-  const argentinaTime = new Date(now.getTime() - 3 * 60 * 60 * 1e3);
-  return argentinaTime.toISOString().split("T")[0];
-}
+import { g as getTodayISOArgentina } from "../../../../../../chunks/dateUtils.js";
+import { f as fetchWithAuth } from "../../../../../../chunks/authStore.js";
 function _page($$payload, $$props) {
   push();
   var $$store_subs;
@@ -24,7 +20,6 @@ function _page($$payload, $$props) {
   let searchResults = [];
   let searchLoading = false;
   let searchError = null;
-  let nuevoArticulo = { codigo: "", cantidad: 1 };
   const searchArticulos = async () => {
     if (!searchText.trim()) {
       searchResults = [];
@@ -106,17 +101,7 @@ function _page($$payload, $$props) {
   } else {
     $$payload.out += "<!--[!-->";
   }
-  $$payload.out += `<!--]--></div> <div class="mb-4"><label for="nuevoCodigo" class="block text-sm font-medium text-gray-700 mb-1">Agregar artículo por código</label> <div class="flex space-x-2"><div class="flex-grow md:w-2/3"><input id="nuevoCodigo" type="text"${attr("value", nuevoArticulo.codigo)} placeholder="Código del artículo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></div> <div class="w-24"><label for="nuevaCantidad" class="sr-only">Cantidad</label> <input id="nuevaCantidad" type="number"${attr("value", nuevoArticulo.cantidad)} min="1" step="any" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></div> `;
-  Button($$payload, {
-    type: "button",
-    variant: "primary",
-    disabled: true,
-    children: ($$payload2) => {
-      $$payload2.out += `<!---->Agregar`;
-    },
-    $$slots: { default: true }
-  });
-  $$payload.out += `<!----></div></div> `;
+  $$payload.out += `<!--]--></div> `;
   if (items.length > 0) {
     $$payload.out += "<!--[-->";
     const each_array_1 = ensure_array_like(items);

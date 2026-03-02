@@ -1,4 +1,4 @@
-import { n as copy_payload, o as assign_payload, c as pop, p as push, j as attr, g as ensure_array_like, e as escape_html, k as attr_class, l as stringify } from "../../../../../chunks/index3.js";
+import { z as copy_payload, A as assign_payload, c as pop, p as push, k as attr, l as ensure_array_like, e as escape_html, m as attr_class, n as stringify } from "../../../../../chunks/index3.js";
 import { o as onDestroy } from "../../../../../chunks/index-server.js";
 import { B as Button } from "../../../../../chunks/Button.js";
 import { I as Input } from "../../../../../chunks/Input.js";
@@ -49,7 +49,7 @@ function _page($$payload, $$props) {
     {
       $$payload2.out += "<!--[!-->";
     }
-    $$payload2.out += `<!--]--> <div class="bg-white rounded-lg shadow-sm p-6"><div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div class="md:col-span-1"><label for="cliente" class="block text-sm font-medium text-gray-700 mb-1">Cliente</label> <div class="relative"><input id="cliente-search" type="text" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm pr-10" placeholder="Buscar cliente..."${attr("value", clienteSearch)} autocomplete="off"> `;
+    $$payload2.out += `<!--]--> <div class="bg-white rounded-lg shadow-sm p-6"><div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div class="md:col-span-1"><label for="cliente" class="block text-sm font-medium text-gray-700 mb-1">Cliente</label> <div class="relative"><input id="cliente-search" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm pr-10" placeholder="Buscar cliente..."${attr("value", clienteSearch)} autocomplete="off"> `;
     {
       $$payload2.out += "<!--[!-->";
     }
@@ -57,7 +57,7 @@ function _page($$payload, $$props) {
     if (clientesOptions.length > 0) {
       $$payload2.out += "<!--[-->";
       const each_array = ensure_array_like(clientesOptions);
-      $$payload2.out += `<div class="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-300 max-h-60 overflow-auto"><!--[-->`;
+      $$payload2.out += `<div class="absolute z-10 mt-1 w-full bg-white border border-gray-300 shadow-lg rounded-md max-h-60 overflow-auto"><!--[-->`;
       for (let $$index = 0, $$length = each_array.length; $$index < $$length; $$index++) {
         let cliente = each_array[$$index];
         $$payload2.out += `<button type="button" class="block w-full text-left px-4 py-2 hover:bg-gray-100"><div class="font-medium">${escape_html(cliente.Descripcion)}</div> <div class="text-sm text-gray-500"><span>Código: ${escape_html(cliente.Codigo)}</span> `;

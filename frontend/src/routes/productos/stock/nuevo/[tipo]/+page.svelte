@@ -54,12 +54,6 @@
   let searchLoading = false;
   let searchError: string | null = null;
   
-  // Campos temporales para nuevo artículo
-  let nuevoArticulo = {
-    codigo: '',
-    cantidad: 1
-  };
-  
   // Cargar datos iniciales (sucursal)
   onMount(async () => {
     try {
@@ -144,58 +138,6 @@
     
     // Limpiar mensaje de error si existe
     error = null;
-  };
-  
-  // Agregar artículo por código
-  const addArticulo = async () => {
-    if (!nuevoArticulo.codigo) {
-      error = 'Debe ingresar un código de artículo';
-      return;
-    }
-    
-    // Verificar si ya existe en la lista
-    const existeItem = items.find(item => item.CodigoArticulo === nuevoArticulo.codigo);
-    
-    if (existeItem) {
-      error = `El artículo con código "${nuevoArticulo.codigo}" ya está en la lista`;
-      return;
-    }
-    
-    try {
-      loading = true;
-      error = null;
-      
-      // Buscar el artículo por código
-      const response = await fetchWithAuth(`/articulos/${nuevoArticulo.codigo}`);
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error(`No se encontró un artículo con el código "${nuevoArticulo.codigo}"`);
-        }
-        throw new Error('Error al buscar el artículo');
-      }
-      
-      const articulo = await response.json();
-      
-      // Agregar a la lista de items
-      items = [...items, {
-        CodigoArticulo: articulo.Codigo,
-        Descripcion: articulo.Descripcion,
-        Cantidad: nuevoArticulo.cantidad,
-        PrecioCosto: articulo.PrecioCosto,
-        Existencia: articulo.Existencia
-      }];
-      
-      // Limpiar campos
-      nuevoArticulo.codigo = '';
-      nuevoArticulo.cantidad = 1;
-      
-    } catch (err: unknown) {
-      console.error('Error agregando artículo:', err);
-      error = err instanceof Error ? err.message : 'Error desconocido';
-    } finally {
-      loading = false;
-    }
   };
   
   // Actualizar cantidad de un item
@@ -283,8 +225,6 @@
       items = [];
       documento.Observacion = '';
       documento.Fecha = getTodayISOArgentina();
-      nuevoArticulo.codigo = '';
-      nuevoArticulo.cantidad = 1;
       
       // Redirigir después de un breve retraso
       setTimeout(() => {
@@ -495,41 +435,6 @@
               </table>
             </div>
           {/if}
-        </div>
-        
-        <!-- Agregar artículo por código -->
-        <div class="mb-4">
-          <label for="nuevoCodigo" class="block text-sm font-medium text-gray-700 mb-1">Agregar artículo por código</label>
-          <div class="flex space-x-2">
-            <div class="flex-grow md:w-2/3">
-              <input 
-                id="nuevoCodigo"
-                type="text" 
-                bind:value={nuevoArticulo.codigo}
-                placeholder="Código del artículo"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div class="w-24">
-              <label for="nuevaCantidad" class="sr-only">Cantidad</label>
-              <input 
-                id="nuevaCantidad"
-                type="number" 
-                bind:value={nuevoArticulo.cantidad}
-                min="1"
-                step="any"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <Button 
-              type="button"
-              variant="primary"
-              on:click={addArticulo}
-              disabled={!nuevoArticulo.codigo || loading}
-            >
-              Agregar
-            </Button>
-          </div>
         </div>
         
         <!-- Lista de artículos seleccionados -->

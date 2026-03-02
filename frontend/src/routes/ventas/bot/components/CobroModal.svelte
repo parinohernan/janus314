@@ -4,6 +4,7 @@
   import type { Cliente } from './types';
   import FormasPago from '$lib/components/recibos/FormasPago.svelte';
   import type { FormaPago } from '$lib/constants/formasPago';
+  import { toast } from '$lib/utils/toast';
   
   export let mostrarModalCobro: boolean = false;
   export let isLoading: boolean = false;
@@ -42,11 +43,11 @@
 
   function handleTerminar() {
     if (saldoPendiente > 0) {
-      alert('Debe cubrir el importe total de la venta');
+      toast.warning('Debe cubrir el importe total de la venta');
       return;
       }
     if (formasPago.length === 0) {
-      alert('Debe agregar al menos una forma de pago');
+      toast.warning('Debe agregar al menos una forma de pago');
       return;
     }
     dispatch('terminar');

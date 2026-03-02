@@ -3,6 +3,7 @@ import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 export interface Proveedor {
   Codigo: string;
   Descripcion: string;
+  Activo?: boolean;
 }
 
 export interface ProveedorCompleto extends Proveedor {
@@ -49,12 +50,15 @@ export interface ComprobantesProveedorResult {
 
 export class ProveedorService {
   /**
-   * Obtiene la lista de proveedores
+   * Obtiene la lista de proveedores (por defecto solo activos, para selectores)
    */
-  public static async obtenerProveedores(limit: number = 500): Promise<Proveedor[]> {
+  public static async obtenerProveedores(
+    limit: number = 500,
+    activo: 'activos' | 'inactivos' | 'todos' = 'activos'
+  ): Promise<Proveedor[]> {
     try {
       const response = await fetchWithAuth('/proveedores', {
-        params: { limit }
+        params: { limit, activo }
       });
       
       const data = await response.json();
@@ -84,20 +88,22 @@ export class ProveedorService {
   }
   
   /**
-   * Elimina un proveedor por su código
+   * Activa o desactiva un proveedor
    */
-  public static async eliminarProveedor(codigo: string): Promise<void> {
+  public static async toggleActivoProveedor(codigo: string, activo: boolean): Promise<void> {
     try {
-      const response = await fetchWithAuth(`/proveedores/${codigo}`, {
-        method: 'DELETE'
+      const response = await fetchWithAuth(`/proveedores/${encodeURIComponent(codigo)}/activo`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Activo: activo })
       });
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al eliminar el proveedor');
+        throw new Error(errorData.message || 'Error al actualizar el estado del proveedor');
       }
     } catch (error) {
-      console.error(`Error al eliminar proveedor ${codigo}:`, error);
+      console.error(`Error al actualizar proveedor ${codigo}:`, error);
       throw error;
     }
   }

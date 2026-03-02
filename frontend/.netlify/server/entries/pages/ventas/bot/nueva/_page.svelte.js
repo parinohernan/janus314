@@ -1,11 +1,10 @@
-import { p as push, e as escape_html, g as ensure_array_like, j as attr, x as bind_props, c as pop, k as attr_class, l as stringify, n as copy_payload, o as assign_payload } from "../../../../../chunks/index3.js";
+import { p as push, e as escape_html, l as ensure_array_like, k as attr, v as bind_props, c as pop, m as attr_class, n as stringify, z as copy_payload, A as assign_payload } from "../../../../../chunks/index3.js";
 import { o as onDestroy } from "../../../../../chunks/index-server.js";
 import "../../../../../chunks/client.js";
 import { z as fallback } from "../../../../../chunks/utils.js";
-import "../../../../../chunks/authStore.js";
+import { f as fetchWithAuth } from "../../../../../chunks/authStore.js";
 import { F as FormasPago } from "../../../../../chunks/FormasPago.js";
 /* empty css                                                                     */
-import { f as fetchWithAuth } from "../../../../../chunks/fetchWithAuth.js";
 /* empty css                        */
 function ComprobanteDetalle($$payload, $$props) {
   push();

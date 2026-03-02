@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { formatDate } from '$lib/utils/dateUtils';
+  import { toast, confirm } from '$lib/utils/toast';
 
   // Parámetros de la URL
   $: tipo = $page.params.tipo;
@@ -40,9 +41,8 @@
 
   // Función para anular la nota de débito
   async function anularNotaDebito() {
-    if (!confirm('¿Está seguro que desea anular esta nota de débito?')) {
-      return;
-    }
+    const ok = await confirm('¿Está seguro que desea anular esta nota de débito?');
+    if (!ok) return;
 
     try {
       const response = await fetchWithAuth(`/notasdebito/${tipo}/${sucursal}/${numero}/anular`, {
@@ -56,13 +56,11 @@
         throw new Error('Error al anular la nota de débito');
       }
 
-      alert('Nota de débito anulada correctamente');
-      
-      // Recargar la nota de débito para mostrar el estado actualizado
+      toast.success('Nota de débito anulada correctamente');
       await cargarNotaDebito();
     } catch (err) {
       console.error('Error anulando nota de débito:', err);
-      alert(err instanceof Error ? err.message : 'Error al anular la nota de débito');
+      toast.error(err instanceof Error ? err.message : 'Error al anular la nota de débito');
     }
   }
 

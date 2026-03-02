@@ -1,8 +1,35 @@
-import { n as copy_payload, o as assign_payload, c as pop, p as push, e as escape_html, g as ensure_array_like, k as attr_class, l as stringify } from "../../../../../chunks/index3.js";
+import { g as sanitize_props, j as spread_props, f as slot, z as copy_payload, A as assign_payload, c as pop, p as push, e as escape_html, l as ensure_array_like, m as attr_class, n as stringify } from "../../../../../chunks/index3.js";
 import "chart.js/auto";
 import { D as DatePicker } from "../../../../../chunks/DatePicker.js";
 import { E as EntitySelector } from "../../../../../chunks/EntitySelector.js";
-import { f as fetchWithAuth } from "../../../../../chunks/fetchWithAuth.js";
+import { f as fetchWithAuth } from "../../../../../chunks/authStore.js";
+import { I as Icon, a as Icon$1 } from "../../../../../chunks/Icon.js";
+function Box($$payload, $$props) {
+  const $$sanitized_props = sanitize_props($$props);
+  const iconNode = [
+    [
+      "path",
+      {
+        "d": "M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"
+      }
+    ],
+    ["path", { "d": "m3.3 7 8.7 5 8.7-5" }],
+    ["path", { "d": "M12 22V12" }]
+  ];
+  Icon($$payload, spread_props([
+    { name: "box" },
+    $$sanitized_props,
+    {
+      iconNode,
+      children: ($$payload2) => {
+        $$payload2.out += `<!---->`;
+        slot($$payload2, $$props, "default", {});
+        $$payload2.out += `<!---->`;
+      },
+      $$slots: { default: true }
+    }
+  ]));
+}
 function _page($$payload, $$props) {
   push();
   let fechaDesde = /* @__PURE__ */ new Date();
@@ -64,7 +91,14 @@ function _page($$payload, $$props) {
   let $$settled = true;
   let $$inner_payload;
   function $$render_inner($$payload2) {
-    $$payload2.out += `<div class="container mx-auto p-4"><h1 class="text-2xl font-bold mb-6">Informe de Ventas por Productos</h1> <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6"><div><label for="fechaDesde" class="block text-sm font-medium text-gray-700 mb-2">Fecha Desde</label> `;
+    $$payload2.out += `<div class="container mx-auto p-4"><h1 class="text-2xl font-bold mb-6 flex items-center gap-3">`;
+    Icon$1($$payload2, {
+      icon: Box,
+      size: 28,
+      strokeWidth: 2.5,
+      glass: true
+    });
+    $$payload2.out += `<!----> Informe de Ventas por Productos</h1> <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6"><div><label for="fechaDesde" class="block text-sm font-medium text-gray-700 mb-2">Fecha Desde</label> `;
     DatePicker($$payload2, {
       id: "fechaDesde",
       get value() {

@@ -83,6 +83,11 @@ const Proveedor = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: true,
     },
+    Activo: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+    },
   },
   {
     tableName: "t_proveedores",

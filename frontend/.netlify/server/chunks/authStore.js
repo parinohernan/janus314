@@ -1,4 +1,4 @@
-import { w as writable } from "./index2.js";
+import { g as get, w as writable } from "./index2.js";
 import { P as PUBLIC_API_URL } from "./public.js";
 import { D as DEV } from "./utils.js";
 const browser = DEV;
@@ -18,6 +18,88 @@ const authConfig = {
     }
   }
 };
+let tokenCache = null;
+let lastTokenCheck = 0;
+const TOKEN_CACHE_DURATION = 30 * 60 * 1e3;
+function clearAuthTokenCache() {
+  tokenCache = null;
+  lastTokenCheck = 0;
+}
+function getAuthToken() {
+  const now = Date.now();
+  if (tokenCache && now - lastTokenCheck < TOKEN_CACHE_DURATION) {
+    console.log("Usando token cacheado");
+    return tokenCache;
+  }
+  const authState = get(auth);
+  console.log("Estado de autenticación:", authState);
+  let token = authState.token;
+  if (!token && browser) {
+    token = localStorage.getItem("authToken");
+    console.log("Token obtenido del localStorage:", token);
+  }
+  if (!token && browser) {
+    console.log("No hay token, intentando verificar sesión...");
+    auth.verifySession().then(() => {
+      const newAuthState = get(auth);
+      token = newAuthState.token;
+      console.log("Nuevo estado de autenticación después de verificar:", newAuthState);
+    });
+  }
+  tokenCache = token;
+  lastTokenCheck = now;
+  console.log("Token final:", token);
+  return token;
+}
+function getAuthHeaders(token, options) {
+  const isFormData = options?.body instanceof FormData;
+  const headers = {
+    "Authorization": `Bearer ${token}`,
+    "Accept": "application/json",
+    "Origin": window.location.origin
+  };
+  if (!isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
+  if (options?.headers) {
+    Object.assign(headers, options.headers);
+  }
+  return headers;
+}
+async function fetchWithAuth(endpoint, options = {}) {
+  try {
+    const token = getAuthToken();
+    if (!token) {
+      throw new Error("No hay token de autenticación");
+    }
+    let cleanEndpoint = endpoint;
+    let url;
+    if (endpoint.startsWith(PUBLIC_API_URL)) {
+      url = endpoint;
+    } else {
+      url = `${PUBLIC_API_URL}${endpoint.startsWith("/") ? "" : "/"}${endpoint}`;
+    }
+    if (options.params) {
+      const searchParams = new URLSearchParams();
+      Object.entries(options.params).forEach(([key, value]) => {
+        searchParams.append(key, value.toString());
+      });
+      url += `?${searchParams.toString()}`;
+    }
+    url = url.replace(/\/+$/, "");
+    const headers = getAuthHeaders(token, options);
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: "include",
+      mode: "cors"
+    });
+    return response;
+  } catch (error) {
+    console.error("❌ Error en fetchWithAuth:", error);
+    throw error;
+  }
+}
 const DEFAULT_CREDENTIALS = {
   usuario: "admin",
   password: "admin123"
@@ -36,18 +118,29 @@ function createAuthStore() {
         console.log("Iniciando login con credenciales:", credentials);
         if (authConfig.mode === "local") ;
         const endpoint = `${PUBLIC_API_URL}${authConfig.endpoints.online.login}`;
-        console.log("Haciendo login online en:", endpoint);
+        console.log("Haciendo login online en:", endpoint, "PUBLIC_API_URL:", PUBLIC_API_URL);
         const response = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(credentials)
         });
         if (!response.ok) {
-          const errorData = await response.json();
-          if (response.status === 403) {
-            throw new Error(errorData.error || "Acceso denegado - Solo los administradores pueden acceder al sistema");
+          const contentType = response.headers.get("content-type") || "";
+          let errorMessage = `Error de autenticación (HTTP ${response.status})`;
+          try {
+            if (contentType.includes("application/json")) {
+              const errorData = await response.json();
+              errorMessage = errorData.error || errorMessage;
+            } else {
+              const text = await response.text();
+              if (text) errorMessage = text;
+            }
+          } catch {
           }
-          throw new Error(errorData.error || "Error de autenticación");
+          if (response.status === 403) {
+            throw new Error(errorMessage || "Acceso denegado - Solo los administradores pueden acceder al sistema");
+          }
+          throw new Error(errorMessage);
         }
         const data = await response.json();
         console.log("Respuesta del servidor:", data);
@@ -71,6 +164,7 @@ function createAuthStore() {
       try {
         if (browser) ;
       } finally {
+        clearAuthTokenCache();
         set({
           user: null,
           isAuthenticated: false,
@@ -91,5 +185,5 @@ function createAuthStore() {
 const auth = createAuthStore();
 export {
   auth as a,
-  browser as b
+  fetchWithAuth as f
 };

@@ -7,6 +7,7 @@
   import { navigationState } from '$lib/stores/navigationState';
   import { writable } from 'svelte/store';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { toast, confirm } from '$lib/utils/toast';
 
   // Definición de interfaces
   interface Recibo {
@@ -240,9 +241,8 @@
   
   // Anular recibo
   const anularRecibo = async (tipo: string, sucursal: string, numero: string) => {
-    if (!confirm('¿Está seguro que desea anular este recibo?')) {
-      return;
-    }
+    const ok = await confirm('¿Está seguro que desea anular este recibo?');
+    if (!ok) return;
     
     try {
       const response = await fetchWithAuth(`/recibos/${tipo}/${sucursal}/${numero}/anular`, {
@@ -256,11 +256,11 @@
         throw new Error('Error al anular el recibo');
       }
       
-      alert('Recibo anulado correctamente');
-      cargarRecibos(); // Recargar la lista
+      toast.success('Recibo anulado correctamente');
+      cargarRecibos();
     } catch (err) {
       console.error('Error anulando recibo:', err);
-      alert(err instanceof Error ? err.message : 'Error al anular el recibo');
+      toast.error(err instanceof Error ? err.message : 'Error al anular el recibo');
     }
   };
   

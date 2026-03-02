@@ -1,14 +1,15 @@
-import { h as head, j as attr, c as pop, p as push, e as escape_html, g as ensure_array_like, k as attr_class, l as stringify } from "../../../../chunks/index3.js";
+import { h as head, k as attr, c as pop, p as push, e as escape_html, l as ensure_array_like, m as attr_class, n as stringify } from "../../../../chunks/index3.js";
 import { B as Button } from "../../../../chunks/Button.js";
 import "../../../../chunks/client.js";
 import { debounce } from "lodash-es";
-import { f as fetchWithAuth } from "../../../../chunks/fetchWithAuth.js";
+import { f as fetchWithAuth } from "../../../../chunks/authStore.js";
 function _page($$payload, $$props) {
   push();
   let filters = {
     search: "",
     field: "Descripcion",
-    order: "ASC"
+    order: "ASC",
+    activo: "activos"
   };
   let pagination = {
     currentPage: 1,
@@ -29,7 +30,8 @@ function _page($$payload, $$props) {
           limit: pagination.limit,
           search: filters.search,
           field: filters.field,
-          order: filters.order
+          order: filters.order,
+          activo: filters.activo
         }
       });
       if (!response.ok) throw new Error("Error al cargar los proveedores");
@@ -70,7 +72,7 @@ function _page($$payload, $$props) {
     },
     $$slots: { default: true }
   });
-  $$payload.out += `<!----></div> <div class="mb-6 bg-white p-4 rounded-lg shadow-sm"><div class="flex flex-col md:flex-row gap-4"><div class="flex-grow"><label for="search" class="block text-sm font-medium text-gray-700 mb-1">Buscar</label> <div class="relative"><input type="text" id="search" placeholder="Buscar por código, descripción o CUIT..."${attr("value", filters.search)} class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></div></div></div> <div class="md:w-48"><label for="limit" class="block text-sm font-medium text-gray-700 mb-1">Resultados por página</label> <select id="limit" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="5">5</option><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select></div></div></div> `;
+  $$payload.out += `<!----></div> <div class="mb-6 bg-white p-4 rounded-lg shadow-sm"><div class="flex flex-col md:flex-row gap-4"><div class="flex-grow"><label for="search" class="block text-sm font-medium text-gray-700 mb-1">Buscar</label> <div class="relative"><input type="text" id="search" placeholder="Buscar por código, descripción o CUIT..."${attr("value", filters.search)} class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"> <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></div></div></div> <div class="md:w-40"><label for="activo" class="block text-sm font-medium text-gray-700 mb-1">Estado</label> <select id="activo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="activos">Activos</option><option value="inactivos">Inactivos</option><option value="todos">Todos</option></select></div> <div class="md:w-48"><label for="limit" class="block text-sm font-medium text-gray-700 mb-1">Resultados por página</label> <select id="limit" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="5">5</option><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select></div></div></div> `;
   if (loading) {
     $$payload.out += "<!--[-->";
     $$payload.out += `<div class="flex justify-center items-center py-10"><div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div></div>`;
@@ -97,10 +99,14 @@ function _page($$payload, $$props) {
       }
       $$payload.out += `<!--]--></svg>`;
     }
+    $$payload.out += `<!--]--></div></th><th class="px-6 py-3 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"><div class="flex items-center"><span>Estado</span> `;
+    {
+      $$payload.out += "<!--[!-->";
+    }
     $$payload.out += `<!--]--></div></th><th class="px-6 py-3 border-b border-gray-200 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th></tr></thead><tbody><!--[-->`;
     for (let $$index = 0, $$length = each_array.length; $$index < $$length; $$index++) {
       let proveedor = each_array[$$index];
-      $$payload.out += `<tr class="hover:bg-gray-50"><td class="px-6 py-4 whitespace-nowrap border-b border-gray-200">${escape_html(proveedor.Codigo)}</td><td class="px-6 py-4 border-b border-gray-200">${escape_html(proveedor.Descripcion || "-")}</td><td class="px-6 py-4 whitespace-nowrap text-right border-b border-gray-200">`;
+      $$payload.out += `<tr class="hover:bg-gray-50"><td class="px-6 py-4 whitespace-nowrap border-b border-gray-200">${escape_html(proveedor.Codigo)}</td><td class="px-6 py-4 border-b border-gray-200">${escape_html(proveedor.Descripcion || "-")}</td><td class="px-6 py-4 whitespace-nowrap border-b border-gray-200"><span${attr_class(`inline-flex px-2 py-1 text-xs font-medium rounded-full ${stringify(proveedor.Activo !== false ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800")}`)}>${escape_html(proveedor.Activo !== false ? "Activo" : "Inactivo")}</span></td><td class="px-6 py-4 whitespace-nowrap text-right border-b border-gray-200">`;
       Button($$payload, {
         variant: "secondary",
         size: "sm",
@@ -111,10 +117,10 @@ function _page($$payload, $$props) {
       });
       $$payload.out += `<!----> `;
       Button($$payload, {
-        variant: "danger",
+        variant: proveedor.Activo !== false ? "danger" : "primary",
         size: "sm",
         children: ($$payload2) => {
-          $$payload2.out += `<!---->Eliminar`;
+          $$payload2.out += `<!---->${escape_html(proveedor.Activo !== false ? "Desactivar" : "Activar")}`;
         },
         $$slots: { default: true }
       });

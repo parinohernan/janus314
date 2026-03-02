@@ -2,7 +2,7 @@
 
 export const index = 22;
 let component_cache;
-export const component = async () => component_cache ??= (await import('../entries/pages/notascredito/_page.svelte.js')).default;
-export const imports = ["_app/immutable/nodes/22.C98tWz9N.js","_app/immutable/chunks/99qqc-sX.js","_app/immutable/chunks/Dc4V3wjj.js","_app/immutable/chunks/BnrSOPoc.js","_app/immutable/chunks/Ca1k-VKK.js","_app/immutable/chunks/C9YMP0FN.js","_app/immutable/chunks/BOVaRt8e.js","_app/immutable/chunks/c4f_s63z.js"];
+export const component = async () => component_cache ??= (await import('../entries/pages/compras/compras/_page.svelte.js')).default;
+export const imports = ["_app/immutable/nodes/22.DxVoNYxx.js","_app/immutable/chunks/Bb8aiT13.js","_app/immutable/chunks/DuTeyNXo.js","_app/immutable/chunks/DRQQdgA5.js","_app/immutable/chunks/DmPM0VOW.js","_app/immutable/chunks/BfWJ6X8D.js","_app/immutable/chunks/D6gdwY0y.js","_app/immutable/chunks/7wpwwRiW.js"];
 export const stylesheets = [];
 export const fonts = [];

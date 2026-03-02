@@ -24,7 +24,7 @@
     "file": "chunks/ClienteService.js",
     "name": "ClienteService",
     "imports": [
-      "_fetchWithAuth.js"
+      "_authStore.js"
     ]
   },
   "_ComprobanteDetalle.esK6SMJa.css": {
@@ -55,6 +55,40 @@
       "_index3.js",
       "_utils.js",
       "_authStore.js"
+    ]
+  },
+  "_Icon.Yrz8ANaq.css": {
+    "file": "_app/immutable/assets/Icon.Yrz8ANaq.css",
+    "src": "_Icon.Yrz8ANaq.css"
+  },
+  "_Icon.js": {
+    "file": "chunks/Icon.js",
+    "name": "Icon",
+    "imports": [
+      "_index3.js",
+      "_utils.js"
+    ],
+    "css": [
+      "_app/immutable/assets/Icon.Yrz8ANaq.css"
+    ]
+  },
+  "_ImprimirModal.DgetcezM.css": {
+    "file": "_app/immutable/assets/ImprimirModal.DgetcezM.css",
+    "src": "_ImprimirModal.DgetcezM.css"
+  },
+  "_ImprimirModal.js": {
+    "file": "chunks/ImprimirModal.js",
+    "name": "ImprimirModal",
+    "imports": [
+      "_index3.js",
+      "_index-server.js",
+      "_Button.js",
+      "_authStore.js",
+      "_utils.js"
+    ],
+    "css": [
+      "_app/immutable/assets/CaeModal.Cvas0zsm.css",
+      "_app/immutable/assets/ImprimirModal.DgetcezM.css"
     ]
   },
   "_Input.js": {
@@ -88,9 +122,9 @@
       "_utils.js"
     ]
   },
-  "_app.pKMePYLg.css": {
-    "file": "_app/immutable/assets/app.pKMePYLg.css",
-    "src": "_app.pKMePYLg.css"
+  "_app.BCZ83I-G.css": {
+    "file": "_app/immutable/assets/app.BCZ83I-G.css",
+    "src": "_app.BCZ83I-G.css"
   },
   "_authStore.js": {
     "file": "chunks/authStore.js",
@@ -105,6 +139,14 @@
     "file": "_app/immutable/assets/bot.Dt4rRzuC.css",
     "src": "_bot.Dt4rRzuC.css"
   },
+  "_circle-user.js": {
+    "file": "chunks/circle-user.js",
+    "name": "circle-user",
+    "imports": [
+      "_index3.js",
+      "_Icon.js"
+    ]
+  },
   "_client.js": {
     "file": "chunks/client.js",
     "name": "client",
@@ -113,17 +155,20 @@
       "_utils.js"
     ]
   },
+  "_dateUtils.js": {
+    "file": "chunks/dateUtils.js",
+    "name": "dateUtils"
+  },
   "_exports.js": {
     "file": "chunks/exports.js",
     "name": "exports"
   },
-  "_fetchWithAuth.js": {
-    "file": "chunks/fetchWithAuth.js",
-    "name": "fetchWithAuth",
+  "_file-text.js": {
+    "file": "chunks/file-text.js",
+    "name": "file-text",
     "imports": [
-      "_index2.js",
-      "_authStore.js",
-      "_public.js"
+      "_index3.js",
+      "_Icon.js"
     ]
   },
   "_index-server.js": {
@@ -200,9 +245,24 @@
       "_client.js"
     ]
   },
+  "_tabsStore.js": {
+    "file": "chunks/tabsStore.js",
+    "name": "tabsStore",
+    "imports": [
+      "_index2.js"
+    ]
+  },
   "_utils.js": {
     "file": "chunks/utils.js",
     "name": "utils"
+  },
+  "_zap.js": {
+    "file": "chunks/zap.js",
+    "name": "zap",
+    "imports": [
+      "_index3.js",
+      "_Icon.js"
+    ]
   },
   "node_modules/@sveltejs/kit/src/runtime/server/index.js": {
     "file": "index.js",
@@ -239,12 +299,14 @@
       "_authStore.js",
       "_client.js",
       "_stores.js",
+      "_tabsStore.js",
       "_index2.js",
       "_navigationState.js"
     ],
     "css": [
-      "_app/immutable/assets/_layout.tn0RQdqM.css",
-      "_app/immutable/assets/app.pKMePYLg.css"
+      "_app/immutable/assets/_layout.DcXCc9sz.css",
+      "_app/immutable/assets/app.BCZ83I-G.css",
+      "_app/immutable/assets/Icon.Yrz8ANaq.css"
     ]
   },
   "src/routes/+layout.ts": {
@@ -259,7 +321,17 @@
     "src": "src/routes/+page.svelte",
     "isEntry": true,
     "imports": [
-      "_index3.js"
+      "_index3.js",
+      "_authStore.js",
+      "_Icon.js",
+      "_client.js",
+      "_tabsStore.js",
+      "_circle-user.js",
+      "_file-text.js",
+      "_zap.js"
+    ],
+    "css": [
+      "_app/immutable/assets/Icon.Yrz8ANaq.css"
     ]
   },
   "src/routes/[...catchall]/+page.svelte": {
@@ -297,6 +369,78 @@
       "_authStore.js"
     ]
   },
+  "src/routes/caja/+page.svelte": {
+    "file": "entries/pages/caja/_page.svelte.js",
+    "name": "entries/pages/caja/_page.svelte",
+    "src": "src/routes/caja/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_client.js",
+      "_authStore.js",
+      "_Button.js"
+    ]
+  },
+  "src/routes/caja/arqueo/+page.svelte": {
+    "file": "entries/pages/caja/arqueo/_page.svelte.js",
+    "name": "entries/pages/caja/arqueo/_page.svelte",
+    "src": "src/routes/caja/arqueo/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_client.js",
+      "_authStore.js",
+      "_Button.js"
+    ]
+  },
+  "src/routes/caja/cerradas/+page.svelte": {
+    "file": "entries/pages/caja/cerradas/_page.svelte.js",
+    "name": "entries/pages/caja/cerradas/_page.svelte",
+    "src": "src/routes/caja/cerradas/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_client.js",
+      "_authStore.js",
+      "_Button.js"
+    ]
+  },
+  "src/routes/caja/cierre/+page.svelte": {
+    "file": "entries/pages/caja/cierre/_page.svelte.js",
+    "name": "entries/pages/caja/cierre/_page.svelte",
+    "src": "src/routes/caja/cierre/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_client.js",
+      "_authStore.js",
+      "_Button.js"
+    ]
+  },
+  "src/routes/caja/egreso/+page.svelte": {
+    "file": "entries/pages/caja/egreso/_page.svelte.js",
+    "name": "entries/pages/caja/egreso/_page.svelte",
+    "src": "src/routes/caja/egreso/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_client.js",
+      "_authStore.js",
+      "_Button.js"
+    ]
+  },
+  "src/routes/caja/ingreso/+page.svelte": {
+    "file": "entries/pages/caja/ingreso/_page.svelte.js",
+    "name": "entries/pages/caja/ingreso/_page.svelte",
+    "src": "src/routes/caja/ingreso/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_client.js",
+      "_authStore.js",
+      "_Button.js"
+    ]
+  },
   "src/routes/clientes/+page.svelte": {
     "file": "entries/pages/clientes/_page.svelte.js",
     "name": "entries/pages/clientes/_page.svelte",
@@ -307,7 +451,8 @@
       "_Button.js",
       "_client.js",
       "_navigationState.js",
-      "_ClienteService.js"
+      "_ClienteService.js",
+      "_tabsStore.js"
     ]
   },
   "src/routes/clientes/[id]/+page.svelte": {
@@ -346,6 +491,112 @@
       "_client.js",
       "_Button.js",
       "_authStore.js"
+    ],
+    "css": [
+      "_app/immutable/assets/_page.LBjDpGNc.css"
+    ]
+  },
+  "src/routes/compras/compras/+page.svelte": {
+    "file": "entries/pages/compras/compras/_page.svelte.js",
+    "name": "entries/pages/compras/compras/_page.svelte",
+    "src": "src/routes/compras/compras/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_client.js"
+    ]
+  },
+  "src/routes/compras/compras/[tipo]/[sucursal]/[numero]/+page.svelte": {
+    "file": "entries/pages/compras/compras/_tipo_/_sucursal_/_numero_/_page.svelte.js",
+    "name": "entries/pages/compras/compras/_tipo_/_sucursal_/_numero_/_page.svelte",
+    "src": "src/routes/compras/compras/[tipo]/[sucursal]/[numero]/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_client.js"
+    ]
+  },
+  "src/routes/compras/cuentascorrientes/+page.svelte": {
+    "file": "entries/pages/compras/cuentascorrientes/_page.svelte.js",
+    "name": "entries/pages/compras/cuentascorrientes/_page.svelte",
+    "src": "src/routes/compras/cuentascorrientes/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_client.js",
+      "_Button.js",
+      "_authStore.js"
+    ]
+  },
+  "src/routes/compras/cuentascorrientes/[id]/+page.svelte": {
+    "file": "entries/pages/compras/cuentascorrientes/_id_/_page.svelte.js",
+    "name": "entries/pages/compras/cuentascorrientes/_id_/_page.svelte",
+    "src": "src/routes/compras/cuentascorrientes/[id]/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_stores.js",
+      "_client.js",
+      "_Button.js",
+      "_authStore.js"
+    ]
+  },
+  "src/routes/compras/facturas/+page.svelte": {
+    "file": "entries/pages/compras/facturas/_page.svelte.js",
+    "name": "entries/pages/compras/facturas/_page.svelte",
+    "src": "src/routes/compras/facturas/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_client.js",
+      "_Button.js",
+      "_authStore.js"
+    ]
+  },
+  "src/routes/compras/facturas/[tipo]/[sucursal]/[numero]/+page.svelte": {
+    "file": "entries/pages/compras/facturas/_tipo_/_sucursal_/_numero_/_page.svelte.js",
+    "name": "entries/pages/compras/facturas/_tipo_/_sucursal_/_numero_/_page.svelte",
+    "src": "src/routes/compras/facturas/[tipo]/[sucursal]/[numero]/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_client.js",
+      "_stores.js",
+      "_authStore.js"
+    ]
+  },
+  "src/routes/compras/facturas/nueva/+page.svelte": {
+    "file": "entries/pages/compras/facturas/nueva/_page.svelte.js",
+    "name": "entries/pages/compras/facturas/nueva/_page.svelte",
+    "src": "src/routes/compras/facturas/nueva/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_client.js",
+      "_Button.js",
+      "_authStore.js"
+    ]
+  },
+  "src/routes/compras/notascredito/+page.svelte": {
+    "file": "entries/pages/compras/notascredito/_page.svelte.js",
+    "name": "entries/pages/compras/notascredito/_page.svelte",
+    "src": "src/routes/compras/notascredito/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_Button.js",
+      "_authStore.js"
+    ]
+  },
+  "src/routes/compras/notasdebito/+page.svelte": {
+    "file": "entries/pages/compras/notasdebito/_page.svelte.js",
+    "name": "entries/pages/compras/notasdebito/_page.svelte",
+    "src": "src/routes/compras/notasdebito/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_Button.js",
+      "_authStore.js"
     ]
   },
   "src/routes/compras/proveedores/+page.svelte": {
@@ -357,7 +608,7 @@
       "_index3.js",
       "_Button.js",
       "_client.js",
-      "_fetchWithAuth.js"
+      "_authStore.js"
     ]
   },
   "src/routes/compras/proveedores/[id]/+page.svelte": {
@@ -371,6 +622,56 @@
       "_client.js",
       "_Button.js",
       "_authStore.js"
+    ]
+  },
+  "src/routes/compras/recibos/+page.svelte": {
+    "file": "entries/pages/compras/recibos/_page.svelte.js",
+    "name": "entries/pages/compras/recibos/_page.svelte",
+    "src": "src/routes/compras/recibos/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_client.js",
+      "_Button.js",
+      "_authStore.js"
+    ]
+  },
+  "src/routes/compras/recibos/nueva/+page.svelte": {
+    "file": "entries/pages/compras/recibos/nueva/_page.svelte.js",
+    "name": "entries/pages/compras/recibos/nueva/_page.svelte",
+    "src": "src/routes/compras/recibos/nueva/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_client.js",
+      "_Button.js",
+      "_Input.js",
+      "_authStore.js"
+    ]
+  },
+  "src/routes/configuracion/+page.svelte": {
+    "file": "entries/pages/configuracion/_page.svelte.js",
+    "name": "entries/pages/configuracion/_page.svelte",
+    "src": "src/routes/configuracion/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_authStore.js"
+    ],
+    "css": [
+      "_app/immutable/assets/_page.tn0RQdqM.css"
+    ]
+  },
+  "src/routes/configuracion/optimizacion/+page.svelte": {
+    "file": "entries/pages/configuracion/optimizacion/_page.svelte.js",
+    "name": "entries/pages/configuracion/optimizacion/_page.svelte",
+    "src": "src/routes/configuracion/optimizacion/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_client.js",
+      "_authStore.js",
+      "_Button.js"
     ]
   },
   "src/routes/empresa/+page.svelte": {
@@ -460,7 +761,8 @@
       "_Button.js",
       "_client.js",
       "_navigationState.js",
-      "_fetchWithAuth.js"
+      "_authStore.js",
+      "_tabsStore.js"
     ]
   },
   "src/routes/productos/[id]/+page.svelte": {
@@ -473,7 +775,21 @@
       "_stores.js",
       "_client.js",
       "_Button.js",
-      "_fetchWithAuth.js"
+      "_authStore.js"
+    ]
+  },
+  "src/routes/productos/existencia/+page.svelte": {
+    "file": "entries/pages/productos/existencia/_page.svelte.js",
+    "name": "entries/pages/productos/existencia/_page.svelte",
+    "src": "src/routes/productos/existencia/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_Button.js",
+      "_authStore.js"
+    ],
+    "css": [
+      "_app/immutable/assets/_page.DHCqY7QL.css"
     ]
   },
   "src/routes/productos/precios/+layout.svelte": {
@@ -538,9 +854,11 @@
     "imports": [
       "_index3.js",
       "_Button.js",
+      "_Icon.js",
       "_client.js",
       "_navigationState.js",
-      "_fetchWithAuth.js"
+      "_authStore.js",
+      "_zap.js"
     ]
   },
   "src/routes/productos/stock/[tipo]/[sucursal]/[numero]/+page.svelte": {
@@ -577,7 +895,21 @@
       "_Button.js",
       "_client.js",
       "_stores.js",
-      "_fetchWithAuth.js"
+      "_dateUtils.js",
+      "_authStore.js"
+    ]
+  },
+  "src/routes/productos/stock/nuevo/ingreso-remito/+page.svelte": {
+    "file": "entries/pages/productos/stock/nuevo/ingreso-remito/_page.svelte.js",
+    "name": "entries/pages/productos/stock/nuevo/ingreso-remito/_page.svelte",
+    "src": "src/routes/productos/stock/nuevo/ingreso-remito/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_Button.js",
+      "_client.js",
+      "_dateUtils.js",
+      "_authStore.js"
     ]
   },
   "src/routes/provincias/+page.svelte": {
@@ -614,7 +946,7 @@
       "_index3.js",
       "_Button.js",
       "_client.js",
-      "_fetchWithAuth.js"
+      "_authStore.js"
     ]
   },
   "src/routes/rubros/[id]/+page.svelte": {
@@ -696,7 +1028,7 @@
       "_Button.js",
       "_client.js",
       "_navigationState.js",
-      "_fetchWithAuth.js"
+      "_authStore.js"
     ]
   },
   "src/routes/ventas/bot/+layout.svelte": {
@@ -711,7 +1043,7 @@
     ],
     "css": [
       "_app/immutable/assets/_layout.BrYJRjP2.css",
-      "_app/immutable/assets/app.pKMePYLg.css",
+      "_app/immutable/assets/app.BCZ83I-G.css",
       "_app/immutable/assets/bot.Dt4rRzuC.css",
       "_app/immutable/assets/mobile-fix.BVNc3r7Z.css"
     ]
@@ -726,7 +1058,7 @@
       "_client.js"
     ],
     "css": [
-      "_app/immutable/assets/app.pKMePYLg.css"
+      "_app/immutable/assets/app.BCZ83I-G.css"
     ]
   },
   "src/routes/ventas/bot/alerta-stock/+page.svelte": {
@@ -742,7 +1074,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.BjJ6uiLj.css",
-      "_app/immutable/assets/app.pKMePYLg.css",
+      "_app/immutable/assets/app.BCZ83I-G.css",
       "_app/immutable/assets/bot.Dt4rRzuC.css"
     ]
   },
@@ -759,7 +1091,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.BNZraZku.css",
-      "_app/immutable/assets/app.pKMePYLg.css",
+      "_app/immutable/assets/app.BCZ83I-G.css",
       "_app/immutable/assets/index.IgqDV6XQ.css"
     ]
   },
@@ -776,7 +1108,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.BQpKksDj.css",
-      "_app/immutable/assets/app.pKMePYLg.css"
+      "_app/immutable/assets/app.BCZ83I-G.css"
     ]
   },
   "src/routes/ventas/bot/caja/cerradas/+page.svelte": {
@@ -793,7 +1125,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.LYBzHH5F.css",
-      "_app/immutable/assets/app.pKMePYLg.css"
+      "_app/immutable/assets/app.BCZ83I-G.css"
     ]
   },
   "src/routes/ventas/bot/caja/cierre/+page.svelte": {
@@ -809,7 +1141,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.V70zeI-m.css",
-      "_app/immutable/assets/app.pKMePYLg.css"
+      "_app/immutable/assets/app.BCZ83I-G.css"
     ]
   },
   "src/routes/ventas/bot/caja/egreso/+page.svelte": {
@@ -825,7 +1157,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.DYXN5TfF.css",
-      "_app/immutable/assets/app.pKMePYLg.css",
+      "_app/immutable/assets/app.BCZ83I-G.css",
       "_app/immutable/assets/index.IgqDV6XQ.css"
     ]
   },
@@ -842,7 +1174,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.DYXN5TfF.css",
-      "_app/immutable/assets/app.pKMePYLg.css",
+      "_app/immutable/assets/app.BCZ83I-G.css",
       "_app/immutable/assets/index.IgqDV6XQ.css"
     ]
   },
@@ -877,7 +1209,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.2TiMSiuD.css",
-      "_app/immutable/assets/app.pKMePYLg.css"
+      "_app/immutable/assets/app.BCZ83I-G.css"
     ]
   },
   "src/routes/ventas/bot/clientes/detalles/[codigo]/+page.js": {
@@ -887,7 +1219,7 @@
     "isEntry": true,
     "imports": [
       "_index.js",
-      "_fetchWithAuth.js"
+      "_authStore.js"
     ]
   },
   "src/routes/ventas/bot/clientes/detalles/[codigo]/+page.svelte": {
@@ -903,7 +1235,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.DwvAF-ih.css",
-      "_app/immutable/assets/app.pKMePYLg.css"
+      "_app/immutable/assets/app.BCZ83I-G.css"
     ]
   },
   "src/routes/ventas/bot/clientes/editar/[codigo]/+page.svelte": {
@@ -919,7 +1251,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.BIHkbUvh.css",
-      "_app/immutable/assets/app.pKMePYLg.css"
+      "_app/immutable/assets/app.BCZ83I-G.css"
     ]
   },
   "src/routes/ventas/bot/clientes/editar/[codigo]/+page.ts": {
@@ -928,7 +1260,7 @@
     "src": "src/routes/ventas/bot/clientes/editar/[codigo]/+page.ts",
     "isEntry": true,
     "imports": [
-      "_fetchWithAuth.js"
+      "_authStore.js"
     ]
   },
   "src/routes/ventas/bot/clientes/nuevo-cliente/+page.svelte": {
@@ -943,7 +1275,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.OS6H0Cau.css",
-      "_app/immutable/assets/app.pKMePYLg.css"
+      "_app/immutable/assets/app.BCZ83I-G.css"
     ]
   },
   "src/routes/ventas/bot/comprobantes/+page.svelte": {
@@ -955,7 +1287,6 @@
       "_index3.js",
       "_index-server.js",
       "_client.js",
-      "_fetchWithAuth.js",
       "_authStore.js",
       "_LogoJano.js"
     ],
@@ -1011,7 +1342,7 @@
     ],
     "css": [
       "_app/immutable/assets/_layout.BtZoUbJE.css",
-      "_app/immutable/assets/app.pKMePYLg.css"
+      "_app/immutable/assets/app.BCZ83I-G.css"
     ]
   },
   "src/routes/ventas/bot/minimonster/+page.svelte": {
@@ -1026,7 +1357,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.D48S5l0E.css",
-      "_app/immutable/assets/app.pKMePYLg.css"
+      "_app/immutable/assets/app.BCZ83I-G.css"
     ]
   },
   "src/routes/ventas/bot/nueva/+page.svelte": {
@@ -1040,8 +1371,7 @@
       "_client.js",
       "_utils.js",
       "_authStore.js",
-      "_FormasPago.js",
-      "_fetchWithAuth.js"
+      "_FormasPago.js"
     ],
     "css": [
       "_app/immutable/assets/_page.DD02s89H.css",
@@ -1069,7 +1399,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.CnBXzJve.css",
-      "_app/immutable/assets/app.pKMePYLg.css"
+      "_app/immutable/assets/app.BCZ83I-G.css"
     ]
   },
   "src/routes/ventas/bot/productos/detalles/[codigo]/+page.js": {
@@ -1079,7 +1409,7 @@
     "isEntry": true,
     "imports": [
       "_index.js",
-      "_fetchWithAuth.js"
+      "_authStore.js"
     ]
   },
   "src/routes/ventas/bot/productos/detalles/[codigo]/+page.svelte": {
@@ -1095,7 +1425,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.DYdG8Ysd.css",
-      "_app/immutable/assets/app.pKMePYLg.css"
+      "_app/immutable/assets/app.BCZ83I-G.css"
     ]
   },
   "src/routes/ventas/bot/productos/editar/[codigo]/+page.js": {
@@ -1105,7 +1435,7 @@
     "isEntry": true,
     "imports": [
       "_index.js",
-      "_fetchWithAuth.js"
+      "_authStore.js"
     ]
   },
   "src/routes/ventas/bot/productos/editar/[codigo]/+page.svelte": {
@@ -1120,7 +1450,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.CQ9hZf1g.css",
-      "_app/immutable/assets/app.pKMePYLg.css"
+      "_app/immutable/assets/app.BCZ83I-G.css"
     ]
   },
   "src/routes/ventas/bot/productos/nuevo/+page.js": {
@@ -1142,7 +1472,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.IxFokcQy.css",
-      "_app/immutable/assets/app.pKMePYLg.css"
+      "_app/immutable/assets/app.BCZ83I-G.css"
     ]
   },
   "src/routes/ventas/bot/recibos/+page.svelte": {
@@ -1214,7 +1544,8 @@
       "_client.js",
       "_Button.js",
       "_navigationState.js",
-      "_authStore.js"
+      "_authStore.js",
+      "_tabsStore.js"
     ],
     "css": [
       "_app/immutable/assets/_page.nghNNI3x.css",
@@ -1260,13 +1591,23 @@
       "_client.js",
       "_Button.js",
       "_authStore.js",
-      "_index-server.js",
-      "_fetchWithAuth.js",
-      "_utils.js"
+      "_ImprimirModal.js"
+    ]
+  },
+  "src/routes/ventas/informes/clientes/+page.svelte": {
+    "file": "entries/pages/ventas/informes/clientes/_page.svelte.js",
+    "name": "entries/pages/ventas/informes/clientes/_page.svelte",
+    "src": "src/routes/ventas/informes/clientes/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_authStore.js",
+      "_DatePicker.js",
+      "_Button.js",
+      "_Icon.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.DgetcezM.css",
-      "_app/immutable/assets/CaeModal.Cvas0zsm.css"
+      "_app/immutable/assets/_page.CZ5AHdmx.css"
     ]
   },
   "src/routes/ventas/informes/facturacion/+page.svelte": {
@@ -1276,11 +1617,13 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
-      "_fetchWithAuth.js",
+      "_authStore.js",
       "_DatePicker.js",
       "_Button.js",
       "_index-server.js",
-      "_utils.js"
+      "_utils.js",
+      "_Icon.js",
+      "_file-text.js"
     ],
     "css": [
       "_app/immutable/assets/_page.CZ5AHdmx.css"
@@ -1295,10 +1638,54 @@
       "_index3.js",
       "_DatePicker.js",
       "_EntitySelector.js",
-      "_fetchWithAuth.js"
+      "_authStore.js",
+      "_Icon.js"
     ],
     "css": [
       "_app/immutable/assets/_page.BIMiKIqS.css"
+    ]
+  },
+  "src/routes/ventas/informes/proveedores/+page.svelte": {
+    "file": "entries/pages/ventas/informes/proveedores/_page.svelte.js",
+    "name": "entries/pages/ventas/informes/proveedores/_page.svelte",
+    "src": "src/routes/ventas/informes/proveedores/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_DatePicker.js",
+      "_authStore.js",
+      "_Icon.js"
+    ],
+    "css": [
+      "_app/immutable/assets/_page.DO2Ny_lA.css"
+    ]
+  },
+  "src/routes/ventas/informes/rubros/+page.svelte": {
+    "file": "entries/pages/ventas/informes/rubros/_page.svelte.js",
+    "name": "entries/pages/ventas/informes/rubros/_page.svelte",
+    "src": "src/routes/ventas/informes/rubros/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_DatePicker.js",
+      "_authStore.js",
+      "_Icon.js"
+    ],
+    "css": [
+      "_app/immutable/assets/_page.DO2Ny_lA.css"
+    ]
+  },
+  "src/routes/ventas/informes/vendedores/+page.svelte": {
+    "file": "entries/pages/ventas/informes/vendedores/_page.svelte.js",
+    "name": "entries/pages/ventas/informes/vendedores/_page.svelte",
+    "src": "src/routes/ventas/informes/vendedores/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_authStore.js",
+      "_Button.js",
+      "_Icon.js",
+      "_circle-user.js"
     ]
   },
   "src/routes/ventas/notascredito/+page.svelte": {
@@ -1326,8 +1713,8 @@
     "imports": [
       "_index3.js",
       "_stores.js",
-      "_Button.js",
       "_client.js",
+      "_Button.js",
       "_authStore.js"
     ]
   },
@@ -1340,7 +1727,80 @@
       "_index3.js",
       "_client.js",
       "_authStore.js",
-      "_Button.js"
+      "_Button.js",
+      "_ImprimirModal.js",
+      "_utils.js"
+    ]
+  },
+  "src/routes/ventas/notascredito/rapida/+page.svelte": {
+    "file": "entries/pages/ventas/notascredito/rapida/_page.svelte.js",
+    "name": "entries/pages/ventas/notascredito/rapida/_page.svelte",
+    "src": "src/routes/ventas/notascredito/rapida/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_stores.js",
+      "_client.js",
+      "_Button.js",
+      "_authStore.js"
+    ],
+    "css": [
+      "_app/immutable/assets/_page.CKTLqZX8.css",
+      "_app/immutable/assets/CaeModal.Cvas0zsm.css",
+      "_app/immutable/assets/ImprimirModal.DgetcezM.css"
+    ]
+  },
+  "src/routes/ventas/notasdebito/+page.svelte": {
+    "file": "entries/pages/ventas/notasdebito/_page.svelte.js",
+    "name": "entries/pages/ventas/notasdebito/_page.svelte",
+    "src": "src/routes/ventas/notasdebito/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_index-server.js",
+      "_client.js",
+      "_Button.js",
+      "_navigationState.js",
+      "_authStore.js"
+    ]
+  },
+  "src/routes/ventas/notasdebito/[tipo]/[sucursal]/[numero]/+page.svelte": {
+    "file": "entries/pages/ventas/notasdebito/_tipo_/_sucursal_/_numero_/_page.svelte.js",
+    "name": "entries/pages/ventas/notasdebito/_tipo_/_sucursal_/_numero_/_page.svelte",
+    "src": "src/routes/ventas/notasdebito/[tipo]/[sucursal]/[numero]/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_stores.js",
+      "_client.js",
+      "_Button.js",
+      "_authStore.js"
+    ]
+  },
+  "src/routes/ventas/notasdebito/imprimir/[tipo]/[sucursal]/[numero]/+page.svelte": {
+    "file": "entries/pages/ventas/notasdebito/imprimir/_tipo_/_sucursal_/_numero_/_page.svelte.js",
+    "name": "entries/pages/ventas/notasdebito/imprimir/_tipo_/_sucursal_/_numero_/_page.svelte",
+    "src": "src/routes/ventas/notasdebito/imprimir/[tipo]/[sucursal]/[numero]/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_stores.js",
+      "_client.js",
+      "_Button.js",
+      "_authStore.js"
+    ]
+  },
+  "src/routes/ventas/notasdebito/nueva/+page.svelte": {
+    "file": "entries/pages/ventas/notasdebito/nueva/_page.svelte.js",
+    "name": "entries/pages/ventas/notasdebito/nueva/_page.svelte",
+    "src": "src/routes/ventas/notasdebito/nueva/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_index-server.js",
+      "_client.js",
+      "_Button.js",
+      "_authStore.js"
     ]
   },
   "src/routes/ventas/pedidos/+page.svelte": {
@@ -1360,9 +1820,9 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
+      "_client.js",
       "_Button.js",
       "_authStore.js",
-      "_client.js",
       "_EntitySelector.js",
       "_MultiSelect.js"
     ],
@@ -1393,7 +1853,7 @@
       "_client.js"
     ],
     "css": [
-      "_app/immutable/assets/_layout.tn0RQdqM.css"
+      "_app/immutable/assets/_page.tn0RQdqM.css"
     ]
   },
   "src/routes/ventas/recibos/+page.svelte": {

@@ -10,6 +10,7 @@
   import { navigationState } from '$lib/stores/navigationState';
   import { beforeNavigate } from '$app/navigation';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { toast, confirm } from '$lib/utils/toast';
   
   // Definir interfaces para los tipos
   interface MovimientoStock {
@@ -183,18 +184,19 @@
   
   // Eliminar un movimiento
   const handleEliminar = async (tipo: string, sucursal: string, numero: string): Promise<void> => {
-    if (!confirm('¿Está seguro que desea eliminar este movimiento?')) return;
+    const ok = await confirm('¿Está seguro que desea eliminar este movimiento?');
+    if (!ok) return;
     
     try {
       const response = await fetchWithAuth(`/movimientos-stock/${tipo}/${sucursal}/${numero}`, {
         method: 'DELETE'
       });
       
-      alert('Movimiento eliminado correctamente');
+      toast.success('Movimiento eliminado correctamente');
       loadMovimientos();
     } catch (err: unknown) {
       console.error('Error eliminando movimiento:', err);
-      alert(err instanceof Error ? err.message : 'Error desconocido');
+      toast.error(err instanceof Error ? err.message : 'Error desconocido');
     }
   };
   

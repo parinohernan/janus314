@@ -4,6 +4,7 @@
   import { goto } from '$app/navigation';
   import { PUBLIC_API_URL } from '$env/static/public';
   import { debounce } from 'lodash-es';
+  import { toast, confirm } from '$lib/utils/toast';
   
   // Definir interfaces para los tipos
   interface Localidad {
@@ -139,7 +140,8 @@
   };
 
   const handleDelete = async (id: string): Promise<void> => {
-    if (!confirm('¿Está seguro que desea eliminar esta localidad?')) return;
+    const ok = await confirm('¿Está seguro que desea eliminar esta localidad?');
+    if (!ok) return;
     
     try {
       const token = localStorage.getItem('authToken');
@@ -159,13 +161,13 @@
         throw new Error(errorData.message || 'Error al eliminar la localidad');
       }
       
-      alert('Localidad eliminada correctamente');
+      toast.success('Localidad eliminada correctamente');
       loadLocalidades();
     } catch (err: unknown) {
       if (err instanceof Error) {
-        alert(err.message);
+        toast.error(err.message);
       } else {
-        alert('Error desconocido al eliminar');
+        toast.error('Error desconocido al eliminar');
       }
     }
   };

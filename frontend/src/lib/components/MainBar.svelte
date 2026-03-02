@@ -5,6 +5,7 @@
   import { goto } from '$app/navigation';
   import { Search, User, LogOut, X } from 'lucide-svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
+  import { toast } from '$lib/utils/toast';
 
   let logo = "/janus314.png";
   let logoEmpresa = $state("");
@@ -62,7 +63,7 @@
     if (searchQuery.trim()) {
       console.log('Buscando:', searchQuery);
       // TODO: Implementar búsqueda universal
-      alert('Búsqueda universal en desarrollo: ' + searchQuery);
+      toast.info('Búsqueda universal en desarrollo: ' + searchQuery);
     }
   }
 </script>

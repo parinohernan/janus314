@@ -6,6 +6,7 @@
   import { navigationState } from '$lib/stores/navigationState';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { VendedorService, type VendedorOption as VendedorOptionType } from '$lib/services/VendedorService';
+  import { toast, confirm } from '$lib/utils/toast';
 
   // Definición de interfaces
   interface NotaDebito {
@@ -190,9 +191,8 @@
   
   // Anular nota de débito
   const anularNotaDebito = async (tipo: string, sucursal: string, numero: string) => {
-    if (!confirm('¿Está seguro que desea anular esta nota de débito?')) {
-      return;
-    }
+    const ok = await confirm('¿Está seguro que desea anular esta nota de débito?');
+    if (!ok) return;
     
     try {
       const response = await fetchWithAuth(
@@ -209,11 +209,11 @@
         throw new Error('Error al anular la nota de débito');
       }
       
-      alert('Nota de débito anulada correctamente');
-      cargarNotasDebito(); // Recargar la lista
+      toast.success('Nota de débito anulada correctamente');
+      cargarNotasDebito();
     } catch (err) {
       console.error('Error anulando nota de débito:', err);
-      alert(err instanceof Error ? err.message : 'Error al anular la nota de débito');
+      toast.error(err instanceof Error ? err.message : 'Error al anular la nota de débito');
     }
   };
   

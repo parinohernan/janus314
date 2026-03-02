@@ -4,6 +4,7 @@
   import { goto } from '$app/navigation';
   import { PUBLIC_API_URL } from '$env/static/public';
   import { debounce } from 'lodash-es';
+  import { toast, confirm } from '$lib/utils/toast';
   
   // Definir interfaces para los tipos
   interface Provincia {
@@ -134,7 +135,8 @@
   };
 
   const handleDelete = async (id: string): Promise<void> => {
-    if (!confirm('¿Está seguro que desea eliminar esta provincia?')) return;
+    const ok = await confirm('¿Está seguro que desea eliminar esta provincia?');
+    if (!ok) return;
     
     try {
       const response = await fetch(`${PUBLIC_API_URL}/provincias/${id}`, {
@@ -146,7 +148,7 @@
       // Recargar la tabla después de eliminar
       loadProvincias();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error desconocido');
+      toast.error(err instanceof Error ? err.message : 'Error desconocido');
     }
   };
 </script>

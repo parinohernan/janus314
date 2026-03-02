@@ -8,6 +8,7 @@
 	import type { Articulo, Cliente, PreventaItem, Vendedor, TipoDePago, PreventaCabeza, PreventaFiltros, Preventa } from '$lib/types';
 	import { goto } from '$app/navigation';
 	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+	import { toast } from '$lib/utils/toast';
 	
 	// Estado del formulario
 	let documentoTipo = 'PPV'; // Preventa por defecto
@@ -370,7 +371,7 @@
 		
 		// Verificar límite de artículos si está configurado
 		if (cantidadMaximaItems > 0 && items.length >= cantidadMaximaItems) {
-			alert(`No puede agregar más de ${cantidadMaximaItems} artículos a la preventa según la configuración del sistema.`);
+			toast.warning(`No puede agregar más de ${cantidadMaximaItems} artículos a la preventa según la configuración del sistema.`);
 			return;
 		}
 		
@@ -515,18 +516,18 @@
 	// Modificar la función de guardar para manejar tanto creación como actualización
 	async function guardarPreventa() {
 		if (!clienteSeleccionado) {
-			alert('Debe seleccionar un cliente');
+			toast.warning('Debe seleccionar un cliente');
 			return;
 		}
 		
 		if (items.length === 0) {
-			alert('Debe agregar al menos un artículo');
+			toast.warning('Debe agregar al menos un artículo');
 			return;
 		}
 		
 		// Verificar límite de artículos antes de guardar
 		if (cantidadMaximaItems > 0 && items.length > cantidadMaximaItems) {
-			alert(`No puede guardar una preventa con más de ${cantidadMaximaItems} artículos según la configuración del sistema.`);
+			toast.warning(`No puede guardar una preventa con más de ${cantidadMaximaItems} artículos según la configuración del sistema.`);
 			return;
 		}
 		
@@ -556,14 +557,14 @@
 					preventaData as unknown as PreventaCabeza, 
 					items
 				);
-				alert('Preventa actualizada correctamente');
+				toast.success('Preventa actualizada correctamente');
 			} else {
 				// Si es una nueva preventa, crearla
 				resultado = await PreventaService.crearPreventa(
 					preventaData as unknown as PreventaCabeza, 
 					items
 				);
-				alert('Preventa creada correctamente');
+				toast.success('Preventa creada correctamente');
 			}
 			
 			goto('/ventas/preventas'); // Volver al listado

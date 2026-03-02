@@ -21,6 +21,9 @@ export default defineConfig(({ mode }) => {
     return {
         root: process.cwd(),
         plugins: [tailwindcss(), sveltekit()],
+        optimizeDeps: {
+            include: ['svelte-sonner']
+        },
         resolve: {
             alias: {
                 '@src': resolve(process.cwd(), 'src')

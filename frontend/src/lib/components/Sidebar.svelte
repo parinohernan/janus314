@@ -137,6 +137,7 @@
     // Submenús - Productos
     'productos-list': Box,
     'stock': Boxes,
+    'existencia': Boxes,
     'rubros-list': Tag,
     'precios-listado': DollarSign,
     'precios-actualizacion': TrendingUp,
@@ -213,7 +214,8 @@
       icon: 'productos',
       submenus: [
         { label: 'Productos', url: '/productos', icon: 'productos-list' },
-        { label: 'Stock', url: '/productos/stock', icon: 'stock' },
+        { label: 'Stock - movimientos', url: '/productos/stock', icon: 'stock' },
+        { label: 'Existencia', url: '/productos/existencia', icon: 'existencia' },
         { label: 'Rubros', url: '/rubros', icon: 'rubros-list' },
         { label: 'Listado de Precios', url: '/productos/precios/listado', icon: 'precios-listado' },
         { label: 'Actualización de Precios', url: '/productos/precios/actualizacion', icon: 'precios-actualizacion' },

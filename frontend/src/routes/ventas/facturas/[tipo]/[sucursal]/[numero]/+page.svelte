@@ -5,6 +5,7 @@
   import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
   import { formatDate } from '$lib/utils/dateUtils';
+  import { toast, confirm } from '$lib/utils/toast';
   
   // Interfaces
   interface FacturaDetalle {
@@ -80,7 +81,8 @@
   const anularFactura = async () => {
     if (!factura) return;
     
-    if (!confirm('¿Está seguro que desea anular esta factura?')) {
+    const ok = await confirm('¿Está seguro que desea anular esta factura?');
+    if (!ok) {
       return;
     }
     
@@ -101,7 +103,7 @@
         throw new Error('Error al anular la factura');
       }
       
-      alert('Factura anulada correctamente');
+      toast.success('Factura anulada correctamente');
       
       // Recargar los datos
       const facturaResponse = await fetch(`${PUBLIC_API_URL}/facturas/${tipo}/${sucursal}/${numero}`);
@@ -111,7 +113,7 @@
       
     } catch (err) {
       console.error('Error anulando factura:', err);
-      alert(err instanceof Error ? err.message : 'Error al anular la factura');
+      toast.error(err instanceof Error ? err.message : 'Error al anular la factura');
     } finally {
       loading = false;
     }

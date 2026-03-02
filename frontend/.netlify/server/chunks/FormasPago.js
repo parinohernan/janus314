@@ -1,4 +1,4 @@
-import { p as push, g as ensure_array_like, e as escape_html, x as bind_props, c as pop } from "./index3.js";
+import { p as push, l as ensure_array_like, e as escape_html, v as bind_props, c as pop } from "./index3.js";
 import { z as fallback } from "./utils.js";
 import "clsx";
 import "./authStore.js";

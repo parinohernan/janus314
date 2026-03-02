@@ -10,6 +10,7 @@
   import { RubroService } from '$lib/services/RubroService';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { smartNavigate } from '$lib/utils/navigation';
+  import { toast, confirm } from '$lib/utils/toast';
   
   // Definir interfaces para los tipos
   interface Articulo {
@@ -253,7 +254,8 @@
   };
 
   const handleDelete = async (id: string): Promise<void> => {
-    if (!confirm('¿Está seguro que desea eliminar este artículo?')) return;
+    const ok = await confirm('¿Está seguro que desea eliminar este artículo?');
+    if (!ok) return;
     
     try {
       const response = await fetchWithAuth(`/articulos/${id}`, {
@@ -265,14 +267,10 @@
         throw new Error(errorData.message || 'Error al eliminar el artículo');
       }
       
-      alert('Artículo eliminado correctamente');
+      toast.success('Artículo eliminado correctamente');
       loadArticulos();
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        alert(err.message);
-      } else {
-        alert('Error desconocido al eliminar');
-      }
+      toast.error(err instanceof Error ? err.message : 'Error desconocido al eliminar');
     }
   };
 

@@ -6,6 +6,7 @@
   import Pagination from '$lib/components/ui/Pagination.svelte';
   import { ClienteService, type Comprobante } from '$lib/services/ClienteService';
   import { DatosEmpresaService, type DatosEmpresa } from '$lib/services/DatosEmpresaService';
+  import { toast } from '$lib/utils/toast';
   
   const clienteId = $page.params.id;
   let comprobantes: Comprobante[] = [];
@@ -110,7 +111,7 @@
       await ClienteService.generarPDFCuentaCorriente(clienteId);
     } catch (err) {
       console.error('Error generando PDF:', err);
-      alert('Error al generar el PDF');
+      toast.error('Error al generar el PDF');
     }
   };
 
@@ -144,7 +145,7 @@
       }
     } catch (err) {
       console.error('Error compartiendo cuenta corriente:', err);
-      alert('Error al compartir la cuenta corriente');
+      toast.error('Error al compartir la cuenta corriente');
     }
   };
 
@@ -154,7 +155,7 @@
       await ClienteService.generarPDFCuentaCorrientePrueba(clienteId);
     } catch (err) {
       console.error('Error generando PDF de prueba:', err);
-      alert('Error al generar el PDF de prueba');
+      toast.error('Error al generar el PDF de prueba');
     }
   };
 </script>

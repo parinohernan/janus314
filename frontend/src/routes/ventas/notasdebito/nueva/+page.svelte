@@ -6,6 +6,7 @@
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { auth } from '$lib/stores/authStore';
   import { get } from 'svelte/store';
+  import { confirm } from '$lib/utils/toast';
 
   // Interfaces
   interface Cliente {
@@ -197,8 +198,9 @@
   }
 
   // Cancelar
-  function handleCancel() {
-    if (confirm('¿Está seguro que desea cancelar? Se perderán todos los datos ingresados.')) {
+  async function handleCancel() {
+    const ok = await confirm('¿Está seguro que desea cancelar? Se perderán todos los datos ingresados.');
+    if (ok) {
       goto('/ventas/notasdebito');
     }
   }

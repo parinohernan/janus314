@@ -1,5 +1,5 @@
 import { clsx as clsx$1 } from "clsx";
-import { x as subscribe_to_store } from "./utils.js";
+import { w as noop, y as subscribe_to_store } from "./utils.js";
 const HYDRATION_START = "[";
 const HYDRATION_END = "]";
 const HYDRATION_ERROR = {};
@@ -9,6 +9,27 @@ function lifecycle_outside_component(name) {
   {
     throw new Error(`https://svelte.dev/e/lifecycle_outside_component`);
   }
+}
+const VOID_ELEMENT_NAMES = [
+  "area",
+  "base",
+  "br",
+  "col",
+  "command",
+  "embed",
+  "hr",
+  "img",
+  "input",
+  "keygen",
+  "link",
+  "meta",
+  "param",
+  "source",
+  "track",
+  "wbr"
+];
+function is_void(name) {
+  return VOID_ELEMENT_NAMES.includes(name) || name.toLowerCase() === "!doctype";
 }
 const DOM_BOOLEAN_ATTRIBUTES = [
   "allowfullscreen",
@@ -47,6 +68,16 @@ function is_boolean_attribute(name) {
 const PASSIVE_EVENTS = ["touchstart", "touchmove"];
 function is_passive_event(name) {
   return PASSIVE_EVENTS.includes(name);
+}
+const RAW_TEXT_ELEMENTS = (
+  /** @type {const} */
+  ["textarea", "script", "style", "title"]
+);
+function is_raw_text_element(name) {
+  return RAW_TEXT_ELEMENTS.includes(
+    /** @type {RAW_TEXT_ELEMENTS[number]} */
+    name
+  );
 }
 const ATTR_REGEX = /[&"<]/g;
 const CONTENT_REGEX = /[&<]/g;
@@ -158,6 +189,7 @@ function get_parent_context(component_context) {
 }
 const BLOCK_OPEN = `<!--${HYDRATION_START}-->`;
 const BLOCK_CLOSE = `<!--${HYDRATION_END}-->`;
+const EMPTY_COMMENT = `<!---->`;
 const INVALID_ATTR_NAME_CHAR_REGEX = /[\s'">/=\u{FDD0}-\u{FDEF}\u{FFFE}\u{FFFF}\u{1FFFE}\u{1FFFF}\u{2FFFE}\u{2FFFF}\u{3FFFE}\u{3FFFF}\u{4FFFE}\u{4FFFF}\u{5FFFE}\u{5FFFF}\u{6FFFE}\u{6FFFF}\u{7FFFE}\u{7FFFF}\u{8FFFE}\u{8FFFF}\u{9FFFE}\u{9FFFF}\u{AFFFE}\u{AFFFF}\u{BFFFE}\u{BFFFF}\u{CFFFE}\u{CFFFF}\u{DFFFE}\u{DFFFF}\u{EFFFE}\u{EFFFF}\u{FFFFE}\u{FFFFF}\u{10FFFE}\u{10FFFF}]/u;
 function copy_payload({ out, css, head: head2, uid }) {
   return {
@@ -176,6 +208,22 @@ function assign_payload(p1, p2) {
   p1.out = p2.out;
   p1.head = p2.head;
   p1.uid = p2.uid;
+}
+function element(payload, tag, attributes_fn = noop, children_fn = noop) {
+  payload.out += "<!---->";
+  if (tag) {
+    payload.out += `<${tag}`;
+    attributes_fn();
+    payload.out += `>`;
+    if (!is_void(tag)) {
+      children_fn();
+      if (!is_raw_text_element(tag)) {
+        payload.out += EMPTY_COMMENT;
+      }
+      payload.out += `</${tag}>`;
+    }
+  }
+  payload.out += "<!---->";
 }
 let on_destroy = [];
 function props_id_generator(prefix) {
@@ -239,6 +287,22 @@ function spread_attributes(attrs, css_hash, classes, styles, flags = 0) {
     attr_str += attr(name, value, is_html && is_boolean_attribute(name));
   }
   return attr_str;
+}
+function spread_props(props) {
+  const merged_props = {};
+  let key;
+  for (let i = 0; i < props.length; i++) {
+    const obj = props[i];
+    for (key in obj) {
+      const desc = Object.getOwnPropertyDescriptor(obj, key);
+      if (desc) {
+        Object.defineProperty(merged_props, key, desc);
+      } else {
+        merged_props[key] = obj[key];
+      }
+    }
+  }
+  return merged_props;
 }
 function stringify(value) {
   return typeof value === "string" ? value : value == null ? "" : value + "";
@@ -309,6 +373,8 @@ function ensure_array_like(array_like_or_iterator) {
   return [];
 }
 export {
+  assign_payload as A,
+  current_component as B,
   HYDRATION_ERROR as H,
   HYDRATION_START as a,
   HYDRATION_END as b,
@@ -316,24 +382,24 @@ export {
   store_get as d,
   escape_html as e,
   slot as f,
-  ensure_array_like as g,
+  sanitize_props as g,
   head as h,
   is_passive_event as i,
-  attr as j,
-  attr_class as k,
-  stringify as l,
-  clsx as m,
-  copy_payload as n,
-  assign_payload as o,
+  spread_props as j,
+  attr as k,
+  ensure_array_like as l,
+  attr_class as m,
+  stringify as n,
+  getContext as o,
   push as p,
-  getContext as q,
+  rest_props as q,
   render as r,
   setContext as s,
-  sanitize_props as t,
+  spread_attributes as t,
   unsubscribe_stores as u,
-  rest_props as v,
-  spread_attributes as w,
-  bind_props as x,
+  bind_props as v,
+  clsx as w,
+  element as x,
   attr_style as y,
-  current_component as z
+  copy_payload as z
 };

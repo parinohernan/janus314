@@ -11,6 +11,7 @@
   import CaeModal from '$lib/components/facturas/CaeModal.svelte';
   // Remover: import CaeManualModal from '$lib/components/facturas/CaeManualModal.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { toast, confirm } from '$lib/utils/toast';
 
   // Definición de interfaces
   interface NotaCredito {
@@ -205,9 +206,8 @@
   
   // Anular nota de crédito
   const anularNotaCredito = async (tipo: string, sucursal: string, numero: string) => {
-    if (!confirm('¿Está seguro que desea anular esta nota de crédito?')) {
-      return;
-    }
+    const ok = await confirm('¿Está seguro que desea anular esta nota de crédito?');
+    if (!ok) return;
     
     try {
       const response = await fetchWithAuth(
@@ -224,11 +224,11 @@
         throw new Error('Error al anular la nota de crédito');
       }
       
-      alert('Nota de crédito anulada correctamente');
-      cargarNotasCredito(); // Recargar la lista
+      toast.success('Nota de crédito anulada correctamente');
+      cargarNotasCredito();
     } catch (err) {
       console.error('Error anulando nota de crédito:', err);
-      alert(err instanceof Error ? err.message : 'Error al anular la nota de crédito');
+      toast.error(err instanceof Error ? err.message : 'Error al anular la nota de crédito');
     }
   };
   

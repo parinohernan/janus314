@@ -4,6 +4,7 @@
   import { onDestroy } from 'svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { goto } from '$app/navigation';
+  import { toast } from '$lib/utils/toast';
 
   export let agregarArticulo: (a: Articulo) => void;
   export let handleArticuloKeyDown: (e: KeyboardEvent, a: Articulo) => void;
@@ -146,7 +147,7 @@
       busquedaProducto = '';
       productosFiltrados = [];
     } catch (error) {
-      alert('Error al asociar el código de barras');
+      toast.error('Error al asociar el código de barras');
     }
   }
 
@@ -244,7 +245,7 @@
     try {
       // Verificar si el navegador soporta BarcodeDetector
       if (!('BarcodeDetector' in window)) {
-        alert('Tu navegador no soporta el escaneo de códigos de barras');
+        toast.warning('Tu navegador no soporta el escaneo de códigos de barras');
         return;
       }
 
@@ -267,7 +268,7 @@
       detectarCodigo();
     } catch (error) {
       console.error('Error al iniciar el escáner:', error);
-      alert('Error al acceder a la cámara');
+      toast.error('Error al acceder a la cámara');
     }
   }
 

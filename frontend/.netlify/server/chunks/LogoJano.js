@@ -1,4 +1,4 @@
-import { y as attr_style, k as attr_class, x as bind_props, c as pop, p as push, l as stringify } from "./index3.js";
+import { y as attr_style, m as attr_class, v as bind_props, c as pop, p as push, n as stringify } from "./index3.js";
 import { z as fallback } from "./utils.js";
 function LogoJano($$payload, $$props) {
   push();

@@ -10,6 +10,7 @@ exports.getAllProveedores = async (req, res) => {
       search = "",
       field = "Descripcion",
       order = "ASC",
+      activo = "activos", // activos | inactivos | todos
     } = req.query;
 
     const { Proveedor } = req.models;
@@ -28,8 +29,17 @@ exports.getAllProveedores = async (req, res) => {
       ];
     }
 
+    // Filtro por estado Activo (acepta activos, 1, true | inactivos, 0, false | todos)
+    const activoStr = String(activo).toLowerCase();
+    if (activoStr === "activos" || activoStr === "1" || activoStr === "true") {
+      whereClause.Activo = true;
+    } else if (activoStr === "inactivos" || activoStr === "0" || activoStr === "false") {
+      whereClause.Activo = false;
+    }
+    // "todos" no agrega filtro
+
     // Validar campo de ordenamiento para evitar inyección SQL
-    const validFields = ["Codigo", "Descripcion", "Cuit"];
+    const validFields = ["Codigo", "Descripcion", "Cuit", "Activo"];
     const sortField = validFields.includes(field) ? field : "Descripcion";
     const sortOrder = order === "DESC" ? "DESC" : "ASC";
 
@@ -42,7 +52,7 @@ exports.getAllProveedores = async (req, res) => {
       order: [[sortField, sortOrder]],
       limit: parseInt(limit),
       offset: parseInt(offset),
-      attributes: ["Codigo", "Descripcion"], // Solo retornamos estos campos para el listado
+      attributes: ["Codigo", "Descripcion", "Activo"],
     });
 
     // Calcular páginas totales y devolver con metadatos de paginación
@@ -83,6 +93,8 @@ exports.getCuentasCorrientes = async (req, res) => {
         { Descripcion: { [Op.like]: `%${search}%` } },
       ];
     }
+    // Cuentas corrientes: solo proveedores activos
+    whereClause.Activo = true;
 
     const validFields = ["Codigo", "Descripcion", "Saldo"];
     const sortField = validFields.includes(field) ? field : "Descripcion";
@@ -404,24 +416,28 @@ exports.updateProveedor = async (req, res) => {
   }
 };
 
-// Eliminar proveedor
-exports.deleteProveedor = async (req, res) => {
+// Activar o desactivar proveedor (soft delete)
+exports.toggleActivoProveedor = async (req, res) => {
   try {
     const { Proveedor } = req.models;
-    
-    const proveedor = await Proveedor.findByPk(req.params.id);
+    const { id } = req.params;
+    const { Activo } = req.body;
+
+    const proveedor = await Proveedor.findByPk(id);
 
     if (!proveedor) {
       return res.status(404).json({ message: "Proveedor no encontrado" });
     }
 
-    await proveedor.destroy();
+    const nuevoEstado = Boolean(Activo);
+    await proveedor.update({ Activo: nuevoEstado });
 
-    return res
-      .status(200)
-      .json({ message: "Proveedor eliminado correctamente" });
+    return res.status(200).json({
+      message: nuevoEstado ? "Proveedor activado correctamente" : "Proveedor desactivado correctamente",
+      Activo: nuevoEstado,
+    });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Error al eliminar el proveedor" });
+    return res.status(500).json({ message: "Error al actualizar el estado del proveedor" });
   }
 };

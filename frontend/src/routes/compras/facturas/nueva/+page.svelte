@@ -4,6 +4,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { EmpresaService } from '$lib/services/EmpresaService';
+  import { confirm } from '$lib/utils/toast';
 
   const hoy = new Date().toISOString().slice(0, 10);
 
@@ -77,8 +78,9 @@
     proveedoresOptions = [];
   };
 
-  const cancelar = () => {
-    if (confirm('¿Cancelar? Se perderán los datos ingresados.')) goto('/compras/facturas');
+  const cancelar = async () => {
+    const ok = await confirm('¿Cancelar? Se perderán los datos ingresados.');
+    if (ok) goto('/compras/facturas');
   };
 
   const guardar = async () => {

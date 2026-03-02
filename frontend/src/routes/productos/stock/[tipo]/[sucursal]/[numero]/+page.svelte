@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { formatDate, formatDateOnly } from '$lib/utils/dateUtils';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { toast, confirm } from '$lib/utils/toast';
   
   // Obtener parámetros pasados por la función load
   export let data;
@@ -76,7 +77,8 @@
   
   // Eliminar el movimiento
   const eliminarMovimiento = async () => {
-    if (!confirm('¿Está seguro de eliminar este movimiento? Esta acción no se puede deshacer.')) {
+    const ok = await confirm('¿Está seguro de eliminar este movimiento? Esta acción no se puede deshacer.');
+    if (!ok) {
       return;
     }
     
@@ -93,11 +95,11 @@
         throw new Error(errorData.message || 'Error al eliminar el movimiento');
       }
       
-      alert('Movimiento eliminado correctamente');
+      toast.success('Movimiento eliminado correctamente');
       goto('/productos/stock');
     } catch (err) {
       console.error('Error eliminando movimiento:', err);
-      alert(err instanceof Error ? err.message : 'Error desconocido');
+      toast.error(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
       loading = false;
     }

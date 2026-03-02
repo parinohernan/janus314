@@ -4,6 +4,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { formatDate } from '$lib/utils/dateUtils';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { toast, confirm } from '$lib/utils/toast';
 
   interface ReciboProv {
     DocumentoTipo: string;
@@ -66,16 +67,18 @@
   };
 
   const anular = async (r: ReciboProv) => {
-    if (!confirm('¿Anular este recibo?')) return;
+    const ok = await confirm('¿Anular este recibo?');
+    if (!ok) return;
     try {
       const res = await fetchWithAuth(
         `/proveedores-recibos/${r.DocumentoTipo}/${r.DocumentoSucursal}/${r.DocumentoNumero}/anular`,
         { method: 'PUT' }
       );
       if (!res.ok) throw new Error((await res.json()).message || 'Error al anular');
+      toast.success('Recibo anulado correctamente');
       await cargarRecibos();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al anular');
+      toast.error(err instanceof Error ? err.message : 'Error al anular');
     }
   };
 

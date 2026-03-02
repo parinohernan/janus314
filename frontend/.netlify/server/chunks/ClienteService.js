@@ -1,4 +1,4 @@
-import { f as fetchWithAuth } from "./fetchWithAuth.js";
+import { f as fetchWithAuth } from "./authStore.js";
 class ClienteService {
   /**
    * Obtiene la lista paginada de clientes
@@ -12,6 +12,9 @@ class ClienteService {
         field: params.field,
         order: params.order
       });
+      if (params.localidad) {
+        searchParams.set("localidad", params.localidad);
+      }
       const response = await fetchWithAuth(`/clientes?${searchParams}`);
       if (!response.ok) {
         throw new Error("Error al cargar los clientes");
@@ -27,6 +30,22 @@ class ClienteService {
     } catch (error) {
       console.error("Error cargando clientes:", error);
       throw error;
+    }
+  }
+  /**
+   * Obtiene la lista de localidades distintas de clientes (para filtros)
+   */
+  static async obtenerLocalidadesDistinct() {
+    try {
+      const response = await fetchWithAuth("/clientes/localidades");
+      if (!response.ok) {
+        throw new Error("Error al cargar las localidades");
+      }
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      console.error("Error cargando localidades de clientes:", error);
+      return [];
     }
   }
   /**
@@ -137,15 +156,100 @@ class ClienteService {
     }
   }
   /**
-   * Obtiene los comprobantes de una cuenta corriente por el código de cliente
+   * Obtiene los comprobantes de una cuenta corriente por el código de cliente con paginación
    */
-  static async obtenerComprobantes(codigoCliente) {
+  static async obtenerComprobantes(codigoCliente, params) {
     try {
-      const response = await fetchWithAuth(`/clientes/${codigoCliente}/comprobantes`);
+      const searchParams = new URLSearchParams();
+      if (params) {
+        searchParams.append("page", params.page.toString());
+        searchParams.append("limit", params.limit.toString());
+        searchParams.append("search", params.search);
+        searchParams.append("field", params.field);
+        searchParams.append("order", params.order);
+      }
+      const url = `/clientes/${codigoCliente}/comprobantes${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+      const response = await fetchWithAuth(url);
       const data = await response.json();
-      return data.items || [];
+      return {
+        items: data.items || [],
+        currentPage: parseInt(data.meta?.currentPage || "1", 10),
+        totalPages: parseInt(data.meta?.totalPages || "1", 10),
+        totalItems: parseInt(data.meta?.totalItems || "0", 10),
+        limit: parseInt(data.meta?.itemsPerPage || "10", 10)
+      };
     } catch (error) {
       console.error(`Error cargando comprobantes para cliente ${codigoCliente}:`, error);
+      throw error;
+    }
+  }
+  /**
+   * Genera y descarga el PDF de cuenta corriente de un cliente
+   */
+  static async generarPDFCuentaCorriente(codigoCliente) {
+    try {
+      console.log("🔍 Intentando generar PDF para cliente:", codigoCliente);
+      const response = await fetchWithAuth(`/clientes/${codigoCliente}/cuenta-corriente/pdf`, {
+        method: "GET"
+      });
+      console.log("📥 Respuesta del servidor:", {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ Error response:", errorText);
+        throw new Error(`Error al generar el PDF de cuenta corriente: ${response.status} ${response.statusText}`);
+      }
+      const blob = await response.blob();
+      console.log("📄 Blob recibido:", blob.size, "bytes");
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `cuenta-corriente-${codigoCliente}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      console.log("✅ PDF descargado exitosamente");
+    } catch (error) {
+      console.error(`❌ Error generando PDF de cuenta corriente para cliente ${codigoCliente}:`, error);
+      throw error;
+    }
+  }
+  /**
+   * Función de prueba para generar PDF de cuenta corriente (sin autenticación)
+   */
+  static async generarPDFCuentaCorrientePrueba(codigoCliente) {
+    try {
+      console.log("🧪 Probando generación de PDF sin autenticación para cliente:", codigoCliente);
+      const response = await fetch(`https://janus314-api.janus314.com.ar/test-cuenta-corriente/${codigoCliente}`, {
+        method: "GET"
+      });
+      console.log("📥 Respuesta del servidor (prueba):", {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ Error response (prueba):", errorText);
+        throw new Error(`Error al generar el PDF de prueba: ${response.status} ${response.statusText}`);
+      }
+      const blob = await response.blob();
+      console.log("📄 Blob recibido (prueba):", blob.size, "bytes");
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `cuenta-corriente-prueba-${codigoCliente}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      console.log("✅ PDF de prueba descargado exitosamente");
+    } catch (error) {
+      console.error(`❌ Error generando PDF de prueba para cliente ${codigoCliente}:`, error);
       throw error;
     }
   }

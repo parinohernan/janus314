@@ -8,6 +8,7 @@
   import html2pdf from 'html2pdf.js';
   import ReciboPDF from './ReciboPDF.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { toast } from '$lib/utils/toast';
 
   // Obtener parámetros de la URL
   const tipo = $page.params.tipo;
@@ -75,7 +76,7 @@
       await html2pdf().set(opt).from(pdfContentRef).save();
     } catch (err) {
       console.error('Error generando PDF:', err);
-      alert('Error al generar el PDF');
+      toast.error('Error al generar el PDF');
     }
   };
 
@@ -112,7 +113,7 @@
       }
     } catch (err) {
       console.error('Error compartiendo recibo:', err);
-      alert('Error al compartir el recibo');
+      toast.error('Error al compartir el recibo');
     }
   };
 

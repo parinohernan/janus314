@@ -1,4 +1,4 @@
-import { k as attr_class, c as pop, p as push } from "../../../../chunks/index3.js";
+import { m as attr_class, c as pop, p as push } from "../../../../chunks/index3.js";
 import "../../../../chunks/client.js";
 /* empty css                     */
 function _page($$payload, $$props) {

@@ -87,7 +87,7 @@ const allowedOrigins = Array.from(new Set([...staticCorsOrigins, ...envCorsOrigi
 
 const corsOptions = {
   origin: allowedOrigins,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   credentials: true,
   maxAge: 86400 // 24 horas

@@ -8,6 +8,7 @@
     type ComprobanteProveedor,
     type ProveedorCuentaCorriente
   } from '$lib/services/ProveedorService';
+  import { toast } from '$lib/utils/toast';
 
   const proveedorId = $page.params.id;
   let comprobantes: ComprobanteProveedor[] = [];
@@ -97,7 +98,7 @@
             await ProveedorService.generarPDFCuentaCorriente(proveedorId);
           } catch (err) {
             console.error(err);
-            alert(err instanceof Error ? err.message : 'Error al generar PDF');
+            toast.error(err instanceof Error ? err.message : 'Error al generar PDF');
           }
         }}
       >

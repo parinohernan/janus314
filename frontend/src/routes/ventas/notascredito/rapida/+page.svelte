@@ -5,17 +5,35 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import { PreventaService } from '$lib/services/PreventaService';
 	import { NotaCreditoService } from '$lib/services/NotaCreditoService';
+	import { FacturaService } from '$lib/services/FacturaService';
 	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 	import type { Preventa } from '$lib/types';
 	import { formatCurrency } from '$lib/utils/formatters';
+	import CaeModal from '$lib/components/facturas/CaeModal.svelte';
+	import ImprimirModal from '$lib/components/facturas/ImprimirModal.svelte';
+
+	type TipoNC = 'NCA' | 'NCB' | 'NCF';
+	type FacturaOption = { tipo: string; sucursal: string; numero: string; label: string };
 
 	let preventa: Preventa | null = null;
 	let loadingPreventa = true;
+	let loadingFacturas = false;
 	let loadingSubmit = false;
 	let error: string | null = null;
 	let formasPago: { value: string; label: string }[] = [];
 	let formaPagoCodigo = 'CC';
+	let documentoTipo: TipoNC = 'NCF';
+	let facturasCliente: FacturaOption[] = [];
+	let facturaSeleccionada: FacturaOption | null = null;
 	let notaCreditoCreada: { DocumentoTipo: string; DocumentoSucursal: string; DocumentoNumero: string } | null = null;
+	let showCaeModal = false;
+	let showImprimirModal = false;
+
+	const tiposNC: { value: TipoNC; label: string }[] = [
+		{ value: 'NCA', label: 'Nota de crédito A' },
+		{ value: 'NCB', label: 'Nota de crédito B' },
+		{ value: 'NCF', label: 'Nota de crédito F' }
+	];
 
 	$: preventaParam = $page.url.searchParams.get('preventa'); // PRV/0001/00000123
 	$: [preventaTipo, preventaSucursal, preventaNumero] = preventaParam ? preventaParam.split('/') : [null, null, null];
@@ -30,6 +48,24 @@
 		try {
 			preventa = await PreventaService.obtenerPreventa(preventaTipo, preventaSucursal, preventaNumero);
 			error = null;
+			// Cargar facturas del cliente para comprobante asociado
+			if (preventa?.preventa?.ClienteCodigo) {
+				loadingFacturas = true;
+				const res = await FacturaService.obtenerUltimasFacturasCliente(preventa.preventa.ClienteCodigo, 30);
+				if (res.success && res.data?.length) {
+					facturasCliente = res.data.map((f: { tipo: string; sucursal: string; numero: string; label: string }) => ({
+						tipo: f.tipo,
+						sucursal: f.sucursal,
+						numero: f.numero,
+						label: f.label
+					}));
+					if (!facturaSeleccionada && facturasCliente.length > 0) facturaSeleccionada = facturasCliente[0];
+				} else {
+					facturasCliente = [];
+					facturaSeleccionada = null;
+				}
+				loadingFacturas = false;
+			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Error al cargar la preventa';
 			preventa = null;
@@ -57,6 +93,10 @@
 
 	async function generarNotaCredito() {
 		if (!preventaTipo || !preventaSucursal || !preventaNumero) return;
+		if (!facturaSeleccionada) {
+			error = 'Debe seleccionar una factura del cliente como comprobante asociado.';
+			return;
+		}
 		loadingSubmit = true;
 		error = null;
 		try {
@@ -64,10 +104,24 @@
 				preventaTipo,
 				preventaSucursal,
 				preventaNumero,
-				formaPagoCodigo
+				{
+					formaPagoCodigo,
+					documentoTipo,
+					facturaReferencia: {
+						tipo: facturaSeleccionada.tipo,
+						sucursal: facturaSeleccionada.sucursal,
+						numero: facturaSeleccionada.numero
+					}
+				}
 			);
 			if (resultado.success && resultado.data) {
 				notaCreditoCreada = resultado.data;
+				// NCA/NCB: obtener CAE desde AFIP (modal); NCF: ir directo a impresión
+				if (documentoTipo === 'NCA' || documentoTipo === 'NCB') {
+					showCaeModal = true;
+				} else {
+					showImprimirModal = true;
+				}
 			} else {
 				error = resultado.error || 'Error al crear la nota de crédito';
 			}
@@ -83,6 +137,26 @@
 		goto(
 			`/ventas/notascredito/imprimir/${notaCreditoCreada.DocumentoTipo}/${notaCreditoCreada.DocumentoSucursal}/${notaCreditoCreada.DocumentoNumero}`
 		);
+	}
+
+	function handleCloseCaeModal() {
+		showCaeModal = false;
+		showImprimirModal = true;
+	}
+
+	function handleImprimirModalImprimir() {
+		showImprimirModal = false;
+		irAImprimir();
+	}
+
+	function handleImprimirModalCancelar() {
+		showImprimirModal = false;
+		goto('/ventas/notascredito');
+	}
+
+	function handleImprimirModalClose() {
+		showImprimirModal = false;
+		goto('/ventas/notascredito');
 	}
 </script>
 
@@ -145,13 +219,25 @@
 			</div>
 		</div>
 
-		<!-- Formulario mínimo -->
+		<!-- Formulario -->
 		<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-			<h2 class="text-lg font-semibold text-gray-700 mb-4">Generar nota de crédito tipo F</h2>
+			<h2 class="text-lg font-semibold text-gray-700 mb-4">Generar nota de crédito (devolución)</h2>
 			<p class="text-sm text-gray-500 mb-4">
-				Se creará una NCF con el contenido de esta preventa. Comprobante asociado: el mismo número de la NC (devolución).
+				Se creará una NC con el contenido de esta preventa. El comprobante asociado debe ser una <strong>factura de este cliente</strong>.
 			</p>
-			<div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-md">
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+				<div>
+					<label for="tipoNC" class="block text-sm font-medium text-gray-700 mb-1">Tipo de comprobante</label>
+					<select
+						id="tipoNC"
+						bind:value={documentoTipo}
+						class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+					>
+						{#each tiposNC as t}
+							<option value={t.value}>{t.label}</option>
+						{/each}
+					</select>
+				</div>
 				<div>
 					<label for="formaPago" class="block text-sm font-medium text-gray-700 mb-1">Forma de pago</label>
 					<select
@@ -164,6 +250,28 @@
 						{/each}
 					</select>
 				</div>
+				<div class="md:col-span-2">
+					<label for="facturaRef" class="block text-sm font-medium text-gray-700 mb-1">Factura asociada (comprobante asociado) *</label>
+					{#if loadingFacturas}
+						<p class="text-sm text-gray-500">Cargando facturas del cliente…</p>
+					{:else if facturasCliente.length === 0}
+						<p class="text-amber-700 text-sm">Este cliente no tiene facturas. No se puede generar una NC rápida sin factura asociada.</p>
+					{:else}
+						<select
+							id="facturaRef"
+							value={facturaSeleccionada ? `${facturaSeleccionada.tipo}-${facturaSeleccionada.sucursal}-${facturaSeleccionada.numero}` : ''}
+							on:change={(e) => {
+								const key = (e.target as HTMLSelectElement).value;
+								facturaSeleccionada = facturasCliente.find((f) => `${f.tipo}-${f.sucursal}-${f.numero}` === key) || facturasCliente[0] || null;
+							}}
+							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+						>
+							{#each facturasCliente as f}
+								<option value={[f.tipo, f.sucursal, f.numero].join('-')}>{f.label}</option>
+							{/each}
+						</select>
+					{/if}
+				</div>
 			</div>
 		</div>
 
@@ -175,7 +283,7 @@
 			<Button
 				variant="primary"
 				on:click={generarNotaCredito}
-				disabled={loadingSubmit}
+				disabled={loadingSubmit || !facturaSeleccionada || facturasCliente.length === 0}
 			>
 				{#if loadingSubmit}
 					<span class="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></span>
@@ -184,11 +292,11 @@
 			</Button>
 			<Button variant="secondary" on:click={() => goto('/ventas/preventas')}>Cancelar</Button>
 		</div>
-	{:else if notaCreditoCreada}
+	{:else if notaCreditoCreada && !showCaeModal && !showImprimirModal}
 		<div class="bg-green-50 border border-green-200 rounded-lg p-6">
 			<h2 class="text-lg font-semibold text-green-800 mb-2">Nota de crédito creada</h2>
 			<p class="text-gray-700">
-				NCF {notaCreditoCreada.DocumentoSucursal}-{notaCreditoCreada.DocumentoNumero}
+				{notaCreditoCreada.DocumentoTipo} {notaCreditoCreada.DocumentoSucursal}-{notaCreditoCreada.DocumentoNumero}
 			</p>
 			<div class="mt-4 flex gap-3">
 				<Button variant="primary" on:click={irAImprimir}>Imprimir</Button>
@@ -198,6 +306,26 @@
 		</div>
 	{/if}
 </div>
+
+{#if notaCreditoCreada}
+	<!-- Modal CAE (NCA/NCB): obtener CAE desde AFIP -->
+	<CaeModal
+		bind:show={showCaeModal}
+		factura={notaCreditoCreada}
+		on:close={handleCloseCaeModal}
+		on:caeObtenido={() => {}}
+		on:imprimir={irAImprimir}
+	/>
+
+	<!-- Modal impresión -->
+	<ImprimirModal
+		bind:show={showImprimirModal}
+		factura={notaCreditoCreada}
+		on:close={handleImprimirModalClose}
+		on:imprimir={handleImprimirModalImprimir}
+		on:cancelar={handleImprimirModalCancelar}
+	/>
+{/if}
 
 <style>
 	.spinner {

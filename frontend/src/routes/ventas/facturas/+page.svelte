@@ -13,6 +13,7 @@
   import { AfipService } from '$lib/services/AfipService';
   import { VendedorService, type VendedorOption as VendedorOptionType } from '$lib/services/VendedorService';
   import { smartNavigate } from '$lib/utils/navigation';
+  import { toast, confirm } from '$lib/utils/toast';
 
   // Definición de interfaces
   interface Factura {
@@ -263,9 +264,8 @@
   
   // Anular factura
   const anularFactura = async (tipo: string, sucursal: string, numero: string) => {
-    if (!confirm('¿Está seguro que desea anular esta factura?')) {
-      return;
-    }
+    const ok = await confirm('¿Está seguro que desea anular esta factura?');
+    if (!ok) return;
     
     try {
       const response = await fetchWithAuth(
@@ -282,11 +282,11 @@
         throw new Error('Error al anular la factura');
       }
       
-      alert('Factura anulada correctamente');
-      cargarFacturas(); // Recargar la lista
+      toast.success('Factura anulada correctamente');
+      cargarFacturas();
     } catch (err) {
       console.error('Error anulando factura:', err);
-      alert(err instanceof Error ? err.message : 'Error al anular la factura');
+      toast.error(err instanceof Error ? err.message : 'Error al anular la factura');
     }
   };
 
@@ -314,7 +314,7 @@
       goto('/ventas/facturas/nueva?clonada=true');
     } catch (err) {
       console.error('❌ Error obteniendo datos de factura para clonar:', err);
-      alert(err instanceof Error ? err.message : 'Error al obtener los datos de la factura');
+      toast.error(err instanceof Error ? err.message : 'Error al obtener los datos de la factura');
     }
   };
   

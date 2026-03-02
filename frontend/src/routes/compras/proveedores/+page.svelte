@@ -5,6 +5,7 @@
   import { debounce } from 'lodash-es';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { ProveedorService, type Proveedor } from '$lib/services/ProveedorService';
+  import { toast, confirm } from '$lib/utils/toast';
   
   interface Pagination {
     currentPage: number;
@@ -17,13 +18,15 @@
     search: string;
     field: string;
     order: 'ASC' | 'DESC';
+    activo: 'activos' | 'inactivos' | 'todos';
   }
   
   // Estado de filtros y paginación con tipos
   let filters: Filters = {
     search: '',
     field: 'Descripcion',
-    order: 'ASC'
+    order: 'ASC',
+    activo: 'activos'
   };
   
   let pagination: Pagination = {
@@ -50,7 +53,8 @@
           limit: pagination.limit,
           search: filters.search,
           field: filters.field,
-          order: filters.order
+          order: filters.order,
+          activo: filters.activo
         }
       });
       
@@ -81,14 +85,14 @@
     }
   };
   
-  // Precarga inicial de todos los proveedores para operaciones rápidas
+  // Precarga inicial de proveedores activos para operaciones rápidas (selectores)
   let todosProveedores: Proveedor[] = [];
   const precargarProveedores = async () => {
     try {
-      todosProveedores = await ProveedorService.obtenerProveedores();
-      console.log(`Precargados ${todosProveedores.length} proveedores para uso rápido`);
+      todosProveedores = await ProveedorService.obtenerProveedores(500, 'activos');
+      console.log(`Precargados ${todosProveedores.length} proveedores activos para uso rápido`);
     } catch (err) {
-      console.error('Error al precargar lista completa de proveedores:', err);
+      console.error('Error al precargar lista de proveedores:', err);
     }
   };
   
@@ -137,27 +141,19 @@
     goto(`/compras/proveedores/${id}`);
   };
 
-  const handleDelete = async (id: string): Promise<void> => {
-    if (!confirm('¿Está seguro que desea eliminar este proveedor?')) return;
+  const handleToggleActivo = async (proveedor: Proveedor): Promise<void> => {
+    const esActivo = proveedor.Activo !== false;
+    const accion = esActivo ? 'desactivar' : 'activar';
+    const ok = await confirm(`¿Está seguro que desea ${accion} este proveedor?`);
+    if (!ok) return;
     
     try {
-      await ProveedorService.eliminarProveedor(id);
-      
-      alert('Proveedor eliminado correctamente');
+      await ProveedorService.toggleActivoProveedor(proveedor.Codigo, !esActivo);
+      toast.success(esActivo ? 'Proveedor desactivado correctamente' : 'Proveedor activado correctamente');
       loadProveedores();
-      
-      // Actualizar también la lista precargada
-      const index = todosProveedores.findIndex(p => p.Codigo === id);
-      if (index !== -1) {
-        todosProveedores.splice(index, 1);
-        todosProveedores = [...todosProveedores];
-      }
+      precargarProveedores();
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        alert(err.message);
-      } else {
-        alert('Error desconocido al eliminar');
-      }
+      toast.error(err instanceof Error ? err.message : 'Error desconocido al actualizar el estado');
     }
   };
 
@@ -203,6 +199,21 @@
             </svg>
           </div>
         </div>
+      </div>
+      
+      <!-- Filtro por estado Activo -->
+      <div class="md:w-40">
+        <label for="activo" class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+        <select
+          id="activo"
+          bind:value={filters.activo}
+          on:change={() => { pagination.currentPage = 1; loadProveedores(); }}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="activos">Activos</option>
+          <option value="inactivos">Inactivos</option>
+          <option value="todos">Todos</option>
+        </select>
       </div>
       
       <!-- Selector de resultados por página -->
@@ -276,6 +287,23 @@
                 {/if}
               </div>
             </th>
+            <th 
+              class="px-6 py-3 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+              on:click={() => handleSortChange('Activo')}
+            >
+              <div class="flex items-center">
+                <span>Estado</span>
+                {#if filters.field === 'Activo'}
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                    {#if filters.order === 'ASC'}
+                      <path fill-rule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L6.707 7.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                    {:else}
+                      <path fill-rule="evenodd" d="M14.707 12.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l2.293-2.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    {/if}
+                  </svg>
+                {/if}
+              </div>
+            </th>
             <th class="px-6 py-3 border-b border-gray-200 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
               Acciones
             </th>
@@ -290,12 +318,21 @@
               <td class="px-6 py-4 border-b border-gray-200">
                 {proveedor.Descripcion || '-'}
               </td>
+              <td class="px-6 py-4 whitespace-nowrap border-b border-gray-200">
+                <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full {proveedor.Activo !== false ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+                  {proveedor.Activo !== false ? 'Activo' : 'Inactivo'}
+                </span>
+              </td>
               <td class="px-6 py-4 whitespace-nowrap text-right border-b border-gray-200">
                 <Button variant="secondary" size="sm" on:click={() => handleEdit(proveedor.Codigo)}>
                   Editar
                 </Button>
-                <Button variant="danger" size="sm" on:click={() => handleDelete(proveedor.Codigo)}>
-                  Eliminar
+                <Button 
+                  variant={proveedor.Activo !== false ? 'danger' : 'primary'} 
+                  size="sm" 
+                  on:click={() => handleToggleActivo(proveedor)}
+                >
+                  {proveedor.Activo !== false ? 'Desactivar' : 'Activar'}
                 </Button>
               </td>
             </tr>

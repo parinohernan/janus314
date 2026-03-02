@@ -4,6 +4,7 @@
   import { auth } from '$lib/stores/authStore';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import Button from '$lib/components/ui/Button.svelte';
+  import { confirm } from '$lib/utils/toast';
 
   const VENDEDOR_ADMIN = 'admin';
 
@@ -27,7 +28,8 @@
   }
 
   async function eliminarPreventasAntiguas() {
-    if (!confirm('¿Eliminar preventas con más de 1 año de antigüedad? Esta acción no se puede deshacer.')) return;
+    const ok = await confirm('¿Eliminar preventas con más de 1 año de antigüedad? Esta acción no se puede deshacer.');
+    if (!ok) return;
     try {
       ejecutando = 'preventas';
       const res = await fetchWithAuth('/optimizacion/preventas-antiguas', { method: 'DELETE' });

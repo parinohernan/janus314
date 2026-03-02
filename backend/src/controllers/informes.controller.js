@@ -1415,9 +1415,9 @@ exports.generarPDFInformeVendedor = async (req, res) => {
 // Informe de ventas por proveedor - OPTIMIZADO
 exports.ventasPorProveedor = async (req, res) => {
   try {
-    const { fechaDesde, fechaHasta, proveedorCodigo } = req.query;
+    const { fechaDesde, fechaHasta, proveedorCodigo, pagoTipo } = req.query;
     
-    console.log("Parámetros recibidos:", { fechaDesde, fechaHasta, proveedorCodigo });
+    console.log("Parámetros recibidos:", { fechaDesde, fechaHasta, proveedorCodigo, pagoTipo });
     
     if (!fechaDesde || !fechaHasta) {
       return res.status(400).json({
@@ -1446,6 +1446,11 @@ exports.ventasPorProveedor = async (req, res) => {
       },
       FechaAnulacion: null // Excluir facturas anuladas
     };
+
+    // Filtro opcional por tipo de pago
+    if (pagoTipo) {
+      whereClauseFacturas.PagoTipo = pagoTipo;
+    }
     
     const facturasValidas = await FacturaCabeza.findAll({
       where: whereClauseFacturas,

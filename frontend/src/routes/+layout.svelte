@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import MainBar from '$lib/components/MainBar.svelte';
+	import Toaster from '$lib/components/Toaster.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import TabBar from '$lib/components/TabBar.svelte';
 	import { beforeNavigate, afterNavigate } from '$app/navigation';
@@ -109,6 +110,7 @@
 		<div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
 	</div>
 {:else}
+	<Toaster />
 	<div class="min-h-screen flex flex-col">
 		{#if !$page.url.pathname.includes('/ventas/bot/')}
 			<MainBar />

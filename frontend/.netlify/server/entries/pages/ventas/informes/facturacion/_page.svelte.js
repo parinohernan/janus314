@@ -1,9 +1,59 @@
-import { p as push, y as attr_style, x as bind_props, c as pop, l as stringify, n as copy_payload, o as assign_payload, h as head, e as escape_html, g as ensure_array_like, j as attr } from "../../../../../chunks/index3.js";
-import { f as fetchWithAuth } from "../../../../../chunks/fetchWithAuth.js";
+import { g as sanitize_props, j as spread_props, f as slot, p as push, y as attr_style, v as bind_props, c as pop, n as stringify, z as copy_payload, A as assign_payload, h as head, e as escape_html, l as ensure_array_like, k as attr } from "../../../../../chunks/index3.js";
+import { f as fetchWithAuth } from "../../../../../chunks/authStore.js";
 import { D as DatePicker } from "../../../../../chunks/DatePicker.js";
 import { B as Button } from "../../../../../chunks/Button.js";
 import { o as onDestroy } from "../../../../../chunks/index-server.js";
 import { z as fallback } from "../../../../../chunks/utils.js";
+import { I as Icon, a as Icon$1 } from "../../../../../chunks/Icon.js";
+import { F as File_text } from "../../../../../chunks/file-text.js";
+function Chart_pie($$payload, $$props) {
+  const $$sanitized_props = sanitize_props($$props);
+  const iconNode = [
+    [
+      "path",
+      {
+        "d": "M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z"
+      }
+    ],
+    [
+      "path",
+      { "d": "M21.21 15.89A10 10 0 1 1 8 2.83" }
+    ]
+  ];
+  Icon($$payload, spread_props([
+    { name: "chart-pie" },
+    $$sanitized_props,
+    {
+      iconNode,
+      children: ($$payload2) => {
+        $$payload2.out += `<!---->`;
+        slot($$payload2, $$props, "default", {});
+        $$payload2.out += `<!---->`;
+      },
+      $$slots: { default: true }
+    }
+  ]));
+}
+function Trending_up($$payload, $$props) {
+  const $$sanitized_props = sanitize_props($$props);
+  const iconNode = [
+    ["path", { "d": "M16 7h6v6" }],
+    ["path", { "d": "m22 7-8.5 8.5-5-5L2 17" }]
+  ];
+  Icon($$payload, spread_props([
+    { name: "trending-up" },
+    $$sanitized_props,
+    {
+      iconNode,
+      children: ($$payload2) => {
+        $$payload2.out += `<!---->`;
+        slot($$payload2, $$props, "default", {});
+        $$payload2.out += `<!---->`;
+      },
+      $$slots: { default: true }
+    }
+  ]));
+}
 function Chart_1($$payload, $$props) {
   push();
   let data = $$props["data"];
@@ -81,7 +131,14 @@ function _page($$payload, $$props) {
     head($$payload2, ($$payload3) => {
       $$payload3.title = `<title>Informe de Facturación</title>`;
     });
-    $$payload2.out += `<div class="container mx-auto p-6 space-y-6"><div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"><div><h1 class="text-3xl font-bold text-gray-900">📊 Informe de Facturación</h1> <p class="text-gray-600 mt-2">Análisis completo de ventas y facturación</p></div> <div class="flex flex-col sm:flex-row gap-3"><select class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"><option value="dia">Por Día</option><option value="semana">Por Semana</option><option value="mes">Por Mes</option></select> `;
+    $$payload2.out += `<div class="container mx-auto p-6 space-y-6"><div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"><div><h1 class="text-3xl font-bold text-gray-900 flex items-center gap-3">`;
+    Icon$1($$payload2, {
+      icon: Chart_pie,
+      size: 32,
+      strokeWidth: 2.5,
+      glass: true
+    });
+    $$payload2.out += `<!----> Informe de Facturación</h1> <p class="text-gray-600 mt-2">Análisis completo de ventas y facturación</p></div> <div class="flex flex-col sm:flex-row gap-3"><select class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"><option value="dia">Por Día</option><option value="semana">Por Semana</option><option value="mes">Por Mes</option></select> `;
     Button($$payload2, {
       variant: "primary",
       disabled: loading,
@@ -191,7 +248,14 @@ function _page($$payload, $$props) {
         });
       } else {
         $$payload2.out += "<!--[!-->";
-        $$payload2.out += `<div class="h-80 flex items-center justify-center text-gray-500"><div class="text-center"><div class="text-4xl mb-4">📊</div> <p>No hay datos de evolución de ventas para el período seleccionado</p></div></div>`;
+        $$payload2.out += `<div class="h-80 flex items-center justify-center text-gray-500"><div class="text-center"><div class="mb-4">`;
+        Icon$1($$payload2, {
+          icon: Trending_up,
+          size: 40,
+          strokeWidth: 2,
+          glass: true
+        });
+        $$payload2.out += `<!----></div> <p>No hay datos de evolución de ventas para el período seleccionado</p></div></div>`;
       }
       $$payload2.out += `<!--]--></div> <div class="grid grid-cols-1 lg:grid-cols-2 gap-6"><div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200"><h2 class="text-xl font-semibold mb-6">📋 Distribución por Tipo</h2> <div class="space-y-4"><!--[-->`;
       for (let $$index = 0, $$length = each_array.length; $$index < $$length; $$index++) {
@@ -216,7 +280,14 @@ function _page($$payload, $$props) {
       } else {
         $$payload2.out += "<!--[!-->";
       }
-      $$payload2.out += `<!--]--></svg> <div class="absolute inset-0 flex items-center justify-center"><div class="text-center"><div class="text-2xl font-bold text-green-600">${escape_html(datos.estadisticasGenerales.totalFacturas > 0 ? (datos.estadisticasGenerales.facturasConCae / datos.estadisticasGenerales.totalFacturas * 100).toFixed(1) : "0")}%</div> <div class="text-sm text-gray-500">Con CAE</div></div></div></div></div> <div class="mt-4 text-center"><div class="text-sm text-gray-600">${escape_html(datos.estadisticasGenerales.facturasConCae)} de ${escape_html(datos.estadisticasGenerales.totalFacturas)} facturas</div></div></div> <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200"><h2 class="text-xl font-semibold mb-6">📊 Resumen Financiero</h2> <div class="space-y-4"><div class="flex justify-between items-center"><span class="text-gray-600">Ventas Brutas:</span> <span class="font-semibold">${escape_html(formatearMoneda(datos.estadisticasGenerales.totalVentas + datos.estadisticasGenerales.totalBonificaciones))}</span></div> <div class="flex justify-between items-center"><span class="text-gray-600">Bonificaciones:</span> <span class="font-semibold text-red-600">-${escape_html(formatearMoneda(datos.estadisticasGenerales.totalBonificaciones))}</span></div> <div class="flex justify-between items-center"><span class="text-gray-600">IVA:</span> <span class="font-semibold text-blue-600">+${escape_html(formatearMoneda(datos.estadisticasGenerales.totalIva))}</span></div> <hr class="border-gray-200"> <div class="flex justify-between items-center text-lg font-bold"><span>Total Neto:</span> <span class="text-green-600">${escape_html(formatearMoneda(datos.estadisticasGenerales.totalVentas))}</span></div></div></div></div> <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200"><h2 class="text-xl font-semibold mb-6">📋 Facturas Recientes</h2> <div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b border-gray-200"><th class="text-left py-3 px-4 font-semibold">Número</th><th class="text-left py-3 px-4 font-semibold">Fecha</th><th class="text-left py-3 px-4 font-semibold">Cliente</th><th class="text-left py-3 px-4 font-semibold">Vendedor</th><th class="text-right py-3 px-4 font-semibold">Monto</th><th class="text-center py-3 px-4 font-semibold">CAE</th></tr></thead><tbody><!--[-->`;
+      $$payload2.out += `<!--]--></svg> <div class="absolute inset-0 flex items-center justify-center"><div class="text-center"><div class="text-2xl font-bold text-green-600">${escape_html(datos.estadisticasGenerales.totalFacturas > 0 ? (datos.estadisticasGenerales.facturasConCae / datos.estadisticasGenerales.totalFacturas * 100).toFixed(1) : "0")}%</div> <div class="text-sm text-gray-500">Con CAE</div></div></div></div></div> <div class="mt-4 text-center"><div class="text-sm text-gray-600">${escape_html(datos.estadisticasGenerales.facturasConCae)} de ${escape_html(datos.estadisticasGenerales.totalFacturas)} facturas</div></div></div> <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200"><h2 class="text-xl font-semibold mb-6 flex items-center gap-2">`;
+      Icon$1($$payload2, {
+        icon: File_text,
+        size: 20,
+        strokeWidth: 2.5,
+        glass: true
+      });
+      $$payload2.out += `<!----> Resumen Financiero</h2> <div class="space-y-4"><div class="flex justify-between items-center"><span class="text-gray-600">Ventas Brutas:</span> <span class="font-semibold">${escape_html(formatearMoneda(datos.estadisticasGenerales.totalVentas + datos.estadisticasGenerales.totalBonificaciones))}</span></div> <div class="flex justify-between items-center"><span class="text-gray-600">Bonificaciones:</span> <span class="font-semibold text-red-600">-${escape_html(formatearMoneda(datos.estadisticasGenerales.totalBonificaciones))}</span></div> <div class="flex justify-between items-center"><span class="text-gray-600">IVA:</span> <span class="font-semibold text-blue-600">+${escape_html(formatearMoneda(datos.estadisticasGenerales.totalIva))}</span></div> <hr class="border-gray-200"> <div class="flex justify-between items-center text-lg font-bold"><span>Total Neto:</span> <span class="text-green-600">${escape_html(formatearMoneda(datos.estadisticasGenerales.totalVentas))}</span></div></div></div></div> <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200"><h2 class="text-xl font-semibold mb-6">📋 Facturas Recientes</h2> <div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b border-gray-200"><th class="text-left py-3 px-4 font-semibold">Número</th><th class="text-left py-3 px-4 font-semibold">Fecha</th><th class="text-left py-3 px-4 font-semibold">Cliente</th><th class="text-left py-3 px-4 font-semibold">Vendedor</th><th class="text-right py-3 px-4 font-semibold">Monto</th><th class="text-center py-3 px-4 font-semibold">CAE</th></tr></thead><tbody><!--[-->`;
       for (let $$index_3 = 0, $$length = each_array_3.length; $$index_3 < $$length; $$index_3++) {
         let factura = each_array_3[$$index_3];
         $$payload2.out += `<tr class="border-b border-gray-100 hover:bg-gray-50"><td class="py-3 px-4"><span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"${attr_style(`background-color: ${stringify(getColorTipo(factura.tipo))}20; color: ${stringify(getColorTipo(factura.tipo))}`)}>${escape_html(factura.numero)}</span></td><td class="py-3 px-4 text-gray-600">${escape_html(new Date(factura.fecha).toLocaleDateString("es-AR"))}</td><td class="py-3 px-4 font-medium">${escape_html(factura.cliente)}</td><td class="py-3 px-4 text-gray-600">${escape_html(factura.vendedor)}</td><td class="py-3 px-4 text-right font-semibold">${escape_html(formatearMoneda(factura.monto))}</td><td class="py-3 px-4 text-center">`;
@@ -232,7 +303,14 @@ function _page($$payload, $$props) {
       $$payload2.out += `<!--]--></tbody></table></div></div>`;
     } else if (!loading) {
       $$payload2.out += "<!--[2-->";
-      $$payload2.out += `<div class="text-center py-12"><div class="text-6xl mb-4">📊</div> <h3 class="text-xl font-semibold text-gray-900 mb-2">Selecciona un rango de fechas</h3> <p class="text-gray-600">Para ver el informe de facturación, selecciona las fechas de inicio y fin.</p></div>`;
+      $$payload2.out += `<div class="text-center py-12"><div class="mb-4">`;
+      Icon$1($$payload2, {
+        icon: Chart_pie,
+        size: 64,
+        strokeWidth: 2,
+        glass: true
+      });
+      $$payload2.out += `<!----></div> <h3 class="text-xl font-semibold text-gray-900 mb-2">Selecciona un rango de fechas</h3> <p class="text-gray-600">Para ver el informe de facturación, selecciona las fechas de inicio y fin.</p></div>`;
     } else {
       $$payload2.out += "<!--[!-->";
     }

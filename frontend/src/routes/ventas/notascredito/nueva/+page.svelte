@@ -12,6 +12,7 @@
   import CaeModal from '$lib/components/facturas/CaeModal.svelte';
   import ImprimirModal from '$lib/components/facturas/ImprimirModal.svelte';
   import DetalleFacturaModal from '$lib/components/facturas/DetalleFacturaModal.svelte';
+  import { toast } from '$lib/utils/toast';
 
   // Agregar variable para formas de pago
   let formasPago: { value: string, label: string }[] = [];
@@ -587,7 +588,7 @@
     
     if (!notaCreditoCreada || !notaCreditoCreada.DocumentoTipo || !notaCreditoCreada.DocumentoSucursal || !notaCreditoCreada.DocumentoNumero) {
       console.error('Datos de nota de crédito incompletos:', notaCreditoCreada);
-      alert('Error: No se pudieron obtener los datos completos de la nota de crédito creada');
+      toast.error('Error: No se pudieron obtener los datos completos de la nota de crédito creada');
       return;
     }
     

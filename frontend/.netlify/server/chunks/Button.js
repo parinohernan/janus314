@@ -1,4 +1,4 @@
-import { t as sanitize_props, v as rest_props, w as spread_attributes, f as slot, x as bind_props } from "./index3.js";
+import { g as sanitize_props, q as rest_props, t as spread_attributes, f as slot, v as bind_props } from "./index3.js";
 import { z as fallback } from "./utils.js";
 function Button($$payload, $$props) {
   const $$sanitized_props = sanitize_props($$props);

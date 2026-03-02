@@ -1,4 +1,4 @@
-import { j as attr, c as pop, p as push, d as store_get, u as unsubscribe_stores, e as escape_html } from "../../../../../chunks/index3.js";
+import { k as attr, c as pop, p as push, d as store_get, u as unsubscribe_stores, e as escape_html } from "../../../../../chunks/index3.js";
 import { B as Button } from "../../../../../chunks/Button.js";
 import { a as auth } from "../../../../../chunks/authStore.js";
 function _page($$payload, $$props) {

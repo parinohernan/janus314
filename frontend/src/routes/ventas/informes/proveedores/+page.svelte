@@ -50,6 +50,8 @@
   let fechaDesde: Date = new Date();
   let fechaHasta: Date = new Date();
   let proveedoresSeleccionados: ProveedorOption[] = [];
+  let filtroPagoTipo = '';
+  let formasPago: { value: string; label: string }[] = [];
   let mostrarDropdownProveedores = false;
 
   // Inicializar fechas al mes actual y cargar proveedores
@@ -64,6 +66,7 @@
     // Cargar proveedores con un pequeño delay para asegurar que la autenticación esté lista
     setTimeout(() => {
       cargarTodosLosProveedores();
+      cargarFormasPago();
     }, 500);
   });
 
@@ -96,6 +99,9 @@
 
       if (proveedoresSeleccionados.length > 0) {
         params.append('proveedorCodigo', proveedoresSeleccionados.map(p => p.codigo).join(','));
+      }
+      if (filtroPagoTipo) {
+        params.append('pagoTipo', filtroPagoTipo);
       }
 
       const response = await fetchWithAuth(`/informes/ventas-por-proveedor?${params}`);
@@ -281,6 +287,22 @@
     }
   }
 
+  // Cargar formas de pago para filtro
+  async function cargarFormasPago() {
+    try {
+      const response = await fetchWithAuth('/tipos-pago');
+      if (!response.ok) return;
+      const result = await response.json();
+      formasPago = (result.items || []).map((item: { Codigo: string; Descripcion: string }) => ({
+        value: item.Codigo,
+        label: item.Descripcion
+      }));
+    } catch (err) {
+      console.error('Error cargando formas de pago:', err);
+      formasPago = [];
+    }
+  }
+
   // Función para manejar cambio de proveedor
   function cambiarProveedor(event: Event) {
     const target = event.target as HTMLSelectElement;
@@ -367,7 +389,7 @@
   <!-- Filtros -->
   <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
     <h2 class="text-lg font-semibold mb-4">📅 Filtros</h2>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
       <div>
         <label for="fechaDesde" class="block text-sm font-medium text-gray-700 mb-2">Fecha Desde</label>
         <DatePicker id="fechaDesde" bind:value={fechaDesde} />
@@ -377,6 +399,19 @@
         <DatePicker id="fechaHasta" bind:value={fechaHasta} />
       </div>
       <div>
+        <label for="filtroPagoTipo" class="block text-sm font-medium text-gray-700 mb-2">Forma de pago</label>
+        <select
+          id="filtroPagoTipo"
+          bind:value={filtroPagoTipo}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+        >
+          <option value="">Todas</option>
+          {#each formasPago as fp}
+            <option value={fp.value}>{fp.label}</option>
+          {/each}
+        </select>
+      </div>
+      <div class="md:col-span-4">
         <label for="proveedor" class="block text-sm font-medium text-gray-700 mb-2">
           Filtrar por Proveedores (Opcional)
         </label>

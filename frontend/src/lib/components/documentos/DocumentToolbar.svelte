@@ -1,6 +1,7 @@
 <script lang="ts">
   import Button from '$lib/components/ui/Button.svelte';
   import { DocumentService } from '$lib/services/DocumentService';
+  import { toast } from '$lib/utils/toast';
   
   export let pdfUrl: string | null = null;
   export let documentoTipo: string = '';
@@ -33,7 +34,7 @@
     );
     
     if (!resultado) {
-      alert('La función de compartir no está disponible en este navegador');
+      toast.warning('La función de compartir no está disponible en este navegador');
     }
   }
 </script>

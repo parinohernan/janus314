@@ -1,4 +1,4 @@
-import { h as head, j as attr, c as pop, p as push, e as escape_html, g as ensure_array_like, k as attr_class, l as stringify } from "../../../chunks/index3.js";
+import { h as head, k as attr, c as pop, p as push, e as escape_html, l as ensure_array_like, m as attr_class, n as stringify } from "../../../chunks/index3.js";
 import { B as Button } from "../../../chunks/Button.js";
 import "../../../chunks/client.js";
 import { P as PUBLIC_API_URL } from "../../../chunks/public.js";

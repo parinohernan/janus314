@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { toast } from '$lib/utils/toast';
   
   export let comprobante: {
     tipo: string;
@@ -164,7 +165,7 @@
   // Función para compartir por WhatsApp
   function compartirPorWhatsApp() {
     if (!numeroTelefono) {
-      alert('Por favor ingrese un número de teléfono');
+      toast.warning('Por favor ingrese un número de teléfono');
       return;
     }
     
@@ -173,7 +174,7 @@
     
     // Validar que sea un número válido
     if (!/^\d{10,}$/.test(numeroLimpio)) {
-      alert('Por favor ingrese un número válido (mínimo 10 dígitos)');
+      toast.warning('Por favor ingrese un número válido (mínimo 10 dígitos)');
       return;
     }
 

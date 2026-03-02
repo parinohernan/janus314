@@ -5,14 +5,18 @@ const getInitialState = () => {
   }
 };
 const createNavigationStore = () => {
-  const { subscribe, set, update } = writable(getInitialState());
+  const store = writable(getInitialState());
+  const { subscribe, set, update } = store;
   return {
     subscribe,
     saveState: (path, state) => {
-      update((states) => ({ ...states, [path]: state }));
+      update((states) => {
+        const newStates = { ...states, [path]: state };
+        return newStates;
+      });
     },
     getState: (path) => {
-      const states = get({ subscribe });
+      const states = get(store);
       return states[path] || null;
     },
     clearState: (path) => {

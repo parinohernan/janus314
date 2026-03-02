@@ -5,6 +5,7 @@
   import { PUBLIC_API_URL } from '$env/static/public';
   import { debounce } from 'lodash-es'; // Necesitarás instalar: npm install lodash-es
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { toast, confirm } from '$lib/utils/toast';
   
   interface Rubro {
     Codigo: string;
@@ -114,7 +115,8 @@
   };
   
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Está seguro que desea eliminar este rubro?')) return;
+    const ok = await confirm('¿Está seguro que desea eliminar este rubro?');
+    if (!ok) return;
     
     try {
       const response = await fetchWithAuth(`/rubros/${id}`, {
@@ -126,7 +128,7 @@
       // Recargar la tabla después de eliminar
       loadRubros();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error desconocido');
+      toast.error(err instanceof Error ? err.message : 'Error desconocido');
     }
   };
   

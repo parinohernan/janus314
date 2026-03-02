@@ -1,4 +1,4 @@
-import { p as push, j as attr, k as attr_class, g as ensure_array_like, e as escape_html, x as bind_props, c as pop } from "./index3.js";
+import { p as push, k as attr, m as attr_class, l as ensure_array_like, e as escape_html, v as bind_props, c as pop } from "./index3.js";
 import { z as fallback } from "./utils.js";
 function MultiSelect($$payload, $$props) {
   push();

@@ -1,9 +1,48 @@
-import { h as head, j as attr, c as pop, p as push, e as escape_html, g as ensure_array_like, k as attr_class, l as stringify } from "../../../../chunks/index3.js";
+import { g as sanitize_props, j as spread_props, f as slot, h as head, k as attr, c as pop, p as push, e as escape_html, l as ensure_array_like, m as attr_class, n as stringify } from "../../../../chunks/index3.js";
 import { B as Button } from "../../../../chunks/Button.js";
+import { I as Icon, a as Icon$1 } from "../../../../chunks/Icon.js";
 import "../../../../chunks/client.js";
 import { debounce } from "lodash-es";
 import "../../../../chunks/navigationState.js";
-import { f as fetchWithAuth } from "../../../../chunks/fetchWithAuth.js";
+import { f as fetchWithAuth } from "../../../../chunks/authStore.js";
+import { Z as Zap } from "../../../../chunks/zap.js";
+function Minus($$payload, $$props) {
+  const $$sanitized_props = sanitize_props($$props);
+  const iconNode = [["path", { "d": "M5 12h14" }]];
+  Icon($$payload, spread_props([
+    { name: "minus" },
+    $$sanitized_props,
+    {
+      iconNode,
+      children: ($$payload2) => {
+        $$payload2.out += `<!---->`;
+        slot($$payload2, $$props, "default", {});
+        $$payload2.out += `<!---->`;
+      },
+      $$slots: { default: true }
+    }
+  ]));
+}
+function Plus($$payload, $$props) {
+  const $$sanitized_props = sanitize_props($$props);
+  const iconNode = [
+    ["path", { "d": "M5 12h14" }],
+    ["path", { "d": "M12 5v14" }]
+  ];
+  Icon($$payload, spread_props([
+    { name: "plus" },
+    $$sanitized_props,
+    {
+      iconNode,
+      children: ($$payload2) => {
+        $$payload2.out += `<!---->`;
+        slot($$payload2, $$props, "default", {});
+        $$payload2.out += `<!---->`;
+      },
+      $$slots: { default: true }
+    }
+  ]));
+}
 function _page($$payload, $$props) {
   push();
   let movimientos = [];
@@ -59,19 +98,36 @@ function _page($$payload, $$props) {
   head($$payload, ($$payload2) => {
     $$payload2.title = `<title>Movimientos de Stock</title>`;
   });
-  $$payload.out += `<div class="container mx-auto px-4 py-8"><div class="flex justify-between items-center mb-6"><h1 class="text-2xl font-bold">Gestión de Movimientos de Stock</h1> <div class="space-x-2">`;
+  $$payload.out += `<div class="container mx-auto px-4 py-8"><div class="flex justify-between items-center mb-6"><h1 class="text-2xl font-bold">Gestión de Movimientos de Stock</h1> <div class="flex flex-wrap gap-2">`;
   Button($$payload, {
-    variant: "primary",
+    variant: "success",
+    class: "inline-flex items-center gap-2",
+    title: "Registrar entrada de mercadería cargando artículos y cantidades manualmente",
     children: ($$payload2) => {
-      $$payload2.out += `<!---->Nuevo Ingreso`;
+      Icon$1($$payload2, { icon: Plus, size: 18 });
+      $$payload2.out += `<!----> Ingreso`;
     },
     $$slots: { default: true }
   });
   $$payload.out += `<!----> `;
   Button($$payload, {
-    variant: "secondary",
+    variant: "danger",
+    class: "inline-flex items-center gap-2",
+    title: "Registrar salida de mercadería (ventas, mermas, devoluciones, etc.)",
     children: ($$payload2) => {
-      $$payload2.out += `<!---->Nuevo Egreso`;
+      Icon$1($$payload2, { icon: Minus, size: 18 });
+      $$payload2.out += `<!----> Egreso`;
+    },
+    $$slots: { default: true }
+  });
+  $$payload.out += `<!----> `;
+  Button($$payload, {
+    variant: "primary",
+    class: "inline-flex items-center gap-2",
+    title: "Ingreso desde remito: suba una foto o escaneo del remito para extraer los ítems automáticamente",
+    children: ($$payload2) => {
+      Icon$1($$payload2, { icon: Zap, size: 18 });
+      $$payload2.out += `<!----> Ingreso Automático`;
     },
     $$slots: { default: true }
   });

@@ -12,6 +12,6 @@ router.get("/:id/cuenta-corriente/pdf", getEmpresaConnection, pdfController.gene
 router.get("/:id", getEmpresaConnection, proveedorController.getProveedorById);
 router.post("/", getEmpresaConnection, proveedorController.createProveedor);
 router.put("/:id", getEmpresaConnection, proveedorController.updateProveedor);
-router.delete("/:id", getEmpresaConnection, proveedorController.deleteProveedor);
+router.patch("/:id/activo", getEmpresaConnection, proveedorController.toggleActivoProveedor);
 
 module.exports = router;

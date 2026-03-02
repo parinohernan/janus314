@@ -1,4 +1,4 @@
-import { f as fetchWithAuth } from "../../../../../../../chunks/fetchWithAuth.js";
+import { f as fetchWithAuth } from "../../../../../../../chunks/authStore.js";
 const load = async ({ params, fetch }) => {
   try {
     const response = await fetchWithAuth(`/clientes/${params.codigo}`, { fetch });

@@ -8,6 +8,7 @@
   import { ClienteService } from '$lib/services/ClienteService';
   import type { Cliente } from '$lib/types/cliente';
   import { smartNavigate } from '$lib/utils/navigation';
+  import { toast, confirm } from '$lib/utils/toast';
    
   interface Pagination {
     currentPage: number;
@@ -96,7 +97,7 @@
       });
       const items = data.items || [];
       if (items.length === 0) {
-        alert('No hay clientes para exportar con los filtros actuales.');
+        toast.warning('No hay clientes para exportar con los filtros actuales.');
         return;
       }
       const { jsPDF } = await import('jspdf');
@@ -157,7 +158,7 @@
       doc.save(`clientes-${filters.localidad ? filters.localidad.replace(/\s/g, '-') : 'listado'}-${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch (err) {
       console.error('Error generando PDF:', err);
-      alert('Error al generar el PDF. Intente de nuevo.');
+      toast.error('Error al generar el PDF. Intente de nuevo.');
     } finally {
       generatingPdf = false;
     }
@@ -268,15 +269,15 @@
   
   // Cambiar estado del cliente
   const handleToggleActivo = async (codigo: string, estadoActual: number) => {
-    if (confirm(`¿Está seguro que desea ${estadoActual ? 'desactivar' : 'activar'} este cliente?`)) {
-      try {
-        await ClienteService.toggleActivo(codigo);
-        // Recargar la lista de clientes
-        await loadClientes();
-      } catch (error) {
-        console.error('Error:', error);
-        alert('Ha ocurrido un error al cambiar el estado del cliente.');
-      }
+    const ok = await confirm(`¿Está seguro que desea ${estadoActual ? 'desactivar' : 'activar'} este cliente?`);
+    if (!ok) return;
+    try {
+      await ClienteService.toggleActivo(codigo);
+      toast.success('Estado del cliente actualizado correctamente');
+      await loadClientes();
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Ha ocurrido un error al cambiar el estado del cliente.');
     }
   };
   

@@ -1,4 +1,4 @@
-import { p as push, j as attr, x as bind_props, c as pop } from "./index3.js";
+import { p as push, k as attr, v as bind_props, c as pop } from "./index3.js";
 import { z as fallback } from "./utils.js";
 function DatePicker($$payload, $$props) {
   push();

@@ -5,6 +5,7 @@
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import html2pdf from 'html2pdf.js';
   import ReciboPDF from './ReciboPDF.svelte';
+  import { toast } from '$lib/utils/toast';
 
   // Obtener parámetros de la URL
   const tipo = $page.params.tipo;
@@ -92,7 +93,7 @@
       }
     } catch (err) {
       console.error('Error compartiendo recibo:', err);
-      alert('Error al compartir el recibo');
+      toast.error('Error al compartir el recibo');
     }
   };
 

@@ -1,4 +1,4 @@
-import { h as head, x as bind_props, c as pop, p as push } from "../../../../../../../chunks/index3.js";
+import { h as head, v as bind_props, c as pop, p as push } from "../../../../../../../chunks/index3.js";
 import "../../../../../../../chunks/client.js";
 import { B as Button } from "../../../../../../../chunks/Button.js";
 import "clsx";

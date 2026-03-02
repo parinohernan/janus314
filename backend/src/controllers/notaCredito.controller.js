@@ -305,20 +305,27 @@ exports.obtenerNotaCredito = async (req, res) => {
 };
 
 /**
- * Crea una nota de crédito RÁPIDA (tipo NCF) desde una preventa (devolución).
- * Comprobante asociado = el mismo número de la NC (si mismo).
+ * Crea una nota de crédito RÁPIDA (tipo NCA, NCB o NCF) desde una preventa (devolución).
+ * El comprobante asociado debe ser una factura de este cliente.
  */
 exports.crearNotaCreditoRapidaDesdePreventa = async (req, res) => {
   try {
-    const { preventaTipo, preventaSucursal, preventaNumero, FormaPagoCodigo } = req.body;
+    const { preventaTipo, preventaSucursal, preventaNumero, FormaPagoCodigo, DocumentoTipo, FacturaReferencia } = req.body;
     if (!preventaTipo || !preventaSucursal || !preventaNumero) {
       return res.status(400).json({
         success: false,
         message: "Faltan datos de la preventa (preventaTipo, preventaSucursal, preventaNumero)",
       });
     }
+    const tipoNC = (DocumentoTipo === "NCA" || DocumentoTipo === "NCB" || DocumentoTipo === "NCF") ? DocumentoTipo : "NCF";
+    if (!FacturaReferencia || !FacturaReferencia.tipo || !FacturaReferencia.sucursal || !FacturaReferencia.numero) {
+      return res.status(400).json({
+        success: false,
+        message: "El comprobante asociado es obligatorio: debe seleccionar una factura del cliente.",
+      });
+    }
 
-    const { PreventaCabeza, PreventaItem, Cliente, Articulo, DatosEmpresa } = req.models;
+    const { PreventaCabeza, PreventaItem, Cliente, Articulo, DatosEmpresa, FacturaCabeza } = req.models;
     const dbConnection = req.dbConnection;
 
     // Obtener sucursal de la empresa
@@ -369,6 +376,23 @@ exports.crearNotaCreditoRapidaDesdePreventa = async (req, res) => {
     const cabeza = preventaCabeza.get ? preventaCabeza.get({ plain: true }) : preventaCabeza;
     const cliente = cabeza.Cliente || {};
 
+    // Validar que la factura de referencia sea de este cliente
+    const facturaRef = FacturaReferencia;
+    const facturaAsociada = await FacturaCabeza.findOne({
+      where: {
+        DocumentoTipo: facturaRef.tipo,
+        DocumentoSucursal: facturaRef.sucursal,
+        DocumentoNumero: facturaRef.numero,
+        ClienteCodigo: cabeza.ClienteCodigo,
+      },
+    });
+    if (!facturaAsociada) {
+      return res.status(400).json({
+        success: false,
+        message: "La factura seleccionada no corresponde al cliente de la preventa o no existe.",
+      });
+    }
+
     // Mapear ítems preventa -> ítems nota de crédito (con campos que espera el servicio/validador)
     let importeBruto = 0;
     let baseImponible1 = 0;
@@ -403,7 +427,7 @@ exports.crearNotaCreditoRapidaDesdePreventa = async (req, res) => {
     const hoy = new Date().toISOString().slice(0, 10);
 
     const notaCreditoData = {
-      DocumentoTipo: "NCF",
+      DocumentoTipo: tipoNC,
       DocumentoSucursal: sucursalPadded,
       DocumentoNumero: "", // lo asigna el servicio
       Fecha: hoy,
@@ -426,37 +450,17 @@ exports.crearNotaCreditoRapidaDesdePreventa = async (req, res) => {
       Items,
       FormaPagoCodigo: FormaPagoCodigo || "CC",
       CodigoVendedor: cabeza.VendedorCodigo || "1",
-      // No enviar FacturaReferencia; después actualizamos factura_* al mismo comprobante
+      factura_tipo: facturaRef.tipo,
+      factura_sucursal: facturaRef.sucursal,
+      factura_numero: facturaRef.numero,
     };
 
     const notaCreditoCreada = await NotaCreditoService.crearNotaCredito(notaCreditoData, dbConnection);
 
-    // Comprobante asociado = el mismo número (si mismo)
-    const NotaCreditoCabezaEmpresa = require("../models/notaCreditoCabeza.model");
-    NotaCreditoCabezaEmpresa.init(NotaCreditoCabezaEmpresa.getAttributes(), {
-      sequelize: dbConnection,
-      tableName: "notacreditocabeza",
-      timestamps: false,
-    });
-    await NotaCreditoCabezaEmpresa.update(
-      {
-        factura_tipo: "NCF",
-        factura_sucursal: notaCreditoCreada.DocumentoSucursal,
-        factura_numero: notaCreditoCreada.DocumentoNumero,
-      },
-      {
-        where: {
-          DocumentoTipo: "NCF",
-          DocumentoSucursal: notaCreditoCreada.DocumentoSucursal,
-          DocumentoNumero: notaCreditoCreada.DocumentoNumero,
-        },
-      }
-    );
-
     // Marcar la preventa para que no siga pendiente (usada para devolución)
     await PreventaCabeza.update(
       {
-        FacturaTipo: "NCF",
+        FacturaTipo: tipoNC,
         FacturaSucursal: notaCreditoCreada.DocumentoSucursal,
         FacturaNumero: notaCreditoCreada.DocumentoNumero,
       },
@@ -473,9 +477,9 @@ exports.crearNotaCreditoRapidaDesdePreventa = async (req, res) => {
       success: true,
       data: {
         ...notaCreditoCreada,
-        factura_tipo: "NCF",
-        factura_sucursal: notaCreditoCreada.DocumentoSucursal,
-        factura_numero: notaCreditoCreada.DocumentoNumero,
+        factura_tipo: facturaRef.tipo,
+        factura_sucursal: facturaRef.sucursal,
+        factura_numero: facturaRef.numero,
       },
     });
   } catch (error) {

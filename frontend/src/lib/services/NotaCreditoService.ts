@@ -161,16 +161,24 @@ export class NotaCreditoService {
 	}
 
 	/**
-	 * Crea una nota de crédito RÁPIDA (tipo NCF) desde una preventa (devolución).
-	 * Comprobante asociado = el mismo número de la NC.
+	 * Crea una nota de crédito RÁPIDA (tipo NCA, NCB o NCF) desde una preventa (devolución).
+	 * Comprobante asociado = factura del cliente (obligatorio).
 	 */
 	public static async crearNotaCreditoRapidaDesdePreventa(
 		preventaTipo: string,
 		preventaSucursal: string,
 		preventaNumero: string,
-		formaPagoCodigo: string = 'CC'
+		opciones: {
+			formaPagoCodigo?: string;
+			documentoTipo?: 'NCA' | 'NCB' | 'NCF';
+			facturaReferencia: { tipo: string; sucursal: string; numero: string };
+		}
 	): Promise<{ success: boolean; data?: any; error?: string }> {
 		try {
+			const { formaPagoCodigo = 'CC', documentoTipo = 'NCF', facturaReferencia } = opciones;
+			if (!facturaReferencia?.tipo || !facturaReferencia?.sucursal || !facturaReferencia?.numero) {
+				return { success: false, error: 'Debe seleccionar una factura del cliente como comprobante asociado.' };
+			}
 			const response = await fetchWithAuth('/notascredito/rapida-from-preventa', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -178,7 +186,9 @@ export class NotaCreditoService {
 					preventaTipo,
 					preventaSucursal,
 					preventaNumero,
-					FormaPagoCodigo: formaPagoCodigo
+					FormaPagoCodigo: formaPagoCodigo,
+					DocumentoTipo: documentoTipo,
+					FacturaReferencia: facturaReferencia
 				})
 			});
 

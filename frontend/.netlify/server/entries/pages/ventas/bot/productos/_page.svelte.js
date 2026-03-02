@@ -1,4 +1,4 @@
-import { j as attr, c as pop, p as push } from "../../../../../chunks/index3.js";
+import { k as attr, c as pop, p as push } from "../../../../../chunks/index3.js";
 import "../../../../../chunks/client.js";
 /* empty css                        */
 import "../../../../../chunks/authStore.js";

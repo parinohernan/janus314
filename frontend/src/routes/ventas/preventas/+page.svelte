@@ -10,6 +10,7 @@
 	import { VendedorService } from '$lib/services/VendedorService';
 	import EntitySelector from '$lib/components/ui/EntitySelector.svelte';
 	import MultiSelect from '$lib/components/ui/MultiSelect.svelte';
+	import { toast, confirm } from '$lib/utils/toast';
 	
 	// Estado
 	let preventas: PreventaCabeza[] = [];
@@ -148,7 +149,8 @@
 	
 	// Anular preventa
 	async function anularPreventa(preventa: PreventaCabeza) {
-		if (!confirm('¿Está seguro que desea anular esta preventa?')) return;
+		const ok = await confirm('¿Está seguro que desea anular esta preventa?');
+		if (!ok) return;
 		
 		try {
 			await PreventaService.anularPreventa(
@@ -156,11 +158,11 @@
 				preventa.DocumentoSucursal,
 				preventa.DocumentoNumero
 			);
-			alert('Preventa anulada correctamente');
+			toast.success('Preventa anulada correctamente');
 			cargarPreventas(); // Recargar lista
 		} catch (err) {
 			console.error('Error al anular preventa:', err);
-			alert(`Error al anular preventa: ${err instanceof Error ? err.message : 'Error desconocido'}`);
+			toast.error(`Error al anular preventa: ${err instanceof Error ? err.message : 'Error desconocido'}`);
 		}
 	}
 	
@@ -178,8 +180,9 @@
 	function getEstadoPreventa(preventa: PreventaCabeza): string {
 		if (preventa.FechaAnulacion) return 'Anulada';
 		if (preventa.FacturaNumero) {
-			// Si el comprobante asociado es NCF = devolución (NC rápida)
-			return (preventa.FacturaTipo === 'NCF') ? 'Devolución' : 'Facturada';
+			// Si el comprobante es NC (A, B o F) = devolución (NC rápida)
+			const esDevolucion = preventa.FacturaTipo === 'NCF' || preventa.FacturaTipo === 'NCA' || preventa.FacturaTipo === 'NCB';
+			return esDevolucion ? 'Devolución' : 'Facturada';
 		}
 		return 'Pendiente';
 	}
@@ -229,7 +232,7 @@
 	// Obtener resumen de preventas
 	async function generarResumen() {
 		if (selectedPreventas.length === 0) {
-			alert('Seleccione al menos una preventa para generar el resumen');
+			toast.warning('Seleccione al menos una preventa para generar el resumen');
 			return;
 		}
 		
@@ -295,11 +298,11 @@
 				informeText = texto;
 				showInformeModal = true;
 			} else {
-				alert('Error al generar el resumen: ' + (resultado.message || 'Error desconocido'));
+				toast.error('Error al generar el resumen: ' + (resultado.message || 'Error desconocido'));
 			}
 		} catch (err) {
 			console.error('Error al generar resumen:', err);
-			alert(`Error al generar resumen: ${err instanceof Error ? err.message : 'Error desconocido'}`);
+			toast.error(`Error al generar resumen: ${err instanceof Error ? err.message : 'Error desconocido'}`);
 		} finally {
 			loadingInforme = false;
 		}
@@ -347,7 +350,7 @@
 	// Función para cargar los detalles de las preventas seleccionadas
 	async function cargarDetallesPreventas() {
 		if (selectedPreventas.length === 0) {
-			alert('Seleccione al menos una preventa para generar informes');
+			toast.warning('Seleccione al menos una preventa para generar informes');
 			return false;
 		}
 		
@@ -609,7 +612,7 @@
 						on:click={() => {
 							// Copiar al portapapeles
 							navigator.clipboard.writeText(informeText);
-							alert('Informe copiado al portapapeles');
+							toast.success('Informe copiado al portapapeles');
 						}}
 					>
 						Copiar

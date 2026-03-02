@@ -1011,7 +1011,7 @@ export {
   flushSync as u,
   mutable_source as v,
   noop as w,
-  subscribe_to_store as x,
-  safe_not_equal as y,
+  safe_not_equal as x,
+  subscribe_to_store as y,
   fallback as z
 };

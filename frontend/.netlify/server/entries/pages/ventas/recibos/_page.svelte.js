@@ -1,4 +1,4 @@
-import { g as ensure_array_like, j as attr, e as escape_html, c as pop, p as push } from "../../../../chunks/index3.js";
+import { l as ensure_array_like, k as attr, e as escape_html, c as pop, p as push } from "../../../../chunks/index3.js";
 import { o as onDestroy } from "../../../../chunks/index-server.js";
 import "../../../../chunks/client.js";
 import { B as Button } from "../../../../chunks/Button.js";
@@ -41,7 +41,7 @@ function _page($$payload, $$props) {
     let tipo = each_array[$$index];
     $$payload.out += `<option${attr("value", tipo.value)}>${escape_html(tipo.label)}</option>`;
   }
-  $$payload.out += `<!--]--></select></div> <div class="relative w-full md:w-64 mb-4 md:mb-0"><label for="filtroCliente" class="block text-sm font-medium text-gray-700 mb-1">Cliente</label> <div class="relative"><input type="text" id="filtroCliente" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" placeholder="Buscar cliente..."${attr("value", clienteBusqueda)} autocomplete="off"> `;
+  $$payload.out += `<!--]--></select></div> <div class="relative w-full md:w-64 mb-4 md:mb-0"><label for="filtroCliente" class="block text-sm font-medium text-gray-700 mb-1">Cliente</label> <div class="relative" role="search"><input type="text" id="filtroCliente" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Buscar cliente..."${attr("value", clienteBusqueda)} autocomplete="off"> `;
   {
     $$payload.out += "<!--[!-->";
   }
@@ -79,6 +79,14 @@ function _page($$payload, $$props) {
     $$slots: { default: true }
   });
   $$payload.out += `<!----></div></div></div> `;
+  {
+    $$payload.out += "<!--[!-->";
+  }
+  $$payload.out += `<!--]--> `;
+  {
+    $$payload.out += "<!--[!-->";
+  }
+  $$payload.out += `<!--]--> `;
   {
     $$payload.out += "<!--[-->";
     $$payload.out += `<div class="flex justify-center items-center py-12"><div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div></div>`;

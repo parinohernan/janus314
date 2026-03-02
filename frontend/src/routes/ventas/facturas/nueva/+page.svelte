@@ -13,6 +13,7 @@
   import type { Preventa } from '$lib/types';
   import { EmpresaService } from '$lib/services/EmpresaService';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { toast, confirm } from '$lib/utils/toast';
   // import { formatDateOnly } from '$lib/utils/dateUtils';
   // Modelo de factura
 
@@ -900,7 +901,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     
     if (!facturaCreada || !facturaCreada.DocumentoTipo || !facturaCreada.DocumentoSucursal || !facturaCreada.DocumentoNumero) {
       console.error('Datos de factura incompletos:', facturaCreada);
-      alert('Error: No se pudieron obtener los datos completos de la factura creada');
+      toast.error('Error: No se pudieron obtener los datos completos de la factura creada');
       return;
     }
     
@@ -939,10 +940,9 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   };
 
   // Cancelar creación
-  const cancelar = () => {
-    if (confirm('¿Está seguro que desea cancelar? Perderá todos los datos ingresados.')) {
-      goto('/ventas/facturas');
-    }
+  const cancelar = async () => {
+    const ok = await confirm('¿Está seguro que desea cancelar? Perderá todos los datos ingresados.');
+    if (ok) goto('/ventas/facturas');
   };
 
   // Opciones para listas de precios
