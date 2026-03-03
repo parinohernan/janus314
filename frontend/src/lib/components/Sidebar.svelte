@@ -296,6 +296,12 @@
     }
   }
 
+  function expandSidebar() {
+    if (isCollapsed) {
+      sidebarCollapsed.set(false);
+    }
+  }
+
   function toggleMenu(menuId: string) {
     if (expandedMenu === menuId) {
       expandedMenu = null;
@@ -328,12 +334,14 @@
 
 <aside
   class="sidebar fixed top-[116px] left-0 h-[calc(100vh-116px)] bg-gray-800 text-white shadow-lg transition-all duration-300 z-20 overflow-hidden flex flex-col
-    {isCollapsed ? 'w-16' : 'w-60'}"
+    {isCollapsed ? 'w-16 cursor-pointer' : 'w-60'}"
+  onclick={isCollapsed ? expandSidebar : undefined}
+  title={isCollapsed ? 'Clic para expandir' : ''}
 >
   <!-- Botón toggle -->
   <button
     class="toggle-btn flex items-center justify-center p-3 hover:bg-gray-700 transition-all border-b border-gray-700 group"
-    onclick={toggleCollapsed}
+    onclick={(e) => { e.stopPropagation(); toggleCollapsed(); }}
     title={isCollapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
   >
     {#if isCollapsed}

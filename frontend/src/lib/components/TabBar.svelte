@@ -160,6 +160,13 @@
       setTimeout(scrollToActiveTab, 100);
     }
   });
+
+  // Cuando se cierran todas las pestañas, mostrar la página home
+  $effect(() => {
+    if (tabs.length === 0 && $page.url.pathname !== '/' && $page.url.pathname !== '/login' && !$page.url.pathname.includes('/ventas/bot/')) {
+      goto('/');
+    }
+  });
 </script>
 
 <svelte:window onclick={handleClickOutside} />
