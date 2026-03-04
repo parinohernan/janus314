@@ -29,7 +29,7 @@ function renderFacturaC(doc, data) {
   doc.text(
     `Domicilio: ${
       factura.Cliente
-        ? factura.Cliente.Domicilio || factura.Cliente.Calle
+        ? factura.Cliente.Domicilio || [factura.Cliente.Calle, factura.Cliente.Numero].filter(Boolean).join(' ') || 'N/A'
         : "N/A"
     }`
   );

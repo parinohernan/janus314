@@ -12,7 +12,7 @@ function renderClienteInfo(doc, factura, y) {
   doc.y = y;
   doc.fontSize(12)
     .text(`Cliente: ${factura.Cliente ? factura.Cliente.Descripcion : "N/A"}`)
-    .text(`Domicilio: ${factura.Cliente ? factura.Cliente.Calle : "N/A"}`)
+    .text(`Domicilio: ${factura.Cliente ? [factura.Cliente.Calle, factura.Cliente.Numero].filter(Boolean).join(' ') || 'N/A' : "N/A"}`)
     .text(`Categoria IVA: ${factura.Cliente && factura.Cliente.CategoriaIva ? getCategoriaTxt(factura.Cliente.CategoriaIva) : "N/A"}`);
 
   // Línea separadora

@@ -46,6 +46,7 @@ const healthRoutes = require('./routes/health.routes');
 const cajaRoutes = require('./routes/caja.routes');
 const remitoRoutes = require('./routes/remito.routes');
 const comprasRoutes = require('./routes/compras.routes');
+const ordenCompraRoutes = require('./routes/ordenCompra.routes');
 const proveedoresReciboRoutes = require('./routes/proveedoresRecibo.routes');
 const proveedoresNotaCreditoRoutes = require('./routes/proveedoresNotaCredito.routes');
 const proveedoresNotaDebitoRoutes = require('./routes/proveedoresNotaDebito.routes');
@@ -124,6 +125,7 @@ app.use("/api/stockmovimientos", (req, res) => {
 app.use("/api/relaciones-articulo-proveedor", getEmpresaConnection, relacionesArticuloProveedorRoutes);
 app.use("/api/facturas", getEmpresaConnection, facturaRoutes);
 app.use("/api/compras", getEmpresaConnection, comprasRoutes);
+app.use("/api/ordenes-compra", getEmpresaConnection, ordenCompraRoutes);
 app.use("/api/proveedores-recibos", getEmpresaConnection, proveedoresReciboRoutes);
 app.use("/api/proveedores-notas-credito", getEmpresaConnection, proveedoresNotaCreditoRoutes);
 app.use("/api/proveedores-notas-debito", getEmpresaConnection, proveedoresNotaDebitoRoutes);

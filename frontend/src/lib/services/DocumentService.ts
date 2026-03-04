@@ -18,6 +18,10 @@ export class DocumentService {
 			else if (tipo.startsWith('ND')) {
 				endpoint = '/notasdebito/pdf';
 			}
+			// Si es orden de compra (OC)
+			else if (tipo === 'OC') {
+				endpoint = '/ordenes-compra/pdf';
+			}
 			
 			const url = `${endpoint}/${tipo}/${sucursal}/${numero}`;
 			console.log('URL PDF:', url);

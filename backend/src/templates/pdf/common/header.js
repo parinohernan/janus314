@@ -21,6 +21,7 @@ function renderHeader(doc, options = {}) {
     logoPath = null,
     isNotaCredito = false, // Para distinguir notas de crédito
     isNotaDebito = false, // Para distinguir notas de débito
+    isOrdenCompra = false, // Para órdenes de compra
   } = options;
 
   // constantes de posicionamiento
@@ -82,6 +83,8 @@ function renderHeader(doc, options = {}) {
       documentTypeText = "Nota de Crédito";
     } else if (isNotaDebito) {
       documentTypeText = "Nota de Débito";
+    } else if (isOrdenCompra) {
+      documentTypeText = "Orden de Compra";
     }
     
     doc.fontSize(12).text(`${documentTypeText} N° ${documentNumber}`, { align: "right" });

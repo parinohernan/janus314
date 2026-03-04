@@ -18,6 +18,7 @@ const renderNotaDebitoA = require("../templates/pdf/notaDebitoA.template.js");
 const renderNotaDebitoB = require("../templates/pdf/notaDebitoB.template.js");
 const renderNotaDebitoF = require("../templates/pdf/notaDebitoF.template.js");
 const renderCuentaCorriente = require("../templates/pdf/cuentaCorriente.template.js");
+const renderOrdenCompra = require("../templates/pdf/ordenCompra.template.js");
 // const renderNotaCreditoC = require("../templates/pdf/notaCreditoC.template");
 // const renderNotaCreditoF = require("../templates/pdf/notaCreditoF.template");
 // const NotaCreditoCabeza = require("../models/notaCreditoCabeza.model");
@@ -622,6 +623,86 @@ exports.generarNotaCreditoPDF = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error al generar PDF de nota de crédito",
+      error: error.message,
+    });
+  }
+};
+
+// Función para generar PDF de orden de compra
+exports.generarOrdenCompraPDF = async (req, res) => {
+  try {
+    const { tipo, sucursal, numero } = req.params;
+    const { OrdenCompraCabeza, OrdenCompraItem, Proveedor, Articulo, DatosEmpresa } = req.models;
+
+    const docNumero = String(numero || "").trim().padStart(8, "0");
+    const docSucursal = String(sucursal || "").trim();
+    const docTipo = String(tipo || "").trim();
+
+    const orden = await OrdenCompraCabeza.findOne({
+      where: {
+        DocumentoTipo: docTipo,
+        DocumentoSucursal: docSucursal,
+        DocumentoNumero: docNumero,
+      },
+      include: [{ model: Proveedor, as: "ProveedorRelacion", attributes: ["Codigo", "Descripcion", "Cuit", "Telefono"] }],
+      raw: false,
+    });
+
+    if (!orden) {
+      return res.status(404).json({
+        success: false,
+        message: "Orden de compra no encontrada",
+      });
+    }
+
+    const items = await OrdenCompraItem.findAll({
+      where: {
+        DocumentoTipo: docTipo,
+        DocumentoSucursal: docSucursal,
+        DocumentoNumero: docNumero,
+      },
+      attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'ProveedorCodigo', 'CodigoArticulo', 'Cantidad', 'PrecioCostoUnitario'],
+      include: [{ model: Articulo, as: "Articulo", required: false, attributes: ["Codigo", "Descripcion"] }],
+    });
+
+    const itemsConDescripcion = items.map((i) => {
+      const plain = i.get({ plain: true });
+      return {
+        ...plain,
+        Descripcion: plain.Articulo?.Descripcion || "",
+      };
+    });
+
+    const datosEmpresa = await DatosEmpresa.findOne();
+    if (!datosEmpresa) {
+      return res.status(404).json({ success: false, message: "Datos de empresa no encontrados" });
+    }
+
+    const ordenData = orden.toJSON();
+    ordenData.Empresa = datosEmpresa;
+    if (ordenData.Empresa.InicioActividades) {
+      ordenData.Empresa.InicioActividades = new Date(ordenData.Empresa.InicioActividades);
+    }
+
+    const logoPath = await logoManager.getLogoPath(datosEmpresa.LogoURL);
+    const doc = new PDFDocument(docFacturaA4);
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="orden-compra-${tipo}-${sucursal}-${numero}.pdf"`);
+    doc.pipe(res);
+
+    await renderOrdenCompra(doc, {
+      orden: ordenData,
+      items: itemsConDescripcion,
+      logoPath,
+    });
+
+    doc.end();
+  } catch (error) {
+    console.error("Error generando PDF de orden de compra:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al generar PDF de orden de compra",
       error: error.message,
     });
   }

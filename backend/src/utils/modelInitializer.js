@@ -1583,6 +1583,39 @@ const initializeModels = (sequelize) => {
     Importe: { type: DataTypes.DOUBLE(15, 2), allowNull: true }
   }, { tableName: 'proveedoresnotadebitoitems', timestamps: false });
 
+  // Órdenes de compra (prv_orden_compra)
+
+  const OrdenCompraCabeza = sequelize.define('OrdenCompraCabeza', {
+    DocumentoTipo: { type: DataTypes.CHAR(3), primaryKey: true, allowNull: false },
+    DocumentoSucursal: { type: DataTypes.STRING(4), primaryKey: true, allowNull: false },
+    DocumentoNumero: { type: DataTypes.STRING(8), primaryKey: true, allowNull: false },
+    Fecha: { type: DataTypes.DATEONLY, allowNull: true },
+    FechaDeEntrega: { type: DataTypes.DATEONLY, allowNull: true },
+    ProveedorCodigo: { type: DataTypes.STRING(8), allowNull: false },
+    TipoPago: { type: DataTypes.CHAR(2), allowNull: true },
+    ImporteBruto: { type: DataTypes.DOUBLE(15, 2), allowNull: true, defaultValue: 0 },
+    ImporteNeto: { type: DataTypes.DOUBLE(15, 2), allowNull: true, defaultValue: 0 },
+    ImporteAdicional: { type: DataTypes.DOUBLE(15, 2), allowNull: true, defaultValue: 0 },
+    ImporteIva1: { type: DataTypes.DOUBLE(15, 2), allowNull: true, defaultValue: 0 },
+    ImporteIva2: { type: DataTypes.DOUBLE(15, 2), allowNull: true, defaultValue: 0 },
+    Percepcion: { type: DataTypes.DOUBLE(15, 2), allowNull: true, defaultValue: 0 },
+    ImporteTotal: { type: DataTypes.DOUBLE(15, 2), allowNull: true, defaultValue: 0 },
+    Observacion: { type: DataTypes.STRING(1000), allowNull: true },
+    ObservacionAnula: { type: DataTypes.STRING(1000), allowNull: true },
+    RemitoNro: { type: DataTypes.STRING(20), allowNull: true },
+    FechaAnulacion: { type: DataTypes.DATEONLY, allowNull: true }
+  }, { tableName: 'prv_orden_compra', timestamps: false });
+
+  const OrdenCompraItem = sequelize.define('OrdenCompraItem', {
+    DocumentoTipo: { type: DataTypes.CHAR(3), primaryKey: true, allowNull: false },
+    DocumentoSucursal: { type: DataTypes.STRING(4), primaryKey: true, allowNull: false },
+    DocumentoNumero: { type: DataTypes.STRING(8), primaryKey: true, allowNull: false },
+    ProveedorCodigo: { type: DataTypes.STRING(7), allowNull: true },
+    CodigoArticulo: { type: DataTypes.STRING(13), primaryKey: true, allowNull: false },
+    Cantidad: { type: DataTypes.DOUBLE(15, 2), allowNull: true, defaultValue: 0 },
+    PrecioCostoUnitario: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 }
+  }, { tableName: 'prv_orden_compra_items', timestamps: false });
+
   // Asociaciones Compras / Proveedores
   ComprasCabeza.belongsTo(Proveedor, { foreignKey: 'ProveedorCodigo', targetKey: 'Codigo', as: 'ProveedorRelacion' });
   ComprasCabeza.hasMany(ComprasItem, {
@@ -1613,6 +1646,19 @@ const initializeModels = (sequelize) => {
   ProveedoresNotaDebitoCabeza.belongsTo(Proveedor, { foreignKey: 'ProveedorCodigo', targetKey: 'Codigo', as: 'ProveedorRelacion' });
   ProveedoresNotaDebitoCabeza.hasMany(ProveedoresNotaDebitoItem, {
     foreignKey: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero']
+  });
+
+  // Asociaciones Órdenes de compra
+  OrdenCompraCabeza.belongsTo(Proveedor, { foreignKey: 'ProveedorCodigo', targetKey: 'Codigo', as: 'ProveedorRelacion' });
+  OrdenCompraCabeza.hasMany(OrdenCompraItem, {
+    foreignKey: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero']
+  });
+  // No definir belongsTo(OrdenCompraCabeza) en OrdenCompraItem: Sequelize genera columnas
+  // inexistentes (OrdenCompraCabezaDocumentoTipo, etc.) con claves compuestas.
+  OrdenCompraItem.belongsTo(Articulo, {
+    foreignKey: 'CodigoArticulo',
+    targetKey: 'Codigo',
+    as: 'Articulo'
   });
 
   // Establecer las asociaciones
@@ -1694,7 +1740,9 @@ const initializeModels = (sequelize) => {
     ProveedoresNotaCreditoItem,
     ProveedoresNotaCreditoValor,
     ProveedoresNotaDebitoCabeza,
-    ProveedoresNotaDebitoItem
+    ProveedoresNotaDebitoItem,
+    OrdenCompraCabeza,
+    OrdenCompraItem
   };
 
   console.log('Modelos inicializados:', Object.keys(modelos));
