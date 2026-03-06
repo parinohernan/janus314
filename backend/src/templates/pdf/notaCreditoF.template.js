@@ -57,17 +57,17 @@ async function renderNotaCreditoF(doc, { factura: notaCredito, items, logoPath }
     y += 10;
     let tableY = y;
 
-    // Encabezados
+    // Encabezados (ancho total 20 a 580 = 560px)
     doc.font("Helvetica-Bold").fontSize(10);
     doc.text("Código", 20, tableY, { width: 60 });
-    doc.text("Cant.", 80, tableY, { width: 30, align: "right" });
-    doc.text("Descripción", 110, tableY, { width: 220 });
-    doc.text("Precio c/IVA", 330, tableY, { width: 80, align: "right" });
-    doc.text("Subtotal c/IVA", 410, tableY, { width: 80, align: "right" });
+    doc.text("Cant.", 80, tableY, { width: 35 });
+    doc.text("Descripción", 118, tableY, { width: 287 });
+    doc.text("Precio c/IVA", 405, tableY, { width: 85, align: "right" });
+    doc.text("Subtotal c/IVA", 490, tableY, { width: 90, align: "right" });
 
     // Línea separadora
     tableY += 15;
-    doc.moveTo(20, tableY).lineTo(490, tableY).stroke();
+    doc.moveTo(20, tableY).lineTo(580, tableY).stroke();
     tableY += 10;
 
     // Items (precios CON IVA incluido - usar valores ya calculados del controlador)
@@ -80,23 +80,23 @@ async function renderNotaCreditoF(doc, { factura: notaCredito, items, logoPath }
         // Repetir encabezados
         doc.font("Helvetica-Bold");
         doc.text("Código", 20, tableY, { width: 60 });
-        doc.text("Cant.", 80, tableY, { width: 30, align: "right" });
-        doc.text("Descripción", 110, tableY, { width: 220 });
-        doc.text("Precio c/IVA", 330, tableY, { width: 80, align: "right" });
-        doc.text("Subtotal c/IVA", 410, tableY, { width: 80, align: "right" });
+        doc.text("Cant.", 80, tableY, { width: 35 });
+        doc.text("Descripción", 118, tableY, { width: 287 });
+        doc.text("Precio c/IVA", 405, tableY, { width: 85, align: "right" });
+        doc.text("Subtotal c/IVA", 490, tableY, { width: 90, align: "right" });
         
         tableY += 15;
-        doc.moveTo(20, tableY).lineTo(490, tableY).stroke();
+        doc.moveTo(20, tableY).lineTo(580, tableY).stroke();
         tableY += 10;
         
         doc.font("Helvetica");
       }
 
       doc.text(item.CodigoArticulo || "", 20, tableY, { width: 60 });
-      doc.text(item.Cantidad.toString(), 80, tableY, { width: 30, align: "right" });
-      doc.text(item.Descripcion || item.Articulo?.Descripcion || "", 110, tableY, { width: 220 });
-      doc.text(formatearNumero(item.PrecioUnitario || 0), 330, tableY, { width: 80, align: "right" });
-      doc.text(formatearNumero(item.Subtotal || 0), 410, tableY, { width: 80, align: "right" });
+      doc.text(item.Cantidad.toString(), 80, tableY, { width: 35 });
+      doc.text(item.Descripcion || item.Articulo?.Descripcion || "", 118, tableY, { width: 287 });
+      doc.text(formatearNumero(item.PrecioUnitario || 0), 405, tableY, { width: 85, align: "right" });
+      doc.text(formatearNumero(item.Subtotal || 0), 490, tableY, { width: 90, align: "right" });
 
       tableY += 15;
     });
