@@ -40,7 +40,7 @@
     DocumentoNumero: '', // Lo obtendremos automáticamente del servidor
     Fecha: getTodayISOArgentina(), // Usar la función para la fecha en zona Argentina
     MovimientoTipo: tipoMovimiento,
-    Observacion: ''
+    Observacion: tipoMovimiento === 'ING' ? 'ING -' : 'EGR - '
   };
   
   let items: MovimientoItem[] = [];
@@ -223,7 +223,7 @@
       
       // Limpiar el formulario
       items = [];
-      documento.Observacion = '';
+      documento.Observacion = tipoMovimiento === 'ING' ? 'ING -' : 'EGR - ';
       documento.Fecha = getTodayISOArgentina();
       
       // Redirigir después de un breve retraso

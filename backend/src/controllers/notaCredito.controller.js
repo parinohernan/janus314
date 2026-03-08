@@ -401,7 +401,11 @@ exports.crearNotaCreditoRapidaDesdePreventa = async (req, res) => {
       const plain = pi.get ? pi.get({ plain: true }) : pi;
       const articulo = plain.Articulo || {};
       const cantidad = parseFloat(plain.Cantidad) || 0;
-      const precioUnitario = parseFloat(plain.PrecioUnitario) || 0;
+      // Precio: preventa puede tener 0 o null; usar PrecioLista como respaldo (el validador no acepta 0)
+      let precioUnitario = parseFloat(plain.PrecioUnitario) || parseFloat(plain.PrecioLista) || 0;
+      if (precioUnitario <= 0) {
+        precioUnitario = 0.01; // fallback mínimo para que el validador acepte el ítem cuando no hay precio en la preventa
+      }
       // IVA: la tabla t_articulos puede no tener PorcentajeIva; usar 21 por defecto
       const porcIva = (articulo.PorcentajeIva != null && articulo.PorcentajeIva !== undefined)
         ? parseFloat(articulo.PorcentajeIva)

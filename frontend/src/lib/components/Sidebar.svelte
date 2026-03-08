@@ -5,6 +5,7 @@
   import { smartNavigate } from '$lib/utils/navigation';
   import { auth } from '$lib/stores/authStore';
   import { sidebarCollapsed } from '$lib/stores/sidebarStore';
+  import { menuVisibilityStore } from '$lib/stores/menuVisibilityStore';
   import { 
     Building2, 
     Wallet, 
@@ -45,7 +46,8 @@
     Zap,
     PieChart,
     TrendingUp as TrendingUpIcon,
-    Calendar
+    Calendar,
+    Pencil
   } from 'lucide-svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
 
@@ -109,6 +111,7 @@
     // Submenús - Ventas
     'preventas': ClipboardList,
     'facturas': FileText,
+    'ordenes': ClipboardList,
     'notascredito': Receipt,
     'notasdebito': Receipt,
     'recibos': CreditCard,
@@ -127,9 +130,6 @@
     'productos-informe': Box,
     'rubros': Tag,
     'marcas': Tag,
-    'informes-clientes': Users,
-    'informes-proveedores': Factory,
-    'informes-fechas': Calendar,
     
     // Submenús - Compras
     'proveedores': Factory,
@@ -142,6 +142,7 @@
     'precios-listado': DollarSign,
     'precios-actualizacion': TrendingUp,
     'precios-listas': Upload,
+    'precios-manual': Pencil,
     
     // Submenús - Clientes
     'listado': Users,
@@ -201,11 +202,12 @@
       icon: 'compras',
       submenus: [
         { label: 'Proveedores', url: '/compras/proveedores', icon: 'proveedores' },
-        { label: 'Facturas de compra', url: '/compras/facturas', icon: 'facturas' },
-        { label: 'Comprobantes de pago (recibos)', url: '/compras/recibos', icon: 'recibos' },
-        { label: 'Notas de Crédito', url: '/compras/notascredito', icon: 'notascredito' },
-        { label: 'Notas de Débito', url: '/compras/notasdebito', icon: 'notasdebito' },
-        { label: 'Cuentas Corrientes', url: '/compras/cuentascorrientes', icon: 'cuentascorrientes' }
+        { label: 'Facturas de compra (beta)', url: '/compras/facturas', icon: 'facturas' },
+        { label: 'Órdenes de compra (beta)', url: '/compras/ordenes', icon: 'ordenes' },
+        { label: 'Comprobantes de pago (recibos) (beta)', url: '/compras/recibos', icon: 'recibos' },
+        { label: 'Notas de Crédito (beta)', url: '/compras/notascredito', icon: 'notascredito' },
+        { label: 'Notas de Débito (beta)', url: '/compras/notasdebito', icon: 'notasdebito' },
+        { label: 'Cuentas Corrientes (beta)', url: '/compras/cuentascorrientes', icon: 'cuentascorrientes' }
       ]
     },
     {
@@ -219,6 +221,7 @@
         { label: 'Rubros', url: '/rubros', icon: 'rubros-list' },
         { label: 'Listado de Precios', url: '/productos/precios/listado', icon: 'precios-listado' },
         { label: 'Actualización de Precios', url: '/productos/precios/actualizacion', icon: 'precios-actualizacion' },
+        { label: 'Actualización manual', url: '/productos/precios/actualizacionmanual', icon: 'precios-manual' },
         { label: 'Actualización desde listas', url: '/productos/precios/actualizarconlista', icon: 'precios-listas' }
       ]
     },
@@ -278,14 +281,43 @@
     }
   ];
 
-  // Menú items derivados con configuración dinámica
-  const menuItems = $derived(
-    baseMenuItems.map(item => 
-      item.id === 'configuracion' 
-        ? { ...item, items: configuracionItems }
-        : item
-    )
-  );
+  // Filtrar submenus/items por visibilidad (usa url como key en el store)
+  function filterByVisibility(list: { url: string; submenus?: unknown[] }[] | undefined, vis: Record<string, boolean>): unknown[] {
+    if (!list) return [];
+    return list
+      .map((entry) => {
+        if (entry.submenus && Array.isArray(entry.submenus)) {
+          const filteredSubs = filterByVisibility(entry.submenus as { url: string; submenus?: unknown[] }[], vis);
+          if (filteredSubs.length === 0) return null;
+          return { ...entry, submenus: filteredSubs };
+        }
+        return (vis[entry.url] ?? true) ? entry : null;
+      })
+      .filter((e) => e !== null);
+  }
+
+  // Menú items derivados con configuración dinámica y filtrados por visibilidad
+  const menuItems = $derived.by(() => {
+    const vis = $menuVisibilityStore;
+    return baseMenuItems
+      .filter((item) => (vis[item.id] ?? true))
+      .map((item) => {
+        if (item.id === 'configuracion') {
+          const filteredConfig = filterByVisibility(configuracionItems as { url: string }[], vis) as SubmenuItem[];
+          return { ...item, items: filteredConfig };
+        }
+        if (item.submenus) {
+          const filtered = filterByVisibility(item.submenus as { url: string; submenus?: unknown[] }[], vis) as SubmenuItem[];
+          return filtered.length > 0 ? { ...item, submenus: filtered } : null;
+        }
+        if (item.items) {
+          const filtered = filterByVisibility(item.items as { url: string; submenus?: unknown[] }[], vis) as SubmenuItem[];
+          return filtered.length > 0 ? { ...item, items: filtered } : null;
+        }
+        return item;
+      })
+      .filter((e): e is (typeof baseMenuItems)[0] => e !== null);
+  });
 
   function toggleCollapsed() {
     sidebarCollapsed.set(!$sidebarCollapsed);

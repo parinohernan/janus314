@@ -11,9 +11,10 @@
 	import { formatCurrency } from '$lib/utils/formatters';
 	import CaeModal from '$lib/components/facturas/CaeModal.svelte';
 	import ImprimirModal from '$lib/components/facturas/ImprimirModal.svelte';
+	import DetalleFacturaModal from '$lib/components/facturas/DetalleFacturaModal.svelte';
 
 	type TipoNC = 'NCA' | 'NCB' | 'NCF';
-	type FacturaOption = { tipo: string; sucursal: string; numero: string; label: string };
+	type FacturaOption = { tipo: string; sucursal: string; numero: string; fecha: string; total: number; label: string };
 
 	let preventa: Preventa | null = null;
 	let loadingPreventa = true;
@@ -28,6 +29,10 @@
 	let notaCreditoCreada: { DocumentoTipo: string; DocumentoSucursal: string; DocumentoNumero: string } | null = null;
 	let showCaeModal = false;
 	let showImprimirModal = false;
+	let showDetalleFacturaModal = false;
+	let facturaSeleccionadaParaDetalle: FacturaOption | null = null;
+	let itemsFacturaDetalle: any[] = [];
+	let cargandoDetalleFactura = false;
 
 	const tiposNC: { value: TipoNC; label: string }[] = [
 		{ value: 'NCA', label: 'Nota de crédito A' },
@@ -51,12 +56,14 @@
 			// Cargar facturas del cliente para comprobante asociado
 			if (preventa?.preventa?.ClienteCodigo) {
 				loadingFacturas = true;
-				const res = await FacturaService.obtenerUltimasFacturasCliente(preventa.preventa.ClienteCodigo, 30);
+				const res = await FacturaService.obtenerUltimasFacturasCliente(preventa.preventa.ClienteCodigo, 50);
 				if (res.success && res.data?.length) {
-					facturasCliente = res.data.map((f: { tipo: string; sucursal: string; numero: string; label: string }) => ({
+					facturasCliente = res.data.map((f: { tipo: string; sucursal: string; numero: string; fecha: string; total: number; label: string }) => ({
 						tipo: f.tipo,
 						sucursal: f.sucursal,
 						numero: f.numero,
+						fecha: f.fecha,
+						total: f.total ?? 0,
 						label: f.label
 					}));
 					if (!facturaSeleccionada && facturasCliente.length > 0) facturaSeleccionada = facturasCliente[0];
@@ -158,6 +165,27 @@
 		showImprimirModal = false;
 		goto('/ventas/notascredito');
 	}
+
+	function seleccionarFactura(factura: FacturaOption) {
+		facturaSeleccionada = factura;
+	}
+
+	async function abrirDetalleFactura(factura: FacturaOption) {
+		try {
+			cargandoDetalleFactura = true;
+			showDetalleFacturaModal = true;
+			facturaSeleccionadaParaDetalle = factura;
+			itemsFacturaDetalle = [];
+			const resultado = await FacturaService.obtenerDetalleFactura(factura.tipo, factura.sucursal, factura.numero);
+			if (resultado.success && resultado.data) {
+				itemsFacturaDetalle = resultado.data.items ?? [];
+			}
+		} catch (e) {
+			itemsFacturaDetalle = [];
+		} finally {
+			cargandoDetalleFactura = false;
+		}
+	}
 </script>
 
 <div class="container mx-auto px-4 py-6">
@@ -219,13 +247,13 @@
 			</div>
 		</div>
 
-		<!-- Formulario -->
+		<!-- Formulario: tipo, forma de pago y panel Facturas de Referencia (igual que /ventas/notascredito/nueva) -->
 		<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
 			<h2 class="text-lg font-semibold text-gray-700 mb-4">Generar nota de crédito (devolución)</h2>
 			<p class="text-sm text-gray-500 mb-4">
-				Se creará una NC con el contenido de esta preventa. El comprobante asociado debe ser una <strong>factura de este cliente</strong>.
+				Se creará una NC con el contenido de esta preventa. Seleccione la <strong>factura de referencia</strong> (comprobante asociado) del cliente.
 			</p>
-			<div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mb-6">
 				<div>
 					<label for="tipoNC" class="block text-sm font-medium text-gray-700 mb-1">Tipo de comprobante</label>
 					<select
@@ -250,28 +278,64 @@
 						{/each}
 					</select>
 				</div>
-				<div class="md:col-span-2">
-					<label for="facturaRef" class="block text-sm font-medium text-gray-700 mb-1">Factura asociada (comprobante asociado) *</label>
+			</div>
+
+			<!-- Panel Facturas de Referencia (igual que en ventas/notascredito/nueva) -->
+			<div id="facturas-referencia-rapida" role="group" aria-labelledby="facturas-ref-label">
+				<span id="facturas-ref-label" class="block text-sm font-medium text-gray-700 mb-2">Facturas de Referencia</span>
+				<div class="border border-gray-300 rounded-md bg-gray-50" style="height: 300px; overflow-y: auto;">
 					{#if loadingFacturas}
-						<p class="text-sm text-gray-500">Cargando facturas del cliente…</p>
+						<div class="flex justify-center items-center h-full">
+							<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+						</div>
 					{:else if facturasCliente.length === 0}
-						<p class="text-amber-700 text-sm">Este cliente no tiene facturas. No se puede generar una NC rápida sin factura asociada.</p>
+						<div class="flex justify-center items-center h-full text-amber-700 text-sm">
+							<p>Este cliente no tiene facturas. No se puede generar una NC rápida sin factura asociada.</p>
+						</div>
 					{:else}
-						<select
-							id="facturaRef"
-							value={facturaSeleccionada ? `${facturaSeleccionada.tipo}-${facturaSeleccionada.sucursal}-${facturaSeleccionada.numero}` : ''}
-							on:change={(e) => {
-								const key = (e.target as HTMLSelectElement).value;
-								facturaSeleccionada = facturasCliente.find((f) => `${f.tipo}-${f.sucursal}-${f.numero}` === key) || facturasCliente[0] || null;
-							}}
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
-						>
-							{#each facturasCliente as f}
-								<option value={[f.tipo, f.sucursal, f.numero].join('-')}>{f.label}</option>
-							{/each}
-						</select>
+						<table class="min-w-full divide-y divide-gray-200">
+							<thead class="bg-gray-100 sticky top-0">
+								<tr>
+									<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+									<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Número</th>
+									<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+									<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+									<th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
+								</tr>
+							</thead>
+							<tbody class="bg-white divide-y divide-gray-200">
+								{#each facturasCliente as factura}
+									<tr
+										class="hover:bg-blue-50 cursor-pointer {facturaSeleccionada && facturaSeleccionada.tipo === factura.tipo && facturaSeleccionada.sucursal === factura.sucursal && facturaSeleccionada.numero === factura.numero ? 'bg-blue-100' : ''}"
+										on:click={() => seleccionarFactura(factura)}
+									>
+										<td class="px-4 py-2 text-sm">{factura.tipo}</td>
+										<td class="px-4 py-2 text-sm">{factura.sucursal}-{factura.numero}</td>
+										<td class="px-4 py-2 text-sm">{factura.fecha ? new Date(factura.fecha).toLocaleDateString('es-AR') : '—'}</td>
+										<td class="px-4 py-2 text-sm text-right">{formatCurrency(factura.total)}</td>
+										<td class="px-4 py-2 text-center">
+											<button
+												on:click|stopPropagation={() => abrirDetalleFactura(factura)}
+												class="text-blue-600 hover:text-blue-900"
+												aria-label="Ver detalle"
+											>
+												<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+												</svg>
+											</button>
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
 					{/if}
 				</div>
+				{#if facturaSeleccionada}
+					<p class="text-sm text-gray-600 mt-2">
+						Factura seleccionada: <span class="font-medium">{facturaSeleccionada.tipo}-{facturaSeleccionada.sucursal}-{facturaSeleccionada.numero}</span>
+					</p>
+				{/if}
 			</div>
 		</div>
 
@@ -306,6 +370,19 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Modal de detalle de factura (Facturas de Referencia) -->
+<DetalleFacturaModal
+	bind:show={showDetalleFacturaModal}
+	factura={facturaSeleccionadaParaDetalle}
+	items={itemsFacturaDetalle}
+	loading={cargandoDetalleFactura}
+	on:close={() => (showDetalleFacturaModal = false)}
+	on:seleccionar={(e) => {
+		if (e.detail) seleccionarFactura(e.detail);
+		showDetalleFacturaModal = false;
+	}}
+/>
 
 {#if notaCreditoCreada}
 	<!-- Modal CAE (NCA/NCB): obtener CAE desde AFIP -->

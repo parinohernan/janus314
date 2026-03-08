@@ -2,15 +2,30 @@
   import { onMount } from 'svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { goto } from '$app/navigation';
-  import { PUBLIC_API_URL } from '$env/static/public';
+  import { browser } from '$app/environment';
   import { debounce } from 'lodash-es';
   import { navigationState } from '$lib/stores/navigationState';
-  import { page } from '$app/stores';
   import { beforeNavigate } from '$app/navigation';
   import { RubroService } from '$lib/services/RubroService';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { smartNavigate } from '$lib/utils/navigation';
   import { toast, confirm } from '$lib/utils/toast';
+
+  const PAGE_PATH = '/productos';
+
+  // Guardar filtros, paginación y scroll al salir (mismo patrón que actualizacion-precios)
+  beforeNavigate(({ from }) => {
+    if (from?.url.pathname === PAGE_PATH && browser) {
+      navigationState.saveState(PAGE_PATH, {
+        scroll: window.scrollY,
+        pagination: {
+          currentPage: pagination.currentPage,
+          limit: pagination.limit
+        },
+        filters: { ...filters }
+      });
+    }
+  });
   
   // Definir interfaces para los tipos
   interface Articulo {
@@ -110,7 +125,6 @@
       
       const response = await fetchWithAuth('/articulos', { params });
       if (!response.ok) throw new Error('Error al cargar los artículos');
-      console.log(response);
       const data = await response.json();
       
       // Actualizar lista de artículos y metadatos de paginación
@@ -158,42 +172,23 @@
     }
   };
   
-  // Cargar datos al inicializar el componente
+  // Cargar datos al inicializar y restaurar estado persistido
   onMount(() => {
-    console.log("Montando componente de productos");
-    // Cargar datos de proveedores y rubros
     Promise.all([loadProveedores(), loadRubros()]);
-    
-    // Recuperar estado guardado al montar el componente
-    const savedState = navigationState.getState($page.url.pathname);
-    console.log("Estado guardado recuperado:", savedState);
-    
+
+    const savedState = browser ? navigationState.getState(PAGE_PATH) : null;
+
     if (savedState?.pagination) {
-      console.log("Restaurando paginación:", savedState.pagination);
-      pagination = {
-        ...pagination,
-        ...savedState.pagination
-      };
+      pagination = { ...pagination, ...savedState.pagination };
     }
-    
     if (savedState?.filters) {
-      console.log("Restaurando filtros:", savedState.filters);
-      filters = {
-        ...filters,
-        ...savedState.filters
-      };
+      filters = { ...filters, ...savedState.filters };
     }
-    
-    // Cargar datos con el estado restaurado
+
     loadArticulos().then(() => {
       initialLoadCompleted = true;
-      
-      // Restaurar la posición de scroll después de cargar datos
-      if (savedState?.scroll) {
-        setTimeout(() => {
-          console.log("Restaurando posición de scroll:", savedState.scroll);
-          window.scrollTo(0, savedState.scroll);
-        }, 100);
+      if (typeof savedState?.scroll === 'number') {
+        requestAnimationFrame(() => window.scrollTo(0, savedState!.scroll));
       }
     });
   });
@@ -287,29 +282,19 @@
     return precioFinal;
   };
 
-  // Al cambiar página o filtros, guardar el estado actual
+  // Al cambiar página o filtros, guardar el estado actual en navigationState
   const updateState = () => {
-    // Solo guardar estado después de la carga inicial
-    if (initialLoadCompleted) {
-      const state = {
+    if (browser && initialLoadCompleted) {
+      navigationState.saveState(PAGE_PATH, {
         scroll: window.scrollY,
         pagination: {
           currentPage: pagination.currentPage,
           limit: pagination.limit
         },
         filters: { ...filters }
-      };
-      console.log("Actualizando estado:", state);
-      navigationState.saveState($page.url.pathname, state);
+      });
     }
   };
-  
-  // Asegurarnos de guardar el estado cuando el usuario abandona la página
-  beforeNavigate(({ from, to, cancel }) => {
-    if (from && from.url.pathname === '/productos') {
-      updateState();
-    }
-  });
 
   // Manejar cambios en los filtros
   const handleFilterChange = (): void => {
@@ -425,18 +410,7 @@
     </div>
   </div>
   
-  <!-- Agregar después de los filtros
-  <div class="text-right text-xs">
-    <button 
-      class="text-gray-500 hover:text-gray-700 underline"
-      on:click={() => {
-        navigationState.clearState($page.url.pathname);
-        window.location.reload();
-      }}
-    >
-      Restablecer filtros y paginación
-    </button>
-  </div> -->
+  <!-- Restablecer filtros: navigationState.clearState(PAGE_PATH); window.location.reload(); -->
   
   <!-- Tabla / Estado de carga -->
   {#if loading}

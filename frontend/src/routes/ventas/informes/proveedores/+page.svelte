@@ -1,11 +1,36 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { goto, beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { Chart } from 'chart.js/auto';
   import DatePicker from '$lib/components/DatePicker.svelte';
   import EntitySelector from '$lib/components/ui/EntitySelector.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
-  import { Factory, BarChart3 } from 'lucide-svelte';
+  import { Factory, BarChart3, ShoppingCart, RefreshCw } from 'lucide-svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
+  import { InformeCacheService, idbCacheAdapter } from '$lib/cache';
+  import { navigationState } from '$lib/stores/navigationState';
+
+  const INFORME_PATH = '/ventas/informes/proveedores';
+  const STORAGE_KEY_ORDEN_INFORME = 'janus314_orden_desde_informe';
+  const informeCache = new InformeCacheService(idbCacheAdapter);
+
+  // Guardar filtros al salir de la página para restaurar al volver
+  beforeNavigate(({ from }) => {
+    if (from?.url.pathname === INFORME_PATH && browser) {
+      const currentState = navigationState.getState(INFORME_PATH) || {};
+      navigationState.saveState(INFORME_PATH, {
+        ...currentState,
+        scroll: window.scrollY,
+        filters: {
+          fechaDesde: formatDate(fechaDesde),
+          fechaHasta: formatDate(fechaHasta),
+          proveedorCodigo: proveedoresSeleccionados.map((p) => p.codigo).sort().join(','),
+          pagoTipo: filtroPagoTipo
+        }
+      });
+    }
+  });
 
   // Interfaces
   interface ProveedorOption {
@@ -17,6 +42,8 @@
     codigo: string;
     descripcion: string;
     existencia: number;
+    existenciaMinima?: number;
+    cantidadSugerida?: number;
     cantidad: number;
     importeTotal: number;
   }
@@ -39,23 +66,27 @@
   }
 
   // Estado
-  let loading = false;
-  let error: string | null = null;
-  let datosVentas: DatosVentas | null = null;
+  let loading = $state(false);
+  let error = $state<string | null>(null);
+  let datosVentas = $state<DatosVentas | null>(null);
   let chart: Chart | null = null;
   let chartCanvas: HTMLCanvasElement;
-  let tipoGrafico: 'cantidad' | 'importe' = 'cantidad';
+  let tipoGrafico = $state<'cantidad' | 'importe'>('cantidad');
+  let cacheTimestamp = $state<number | null>(null);
 
   // Filtros
-  let fechaDesde: Date = new Date();
-  let fechaHasta: Date = new Date();
-  let proveedoresSeleccionados: ProveedorOption[] = [];
-  let filtroPagoTipo = '';
-  let formasPago: { value: string; label: string }[] = [];
-  let mostrarDropdownProveedores = false;
+  let fechaDesde = $state<Date>(new Date());
+  let fechaHasta = $state<Date>(new Date());
+  let proveedoresSeleccionados = $state<ProveedorOption[]>([]);
+  let filtroPagoTipo = $state('');
+  let formasPago = $state<{ value: string; label: string }[]>([]);
+  let mostrarDropdownProveedores = $state(false);
+
+  // Productos seleccionados para crear orden (key: proveedorCodigo|productoCodigo)
+  let productosSeleccionados = $state<Set<string>>(new Set());
 
   // Inicializar fechas al mes actual y cargar proveedores
-  onMount(() => {
+  onMount(async () => {
     const hoy = new Date();
     const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
     const ultimoDiaMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
@@ -63,11 +94,30 @@
     fechaDesde = primerDiaMes;
     fechaHasta = ultimoDiaMes;
     
-    // Cargar proveedores con un pequeño delay para asegurar que la autenticación esté lista
-    setTimeout(() => {
-      cargarTodosLosProveedores();
-      cargarFormasPago();
-    }, 500);
+    // Cargar proveedores y formas de pago
+    await Promise.all([
+      new Promise((r) => setTimeout(r, 500)).then(() => cargarTodosLosProveedores()),
+      cargarFormasPago()
+    ]);
+    
+    // Restaurar filtros guardados al volver de otra pestaña
+    if (browser) {
+      const savedState = navigationState.getState(INFORME_PATH);
+      const filters = savedState?.filters as { fechaDesde?: string; fechaHasta?: string; proveedorCodigo?: string; pagoTipo?: string } | undefined;
+      if (filters?.fechaDesde) fechaDesde = new Date(filters.fechaDesde);
+      if (filters?.fechaHasta) fechaHasta = new Date(filters.fechaHasta);
+      if (filters?.pagoTipo) filtroPagoTipo = filters.pagoTipo;
+      if (filters?.proveedorCodigo && todosLosProveedores.length > 0) {
+        const codigos = filters.proveedorCodigo.split(',').filter(Boolean);
+        proveedoresSeleccionados = codigos
+          .map((c) => todosLosProveedores.find((p) => p.codigo === c.trim()))
+          .filter(Boolean) as ProveedorOption[];
+      }
+      // Si teníamos filtros guardados, restaurar datos desde caché (o fetch si expiró)
+      if (filters) {
+        cargarDatosVentas();
+      }
+    }
   });
 
   // Función para formatear fecha a YYYY-MM-DD
@@ -86,34 +136,56 @@
     }).format(valor);
   }
 
-  // Función para cargar los datos de ventas
-  async function cargarDatosVentas() {
+  function buildCacheParams() {
+    return {
+      fechaDesde: formatDate(fechaDesde),
+      fechaHasta: formatDate(fechaHasta),
+      proveedorCodigo: proveedoresSeleccionados.map((p) => p.codigo).sort().join(','),
+      pagoTipo: filtroPagoTipo
+    };
+  }
+
+  // Función para cargar los datos de ventas (con caché IndexedDB)
+  async function cargarDatosVentas(forceRefresh = false) {
     try {
       loading = true;
       error = null;
+      cacheTimestamp = null;
+      productosSeleccionados = new Set();
 
-      const params = new URLSearchParams({
-        fechaDesde: formatDate(fechaDesde),
-        fechaHasta: formatDate(fechaHasta)
+      const params = buildCacheParams();
+      const paramsForUrl = new URLSearchParams({
+        fechaDesde: params.fechaDesde,
+        fechaHasta: params.fechaHasta
       });
+      if (params.proveedorCodigo) paramsForUrl.append('proveedorCodigo', params.proveedorCodigo);
+      if (params.pagoTipo) paramsForUrl.append('pagoTipo', params.pagoTipo);
 
-      if (proveedoresSeleccionados.length > 0) {
-        params.append('proveedorCodigo', proveedoresSeleccionados.map(p => p.codigo).join(','));
-      }
-      if (filtroPagoTipo) {
-        params.append('pagoTipo', filtroPagoTipo);
+      if (!forceRefresh && browser) {
+        const cached = await informeCache.get<DatosVentas>('proveedores', params);
+        if (cached) {
+          datosVentas = cached.data;
+          cacheTimestamp = cached.timestamp;
+          actualizarGrafico();
+          loading = false;
+          return;
+        }
       }
 
-      const response = await fetchWithAuth(`/informes/ventas-por-proveedor?${params}`);
-      
+      const response = await fetchWithAuth(`/informes/ventas-por-proveedor?${paramsForUrl}`);
+
       if (!response.ok) {
         throw new Error('Error al cargar los datos');
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         datosVentas = result.data;
+        cacheTimestamp = Date.now();
+        if (browser) {
+          await informeCache.set('proveedores', params, result.data);
+        }
         actualizarGrafico();
       } else {
         throw new Error(result.message || 'Error en el servidor');
@@ -240,9 +312,9 @@
   }
 
   // Variables para selector múltiple de proveedores
-  let todosLosProveedores: ProveedorOption[] = [];
-  let cargandoProveedores = false;
-  let busquedaProveedor = '';
+  let todosLosProveedores = $state<ProveedorOption[]>([]);
+  let cargandoProveedores = $state(false);
+  let busquedaProveedor = $state('');
 
   // Función para cargar todos los proveedores
   async function cargarTodosLosProveedores() {
@@ -303,21 +375,6 @@
     }
   }
 
-  // Función para manejar cambio de proveedor
-  function cambiarProveedor(event: Event) {
-    const target = event.target as HTMLSelectElement;
-    const codigoSeleccionado = target.value;
-    
-    if (codigoSeleccionado) {
-      const proveedor = todosLosProveedores.find(p => p.codigo === codigoSeleccionado);
-      if (proveedor && !proveedoresSeleccionados.some(p => p.codigo === proveedor.codigo)) {
-        proveedoresSeleccionados = [...proveedoresSeleccionados, proveedor];
-      }
-      // Limpiar el select después de seleccionar
-      target.value = '';
-    }
-  }
-
   // Función para alternar selección de proveedor
   function alternarProveedor(proveedor: ProveedorOption) {
     const yaSeleccionado = proveedoresSeleccionados.some(p => p.codigo === proveedor.codigo);
@@ -364,10 +421,92 @@
     }, 200);
   }
 
-  // Observador para actualizar el gráfico cuando cambien los datos o el tipo de gráfico
-  $: if (datosVentas && chartCanvas) {
-    actualizarGrafico();
+  function keyProducto(proveedor: ProveedorVenta, producto: ProductoVenta): string {
+    return `${proveedor.codigo}|${producto.codigo}`;
   }
+
+  function isProductoSeleccionado(proveedor: ProveedorVenta, producto: ProductoVenta): boolean {
+    return productosSeleccionados.has(keyProducto(proveedor, producto));
+  }
+
+  function toggleProducto(proveedor: ProveedorVenta, producto: ProductoVenta) {
+    if (proveedor.codigo === 'SIN_PROVEEDOR') return;
+    error = null;
+    const key = keyProducto(proveedor, producto);
+    const next = new Set(productosSeleccionados);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    productosSeleccionados = next;
+  }
+
+  function toggleTodosProductos() {
+    if (!datosVentas) return;
+    error = null;
+    const selectables = datosVentas.proveedores
+      .filter((p) => p.codigo !== 'SIN_PROVEEDOR')
+      .flatMap((p) => p.productos.map((prod) => keyProducto(p, prod)));
+    const todosIncluidos = selectables.every((k) => productosSeleccionados.has(k));
+    if (todosIncluidos) {
+      const next = new Set(productosSeleccionados);
+      selectables.forEach((k) => next.delete(k));
+      productosSeleccionados = next;
+    } else {
+      productosSeleccionados = new Set([...productosSeleccionados, ...selectables]);
+    }
+  }
+
+  function todosProductosSeleccionados(): boolean {
+    if (!datosVentas) return false;
+    const selectables = datosVentas.proveedores
+      .filter((p) => p.codigo !== 'SIN_PROVEEDOR')
+      .flatMap((p) => p.productos.map((prod) => keyProducto(p, prod)));
+    return selectables.length > 0 && selectables.every((k) => productosSeleccionados.has(k));
+  }
+
+  function crearOrdenConSeleccionados() {
+    if (!browser || !datosVentas) return;
+    const itemsByProvider = new Map<string, { proveedor: ProveedorVenta; items: { codigo: string; descripcion: string; cantidad: number }[] }>();
+    for (const proveedor of datosVentas.proveedores) {
+      if (proveedor.codigo === 'SIN_PROVEEDOR') continue;
+      for (const producto of proveedor.productos) {
+        if (!productosSeleccionados.has(keyProducto(proveedor, producto))) continue;
+        const cant = producto.cantidadSugerida && producto.cantidadSugerida > 0 ? producto.cantidadSugerida : producto.cantidad;
+        const qty = cant > 0 ? cant : producto.cantidad || 1;
+        const list = itemsByProvider.get(proveedor.codigo);
+        const item = { codigo: producto.codigo, descripcion: producto.descripcion, cantidad: qty };
+        if (list) list.items.push(item);
+        else itemsByProvider.set(proveedor.codigo, { proveedor, items: [item] });
+      }
+    }
+    const providers = [...itemsByProvider.values()];
+    if (providers.length === 0) {
+      error = 'Seleccione al menos un producto';
+      return;
+    }
+    if (providers.length > 1) {
+      error = 'Seleccione productos de un solo proveedor para crear la orden';
+      return;
+    }
+    const { proveedor, items } = providers[0];
+    const payload = {
+      proveedorCodigo: proveedor.codigo,
+      proveedorDescripcion: proveedor.descripcion,
+      items: items.map((it) => ({
+        CodigoArticulo: it.codigo,
+        Descripcion: it.descripcion,
+        Cantidad: it.cantidad,
+        PrecioCostoUnitario: 0
+      }))
+    };
+    error = null;
+    sessionStorage.setItem(STORAGE_KEY_ORDEN_INFORME, JSON.stringify(payload));
+    goto(`/compras/ordenes/nueva?from=informe&proveedor=${encodeURIComponent(proveedor.codigo)}`);
+  }
+
+  // Observador para actualizar el gráfico cuando cambien los datos o el tipo de gráfico
+  $effect(() => {
+    if (datosVentas && chartCanvas) actualizarGrafico();
+  });
 </script>
 
 <svelte:head>
@@ -412,28 +551,15 @@
         </select>
       </div>
       <div class="md:col-span-4">
-        <label for="proveedor" class="block text-sm font-medium text-gray-700 mb-2">
+        <label for="busquedaProveedor" class="block text-sm font-medium text-gray-700 mb-2">
           Filtrar por Proveedores (Opcional)
         </label>
         
-        <!-- Selector principal -->
         <div class="flex gap-2 mb-2">
-          <select 
-            id="proveedor" 
-            on:change={cambiarProveedor}
-            class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-            disabled={cargandoProveedores}
-          >
-            <option value="">Agregar proveedor...</option>
-            {#each todosLosProveedores as proveedor}
-              <option value={proveedor.codigo}>{proveedor.descripcion}</option>
-            {/each}
-          </select>
-          
           {#if todosLosProveedores.length > 0}
             <button
               type="button"
-              on:click={seleccionarTodosLosProveedores}
+              onclick={seleccionarTodosLosProveedores}
               class="px-3 py-2 bg-green-100 text-green-700 hover:bg-green-200 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm whitespace-nowrap flex-shrink-0"
               title="Seleccionar todos los proveedores"
             >
@@ -444,7 +570,7 @@
           {#if proveedoresSeleccionados.length > 0}
             <button
               type="button"
-              on:click={limpiarTodosLosProveedores}
+              onclick={limpiarTodosLosProveedores}
               class="px-3 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm whitespace-nowrap flex-shrink-0"
               title="Limpiar todos los proveedores"
             >
@@ -459,7 +585,6 @@
           </div>
         {/if}
         
-        <!-- Contador de proveedores seleccionados -->
         {#if proveedoresSeleccionados.length > 0}
           <div class="mb-2">
             <div class="text-sm font-medium text-blue-700 bg-blue-50 px-3 py-2 rounded-md inline-block">
@@ -468,14 +593,15 @@
           </div>
         {/if}
 
-        <!-- Búsqueda rápida -->
+        <!-- Búsqueda para agregar proveedores -->
         <div class="relative">
           <input
+            id="busquedaProveedor"
             type="text"
             bind:value={busquedaProveedor}
-            on:focus={() => mostrarDropdownProveedores = true}
-            on:blur={cerrarDropdownProveedores}
-            placeholder="Buscar proveedor..."
+            onfocus={() => mostrarDropdownProveedores = true}
+            onblur={cerrarDropdownProveedores}
+            placeholder="Buscar y agregar proveedores..."
             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
           
@@ -486,7 +612,7 @@
               <div class="sticky top-0 bg-gray-50 border-b border-gray-200">
                 <button
                   type="button"
-                  on:click={seleccionarTodosLosProveedores}
+                  onclick={seleccionarTodosLosProveedores}
                   class="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center font-medium text-green-600"
                 >
                   <span class="mr-2">✓</span>
@@ -503,7 +629,7 @@
               {#each filtrarProveedores() as proveedor}
                 <button
                   type="button"
-                  on:click={() => alternarProveedor(proveedor)}
+                  onclick={() => alternarProveedor(proveedor)}
                   class="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center"
                 >
                   <input
@@ -528,7 +654,7 @@
     <div class="flex justify-end">
       <button
         type="button"
-        on:click={cargarDatosVentas}
+        onclick={() => cargarDatosVentas()}
         disabled={loading}
         class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
       >
@@ -553,6 +679,26 @@
       <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
     </div>
   {:else if datosVentas}
+    <!-- Badge caché y botón Actualizar -->
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+      {#if cacheTimestamp}
+        <span class="inline-flex items-center rounded-md bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700">
+          Datos de hace {Math.round((Date.now() - cacheTimestamp) / 60000)} min
+        </span>
+      {:else}
+        <span></span>
+      {/if}
+      <button
+        type="button"
+        onclick={() => cargarDatosVentas(true)}
+        disabled={loading}
+        class="inline-flex items-center gap-2 rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50"
+      >
+        <Icon icon={RefreshCw} size={16} />
+        Actualizar
+      </button>
+    </div>
+
     <!-- Estadísticas Generales -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg">
@@ -597,13 +743,13 @@
           <div class="flex gap-2">
             <button
               class="px-3 py-1 rounded {tipoGrafico === 'cantidad' ? 'bg-blue-500 text-white' : 'bg-gray-200'}"
-              on:click={() => tipoGrafico = 'cantidad'}
+              onclick={() => tipoGrafico = 'cantidad'}
             >
               Cantidad
             </button>
             <button
               class="px-3 py-1 rounded {tipoGrafico === 'importe' ? 'bg-blue-500 text-white' : 'bg-gray-200'}"
-              on:click={() => tipoGrafico = 'importe'}
+              onclick={() => tipoGrafico = 'importe'}
             >
               Importe
             </button>
@@ -652,10 +798,21 @@
 
     <!-- Tabla Detallada -->
     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-      <h2 class="text-xl font-semibold mb-6 flex items-center gap-2">
-        <Icon icon={BarChart3} size={20} strokeWidth={2.5} glass={true} />
-        Detalle Completo por Proveedor
-      </h2>
+      <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <h2 class="text-xl font-semibold flex items-center gap-2">
+          <Icon icon={BarChart3} size={20} strokeWidth={2.5} glass={true} />
+          Detalle Completo por Proveedor
+        </h2>
+        <button
+          type="button"
+          onclick={crearOrdenConSeleccionados}
+          disabled={productosSeleccionados.size === 0}
+          class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Icon icon={ShoppingCart} size={18} />
+          Crear orden con productos seleccionados ({productosSeleccionados.size})
+        </button>
+      </div>
       <div class="overflow-x-auto">
         <table class="w-full">
           <thead>
@@ -663,13 +820,26 @@
               <th class="text-left py-3 px-4 font-semibold">Proveedor</th>
               <th class="text-left py-3 px-4 font-semibold">Producto</th>
               <th class="text-right py-3 px-4 font-semibold">Existencia</th>
+              <th class="text-right py-3 px-4 font-semibold">Exist. mínima</th>
+              <th class="text-right py-3 px-4 font-semibold">Cant. sugerida</th>
               <th class="text-right py-3 px-4 font-semibold">Cantidad</th>
               <th class="text-right py-3 px-4 font-semibold">Importe</th>
+              <th class="text-center py-3 px-4 font-semibold">
+                <label class="flex items-center justify-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={todosProductosSeleccionados()}
+                    onchange={toggleTodosProductos}
+                    class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                  <span class="text-sm">Seleccionar todos</span>
+                </label>
+              </th>
             </tr>
           </thead>
           <tbody>
             {#each datosVentas.proveedores as proveedor}
-              {#each proveedor.productos as producto}
+              {#each proveedor.productos as producto, i}
                 <tr class="border-b border-gray-100 hover:bg-gray-50">
                   <td class="py-3 px-4">
                     {#if proveedor.codigo !== 'SIN_PROVEEDOR'}
@@ -685,11 +855,31 @@
                   </td>
                   <td class="py-3 px-4 text-right">
                     <span class="text-gray-500 text-sm">
-                      {producto.existencia || 0} u
+                      {producto.existencia ?? 0} u
+                    </span>
+                  </td>
+                  <td class="py-3 px-4 text-right text-sm text-gray-600">
+                    {producto.existenciaMinima ?? 0} u
+                  </td>
+                  <td class="py-3 px-4 text-right">
+                    <span class="text-sm {producto.cantidadSugerida && producto.cantidadSugerida > 0 ? 'font-semibold text-amber-600' : 'text-gray-500'}">
+                      {producto.cantidadSugerida ?? 0} u
                     </span>
                   </td>
                   <td class="py-3 px-4 text-right font-semibold">{producto.cantidad}</td>
                   <td class="py-3 px-4 text-right font-semibold">{formatearMoneda(producto.importeTotal)}</td>
+                  <td class="py-3 px-4 text-center">
+                    {#if proveedor.codigo !== 'SIN_PROVEEDOR'}
+                      <input
+                        type="checkbox"
+                        checked={isProductoSeleccionado(proveedor, producto)}
+                        onchange={() => toggleProducto(proveedor, producto)}
+                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                    {:else}
+                      <span class="text-gray-400">-</span>
+                    {/if}
+                  </td>
                 </tr>
               {/each}
             {/each}

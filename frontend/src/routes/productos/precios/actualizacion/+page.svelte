@@ -1,9 +1,44 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
   import MultiSelect from '$lib/components/ui/MultiSelect.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { InformeCacheService, idbCacheAdapter } from '$lib/cache';
+  import { navigationState } from '$lib/stores/navigationState';
+  import { exportarCambiosPreciosPorcentaje } from '$lib/utils/exportarCambiosPrecios';
+
+  const PAGE_PATH = '/productos/precios/actualizacion';
+  const informeCache = new InformeCacheService(idbCacheAdapter);
+
+  // Guardar filtros, scroll y artículos al salir
+  beforeNavigate(({ from }) => {
+    if (from?.url.pathname === PAGE_PATH && browser) {
+      const currentState = navigationState.getState(PAGE_PATH) || {};
+      navigationState.saveState(PAGE_PATH, {
+        ...currentState,
+        scroll: window.scrollY,
+        filters: {
+          proveedores: proveedoresSeleccionados.join(','),
+          rubros: rubrosSeleccionados.join(','),
+          porcentajeIncremento
+        }
+      });
+      // Persistir artículos en IndexedDB (más escalable que localStorage)
+      if (articulos.length > 0) {
+        const params = {
+          proveedores: proveedoresSeleccionados.join(','),
+          rubros: rubrosSeleccionados.join(',')
+        };
+        informeCache.set('actualizacion-precios', params, {
+          articulos,
+          seleccionarTodos
+        }).catch((err) => console.warn('Cache IndexedDB:', err));
+      }
+    }
+  });
 
   // Interfaces
   interface Proveedor {
@@ -46,7 +81,7 @@
   // Contador de artículos seleccionados
   $: articulosSeleccionados = articulos.filter(a => a.seleccionado).length;
 
-  // Cargar datos iniciales
+  // Cargar datos iniciales y restaurar estado persistido
   onMount(async () => {
     try {
       loading = true;
@@ -64,6 +99,35 @@
 
       proveedores = proveedoresData.items;
       rubros = rubrosData.items;
+
+      // Restaurar filtros y scroll desde navigationState (localStorage)
+      if (browser) {
+        const savedState = navigationState.getState(PAGE_PATH);
+        const filters = savedState?.filters as { proveedores?: string; rubros?: string; porcentajeIncremento?: number } | undefined;
+        if (filters?.proveedores) proveedoresSeleccionados = filters.proveedores.split(',').filter(Boolean);
+        if (filters?.rubros) rubrosSeleccionados = filters.rubros.split(',').filter(Boolean);
+        if (filters?.porcentajeIncremento != null) porcentajeIncremento = filters.porcentajeIncremento;
+
+        // Restaurar artículos desde IndexedDB si hay filtros guardados
+        if ((proveedoresSeleccionados.length > 0 || rubrosSeleccionados.length > 0)) {
+          const params = {
+            proveedores: proveedoresSeleccionados.join(','),
+            rubros: rubrosSeleccionados.join(',')
+          };
+          const cached = await informeCache.get<{ articulos: Articulo[]; seleccionarTodos: boolean }>('actualizacion-precios', params);
+          if (cached?.data) {
+            articulos = cached.data.articulos ?? [];
+            seleccionarTodos = cached.data.seleccionarTodos ?? false;
+          }
+        }
+
+        // Restaurar scroll
+        if (typeof savedState?.scroll === 'number') {
+          requestAnimationFrame(() => {
+            window.scrollTo(0, savedState!.scroll);
+          });
+        }
+      }
     } catch (err) {
       console.error('Error:', err);
       error = 'Error al cargar los datos iniciales';
@@ -140,10 +204,15 @@
       if (!response.ok) throw new Error('Error al actualizar precios');
 
       success = `Precios actualizados correctamente para ${articulosSeleccionados.length} artículo(s)`;
-      // Limpiar la búsqueda después de actualizar
+      exportarCambiosPreciosPorcentaje(articulosSeleccionados, porcentajeIncremento);
       articulos = [];
       seleccionarTodos = false;
       porcentajeIncremento = 0;
+      const params = {
+        proveedores: proveedoresSeleccionados.join(','),
+        rubros: rubrosSeleccionados.join(',')
+      };
+      informeCache.set('actualizacion-precios', params, { articulos: [], seleccionarTodos: false }).catch(() => {});
     } catch (err) {
       console.error('Error:', err);
       error = 'Error al actualizar los precios';

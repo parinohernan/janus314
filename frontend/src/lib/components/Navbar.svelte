@@ -88,6 +88,7 @@
       submenus: [
         { label: 'Proveedores', url: '/compras/proveedores' },
         { label: 'Facturas de compra', url: '/compras/facturas' },
+        { label: 'Órdenes de compra', url: '/compras/ordenes' },
         { label: 'Comprobantes de pago (recibos)', url: '/compras/recibos' },
         { label: 'Notas de Crédito', url: '/compras/notascredito' },
         { label: 'Notas de Débito', url: '/compras/notasdebito' },
@@ -103,6 +104,7 @@
         { label: 'Rubros', url: '/rubros' },
         { label: 'Listado de Precios', url: '/productos/precios/listado' },
         { label: 'Actualización de Precios', url: '/productos/precios/actualizacion' },
+        { label: 'Actualización manual', url: '/productos/precios/actualizacionmanual' },
         { label: 'Actualización de Precios desde listas', url: '/productos/precios/actualizarconlista' }
       ]
     },

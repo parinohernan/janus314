@@ -818,6 +818,67 @@ exports.actualizarPreciosLista = async (req, res) => {
   }
 };
 
+// Actualizar precios manualmente (PrecioCosto y/o Lista1-5 por artículo)
+exports.actualizarPreciosManual = async (req, res) => {
+  try {
+    const { Articulo } = req.models;
+    const connection = req.db;
+    const transaction = await connection.transaction();
+
+    try {
+      const { articulos } = req.body;
+
+      if (!articulos || !Array.isArray(articulos) || articulos.length === 0) {
+        return res.status(400).json({ message: "Debe proporcionar una lista de artículos" });
+      }
+
+      for (const item of articulos) {
+        const { Codigo, PrecioCosto, PrecioCostoMasImp, Lista1, Lista2, Lista3, Lista4, Lista5 } = item;
+        if (!Codigo) continue;
+
+        const articulo = await Articulo.findByPk(Codigo, { transaction });
+        if (!articulo) continue;
+
+        const updates = {};
+        const iva = articulo.PorcentajeIVA1 || 0;
+
+        if (PrecioCosto !== undefined && PrecioCosto !== null && !isNaN(Number(PrecioCosto))) {
+          const costo = Number(PrecioCosto);
+          updates.PrecioCosto = costo;
+          updates.PrecioCostoMasImp = costo * (1 + iva / 100);
+        }
+        if (PrecioCostoMasImp !== undefined && PrecioCostoMasImp !== null && !isNaN(Number(PrecioCostoMasImp))) {
+          const costoMasImp = Number(PrecioCostoMasImp);
+          updates.PrecioCostoMasImp = costoMasImp;
+          updates.PrecioCosto = costoMasImp / (1 + iva / 100);
+        }
+        if (Lista1 !== undefined && Lista1 !== null && !isNaN(Number(Lista1))) updates.Lista1 = Number(Lista1);
+        if (Lista2 !== undefined && Lista2 !== null && !isNaN(Number(Lista2))) updates.Lista2 = Number(Lista2);
+        if (Lista3 !== undefined && Lista3 !== null && !isNaN(Number(Lista3))) updates.Lista3 = Number(Lista3);
+        if (Lista4 !== undefined && Lista4 !== null && !isNaN(Number(Lista4))) updates.Lista4 = Number(Lista4);
+        if (Lista5 !== undefined && Lista5 !== null && !isNaN(Number(Lista5))) updates.Lista5 = Number(Lista5);
+
+        if (Object.keys(updates).length > 0) {
+          await articulo.update(updates, { transaction });
+        }
+      }
+
+      await transaction.commit();
+
+      return res.status(200).json({
+        message: "Precios actualizados correctamente",
+        articulosActualizados: articulos.length
+      });
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error al actualizar precios manual:", error);
+    return res.status(500).json({ message: "Error al actualizar los precios" });
+  }
+};
+
 // Generar listado de precios en PDF
 exports.generarListadoPreciosPDF = async (req, res) => {
   try {

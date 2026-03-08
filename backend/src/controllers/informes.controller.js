@@ -1513,7 +1513,7 @@ exports.ventasPorProveedor = async (req, res) => {
         attributes: ['CodigoArticulo', 'Cantidad', 'PrecioUnitario', 'ImporteBonificado'],
         include: [{
           model: Articulo,
-          attributes: ['Codigo', 'Descripcion', 'ProveedorCodigo', 'Existencia'],
+          attributes: ['Codigo', 'Descripcion', 'ProveedorCodigo', 'Existencia', 'ExistenciaMinima'],
           where: whereClauseArticulo,
           required: proveedorCodigos.length > 0, // INNER JOIN si hay filtro, LEFT JOIN si no
           include: [{
@@ -1564,10 +1564,17 @@ exports.ventasPorProveedor = async (req, res) => {
 
       // Inicializar producto si no existe
       if (!ventasPorProveedor[provCodigo].productos[codigoArticulo]) {
+        const existencia = parseFloat(item.Articulo.Existencia) || 0;
+        const existenciaMinima = parseFloat(item.Articulo.ExistenciaMinima) || 0;
+        const cantidadSugerida = existenciaMinima > 0 && existencia < existenciaMinima
+          ? Math.max(0, existenciaMinima - existencia)
+          : 0;
         ventasPorProveedor[provCodigo].productos[codigoArticulo] = {
           codigo: codigoArticulo,
           descripcion: item.Articulo.Descripcion || 'Sin descripción',
-          existencia: parseFloat(item.Articulo.Existencia) || 0,
+          existencia,
+          existenciaMinima,
+          cantidadSugerida,
           cantidad: 0,
           importeTotal: 0
         };
