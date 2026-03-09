@@ -1,9 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { fade } from 'svelte/transition';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { auth } from '$lib/stores/authStore';
   import { get } from 'svelte/store';
+  import { navigationState } from '$lib/stores/navigationState';
+
+  const PAGE_PATH = '/sincronizacion/preventas';
 
   // Estado específico para la descarga
   let descargaEstado = 'idle'; // 'idle', 'procesando', 'completado', 'error'
@@ -15,6 +20,11 @@
 
   // Cargar estado inicial de descarga
   onMount(async () => {
+    let savedScroll: number | undefined;
+    if (browser) {
+      const savedState = navigationState.getState(PAGE_PATH);
+      savedScroll = savedState?.scroll;
+    }
     try {
       // Verificar autenticación antes de cargar datos
       const authState = get(auth);
@@ -41,6 +51,19 @@
       }
     }
     loadingDescarga = false;
+    if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+      requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+    }
+  });
+
+  beforeNavigate(({ from }) => {
+    if (from?.url.pathname === PAGE_PATH && browser) {
+      const currentState = navigationState.getState(PAGE_PATH) || {};
+      navigationState.saveState(PAGE_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0
+      });
+    }
   });
 
   async function iniciarDescarga() {

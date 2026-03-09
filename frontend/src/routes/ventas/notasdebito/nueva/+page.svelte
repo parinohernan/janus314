@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { goto } from '$app/navigation';
+  import { goto, beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
+  import { navigationState } from '$lib/stores/navigationState';
   import Button from '$lib/components/ui/Button.svelte';
   import { EmpresaService } from '$lib/services/EmpresaService';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
@@ -20,6 +22,9 @@
     Importe: number;
     enEdicion?: boolean;
   }
+
+  const NOTA_DEBITO_NUEVA_PATH = '/ventas/notasdebito/nueva';
+  let skipPersist = false;
 
   // Estado del formulario
   let loading = false;
@@ -201,9 +206,31 @@
   async function handleCancel() {
     const ok = await confirm('¿Está seguro que desea cancelar? Se perderán todos los datos ingresados.');
     if (ok) {
+      skipPersist = true;
+      if (browser) navigationState.clearState(NOTA_DEBITO_NUEVA_PATH);
       goto('/ventas/notasdebito');
     }
   }
+
+  beforeNavigate(({ from }) => {
+    if (skipPersist) {
+      skipPersist = false;
+      return;
+    }
+    if (from?.url.pathname === NOTA_DEBITO_NUEVA_PATH && browser) {
+      const currentState = navigationState.getState(NOTA_DEBITO_NUEVA_PATH) || {};
+      navigationState.saveState(NOTA_DEBITO_NUEVA_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        filters: {
+          notaDebito: { ...notaDebito },
+          items: [...items],
+          clienteSearch,
+          clienteSeleccionado
+        }
+      });
+    }
+  });
 
   // Grabar nota de débito
   async function handleGrabar() {
@@ -275,6 +302,8 @@
       success = true;
       successMessage = 'Nota de débito creada correctamente';
       
+      skipPersist = true;
+      if (browser) navigationState.clearState(NOTA_DEBITO_NUEVA_PATH);
       // Redirigir después de 2 segundos
       setTimeout(() => {
         goto('/ventas/notasdebito');
@@ -290,9 +319,37 @@
   // Cargar datos iniciales
   onMount(async () => {
     try {
-      notaDebito.DocumentoSucursal = await EmpresaService.obtenerSucursal();
+      const sucursal = await EmpresaService.obtenerSucursal();
+      notaDebito.DocumentoSucursal = sucursal;
       notaDebito.VendedorCodigo = codigoVendedor;
       notaDebito.CodigoUsuario = codigoUsuario;
+
+      // Restaurar estado persistido
+      if (browser) {
+        const savedState = navigationState.getState(NOTA_DEBITO_NUEVA_PATH);
+        const filters = savedState?.filters as {
+          notaDebito?: typeof notaDebito;
+          items?: NotaDebitoItem[];
+          clienteSearch?: string;
+          clienteSeleccionado?: Cliente | null;
+        } | undefined;
+        if (filters?.notaDebito) {
+          Object.assign(notaDebito, filters.notaDebito);
+          notaDebito.DocumentoSucursal = sucursal; // Mantener sucursal actual
+        }
+        if (filters?.items && Array.isArray(filters.items) && filters.items.length > 0) {
+          items = filters.items;
+          recalcularTotales();
+        }
+        if (filters?.clienteSearch) clienteSearch = filters.clienteSearch;
+        if (filters?.clienteSeleccionado) {
+          clienteSeleccionado = filters.clienteSeleccionado;
+          actualizarTiposDocumento(filters.clienteSeleccionado.CategoriaIva);
+        }
+        if (savedState?.scroll && typeof window !== 'undefined') {
+          requestAnimationFrame(() => window.scrollTo(0, savedState.scroll));
+        }
+      }
     } catch (err) {
       console.error('Error cargando datos iniciales:', err);
       error = err instanceof Error ? err.message : 'Error desconocido';

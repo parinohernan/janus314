@@ -1,11 +1,16 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { Chart } from 'chart.js/auto';
   import DatePicker from '$lib/components/DatePicker.svelte';
   import EntitySelector from '$lib/components/ui/EntitySelector.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { Box } from 'lucide-svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
+  import { navigationState } from '$lib/stores/navigationState';
+
+  const PAGE_PATH = '/ventas/informes/productos';
 
   // Inicializar fechas con valores válidos
   let fechaDesde: Date = new Date();
@@ -148,6 +153,43 @@
   function removeProducto(codigo: string) {
     productosSeleccionados = productosSeleccionados.filter(p => p.codigo !== codigo);
   }
+
+  onMount(async () => {
+    let savedScroll: number | undefined;
+    if (browser) {
+      const savedState = navigationState.getState(PAGE_PATH);
+      savedScroll = savedState?.scroll;
+      const filters = savedState?.filters as { fechaDesde?: string; fechaHasta?: string; productosSeleccionados?: { codigo: string; descripcion: string }[]; tipoGrafico?: 'cantidad' | 'importe' } | undefined;
+      if (filters?.fechaDesde) fechaDesde = new Date(filters.fechaDesde);
+      if (filters?.fechaHasta) fechaHasta = new Date(filters.fechaHasta);
+      if (filters?.productosSeleccionados && Array.isArray(filters.productosSeleccionados)) {
+        productosSeleccionados = filters.productosSeleccionados;
+      }
+      if (filters?.tipoGrafico) tipoGrafico = filters.tipoGrafico;
+    }
+    if (productosSeleccionados.length > 0) {
+      await cargarDatosVentas();
+    }
+    if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+      requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+    }
+  });
+
+  beforeNavigate(({ from }) => {
+    if (from?.url.pathname === PAGE_PATH && browser) {
+      const currentState = navigationState.getState(PAGE_PATH) || {};
+      navigationState.saveState(PAGE_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        filters: {
+          fechaDesde: formatDate(fechaDesde),
+          fechaHasta: formatDate(fechaHasta),
+          productosSeleccionados: [...productosSeleccionados],
+          tipoGrafico
+        }
+      });
+    }
+  });
 </script>
 
 <div class="container mx-auto p-4">

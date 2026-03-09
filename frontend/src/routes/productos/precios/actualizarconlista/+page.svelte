@@ -1,10 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
   import Select from '$lib/components/ui/Select.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import * as XLSX from 'xlsx';
+  import { navigationState } from '$lib/stores/navigationState';
+
+  const PAGE_PATH = '/productos/precios/actualizarconlista';
 
   // Interfaces
   interface Proveedor {
@@ -37,6 +42,17 @@
 
   // Cargar proveedores al inicio
   onMount(async () => {
+    let savedScroll: number | undefined;
+    if (browser) {
+      const savedState = navigationState.getState(PAGE_PATH);
+      savedScroll = savedState?.scroll;
+      const filters = savedState?.filters as { proveedorSeleccionado?: string; paso?: number; columnaCodigoArticulo?: string; columnaPrecioCosto?: string; porcentajeAjuste?: number } | undefined;
+      if (filters?.proveedorSeleccionado) proveedorSeleccionado = filters.proveedorSeleccionado;
+      if (typeof filters?.paso === 'number' && filters.paso >= 1 && filters.paso <= 3) paso = filters.paso;
+      if (filters?.columnaCodigoArticulo) columnaCodigoArticulo = filters.columnaCodigoArticulo;
+      if (filters?.columnaPrecioCosto) columnaPrecioCosto = filters.columnaPrecioCosto;
+      if (typeof filters?.porcentajeAjuste === 'number') porcentajeAjuste = filters.porcentajeAjuste;
+    }
     try {
       loading = true;
       const response = await fetchWithAuth(`${PUBLIC_API_URL}/proveedores?limit=500`);
@@ -52,6 +68,26 @@
       error = 'Error al cargar los proveedores';
     } finally {
       loading = false;
+    }
+    if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+      requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+    }
+  });
+
+  beforeNavigate(({ from }) => {
+    if (from?.url.pathname === PAGE_PATH && browser) {
+      const currentState = navigationState.getState(PAGE_PATH) || {};
+      navigationState.saveState(PAGE_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        filters: {
+          proveedorSeleccionado,
+          paso,
+          columnaCodigoArticulo,
+          columnaPrecioCosto,
+          porcentajeAjuste
+        }
+      });
     }
   });
 

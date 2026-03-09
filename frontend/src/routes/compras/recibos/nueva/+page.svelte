@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
+  import { goto, beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
+  import { navigationState } from '$lib/stores/navigationState';
   import Button from '$lib/components/ui/Button.svelte';
   import Input from '$lib/components/ui/Input.svelte';
   import { formatDate } from '$lib/utils/dateUtils';
@@ -10,6 +12,8 @@
   import { get } from 'svelte/store';
 
   const DOC_TIPO = 'RCP';
+  const RECIBO_COMPRA_NUEVA_PATH = '/compras/recibos/nueva';
+  let skipPersist = false;
 
   let loading = false;
   let error: string | null = null;
@@ -227,8 +231,36 @@
   };
   const confirmCancel = () => {
     showCancelConfirm = false;
+    skipPersist = true;
+    if (browser) navigationState.clearState(RECIBO_COMPRA_NUEVA_PATH);
     goto('/compras/recibos');
   };
+
+  beforeNavigate(({ from }) => {
+    if (skipPersist) {
+      skipPersist = false;
+      return;
+    }
+    if (from?.url.pathname === RECIBO_COMPRA_NUEVA_PATH && browser) {
+      const currentState = navigationState.getState(RECIBO_COMPRA_NUEVA_PATH) || {};
+      navigationState.saveState(RECIBO_COMPRA_NUEVA_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        filters: {
+          proveedorSeleccionado,
+          proveedorSearch,
+          fecha,
+          documentosDeuda,
+          documentosCredito,
+          documentosDeudaSeleccionados,
+          documentosCreditoSeleccionados,
+          importesDeudaEditados,
+          importesCreditoEditados,
+          formasPago
+        }
+      });
+    }
+  });
 
   const grabar = async () => {
     if (!proveedorSeleccionado) {
@@ -280,6 +312,8 @@
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || data.error || 'Error al grabar');
+      skipPersist = true;
+      if (browser) navigationState.clearState(RECIBO_COMPRA_NUEVA_PATH);
       goto('/compras/recibos');
     } catch (err) {
       error = err instanceof Error ? err.message : 'Error al grabar';
@@ -288,9 +322,52 @@
     }
   };
 
-  onMount(() => {
+  onMount(async () => {
     cargarTiposPago();
-    obtenerProximoNumero();
+    await obtenerProximoNumero();
+    if (browser) {
+      const savedState = navigationState.getState(RECIBO_COMPRA_NUEVA_PATH);
+      const filters = savedState?.filters as {
+        proveedorSeleccionado?: typeof proveedorSeleccionado;
+        proveedorSearch?: string;
+        fecha?: string;
+        documentosDeuda?: any[];
+        documentosCredito?: any[];
+        documentosDeudaSeleccionados?: any[];
+        documentosCreditoSeleccionados?: any[];
+        importesDeudaEditados?: Record<string, number>;
+        importesCreditoEditados?: Record<string, number>;
+        formasPago?: typeof formasPago;
+      } | undefined;
+      if (filters?.proveedorSeleccionado) proveedorSeleccionado = filters.proveedorSeleccionado;
+      if (filters?.proveedorSearch) proveedorSearch = filters.proveedorSearch;
+      if (filters?.fecha) fecha = filters.fecha;
+      if (filters?.documentosDeuda?.length) documentosDeuda = filters.documentosDeuda;
+      if (filters?.documentosCredito?.length) documentosCredito = filters.documentosCredito;
+      if (filters?.documentosDeudaSeleccionados?.length) documentosDeudaSeleccionados = filters.documentosDeudaSeleccionados;
+      if (filters?.documentosCreditoSeleccionados?.length) documentosCreditoSeleccionados = filters.documentosCreditoSeleccionados;
+      if (filters?.importesDeudaEditados) importesDeudaEditados = { ...importesDeudaEditados, ...filters.importesDeudaEditados };
+      if (filters?.importesCreditoEditados) importesCreditoEditados = { ...importesCreditoEditados, ...filters.importesCreditoEditados };
+      if (filters?.formasPago?.length) formasPago = filters.formasPago;
+      if (documentosDeudaSeleccionados.length > 0) {
+        importeTotalPagar = documentosDeudaSeleccionados.reduce(
+          (s, d) => s + (importesDeudaEditados[getDocKey(d)] ?? 0),
+          0
+        );
+      }
+      if (documentosCreditoSeleccionados.length > 0) {
+        importeTotalCredito = documentosCreditoSeleccionados.reduce(
+          (s, d) => s + (importesCreditoEditados[d.documento] ?? 0),
+          0
+        );
+      }
+      if (formasPago.length > 0) {
+        importeTotalFormasPago = formasPago.reduce((s, f) => s + (f.Importe || 0), 0);
+      }
+      if (savedState?.scroll && typeof window !== 'undefined') {
+        requestAnimationFrame(() => window.scrollTo(0, savedState.scroll));
+      }
+    }
   });
 </script>
 

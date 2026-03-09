@@ -1,10 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import Button from '$lib/components/ui/Button.svelte';
   import { VendedorService, type VendedorOption } from '$lib/services/VendedorService';
   import { UserCircle } from 'lucide-svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
+  import { navigationState } from '$lib/stores/navigationState';
+
+  const PAGE_PATH = '/ventas/informes/vendedores';
 
   // Interfaces
 
@@ -162,6 +167,15 @@
 
   // Cargar vendedores al montar el componente
   onMount(async () => {
+    let savedScroll: number | undefined;
+    if (browser) {
+      const savedState = navigationState.getState(PAGE_PATH);
+      savedScroll = savedState?.scroll;
+      const filters = savedState?.filters as { vendedorSeleccionado?: string; fechaDesde?: string; fechaHasta?: string } | undefined;
+      if (filters?.vendedorSeleccionado) vendedorSeleccionado = filters.vendedorSeleccionado;
+      if (filters?.fechaDesde) fechaDesde = filters.fechaDesde;
+      if (filters?.fechaHasta) fechaHasta = filters.fechaHasta;
+    }
     try {
       vendedoresLoading = true;
       const vendedoresData = await VendedorService.obtenerVendedoresActivos();
@@ -171,6 +185,27 @@
       error = 'Error al cargar la lista de vendedores';
     } finally {
       vendedoresLoading = false;
+    }
+    if (vendedorSeleccionado && fechaDesde && fechaHasta) {
+      await generarInforme();
+    }
+    if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+      requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+    }
+  });
+
+  beforeNavigate(({ from }) => {
+    if (from?.url.pathname === PAGE_PATH && browser) {
+      const currentState = navigationState.getState(PAGE_PATH) || {};
+      navigationState.saveState(PAGE_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        filters: {
+          vendedorSeleccionado,
+          fechaDesde,
+          fechaHasta
+        }
+      });
     }
   });
 </script>

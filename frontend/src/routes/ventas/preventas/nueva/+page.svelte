@@ -6,9 +6,14 @@
 	import { ClienteService } from '$lib/services/ClienteService';
 	import { ConfiguracionService } from '$lib/services/ConfiguracionService';
 	import type { Articulo, Cliente, PreventaItem, Vendedor, TipoDePago, PreventaCabeza, PreventaFiltros, Preventa } from '$lib/types';
-	import { goto } from '$app/navigation';
+	import { goto, beforeNavigate } from '$app/navigation';
+	import { browser } from '$app/environment';
+	import { navigationState } from '$lib/stores/navigationState';
 	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 	import { toast } from '$lib/utils/toast';
+
+	const PREVENTA_NUEVA_PATH = '/ventas/preventas/nueva';
+	let skipPersist = false;
 	
 	// Estado del formulario
 	let documentoTipo = 'PPV'; // Preventa por defecto
@@ -133,6 +138,37 @@
 				}
 				const { data } = await responseSucursal.json();
 				preventa.DocumentoSucursal = data.Sucursal;
+
+				// Restaurar estado persistido
+				if (browser) {
+					const savedState = navigationState.getState(PREVENTA_NUEVA_PATH);
+					const filters = savedState?.filters as {
+						preventa?: typeof preventa;
+						items?: PreventaItem[];
+						codigoCliente?: string;
+						clienteSearch?: string;
+						clienteSeleccionado?: Cliente | null;
+						observacion?: string;
+						fecha?: string;
+						tipoPago?: string;
+					} | undefined;
+					if (filters?.preventa) {
+						Object.assign(preventa, filters.preventa);
+					}
+					if (filters?.items && Array.isArray(filters.items) && filters.items.length > 0) {
+						items = filters.items;
+						calcularTotales();
+					}
+					if (filters?.codigoCliente) codigoCliente = filters.codigoCliente;
+					if (filters?.clienteSearch) clienteSearch = filters.clienteSearch;
+					if (filters?.clienteSeleccionado) clienteSeleccionado = filters.clienteSeleccionado;
+					if (filters?.observacion !== undefined) observacion = filters.observacion;
+					if (filters?.fecha) fecha = filters.fecha;
+					if (filters?.tipoPago) tipoPago = filters.tipoPago;
+					if (savedState?.scroll && typeof window !== 'undefined') {
+						requestAnimationFrame(() => window.scrollTo(0, savedState.scroll));
+					}
+				}
 			}
 			
 			// Cargar datos iniciales
@@ -447,8 +483,34 @@
 	
 	// Cancelar y volver al listado
 	function cancelar() {
+		skipPersist = true;
+		if (browser) navigationState.clearState(PREVENTA_NUEVA_PATH);
 		goto('/ventas/preventas');
 	}
+
+	beforeNavigate(({ from }) => {
+		if (skipPersist) {
+			skipPersist = false;
+			return;
+		}
+		if (from?.url.pathname === PREVENTA_NUEVA_PATH && browser && !modoEdicion) {
+			const currentState = navigationState.getState(PREVENTA_NUEVA_PATH) || {};
+			navigationState.saveState(PREVENTA_NUEVA_PATH, {
+				...currentState,
+				scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+				filters: {
+					preventa: { ...preventa },
+					items: [...items],
+					codigoCliente,
+					clienteSearch,
+					clienteSeleccionado,
+					observacion,
+					fecha,
+					tipoPago
+				}
+			});
+		}
+	});
 	
 	// Función para cargar la preventa a editar
 	async function cargarPreventa() {
@@ -567,6 +629,8 @@
 				toast.success('Preventa creada correctamente');
 			}
 			
+			skipPersist = true;
+			if (browser) navigationState.clearState(PREVENTA_NUEVA_PATH);
 			goto('/ventas/preventas'); // Volver al listado
 			
 		} catch (err) {

@@ -1,10 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
   import { formatDate } from '$lib/utils/dateUtils';
   import { PedidoService } from '$lib/services/PedidoService';
   import type { PedidoCabeza, PedidoFiltros } from '$lib/types';
+  import { navigationState } from '$lib/stores/navigationState';
+
+  const PAGE_PATH = '/ventas/pedidos';
   
   // Estado
   let pedidos: PedidoCabeza[] = [];
@@ -74,8 +79,45 @@
   }
   
   // Cargar datos al montar el componente
-  onMount(() => {
-    cargarPedidos();
+  onMount(async () => {
+    let savedScroll: number | undefined;
+    if (browser) {
+      const savedState = navigationState.getState(PAGE_PATH);
+      savedScroll = savedState?.scroll;
+      const filters = savedState?.filters as { filtros?: PedidoFiltros; currentPage?: number; itemsPerPage?: number; filtrosVisibles?: boolean } | undefined;
+      if (filters?.filtros) {
+        filtros = { ...filtros, ...filters.filtros };
+      }
+      if (typeof filters?.currentPage === 'number' && filters.currentPage >= 1) {
+        currentPage = filters.currentPage;
+      }
+      if (typeof filters?.itemsPerPage === 'number' && filters.itemsPerPage > 0) {
+        itemsPerPage = filters.itemsPerPage;
+      }
+      if (typeof filters?.filtrosVisibles === 'boolean') {
+        filtrosVisibles = filters.filtrosVisibles;
+      }
+    }
+    await cargarPedidos();
+    if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+      requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+    }
+  });
+
+  beforeNavigate(({ from }) => {
+    if (from?.url.pathname === PAGE_PATH && browser) {
+      const currentState = navigationState.getState(PAGE_PATH) || {};
+      navigationState.saveState(PAGE_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        filters: {
+          filtros: { ...filtros },
+          currentPage,
+          itemsPerPage,
+          filtrosVisibles
+        }
+      });
+    }
   });
   
   // Generar números de página para paginación

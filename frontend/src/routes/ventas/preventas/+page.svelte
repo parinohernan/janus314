@@ -5,7 +5,9 @@
 	import { formatDate, formatDateTime } from '$lib/utils/dateUtils';
 	import { PreventaService } from '$lib/services/PreventaService';
 	import type { PreventaCabeza, PreventaFiltros, PreventaItem, Preventa } from '$lib/types';
-	import { goto } from '$app/navigation';
+	import { goto, beforeNavigate } from '$app/navigation';
+	import { browser } from '$app/environment';
+	import { navigationState } from '$lib/stores/navigationState';
 	import { ClienteService } from '$lib/services/ClienteService';
 	import { VendedorService } from '$lib/services/VendedorService';
 	import EntitySelector from '$lib/components/ui/EntitySelector.svelte';
@@ -54,6 +56,8 @@
 	
 	// Variable para controlar la carga asíncrona del selector de vendedor
 	let vendedorSelectorReady = false;
+
+	const PREVENTAS_PATH = '/ventas/preventas';
 	
 	// Reactive statement para actualizar filtros cuando cambien los vendedores seleccionados
 	$: if (vendedorSelectorReady && vendedoresSeleccionados) {
@@ -61,16 +65,67 @@
 	}
 	
 	// Cargar preventas al montar el componente
-	onMount(() => {
+	onMount(async () => {
+		let savedScroll: number | undefined;
+
 		// Leer parámetro de vendedor desde la URL
 		const vendedorParam = $page.url.searchParams.get('vendedor');
 		if (vendedorParam) {
 			vendedoresSeleccionados = [vendedorParam];
 			filtros.vendedores = [vendedorParam];
+		} else if (browser) {
+			// Restaurar estado persistido (misma técnica que compras/ordenes/nueva)
+			const savedState = navigationState.getState(PREVENTAS_PATH);
+			savedScroll = savedState?.scroll;
+			const filters = savedState?.filters as {
+				filtros?: PreventaFiltros;
+				vendedoresSeleccionados?: string[];
+				currentPage?: number;
+				itemsPerPage?: number;
+				ordenamientoResumen?: typeof ordenamientoResumen;
+			} | undefined;
+			if (filters?.filtros) {
+				filtros = { ...filtros, ...filters.filtros };
+			}
+			if (filters?.vendedoresSeleccionados && Array.isArray(filters.vendedoresSeleccionados)) {
+				vendedoresSeleccionados = filters.vendedoresSeleccionados;
+			}
+			if (typeof filters?.currentPage === 'number' && filters.currentPage >= 1) {
+				currentPage = filters.currentPage;
+			}
+			if (typeof filters?.itemsPerPage === 'number' && filters.itemsPerPage > 0) {
+				itemsPerPage = filters.itemsPerPage;
+			}
+			if (filters?.ordenamientoResumen) {
+				ordenamientoResumen = filters.ordenamientoResumen;
+			}
 		}
-		
-		cargarPreventas();
+
+		await cargarPreventas();
 		cargarVendedores();
+
+		// Restaurar scroll después de cargar los datos
+		if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+			requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+		}
+	});
+
+	// Guardar estado al salir
+	beforeNavigate(({ from }) => {
+		if (from?.url.pathname === PREVENTAS_PATH && browser) {
+			const currentState = navigationState.getState(PREVENTAS_PATH) || {};
+			navigationState.saveState(PREVENTAS_PATH, {
+				...currentState,
+				scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+				filters: {
+					filtros: { ...filtros },
+					vendedoresSeleccionados: [...vendedoresSeleccionados],
+					currentPage,
+					itemsPerPage,
+					ordenamientoResumen
+				}
+			});
+		}
 	});
 	
 	// Función para cargar vendedores

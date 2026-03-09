@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { beforeNavigate } from '$app/navigation';
+	import { browser } from '$app/environment';
 	import Button from '$lib/components/ui/Button.svelte';
 	import DraggableList from '$lib/components/DraggableList.svelte';
 	import { ArticuloService } from '$lib/services/ArticuloService';
@@ -9,6 +11,9 @@
 	import { formatDate } from '$lib/utils/dateUtils';
 	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 	import { auth } from '$lib/stores/authStore';
+	import { navigationState } from '$lib/stores/navigationState';
+
+	const PAGE_PATH = '/productos/precios/listado';
 
 	// Estado
 	let articulos: Articulo[] = [];
@@ -214,17 +219,44 @@
 	}
 
 	// Cargar datos
-	onMount(async () => {
-		// Esperar a que el usuario esté disponible
-		const esperarUsuario = () => {
-			if ($auth.user) {
-				cargarDatos();
-			} else {
-				setTimeout(esperarUsuario, 100);
+	onMount(() => {
+		let savedScroll: number | undefined;
+		if (browser) {
+			const savedState = navigationState.getState(PAGE_PATH);
+			savedScroll = savedState?.scroll;
+			const filters = savedState?.filters as { listaPrecio?: string; mostrarExistencia?: boolean; soloActivos?: boolean } | undefined;
+			if (filters?.listaPrecio) listaPrecio = filters.listaPrecio;
+			if (typeof filters?.mostrarExistencia === 'boolean') mostrarExistencia = filters.mostrarExistencia;
+			if (typeof filters?.soloActivos === 'boolean') soloActivos = filters.soloActivos;
+		}
+		const esperarUsuario = (): Promise<void> =>
+			new Promise((resolve) => {
+				if ($auth.user) {
+					cargarDatos().then(resolve);
+				} else {
+					setTimeout(() => esperarUsuario().then(resolve), 100);
+				}
+			});
+		esperarUsuario().then(() => {
+			if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+				requestAnimationFrame(() => window.scrollTo(0, savedScroll));
 			}
-		};
-		
-		esperarUsuario();
+		});
+	});
+
+	beforeNavigate(({ from }) => {
+		if (from?.url.pathname === PAGE_PATH && browser) {
+			const currentState = navigationState.getState(PAGE_PATH) || {};
+			navigationState.saveState(PAGE_PATH, {
+				...currentState,
+				scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+				filters: {
+					listaPrecio,
+					mostrarExistencia,
+					soloActivos
+				}
+			});
+		}
 	});
 
 	// Función para cargar todos los datos

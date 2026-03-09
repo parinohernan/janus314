@@ -1,7 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { fade } from 'svelte/transition';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { navigationState } from '$lib/stores/navigationState';
+
+  const PAGE_PATH = '/sincronizacion/configuracion';
 
   interface Configuracion {
     servidor: string;
@@ -27,6 +32,13 @@
   let connectionResult: any = null;
 
   onMount(async () => {
+    let savedScroll: number | undefined;
+    let savedFilters: { servidor?: string; baseDatos?: string; usuario?: string; password?: string; puerto?: string } | undefined;
+    if (browser) {
+      const savedState = navigationState.getState(PAGE_PATH);
+      savedScroll = savedState?.scroll;
+      savedFilters = savedState?.filters as typeof savedFilters;
+    }
     try {
       const response = await fetchWithAuth('/sincronizacion/configuracion');
       if (!response.ok) throw new Error('Error al cargar la configuración');
@@ -41,10 +53,37 @@
           puerto: data.data.puerto || '3306'
         };
       }
+      if (savedFilters) {
+        if (savedFilters.servidor !== undefined) configuracion.servidor = savedFilters.servidor;
+        if (savedFilters.baseDatos !== undefined) configuracion.baseDatos = savedFilters.baseDatos;
+        if (savedFilters.usuario !== undefined) configuracion.usuario = savedFilters.usuario;
+        if (savedFilters.password !== undefined) configuracion.password = savedFilters.password;
+        if (savedFilters.puerto !== undefined) configuracion.puerto = savedFilters.puerto;
+      }
       loading = false;
     } catch (err) {
       error = err instanceof Error ? err.message : 'Error al cargar la configuración';
       loading = false;
+    }
+    if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+      requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+    }
+  });
+
+  beforeNavigate(({ from }) => {
+    if (from?.url.pathname === PAGE_PATH && browser) {
+      const currentState = navigationState.getState(PAGE_PATH) || {};
+      navigationState.saveState(PAGE_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        filters: {
+          servidor: configuracion.servidor,
+          baseDatos: configuracion.baseDatos,
+          usuario: configuracion.usuario,
+          password: configuracion.password,
+          puerto: configuracion.puerto
+        }
+      });
     }
   });
 

@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import { beforeNavigate } from '$app/navigation';
+	import { browser } from '$app/environment';
 	import Button from '$lib/components/ui/Button.svelte';
 	import { ArticuloService } from '$lib/services/ArticuloService';
 	import { RubroService, type Rubro } from '$lib/services/RubroService';
@@ -9,6 +11,9 @@
 	import { formatDate } from '$lib/utils/dateUtils';
 	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 	import { auth } from '$lib/stores/authStore';
+	import { navigationState } from '$lib/stores/navigationState';
+
+	const PAGE_PATH = '/productos/existencia';
 
 	type Agrupamiento = 'rubro' | 'proveedor';
 
@@ -219,17 +224,52 @@
 
 	onMount(() => {
 		document.addEventListener('click', handleClickOutside);
-		const esperarUsuario = () => {
-			if ($auth.user) {
-				cargarDatos();
-			} else {
-				setTimeout(esperarUsuario, 100);
+		let savedScroll: number | undefined;
+		if (browser) {
+			const savedState = navigationState.getState(PAGE_PATH);
+			savedScroll = savedState?.scroll;
+			const filters = savedState?.filters as { soloActivos?: boolean; soloStockBajo?: boolean; mostrarSinStock?: boolean; agrupamiento?: Agrupamiento; gruposSeleccionados?: string[] } | undefined;
+			if (typeof filters?.soloActivos === 'boolean') soloActivos = filters.soloActivos;
+			if (typeof filters?.soloStockBajo === 'boolean') soloStockBajo = filters.soloStockBajo;
+			if (typeof filters?.mostrarSinStock === 'boolean') mostrarSinStock = filters.mostrarSinStock;
+			if (filters?.agrupamiento) agrupamiento = filters.agrupamiento;
+			if (filters?.gruposSeleccionados && Array.isArray(filters.gruposSeleccionados)) {
+				gruposSeleccionados = new Set(filters.gruposSeleccionados);
 			}
-		};
-		esperarUsuario();
+		}
+		const esperarUsuario = (): Promise<void> =>
+			new Promise((resolve) => {
+				if ($auth.user) {
+					cargarDatos().then(resolve);
+				} else {
+					setTimeout(() => esperarUsuario().then(resolve), 100);
+				}
+			});
+		esperarUsuario().then(() => {
+			if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+				requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+			}
+		});
 		return () => {
 			document.removeEventListener('click', handleClickOutside);
 		};
+	});
+
+	beforeNavigate(({ from }) => {
+		if (from?.url.pathname === PAGE_PATH && browser) {
+			const currentState = navigationState.getState(PAGE_PATH) || {};
+			navigationState.saveState(PAGE_PATH, {
+				...currentState,
+				scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+				filters: {
+					soloActivos,
+					soloStockBajo,
+					mostrarSinStock,
+					agrupamiento,
+					gruposSeleccionados: Array.from(gruposSeleccionados)
+				}
+			});
+		}
 	});
 
 	async function cargarDatos() {

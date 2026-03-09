@@ -1,11 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import Button from '$lib/components/ui/Button.svelte';
-  import { goto } from '$app/navigation';
+  import { goto, beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { debounce } from 'lodash-es';
   import { page } from '$app/stores';
   import { navigationState } from '$lib/stores/navigationState';
+  import Button from '$lib/components/ui/Button.svelte';
   import { ClienteService } from '$lib/services/ClienteService';
+
+  const PAGE_PATH = '/clientes';
   import type { Cliente } from '$lib/types/cliente';
   import { smartNavigate } from '$lib/utils/navigation';
   import { toast, confirm } from '$lib/utils/toast';
@@ -166,29 +169,32 @@
   
   // Cargar datos al inicializar el componente
   onMount(() => {
+    let loadingTimeout: ReturnType<typeof setTimeout>;
     loadLocalidades();
-    // Recuperar estado guardado al montar el componente
-    const savedState = navigationState.getState($page.url.pathname);
-    
-    if (savedState?.pagination) {
-      pagination = {
-        ...pagination,
-        ...savedState.pagination
-      };
+    let savedScroll: number | undefined;
+    if (browser) {
+      const savedState = navigationState.getState(PAGE_PATH);
+      savedScroll = savedState?.scroll;
+      if (savedState?.pagination) {
+        pagination = {
+          ...pagination,
+          ...savedState.pagination
+        };
+      }
+      if (savedState?.filters) {
+        filters = {
+          ...filters,
+          ...savedState.filters
+        };
+      }
     }
-    
-    if (savedState?.filters) {
-      filters = {
-        ...filters,
-        ...savedState.filters
-      };
-    }
-    
-    // Cargar datos con el estado restaurado
-    loadClientes();
-    
-    // Timeout de seguridad para evitar carga infinita
-    const loadingTimeout = setTimeout(() => {
+    (async () => {
+      await loadClientes();
+      if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+        requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+      }
+    })();
+    loadingTimeout = setTimeout(() => {
       if (loading) {
         console.warn("Carga de datos demasiado lenta - finalizando estado de carga");
         loading = false;
@@ -196,11 +202,25 @@
           error = "Tiempo de espera agotado. Verifique la conexión al servidor.";
         }
       }
-    }, 10000); // 10 segundos
-
+    }, 10000);
     return () => {
       clearTimeout(loadingTimeout);
     };
+  });
+
+  beforeNavigate(({ from }) => {
+    if (from?.url.pathname === PAGE_PATH && browser) {
+      const currentState = navigationState.getState(PAGE_PATH) || {};
+      navigationState.saveState(PAGE_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        pagination: {
+          currentPage: pagination.currentPage,
+          limit: pagination.limit
+        },
+        filters: { ...filters }
+      });
+    }
   });
   
   // Manejar cambio en la búsqueda con debounce para evitar muchas peticiones
@@ -283,8 +303,8 @@
   
   // Al cambiar página o filtros, guardar el estado actual
   const updateState = () => {
-    navigationState.saveState($page.url.pathname, {
-      scroll: window.scrollY,
+    navigationState.saveState(PAGE_PATH, {
+      scroll: typeof window !== 'undefined' ? window.scrollY : 0,
       pagination: {
         currentPage: pagination.currentPage,
         limit: pagination.limit

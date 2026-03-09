@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
+  import { goto, beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
+  import { navigationState } from '$lib/stores/navigationState';
   import Button from '$lib/components/ui/Button.svelte';
   import { formatDate } from '$lib/utils/dateUtils';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
@@ -32,6 +34,8 @@
   let filtroFechaHasta = hoy;
 
   let proveedores: { Codigo: string; Descripcion: string }[] = [];
+
+  const ORDENES_PATH = '/compras/ordenes';
 
   const cargarProveedores = async () => {
     try {
@@ -76,9 +80,46 @@
     goto(`/compras/ordenes/${o.DocumentoTipo}/${o.DocumentoSucursal}/${o.DocumentoNumero}`);
   };
 
-  onMount(() => {
+  onMount(async () => {
+    let savedScroll: number | undefined;
+    if (browser) {
+      const savedState = navigationState.getState(ORDENES_PATH);
+      savedScroll = savedState?.scroll;
+      const filters = savedState?.filters as {
+        filtroProveedor?: string;
+        filtroFechaDesde?: string;
+        filtroFechaHasta?: string;
+        currentPage?: number;
+        itemsPerPage?: number;
+      } | undefined;
+      if (filters?.filtroProveedor !== undefined) filtroProveedor = filters.filtroProveedor;
+      if (filters?.filtroFechaDesde) filtroFechaDesde = filters.filtroFechaDesde;
+      if (filters?.filtroFechaHasta) filtroFechaHasta = filters.filtroFechaHasta;
+      if (typeof filters?.currentPage === 'number' && filters.currentPage >= 1) currentPage = filters.currentPage;
+      if (typeof filters?.itemsPerPage === 'number' && filters.itemsPerPage > 0) itemsPerPage = filters.itemsPerPage;
+    }
     cargarProveedores();
-    cargarOrdenes();
+    await cargarOrdenes();
+    if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+      requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+    }
+  });
+
+  beforeNavigate(({ from }) => {
+    if (from?.url.pathname === ORDENES_PATH && browser) {
+      const currentState = navigationState.getState(ORDENES_PATH) || {};
+      navigationState.saveState(ORDENES_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        filters: {
+          filtroProveedor,
+          filtroFechaDesde,
+          filtroFechaHasta,
+          currentPage,
+          itemsPerPage
+        }
+      });
+    }
   });
 </script>
 

@@ -1,10 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
   import Button from '$lib/components/ui/Button.svelte';
   import { goto } from '$app/navigation';
   import { PUBLIC_API_URL } from '$env/static/public';
   import { debounce } from 'lodash-es';
   import { toast, confirm } from '$lib/utils/toast';
+  import { navigationState } from '$lib/stores/navigationState';
+
+  const PAGE_PATH = '/localidades';
   
   // Definir interfaces para los tipos
   interface Localidad {
@@ -99,8 +104,38 @@
   };
   
   // Cargar datos al inicializar el componente
-  onMount(() => {
-    loadLocalidades();
+  onMount(async () => {
+    let savedScroll: number | undefined;
+    if (browser) {
+      const savedState = navigationState.getState(PAGE_PATH);
+      savedScroll = savedState?.scroll;
+      const savedFilters = savedState?.filters as { search?: string; field?: string; order?: 'ASC' | 'DESC' } | undefined;
+      const pag = savedState?.pagination as { currentPage?: number; limit?: number } | undefined;
+      if (savedFilters?.search !== undefined) filters.search = savedFilters.search;
+      if (savedFilters?.field) filters.field = savedFilters.field;
+      if (savedFilters?.order) filters.order = savedFilters.order;
+      if (pag?.currentPage && pag.currentPage >= 1) pagination.currentPage = pag.currentPage;
+      if (pag?.limit && pag.limit > 0) pagination.limit = pag.limit;
+    }
+    await loadLocalidades();
+    if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+      requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+    }
+  });
+
+  beforeNavigate(({ from }) => {
+    if (from?.url.pathname === PAGE_PATH && browser) {
+      const currentState = navigationState.getState(PAGE_PATH) || {};
+      navigationState.saveState(PAGE_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        pagination: {
+          currentPage: pagination.currentPage,
+          limit: pagination.limit
+        },
+        filters: { ...filters }
+      });
+    }
   });
   
   // Debounce para la búsqueda

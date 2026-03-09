@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
+  import { goto, beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
+  import { navigationState } from '$lib/stores/navigationState';
   import { NotaCreditoService } from '$lib/services/NotaCreditoService';
   import { EmpresaService } from '$lib/services/EmpresaService';
   import type { NotaCredito, ItemNotaCredito, ClienteNotaCredito } from '$lib/types';
@@ -12,7 +14,10 @@
   import CaeModal from '$lib/components/facturas/CaeModal.svelte';
   import ImprimirModal from '$lib/components/facturas/ImprimirModal.svelte';
   import DetalleFacturaModal from '$lib/components/facturas/DetalleFacturaModal.svelte';
-  import { toast } from '$lib/utils/toast';
+  import { toast, confirm } from '$lib/utils/toast';
+
+  const NOTA_CREDITO_NUEVA_PATH = '/ventas/notascredito/nueva';
+  let skipPersist = false;
 
   // Agregar variable para formas de pago
   let formasPago: { value: string, label: string }[] = [];
@@ -100,6 +105,42 @@
           value: item.Codigo,
           label: item.Descripcion
         }));
+      }
+
+      // Restaurar estado persistido (misma técnica que compras/ordenes/nueva)
+      if (browser) {
+        const savedState = navigationState.getState(NOTA_CREDITO_NUEVA_PATH);
+        const filters = savedState?.filters as {
+          notaCredito?: typeof notaCredito;
+          items?: ItemNotaCredito[];
+          clienteBusqueda?: string;
+          facturaReferenciaBusqueda?: string;
+        } | undefined;
+        if (filters?.notaCredito) {
+          Object.assign(notaCredito, filters.notaCredito);
+        }
+        if (filters?.items && Array.isArray(filters.items) && filters.items.length > 0) {
+          notaCredito.Items = filters.items.map((it) => ({ ...it, enEdicion: false }));
+          calcularTotales();
+        }
+        if (filters?.clienteBusqueda) {
+          clienteBusqueda = filters.clienteBusqueda;
+        }
+        if (filters?.facturaReferenciaBusqueda) {
+          facturaReferenciaBusqueda = filters.facturaReferenciaBusqueda;
+        }
+        if (notaCredito.CodigoCliente) {
+          await buscarFacturasCliente(notaCredito.CodigoCliente);
+        }
+        if (notaCredito.DocumentoTipo && notaCredito.DocumentoSucursal) {
+          notaCredito.DocumentoNumero = await NotaCreditoService.obtenerProximoNumero(
+            notaCredito.DocumentoTipo,
+            notaCredito.DocumentoSucursal
+          );
+        }
+        if (savedState?.scroll && typeof window !== 'undefined') {
+          requestAnimationFrame(() => window.scrollTo(0, savedState.scroll));
+        }
       }
     } catch (err) {
       console.error('Error en inicialización:', err);
@@ -592,6 +633,8 @@
       return;
     }
     
+    skipPersist = true;
+    if (browser) navigationState.clearState(NOTA_CREDITO_NUEVA_PATH);
     const url = `/ventas/notascredito/imprimir/${notaCreditoCreada.DocumentoTipo}/${notaCreditoCreada.DocumentoSucursal}/${notaCreditoCreada.DocumentoNumero}`;
     console.log('Redirigiendo a:', url);
     goto(url);
@@ -607,21 +650,54 @@
   const handleImprimirModalCancelar = () => {
     console.log('Cancelando impresión');
     showImprimirModal = false;
+    skipPersist = true;
+    if (browser) navigationState.clearState(NOTA_CREDITO_NUEVA_PATH);
     goto('/ventas/notascredito/');
   };
 
   const handleImprimirModalClose = () => {
     console.log('Cerrando modal de impresión');
     showImprimirModal = false;
+    skipPersist = true;
+    if (browser) navigationState.clearState(NOTA_CREDITO_NUEVA_PATH);
     goto('/ventas/notascredito/');
   };
+
+  const cancelar = async () => {
+    const ok = await confirm('¿Está seguro que desea cancelar? Perderá todos los datos ingresados.');
+    if (ok) {
+      skipPersist = true;
+      if (browser) navigationState.clearState(NOTA_CREDITO_NUEVA_PATH);
+      goto('/ventas/notascredito');
+    }
+  };
+
+  beforeNavigate(({ from }) => {
+    if (skipPersist) {
+      skipPersist = false;
+      return;
+    }
+    if (from?.url.pathname === NOTA_CREDITO_NUEVA_PATH && browser) {
+      const currentState = navigationState.getState(NOTA_CREDITO_NUEVA_PATH) || {};
+      navigationState.saveState(NOTA_CREDITO_NUEVA_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        filters: {
+          notaCredito: { ...notaCredito },
+          items: [...notaCredito.Items],
+          clienteBusqueda,
+          facturaReferenciaBusqueda
+        }
+      });
+    }
+  });
 </script>
 
 <div class="container mx-auto px-4 py-8">
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-2xl font-bold text-gray-800">Nueva Nota de Crédito</h1>
     <div class="space-x-2">
-      <Button variant="secondary" on:click={() => goto('/ventas/notascredito')}>Cancelar</Button>
+      <Button variant="secondary" on:click={cancelar}>Cancelar</Button>
       <Button variant="primary" on:click={guardarNotaCredito} disabled={loading || hayItemEnEdicion}>
         {#if loading}
           <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>

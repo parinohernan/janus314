@@ -1,5 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
+  import { navigationState } from '$lib/stores/navigationState';
   import Button from '$lib/components/ui/Button.svelte';
   import { formatDate } from '$lib/utils/dateUtils';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
@@ -57,9 +60,42 @@
     }
   };
 
-  onMount(() => {
+  const NC_PROVEEDORES_PATH = '/compras/notascredito';
+
+  onMount(async () => {
+    let savedScroll: number | undefined;
+    if (browser) {
+      const savedState = navigationState.getState(NC_PROVEEDORES_PATH);
+      savedScroll = savedState?.scroll;
+      const filtersSaved = savedState?.filters as {
+        filtroProveedor?: string;
+        filtroFechaDesde?: string;
+        filtroFechaHasta?: string;
+        currentPage?: number;
+        limit?: number;
+      } | undefined;
+      if (filtersSaved?.filtroProveedor !== undefined) filtroProveedor = filtersSaved.filtroProveedor;
+      if (filtersSaved?.filtroFechaDesde) filtroFechaDesde = filtersSaved.filtroFechaDesde;
+      if (filtersSaved?.filtroFechaHasta) filtroFechaHasta = filtersSaved.filtroFechaHasta;
+      if (typeof filtersSaved?.currentPage === 'number' && filtersSaved.currentPage >= 1) currentPage = filtersSaved.currentPage;
+      if (typeof filtersSaved?.limit === 'number' && filtersSaved.limit > 0) limit = filtersSaved.limit;
+    }
     cargarProveedores();
-    cargar();
+    await cargar();
+    if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+      requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+    }
+  });
+
+  beforeNavigate(({ from }) => {
+    if (from?.url.pathname === NC_PROVEEDORES_PATH && browser) {
+      const currentState = navigationState.getState(NC_PROVEEDORES_PATH) || {};
+      navigationState.saveState(NC_PROVEEDORES_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        filters: { filtroProveedor, filtroFechaDesde, filtroFechaHasta, currentPage, limit }
+      });
+    }
   });
 </script>
 

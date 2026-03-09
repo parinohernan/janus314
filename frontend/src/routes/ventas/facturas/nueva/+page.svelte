@@ -2,7 +2,9 @@
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import type { Cliente, Articulo, ItemFactura, Factura } from '$lib/types/index';
-  import { goto } from '$app/navigation';
+  import { goto, beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
+  import { navigationState } from '$lib/stores/navigationState';
   import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
   import EntitySelector from '$lib/components/ui/EntitySelector.svelte';
@@ -15,8 +17,11 @@
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { toast, confirm } from '$lib/utils/toast';
   // import { formatDateOnly } from '$lib/utils/dateUtils';
-  // Modelo de factura
 
+  const FACTURA_NUEVA_PATH = '/ventas/facturas/nueva';
+  let skipPersist = false; // Evitar guardar al cancelar o al salir tras guardar
+
+  // Modelo de factura
   const hoy = new Date();
 hoy.setHours(hoy.getHours() - 3);
 const fechaFormateada = hoy.toISOString().substring(0, 10);
@@ -222,11 +227,42 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
       // Cargar una preventa si viene en los parámetros de URL
       if (preventaParam) {
         await cargarPreventa();
-      }
-      // Verificar si viene de una clonación
-      const esClonacion = $page.url.searchParams.get('clonada') === 'true';
-      if (esClonacion) {
-        await cargarFacturaClonada();
+      } else {
+        // Verificar si viene de una clonación
+        const esClonacion = $page.url.searchParams.get('clonada') === 'true';
+        if (esClonacion) {
+          await cargarFacturaClonada();
+        } else if (browser) {
+          // Restaurar estado persistido (misma técnica que compras/ordenes/nueva)
+          const savedState = navigationState.getState(FACTURA_NUEVA_PATH);
+          const filters = savedState?.filters as {
+            factura?: typeof factura;
+            items?: ItemFactura[];
+            clientesBusqueda?: string;
+          } | undefined;
+          if (filters?.factura) {
+            Object.assign(factura, filters.factura);
+          }
+          if (filters?.items && Array.isArray(filters.items) && filters.items.length > 0) {
+            factura.Items = filters.items.map((it) => ({
+              ...it,
+              enEdicion: false
+            }));
+            recalcularTotales();
+          }
+          if (filters?.clientesBusqueda) {
+            clientesBusqueda = filters.clientesBusqueda;
+          }
+          if (factura.Cliente?.CategoriaIva) {
+            actualizarTiposDocumento(factura.Cliente.CategoriaIva);
+          }
+          if (factura.DocumentoTipo) {
+            await obtenerProximoNumero();
+          }
+          if (savedState?.scroll && typeof window !== 'undefined') {
+            requestAnimationFrame(() => window.scrollTo(0, savedState.scroll));
+          }
+        }
       }
     } catch (error) {
       console.error('Error en inicialización:', error);
@@ -905,6 +941,8 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
       return;
     }
     
+    skipPersist = true;
+    if (browser) navigationState.clearState(FACTURA_NUEVA_PATH);
     const url = `/ventas/facturas/imprimir/${facturaCreada.DocumentoTipo}/${facturaCreada.DocumentoSucursal}/${facturaCreada.DocumentoNumero}`;
     console.log('Redirigiendo a:', url);
     goto(url);
@@ -920,7 +958,8 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   const handleImprimirModalCancelar = () => {
     console.log('Cancelando impresión');
     showImprimirModal = false;
-    // Redirigir según el origen de la factura
+    skipPersist = true;
+    if (browser) navigationState.clearState(FACTURA_NUEVA_PATH);
     if (preventaCargada) {
       goto('/ventas/preventas/');
     } else {
@@ -931,7 +970,8 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   const handleImprimirModalClose = () => {
     console.log('Cerrando modal de impresión');
     showImprimirModal = false;
-    // Redirigir según el origen de la factura
+    skipPersist = true;
+    if (browser) navigationState.clearState(FACTURA_NUEVA_PATH);
     if (preventaCargada) {
       goto('/ventas/preventas/');
     } else {
@@ -942,8 +982,32 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   // Cancelar creación
   const cancelar = async () => {
     const ok = await confirm('¿Está seguro que desea cancelar? Perderá todos los datos ingresados.');
-    if (ok) goto('/ventas/facturas');
+    if (ok) {
+      skipPersist = true;
+      if (browser) navigationState.clearState(FACTURA_NUEVA_PATH);
+      goto('/ventas/facturas');
+    }
   };
+
+  // Guardar estado al salir (persistencia como en compras/ordenes/nueva)
+  beforeNavigate(({ from }) => {
+    if (skipPersist) {
+      skipPersist = false;
+      return;
+    }
+    if (from?.url.pathname === FACTURA_NUEVA_PATH && browser) {
+      const currentState = navigationState.getState(FACTURA_NUEVA_PATH) || {};
+      navigationState.saveState(FACTURA_NUEVA_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        filters: {
+          factura: { ...factura },
+          items: [...factura.Items],
+          clientesBusqueda
+        }
+      });
+    }
+  });
 
   // Opciones para listas de precios
   const listasPrecio = [

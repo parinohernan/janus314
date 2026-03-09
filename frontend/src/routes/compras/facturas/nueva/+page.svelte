@@ -1,11 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
+  import { goto, beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
+  import { navigationState } from '$lib/stores/navigationState';
   import Button from '$lib/components/ui/Button.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { EmpresaService } from '$lib/services/EmpresaService';
   import { confirm } from '$lib/utils/toast';
 
+  const FACTURA_COMPRA_NUEVA_PATH = '/compras/facturas/nueva';
+  let skipPersist = false;
   const hoy = new Date().toISOString().slice(0, 10);
 
   let loading = false;
@@ -80,8 +84,30 @@
 
   const cancelar = async () => {
     const ok = await confirm('¿Cancelar? Se perderán los datos ingresados.');
-    if (ok) goto('/compras/facturas');
+    if (ok) {
+      skipPersist = true;
+      if (browser) navigationState.clearState(FACTURA_COMPRA_NUEVA_PATH);
+      goto('/compras/facturas');
+    }
   };
+
+  beforeNavigate(({ from }) => {
+    if (skipPersist) {
+      skipPersist = false;
+      return;
+    }
+    if (from?.url.pathname === FACTURA_COMPRA_NUEVA_PATH && browser) {
+      const currentState = navigationState.getState(FACTURA_COMPRA_NUEVA_PATH) || {};
+      navigationState.saveState(FACTURA_COMPRA_NUEVA_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        filters: {
+          compra: { ...compra },
+          proveedoresBusqueda
+        }
+      });
+    }
+  });
 
   const guardar = async () => {
     if (!compra.ProveedorCodigo) {
@@ -145,6 +171,8 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || data.error || 'Error al registrar');
       guardadoExitoso = true;
+      skipPersist = true;
+      if (browser) navigationState.clearState(FACTURA_COMPRA_NUEVA_PATH);
       const d = data.data || {};
       setTimeout(
         () =>
@@ -174,6 +202,18 @@
           value: item.Codigo,
           label: item.Descripcion
         }));
+      }
+      if (browser) {
+        const savedState = navigationState.getState(FACTURA_COMPRA_NUEVA_PATH);
+        const filters = savedState?.filters as { compra?: typeof compra; proveedoresBusqueda?: string } | undefined;
+        if (filters?.compra) {
+          Object.assign(compra, filters.compra);
+          compra.DocumentoSucursal = sucursalActual;
+        }
+        if (filters?.proveedoresBusqueda) proveedoresBusqueda = filters.proveedoresBusqueda;
+        if (savedState?.scroll && typeof window !== 'undefined') {
+          requestAnimationFrame(() => window.scrollTo(0, savedState.scroll));
+        }
       }
     } catch (_) {}
   });

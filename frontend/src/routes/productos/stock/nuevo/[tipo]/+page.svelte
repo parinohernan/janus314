@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { goto } from '$app/navigation';
+  import { goto, beforeNavigate } from '$app/navigation';
   import { page } from '$app/stores';
+  import { browser } from '$app/environment';
+  import { navigationState } from '$lib/stores/navigationState';
   import { PUBLIC_API_URL } from '$env/static/public';
   import { debounce } from 'lodash-es';
   import { getTodayISOArgentina } from '$lib/utils/dateUtils';
@@ -53,6 +55,8 @@
   let searchResults: Articulo[] = [];
   let searchLoading = false;
   let searchError: string | null = null;
+
+  let skipPersist = false;
   
   // Cargar datos iniciales (sucursal)
   onMount(async () => {
@@ -77,6 +81,26 @@
       
       // Establecer la sucursal automáticamente
       documento.DocumentoSucursal = data.Sucursal;
+
+      // Restaurar estado persistido
+      if (browser) {
+        const path = $page.url.pathname;
+        const savedState = navigationState.getState(path);
+        const filters = savedState?.filters as {
+          documento?: typeof documento;
+          items?: MovimientoItem[];
+        } | undefined;
+        if (filters?.documento) {
+          Object.assign(documento, filters.documento);
+          documento.DocumentoSucursal = data.Sucursal;
+        }
+        if (filters?.items && Array.isArray(filters.items) && filters.items.length > 0) {
+          items = filters.items;
+        }
+        if (savedState?.scroll && typeof window !== 'undefined') {
+          requestAnimationFrame(() => window.scrollTo(0, savedState.scroll));
+        }
+      }
       
     } catch (err) {
       console.error('Error inicializando formulario:', err);
@@ -221,6 +245,8 @@
       const data = await response.json();
       successMessage = `Movimiento ${data.documento.tipo}-${data.documento.sucursal}-${data.documento.numero} creado correctamente`;
       
+      skipPersist = true;
+      if (browser) navigationState.clearState($page.url.pathname);
       // Limpiar el formulario
       items = [];
       documento.Observacion = tipoMovimiento === 'ING' ? 'ING -' : 'EGR - ';
@@ -239,6 +265,30 @@
     }
   };
   
+  const volver = () => {
+    skipPersist = true;
+    if (browser) navigationState.clearState($page.url.pathname);
+    goto('/productos/stock');
+  };
+
+  beforeNavigate(({ from }) => {
+    if (skipPersist) {
+      skipPersist = false;
+      return;
+    }
+    if (from && from.url.pathname.startsWith('/productos/stock/nuevo/') && browser) {
+      const currentState = navigationState.getState(from.url.pathname) || {};
+      navigationState.saveState(from.url.pathname, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        filters: {
+          documento: { ...documento },
+          items: [...items]
+        }
+      });
+    }
+  });
+
   // Formatear el tipo de movimiento para mostrar
   const formatMovimientoTipo = (tipo: string | null): string => {
     if (!tipo) return 'Desconocido';
@@ -258,7 +308,7 @@
       </h1>
       <Button 
         variant="secondary" 
-        on:click={() => goto('/productos/stock')}
+        on:click={volver}
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clip-rule="evenodd" />
@@ -497,7 +547,7 @@
         <Button 
           type="button"
           variant="secondary"
-          on:click={() => goto('/productos/stock')}
+          on:click={volver}
         >
           Cancelar
         </Button>

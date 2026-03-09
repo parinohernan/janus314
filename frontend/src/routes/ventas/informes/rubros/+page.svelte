@@ -1,10 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { Chart } from 'chart.js/auto';
   import DatePicker from '$lib/components/DatePicker.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { Tag, BarChart3 } from 'lucide-svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
+  import { navigationState } from '$lib/stores/navigationState';
+
+  const PAGE_PATH = '/ventas/informes/rubros';
 
   // Interfaces
   interface RubroOption {
@@ -52,18 +57,55 @@
   let mostrarDropdownRubros = false;
 
   // Inicializar fechas al mes actual y cargar rubros
-  onMount(() => {
-    const hoy = new Date();
-    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    const ultimoDiaMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
-    
-    fechaDesde = primerDiaMes;
-    fechaHasta = ultimoDiaMes;
-    
-    // Cargar rubros con un pequeño delay para asegurar que la autenticación esté lista
-    setTimeout(() => {
-      cargarTodosLosRubros();
-    }, 500);
+  onMount(async () => {
+    let savedScroll: number | undefined;
+    if (browser) {
+      const savedState = navigationState.getState(PAGE_PATH);
+      savedScroll = savedState?.scroll;
+      const filters = savedState?.filters as { fechaDesde?: string; fechaHasta?: string; rubrosSeleccionados?: { codigo: string; descripcion: string }[]; tipoGrafico?: 'cantidad' | 'importe' } | undefined;
+      if (filters?.fechaDesde) fechaDesde = new Date(filters.fechaDesde);
+      else {
+        const hoy = new Date();
+        fechaDesde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      }
+      if (filters?.fechaHasta) fechaHasta = new Date(filters.fechaHasta);
+      else {
+        const hoy = new Date();
+        fechaHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+      }
+      if (filters?.rubrosSeleccionados && Array.isArray(filters.rubrosSeleccionados)) {
+        rubrosSeleccionados = filters.rubrosSeleccionados;
+      }
+      if (filters?.tipoGrafico) tipoGrafico = filters.tipoGrafico;
+    } else {
+      const hoy = new Date();
+      fechaDesde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      fechaHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+    }
+
+    await new Promise(r => setTimeout(r, 500));
+    await cargarTodosLosRubros();
+    await cargarDatosVentas();
+
+    if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+      requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+    }
+  });
+
+  beforeNavigate(({ from }) => {
+    if (from?.url.pathname === PAGE_PATH && browser) {
+      const currentState = navigationState.getState(PAGE_PATH) || {};
+      navigationState.saveState(PAGE_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        filters: {
+          fechaDesde: formatDate(fechaDesde),
+          fechaHasta: formatDate(fechaHasta),
+          rubrosSeleccionados: [...rubrosSeleccionados],
+          tipoGrafico
+        }
+      });
+    }
   });
 
   // Función para formatear fecha a YYYY-MM-DD

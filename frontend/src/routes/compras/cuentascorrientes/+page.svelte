@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
+  import { goto, beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
+  import { navigationState } from '$lib/stores/navigationState';
   import { page } from '$app/stores';
   import { debounce } from 'lodash-es';
   import Button from '$lib/components/ui/Button.svelte';
@@ -91,8 +93,32 @@
     loadProveedores();
   };
 
-  onMount(() => {
-    loadProveedores();
+  const CC_PROVEEDORES_PATH = '/compras/cuentascorrientes';
+
+  onMount(async () => {
+    let savedScroll: number | undefined;
+    if (browser) {
+      const savedState = navigationState.getState(CC_PROVEEDORES_PATH);
+      savedScroll = savedState?.scroll;
+      const filtersSaved = savedState?.filters as { filters?: Filters; pagination?: Pagination } | undefined;
+      if (filtersSaved?.filters) filters = { ...filters, ...filtersSaved.filters };
+      if (filtersSaved?.pagination) pagination = { ...pagination, ...filtersSaved.pagination };
+    }
+    await loadProveedores();
+    if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+      requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+    }
+  });
+
+  beforeNavigate(({ from }) => {
+    if (from?.url.pathname === CC_PROVEEDORES_PATH && browser) {
+      const currentState = navigationState.getState(CC_PROVEEDORES_PATH) || {};
+      navigationState.saveState(CC_PROVEEDORES_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        filters: { filters: { ...filters }, pagination: { ...pagination } }
+      });
+    }
   });
 </script>
 

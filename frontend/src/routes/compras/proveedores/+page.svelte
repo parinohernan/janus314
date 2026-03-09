@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { goto } from '$app/navigation';
+  import { goto, beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
+  import { navigationState } from '$lib/stores/navigationState';
   import { debounce } from 'lodash-es';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { ProveedorService, type Proveedor } from '$lib/services/ProveedorService';
@@ -96,13 +98,34 @@
     }
   };
   
+  const PROVEEDORES_PATH = '/compras/proveedores';
+
   // Cargar datos al inicializar el componente
-  onMount(() => {
-    // Cargar datos paginados y en paralelo precargar toda la lista
-    Promise.all([
-      loadProveedores(),
-      precargarProveedores()
-    ]);
+  onMount(async () => {
+    let savedScroll: number | undefined;
+    if (browser) {
+      const savedState = navigationState.getState(PROVEEDORES_PATH);
+      savedScroll = savedState?.scroll;
+      const filtersSaved = savedState?.filters as { filters?: Filters; pagination?: Pagination } | undefined;
+      if (filtersSaved?.filters) filters = { ...filters, ...filtersSaved.filters };
+      if (filtersSaved?.pagination) pagination = { ...pagination, ...filtersSaved.pagination };
+    }
+    await loadProveedores();
+    precargarProveedores();
+    if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+      requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+    }
+  });
+
+  beforeNavigate(({ from }) => {
+    if (from?.url.pathname === PROVEEDORES_PATH && browser) {
+      const currentState = navigationState.getState(PROVEEDORES_PATH) || {};
+      navigationState.saveState(PROVEEDORES_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        filters: { filters: { ...filters }, pagination: { ...pagination } }
+      });
+    }
   });
   
   // Debounce mejorado para la búsqueda

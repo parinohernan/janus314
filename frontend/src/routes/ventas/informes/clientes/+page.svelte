@@ -1,11 +1,16 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import DatePicker from '$lib/components/DatePicker.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { formatDate } from '$lib/utils/dateUtils';
   import { Users, BarChart3 } from 'lucide-svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
+  import { navigationState } from '$lib/stores/navigationState';
+
+  const PAGE_PATH = '/ventas/informes/clientes';
 
   // Estado
   let loading = false;
@@ -27,16 +32,56 @@
 
   // Inicializar fechas al mes actual
   onMount(async () => {
-    const hoy = new Date();
-    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    const ultimoDiaMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
-    
-    fechaDesde = primerDiaMes;
-    fechaHasta = ultimoDiaMes;
+    let savedScroll: number | undefined;
+    if (browser) {
+      const savedState = navigationState.getState(PAGE_PATH);
+      savedScroll = savedState?.scroll;
+      const filters = savedState?.filters as { fechaDesde?: string; fechaHasta?: string; localidad?: string; vendedorCodigo?: string; categoriaIva?: string } | undefined;
+      if (filters?.fechaDesde) {
+        fechaDesde = new Date(filters.fechaDesde);
+      } else {
+        const hoy = new Date();
+        fechaDesde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      }
+      if (filters?.fechaHasta) {
+        fechaHasta = new Date(filters.fechaHasta);
+      } else {
+        const hoy = new Date();
+        fechaHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+      }
+      if (filters?.localidad) localidad = filters.localidad;
+      if (filters?.vendedorCodigo) vendedorCodigo = filters.vendedorCodigo;
+      if (filters?.categoriaIva) categoriaIva = filters.categoriaIva;
+    } else {
+      const hoy = new Date();
+      fechaDesde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      fechaHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+    }
 
-    // Cargar datos iniciales
     await cargarVendedores();
     await cargarCategoriasIva();
+    await cargarDatos();
+
+    if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+      requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+    }
+  });
+
+  beforeNavigate(({ from }) => {
+    if (from?.url.pathname === PAGE_PATH && browser) {
+      const currentState = navigationState.getState(PAGE_PATH) || {};
+      navigationState.saveState(PAGE_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        filters: {
+          fechaDesde: fechaDesde.toISOString().split('T')[0],
+          fechaHasta: fechaHasta.toISOString().split('T')[0],
+          localidad,
+          vendedorCodigo,
+          categoriaIva
+        }
+      });
+    }
   });
 
   // Función para cargar vendedores

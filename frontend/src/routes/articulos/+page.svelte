@@ -1,10 +1,15 @@
 <!-- Importar los servicios -->
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { ArticuloService } from '$lib/services/ArticuloService';
   import type { Articulo } from '../ventas/bot/components/types';
   import { RubroService, type Rubro } from '$lib/services/RubroService';
   import { ProveedorService, type Proveedor } from '$lib/services/ProveedorService';
+  import { navigationState } from '$lib/stores/navigationState';
+
+  const PAGE_PATH = '/articulos';
 
   // Estado
   let articulos: Articulo[] = [];
@@ -23,6 +28,18 @@
 
   // Cargar datos iniciales
   onMount(async () => {
+    let savedScroll: number | undefined;
+    if (browser) {
+      const savedState = navigationState.getState(PAGE_PATH);
+      savedScroll = savedState?.scroll;
+      const filters = savedState?.filters as { searchTerm?: string; sortField?: string; sortOrder?: 'ASC' | 'DESC'; showActive?: boolean; currentPage?: number; itemsPerPage?: number } | undefined;
+      if (filters?.searchTerm !== undefined) searchTerm = filters.searchTerm;
+      if (filters?.sortField) sortField = filters.sortField;
+      if (filters?.sortOrder) sortOrder = filters.sortOrder;
+      if (typeof filters?.showActive === 'boolean') showActive = filters.showActive;
+      if (typeof filters?.currentPage === 'number' && filters.currentPage >= 1) currentPage = filters.currentPage;
+      if (typeof filters?.itemsPerPage === 'number' && filters.itemsPerPage > 0) itemsPerPage = filters.itemsPerPage;
+    }
     try {
       await Promise.all([
         loadArticulos(),
@@ -33,6 +50,27 @@
       error = err instanceof Error ? err.message : 'Error al cargar los datos';
     } finally {
       loading = false;
+    }
+    if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+      requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+    }
+  });
+
+  beforeNavigate(({ from }) => {
+    if (from?.url.pathname === PAGE_PATH && browser) {
+      const currentState = navigationState.getState(PAGE_PATH) || {};
+      navigationState.saveState(PAGE_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        filters: {
+          searchTerm,
+          sortField,
+          sortOrder,
+          showActive,
+          currentPage,
+          itemsPerPage
+        }
+      });
     }
   });
 

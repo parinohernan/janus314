@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
+  import { goto, beforeNavigate } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { fade } from 'svelte/transition';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { onMount } from 'svelte';
@@ -7,6 +8,9 @@
   import { auth } from '$lib/stores/authStore';
   import Button from '$lib/components/ui/Button.svelte';
   import type { Usuario } from '$lib/types/usuario.types';
+  import { navigationState } from '$lib/stores/navigationState';
+
+  const PAGE_PATH = '/caja/cerradas';
 
   interface CajaArqueo {
     MetodoPago: string;
@@ -140,12 +144,51 @@
   }
 
   onMount(async () => {
-    const authState = get(auth) as { user: Usuario | null };
-    if (authState?.user && vendedorFiltro === '') {
-      vendedorFiltro = authState.user.usuario || '';
+    let savedScroll: number | undefined;
+    if (browser) {
+      const savedState = navigationState.getState(PAGE_PATH);
+      savedScroll = savedState?.scroll;
+      const filters = savedState?.filters as { vendedorFiltro?: string; fechaDesde?: string; fechaHasta?: string; estado?: string } | undefined;
+      const pag = savedState?.pagination as { currentPage?: number; limit?: number } | undefined;
+      if (filters?.vendedorFiltro !== undefined) vendedorFiltro = filters.vendedorFiltro;
+      else {
+        const authState = get(auth) as { user: Usuario | null };
+        if (authState?.user && vendedorFiltro === '') {
+          vendedorFiltro = authState.user.usuario || '';
+        }
+      }
+      if (filters?.fechaDesde) fechaDesde = filters.fechaDesde;
+      if (filters?.fechaHasta) fechaHasta = filters.fechaHasta;
+      if (filters?.estado !== undefined) estado = filters.estado;
+      if (pag?.currentPage && pag.currentPage >= 1) currentPage = pag.currentPage;
+    } else {
+      const authState = get(auth) as { user: Usuario | null };
+      if (authState?.user && vendedorFiltro === '') {
+        vendedorFiltro = authState.user.usuario || '';
+      }
     }
     await cargarVendedores();
-    await cargarCajas(1);
+    await cargarCajas(currentPage);
+    if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+      requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+    }
+  });
+
+  beforeNavigate(({ from }) => {
+    if (from?.url.pathname === PAGE_PATH && browser) {
+      const currentState = navigationState.getState(PAGE_PATH) || {};
+      navigationState.saveState(PAGE_PATH, {
+        ...currentState,
+        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+        pagination: { currentPage, limit: 10 },
+        filters: {
+          vendedorFiltro,
+          fechaDesde,
+          fechaHasta,
+          estado
+        }
+      });
+    }
   });
 </script>
 

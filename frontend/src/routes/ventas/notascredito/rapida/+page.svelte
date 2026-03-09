@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
-	import { goto } from '$app/navigation';
+	import { goto, beforeNavigate } from '$app/navigation';
+	import { browser } from '$app/environment';
+	import { navigationState } from '$lib/stores/navigationState';
 	import Button from '$lib/components/ui/Button.svelte';
 	import { PreventaService } from '$lib/services/PreventaService';
 	import { NotaCreditoService } from '$lib/services/NotaCreditoService';
@@ -39,6 +41,9 @@
 		{ value: 'NCB', label: 'Nota de crédito B' },
 		{ value: 'NCF', label: 'Nota de crédito F' }
 	];
+
+	const NC_RAPIDA_PATH = '/ventas/notascredito/rapida';
+	let skipPersist = false;
 
 	$: preventaParam = $page.url.searchParams.get('preventa'); // PRV/0001/00000123
 	$: [preventaTipo, preventaSucursal, preventaNumero] = preventaParam ? preventaParam.split('/') : [null, null, null];
@@ -96,6 +101,47 @@
 		} catch (_) {
 			// usar default CC
 		}
+
+		// Restaurar estado persistido (solo si coincide el preventa param)
+		if (browser && preventaParam) {
+			const savedState = navigationState.getState(NC_RAPIDA_PATH);
+			const filters = savedState?.filters as {
+				preventaParam?: string;
+				formaPagoCodigo?: string;
+				documentoTipo?: TipoNC;
+				facturaSeleccionada?: FacturaOption | null;
+			} | undefined;
+			if (filters?.preventaParam === preventaParam) {
+				if (filters.formaPagoCodigo) formaPagoCodigo = filters.formaPagoCodigo;
+				if (filters.documentoTipo) documentoTipo = filters.documentoTipo;
+				if (filters.facturaSeleccionada && facturasCliente.some(f => f.tipo === filters.facturaSeleccionada?.tipo && f.numero === filters.facturaSeleccionada?.numero)) {
+					facturaSeleccionada = filters.facturaSeleccionada;
+				}
+				if (savedState?.scroll && typeof window !== 'undefined') {
+					requestAnimationFrame(() => window.scrollTo(0, savedState.scroll));
+				}
+			}
+		}
+	});
+
+	beforeNavigate(({ from }) => {
+		if (skipPersist) {
+			skipPersist = false;
+			return;
+		}
+		if (from?.url.pathname === NC_RAPIDA_PATH && browser && preventaParam) {
+			const currentState = navigationState.getState(NC_RAPIDA_PATH) || {};
+			navigationState.saveState(NC_RAPIDA_PATH, {
+				...currentState,
+				scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+				filters: {
+					preventaParam,
+					formaPagoCodigo,
+					documentoTipo,
+					facturaSeleccionada
+				}
+			});
+		}
 	});
 
 	async function generarNotaCredito() {
@@ -141,6 +187,8 @@
 
 	function irAImprimir() {
 		if (!notaCreditoCreada) return;
+		skipPersist = true;
+		if (browser) navigationState.clearState(NC_RAPIDA_PATH);
 		goto(
 			`/ventas/notascredito/imprimir/${notaCreditoCreada.DocumentoTipo}/${notaCreditoCreada.DocumentoSucursal}/${notaCreditoCreada.DocumentoNumero}`
 		);
@@ -158,11 +206,15 @@
 
 	function handleImprimirModalCancelar() {
 		showImprimirModal = false;
+		skipPersist = true;
+		if (browser) navigationState.clearState(NC_RAPIDA_PATH);
 		goto('/ventas/notascredito');
 	}
 
 	function handleImprimirModalClose() {
 		showImprimirModal = false;
+		skipPersist = true;
+		if (browser) navigationState.clearState(NC_RAPIDA_PATH);
 		goto('/ventas/notascredito');
 	}
 
