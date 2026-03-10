@@ -111,21 +111,8 @@ exports.listarPreventas = async (req, res) => {
     const totalItems = preventas.count;
     const totalPages = Math.ceil(totalItems / limit);
 
-    // Formatear las fechas en los resultados
-    const preventasFormateadas = preventas.rows.map(preventa => {
-      const preventaJson = preventa.toJSON();
-      if (preventaJson.Fecha) {
-        const fecha = new Date(preventaJson.Fecha);
-        fecha.setHours(fecha.getHours() + 3); // Ajustar a zona horaria local
-        preventaJson.Fecha = fecha.toISOString();
-      }
-      if (preventaJson.FechaHoraEnvio) {
-        const fechaEnvio = new Date(preventaJson.FechaHoraEnvio);
-        fechaEnvio.setHours(fechaEnvio.getHours() + 3); // Ajustar a zona horaria local
-        preventaJson.FechaHoraEnvio = fechaEnvio.toISOString();
-      }
-      return preventaJson;
-    });
+    // Devolver fechas tal como vienen de la base (sin ajuste de zona horaria)
+    const preventasFormateadas = preventas.rows.map(preventa => preventa.toJSON());
 
     res.status(200).json({
       success: true,
