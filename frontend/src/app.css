@@ -1,1 +1,46 @@
 @import 'tailwindcss';
+
+/* Tablas anchas en pantallas chicas: scroll más visible y gesto táctil claro */
+@layer components {
+	.table-scroll-wrap {
+		overflow-x: auto;
+		overscroll-behavior-x: contain;
+		scroll-behavior: smooth;
+		-webkit-overflow-scrolling: touch;
+		padding-bottom: 0.35rem;
+		scrollbar-width: thin;
+		scrollbar-color: rgb(156 163 175) rgb(243 244 246);
+	}
+	.table-scroll-wrap::-webkit-scrollbar {
+		height: 11px;
+	}
+	.table-scroll-wrap::-webkit-scrollbar-track {
+		background: rgb(243 244 246);
+		border-radius: 9999px;
+		margin-inline: 0.25rem;
+	}
+	.table-scroll-wrap::-webkit-scrollbar-thumb {
+		background: rgb(156 163 175);
+		border-radius: 9999px;
+		border: 2px solid rgb(243 244 246);
+	}
+	/* Aviso solo en viewport angosto; la columna Acciones sigue visible con sticky */
+	.table-scroll-hint {
+		margin-bottom: 0.5rem;
+		display: flex;
+		align-items: flex-start;
+		gap: 0.5rem;
+		border-radius: 0.375rem;
+		border: 1px solid rgb(253 230 138);
+		background-color: rgb(255 251 235);
+		padding: 0.5rem 0.75rem;
+		font-size: 0.875rem;
+		line-height: 1.4;
+		color: rgb(120 53 15);
+	}
+	@media (min-width: 768px) {
+		.table-scroll-hint {
+			display: none;
+		}
+	}
+}

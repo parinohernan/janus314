@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, afterUpdate, tick } from 'svelte';
+  import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
   import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
@@ -8,6 +9,7 @@
   import { writable } from 'svelte/store';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { toast, confirm } from '$lib/utils/toast';
+  import { syncStackedTableRowHeights } from '$lib/utils/syncTableRowHeights';
 
   // Definición de interfaces
   interface Recibo {
@@ -345,6 +347,19 @@
   const cerrarDropdownClientes = () => {
     clientesOptions = [];
   };
+
+  let leftTableEl: HTMLTableElement | undefined;
+  let rightTableEl: HTMLTableElement | undefined;
+
+  const runSyncStackedTables = () => {
+    if (!browser || !leftTableEl || !rightTableEl) return;
+    syncStackedTableRowHeights(leftTableEl, rightTableEl);
+  };
+
+  afterUpdate(() => {
+    if (!browser || loading || recibos.length === 0) return;
+    tick().then(runSyncStackedTables);
+  });
   
   // Al montar el componente
   onMount(() => {
@@ -381,12 +396,16 @@
     };
     
     document.addEventListener('click', handleClickOutside);
+
+    const onResize = () => runSyncStackedTables();
+    window.addEventListener('resize', onResize);
     
     cargarRecibos();
     
     // Cleanup
     return () => {
       document.removeEventListener('click', handleClickOutside);
+      window.removeEventListener('resize', onResize);
     };
   });
   
@@ -654,9 +673,18 @@
       <p>No se encontraron recibos con los criterios seleccionados.</p>
     </div>
   {:else}
-    <!-- Tabla de recibos -->
-    <div class="bg-white rounded-lg shadow-sm mb-6 overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-200">
+    <!-- Tabla de recibos: datos con scroll; acciones fuera del scroll -->
+    <div class="mb-6">
+      <p class="table-scroll-hint" role="note">
+        <svg class="mt-0.5 h-5 w-5 shrink-0 text-amber-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+        </svg>
+        <span><strong>Acciones</strong> quedan siempre visibles a la derecha. Deslizá la tabla para ver el resto de las columnas.</span>
+      </p>
+      <div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div class="flex min-w-0">
+          <div class="table-scroll-wrap min-w-0 flex-1">
+            <table bind:this={leftTableEl} class="min-w-max w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
@@ -665,7 +693,6 @@
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
@@ -701,48 +728,71 @@
                   </span>
                 {/if}
               </td>
-              <td class="px-4 py-3 whitespace-nowrap text-center">
-                <div class="flex justify-center space-x-2">
-                  <button 
-                    class="text-blue-600 hover:text-blue-900"
-                    on:click={() => verDetalle(recibo.DocumentoTipo, recibo.DocumentoSucursal, recibo.DocumentoNumero)}
-                    aria-label="Ver detalle de recibo"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  </button>
-                  
-                  {#if !recibo.FechaAnulacion}
-                    <button 
-                      class="text-red-600 hover:text-red-900"
-                      on:click={() => anularRecibo(recibo.DocumentoTipo, recibo.DocumentoSucursal, recibo.DocumentoNumero)}
-                      aria-label="Anular recibo"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  {/if}
-                </div>
-              </td>
             </tr>
           {/each}
         </tbody>
-        <!-- Resumen de la página actual -->
-        <tfoot class="bg-gray-50 border-t-2 border-gray-200">
-          <tr>
-            <td colspan="4" class="px-4 py-3 text-sm font-semibold text-gray-700">
-              Total de esta página ({recibos.length} recibos):
-            </td>
-            <td class="px-4 py-3 text-right text-sm font-bold text-gray-900">
-              {recibos.reduce((sum, recibo) => sum + (recibo.ImporteTotal || 0), 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
-            </td>
-            <td colspan="2" class="px-4 py-3"></td>
-          </tr>
-        </tfoot>
       </table>
+          </div>
+          <div class="shrink-0 border-l border-gray-200 bg-gray-50 shadow-[-6px_0_10px_-6px_rgba(0,0,0,0.12)]">
+            <table bind:this={rightTableEl} class="min-w-[6.5rem] border-separate border-spacing-0">
+              <thead>
+                <tr class="bg-gray-50">
+                  <th class="px-2 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
+                {#each recibos as recibo, i}
+                  <tr class={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td class="px-2 py-3 text-center align-middle">
+                      <div class="flex justify-center gap-1">
+                        <button
+                          class="text-blue-600 hover:text-blue-900"
+                          on:click={() => verDetalle(recibo.DocumentoTipo, recibo.DocumentoSucursal, recibo.DocumentoNumero)}
+                          aria-label="Ver detalle de recibo"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        </button>
+                        {#if !recibo.FechaAnulacion}
+                          <button
+                            class="text-red-600 hover:text-red-900"
+                            on:click={() => anularRecibo(recibo.DocumentoTipo, recibo.DocumentoSucursal, recibo.DocumentoNumero)}
+                            aria-label="Anular recibo"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        {/if}
+                      </div>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="flex min-w-0 border-t-2 border-gray-200 bg-gray-50">
+          <div class="table-scroll-wrap min-w-0 flex-1 overflow-x-auto">
+            <table class="min-w-max w-full">
+              <tbody>
+                <tr>
+                  <td colspan="4" class="whitespace-nowrap px-4 py-3 text-sm font-semibold text-gray-700">
+                    Total de esta página ({recibos.length} recibos):
+                  </td>
+                  <td class="whitespace-nowrap px-4 py-3 text-right text-sm font-bold text-gray-900">
+                    {recibos.reduce((sum, recibo) => sum + (recibo.ImporteTotal || 0), 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+                  </td>
+                  <td class="px-4 py-3"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="shrink-0 border-l border-gray-200 bg-gray-50 min-w-[6.5rem]" aria-hidden="true"></div>
+        </div>
+      </div>
     </div>
     
     <!-- Controles de paginación -->
