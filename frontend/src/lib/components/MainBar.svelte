@@ -69,7 +69,7 @@
 </script>
 
 <div class="bg-gradient-to-r from-gray-800 via-gray-900 to-gray-800 text-white shadow-lg">
-  <div class="container mx-auto px-4 py-2 flex items-center justify-between">
+  <div class="flex w-full min-w-0 max-w-none items-center justify-between px-4 py-2 sm:px-5 lg:px-6">
     <!-- Logo y nombre del sistema -->
     <div class="flex items-center gap-3">
       <a href="/" class="flex items-center gap-2 group">

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { page } from '$app/stores';
   import { browser } from '$app/environment';
   import { smartNavigate } from '$lib/utils/navigation';
@@ -362,18 +362,79 @@
   function isActiveUrl(url: string): boolean {
     return $page.url.pathname === url || $page.url.pathname.startsWith(url + '/');
   }
+
+  /** Colapsar solo el panel expandido tras inactividad (el rail de 64px sigue visible) */
+  const SIDEBAR_IDLE_COLLAPSE_MS = 6000;
+  let idleCollapseTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function clearIdleCollapseTimer() {
+    if (idleCollapseTimer !== null) {
+      clearTimeout(idleCollapseTimer);
+      idleCollapseTimer = null;
+    }
+  }
+
+  function scheduleIdleCollapse() {
+    clearIdleCollapseTimer();
+    if (!browser || isCollapsed) return;
+    idleCollapseTimer = setTimeout(() => {
+      idleCollapseTimer = null;
+      sidebarCollapsed.set(true);
+      expandedMenu = null;
+      expandedSubmenu = null;
+    }, SIDEBAR_IDLE_COLLAPSE_MS);
+  }
+
+  function onSidebarActivity() {
+    if (!isCollapsed) scheduleIdleCollapse();
+  }
+
+  let lastPointerMoveReset = 0;
+  function onSidebarPointerMove() {
+    if (!browser || isCollapsed) return;
+    const now = Date.now();
+    if (now - lastPointerMoveReset < 400) return;
+    lastPointerMoveReset = now;
+    scheduleIdleCollapse();
+  }
+
+  $effect(() => {
+    if (!browser) return;
+    if (isCollapsed) {
+      clearIdleCollapseTimer();
+    } else {
+      scheduleIdleCollapse();
+    }
+  });
+
+  onDestroy(() => {
+    clearIdleCollapseTimer();
+  });
 </script>
 
+<!-- Panel lateral: eventos para reiniciar temporizador de inactividad -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <aside
-  class="sidebar fixed top-[116px] left-0 h-[calc(100vh-116px)] bg-gray-800 text-white shadow-lg transition-all duration-300 z-20 overflow-hidden flex flex-col
-    {isCollapsed ? 'w-16 cursor-pointer' : 'w-60'}"
+  class="sidebar fixed top-[116px] left-0 z-30 flex h-[calc(100vh-116px)] flex-col overflow-hidden bg-gray-800 text-white transition-all duration-300 ease-out
+    {isCollapsed
+    ? 'w-16 cursor-pointer shadow-lg'
+    : 'w-60 cursor-default rounded-r-xl shadow-2xl ring-1 ring-white/10'}"
   onclick={isCollapsed ? expandSidebar : undefined}
+  onpointerdown={onSidebarActivity}
+  onpointermove={onSidebarPointerMove}
+  onkeydown={onSidebarActivity}
+  role="navigation"
+  aria-label="Menú principal"
   title={isCollapsed ? 'Clic para expandir' : ''}
 >
   <!-- Botón toggle -->
   <button
-    class="toggle-btn flex items-center justify-center p-3 hover:bg-gray-700 transition-all border-b border-gray-700 group"
-    onclick={(e) => { e.stopPropagation(); toggleCollapsed(); }}
+    type="button"
+    class="toggle-btn group flex items-center justify-center border-b border-gray-700 p-3 transition-all hover:bg-gray-700"
+    onclick={(e) => {
+      e.stopPropagation();
+      toggleCollapsed();
+    }}
     title={isCollapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
   >
     {#if isCollapsed}
@@ -384,7 +445,7 @@
   </button>
 
   <!-- Menú de navegación -->
-  <nav class="flex-1 overflow-y-auto">
+  <nav class="flex-1 overflow-y-auto" onscroll={onSidebarActivity}>
     {#each menuItems as item (item.id)}
       <div class="menu-item">
         <button

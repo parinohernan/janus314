@@ -545,7 +545,7 @@
   };
 </script>
 
-<div>
+<div class="min-w-0 w-full max-w-full">
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-2xl font-bold text-gray-800">Facturas</h1>
     <Button 
@@ -701,15 +701,15 @@
     </div>
   {:else}
     <!-- Tabla de facturas: datos con scroll; acciones fuera del scroll, siempre al borde derecho -->
-    <div class="mb-6">
+    <div class="mb-6 min-w-0 w-full max-w-full">
       <p class="table-scroll-hint" role="note">
         <svg class="mt-0.5 h-5 w-5 shrink-0 text-amber-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
         </svg>
         <span><strong>Acciones</strong> quedan siempre visibles a la derecha. Deslizá la tabla para ver el resto de las columnas.</span>
       </p>
-      <div class="flex min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-        <div class="table-scroll-wrap min-w-0 flex-1">
+      <div class="flex w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div class="table-scroll-wrap min-w-0 flex-1 overflow-x-auto">
           <table bind:this={leftTableEl} class="min-w-max w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
@@ -801,8 +801,8 @@
         </tbody>
       </table>
         </div>
-        <div class="shrink-0 border-l border-gray-200 bg-gray-50 shadow-[-6px_0_10px_-6px_rgba(0,0,0,0.12)]">
-          <table bind:this={rightTableEl} class="min-w-[7.5rem] border-separate border-spacing-0">
+        <div class="flex-none shrink-0 border-l border-gray-200 bg-gray-50 shadow-[-6px_0_10px_-6px_rgba(0,0,0,0.12)]">
+          <table bind:this={rightTableEl} class="w-[7.5rem] min-w-[7.5rem] max-w-[7.5rem] border-separate border-spacing-0">
             <thead>
               <tr class="bg-gray-50">
                 <th class="px-2 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Acciones</th>

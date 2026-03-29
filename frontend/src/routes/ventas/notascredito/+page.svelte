@@ -409,7 +409,7 @@
   }
 </script>
 
-<div>
+<div class="min-w-0 w-full max-w-full">
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-2xl font-bold text-gray-800">Notas de Crédito</h1>
     <Button variant="primary" on:click={() => goto('/ventas/notascredito/nueva')}>

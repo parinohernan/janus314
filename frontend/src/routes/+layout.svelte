@@ -15,10 +15,16 @@
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	
-	// Margen izquierdo basado en el estado del sidebar
-	let leftMargin = $derived(!$page.url.pathname.includes('/ventas/bot/') 
-		? ($sidebarCollapsed ? 'ml-16' : 'ml-60')
-		: '');
+	// Página móvil de subida (Compras): sin layout ERP; sigue exigiendo login como el resto
+	let esSubirImagenMovil = $derived($page.url.pathname === '/compras/subir-imagen');
+
+	// MainBar, TabBar, Sidebar y footer solo en el ERP “completo”
+	let usarChromePrincipal = $derived(
+		!$page.url.pathname.includes('/ventas/bot/') && !esSubirImagenMovil
+	);
+
+	// Margen fijo del rail (16); el panel expandido del sidebar flota encima sin empujar el layout
+	let leftMargin = $derived(usarChromePrincipal ? 'ml-16' : '');
 	
 	let { children } = $props();
 	let isLoading = $state(true);
@@ -82,8 +88,14 @@
 				window.scrollTo(0, 0);
 			}
 			
-			// Crear tab automáticamente para la página actual (excepto login y bot)
-			if (browser && !to.url.pathname.includes('/ventas/bot/') && to.url.pathname !== '/login' && to.url.pathname !== '/') {
+			// Crear tab automáticamente para la página actual (excepto login, bot y subir imagen móvil)
+			if (
+				browser &&
+				!to.url.pathname.includes('/ventas/bot/') &&
+				to.url.pathname !== '/compras/subir-imagen' &&
+				to.url.pathname !== '/login' &&
+				to.url.pathname !== '/'
+			) {
 				const label = getLabelFromUrl(to.url.pathname);
 				const icon = getIconFromUrl(to.url.pathname);
 				
@@ -113,15 +125,19 @@
 {:else}
 	<Toaster />
 	<div class="min-h-screen flex flex-col">
-		{#if !$page.url.pathname.includes('/ventas/bot/')}
+		{#if usarChromePrincipal}
 			<MainBar />
 			<TabBar />
 			<Sidebar />
 		{/if}
-		<main class="flex-grow container mx-auto px-4 py-6 transition-all duration-300 {leftMargin}">
+		<main
+			class="flex-grow min-w-0 transition-all duration-300 {leftMargin} {usarChromePrincipal
+				? 'w-full max-w-none px-4 sm:px-5 lg:px-10 py-6'
+				: 'w-full min-h-0'}"
+		>
 			{@render children()}
 		</main>
-		{#if !$page.url.pathname.includes('/ventas/bot/')}
+		{#if usarChromePrincipal}
 			<footer class="bg-gray-800 text-white text-center py-4 text-sm transition-all duration-300 {leftMargin}">
 				<div class="flex items-center justify-center">
 					<img src="/janus314.png" alt="janus314" class="w-10 h-10">
