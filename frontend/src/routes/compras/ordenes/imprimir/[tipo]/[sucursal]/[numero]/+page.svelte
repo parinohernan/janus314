@@ -14,12 +14,24 @@
   let loading = true;
   let error: string | null = null;
   let pdfUrl: string | null = null;
+  /** Solo OC: PDF con códigos/cantidades empresa (actual) o del proveedor */
+  let vistaPdf: 'empresa' | 'proveedor' = 'empresa';
+
+  function revocarPdfAnterior() {
+    if (pdfUrl && pdfUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(pdfUrl);
+      pdfUrl = null;
+    }
+  }
 
   async function cargarPDF() {
     try {
       loading = true;
       error = null;
-      pdfUrl = await DocumentService.generarPDF(tipo, sucursal, numero);
+      revocarPdfAnterior();
+      const opts =
+        tipo === 'OC' ? { vista: vistaPdf === 'proveedor' ? ('proveedor' as const) : ('empresa' as const) } : undefined;
+      pdfUrl = await DocumentService.generarPDF(tipo, sucursal, numero, opts);
     } catch (err) {
       console.error('Error generando PDF:', err);
       error = err instanceof Error ? err.message : 'Error al generar el PDF';
@@ -36,8 +48,18 @@
     }
   }
 
+  function onCambioVista() {
+    void cargarPDF();
+  }
+
+  $: nombreArchivoDescarga =
+    tipo === 'OC' && vistaPdf === 'proveedor'
+      ? `${tipo}-${sucursal}-${numero}-proveedor.pdf`
+      : `${tipo}-${sucursal}-${numero}.pdf`;
+
   onMount(() => {
     cargarPDF();
+    return () => revocarPdfAnterior();
   });
 </script>
 
@@ -54,6 +76,34 @@
     </Button>
   </div>
 
+  {#if tipo === 'OC'}
+    <div class="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+      <span class="text-sm font-medium text-gray-700">Contenido del PDF:</span>
+      <label class="inline-flex cursor-pointer items-center gap-2 text-sm">
+        <input
+          type="radio"
+          name="vista-oc-pdf"
+          value="empresa"
+          bind:group={vistaPdf}
+          on:change={onCambioVista}
+          class="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+        />
+        Empresa (cliente)
+      </label>
+      <label class="inline-flex cursor-pointer items-center gap-2 text-sm">
+        <input
+          type="radio"
+          name="vista-oc-pdf"
+          value="proveedor"
+          bind:group={vistaPdf}
+          on:change={onCambioVista}
+          class="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+        />
+        Proveedor (si hay relación; sin relación figura —)
+      </label>
+    </div>
+  {/if}
+
   {#if loading}
     <div class="flex justify-center items-center py-12">
       <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
@@ -68,6 +118,7 @@
       documentoTipo={tipo}
       documentoSucursal={sucursal}
       documentoNumero={numero}
+      nombreArchivoPdf={nombreArchivoDescarga}
     />
 
     <PdfViewer {pdfUrl} />

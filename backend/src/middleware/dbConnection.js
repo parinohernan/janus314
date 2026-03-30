@@ -36,7 +36,7 @@ const getEmpresaConnection = async (req, res, next) => {
         error: 'Empresa no encontrada'
       });
     }
-
+    // console.log('🔄 Empresa encontrada:', empresaData.nombre);
     // Verificar que la empresa esté activa
     if (empresaData.estado !== 'activo') {
       return res.status(401).json({
@@ -45,9 +45,6 @@ const getEmpresaConnection = async (req, res, next) => {
       });
     }
 
-    console.log('🔄 Inicializando conexión para ruta:', req.path);
-    console.log('📦 Empresa:', empresaData.nombre);
-    console.log('📦 vendedor:', req.body.Vendedor);
     
     // ✅ Agregar timeout para operaciones de base de datos
     const empresaDB = await Promise.race([
@@ -125,4 +122,68 @@ const getEmpresaConnection = async (req, res, next) => {
   }
 };
 
-module.exports = getEmpresaConnection; 
+/**
+ * Solo valida JWT y empresa activa (tabla maestra). No abre la BD de la empresa ni inicializa modelos.
+ * Útil para endpoints que no usan datos de la empresa en MySQL (p. ej. listado Cloudinary).
+ */
+async function requireAuthEmpresaOnly(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({
+        success: false,
+        error: 'No se proporcionó token de autenticación'
+      });
+    }
+
+    const parts = authHeader.split(' ');
+    if (parts.length !== 2 || parts[0] !== 'Bearer') {
+      return res.status(401).json({
+        success: false,
+        error: 'Formato de token inválido'
+      });
+    }
+
+    const token = parts[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const empresaData = await Empresa.findByPk(decoded.empresaId);
+    if (!empresaData) {
+      return res.status(401).json({
+        success: false,
+        error: 'Empresa no encontrada'
+      });
+    }
+    if (empresaData.estado !== 'activo') {
+      return res.status(401).json({
+        success: false,
+        error: 'Empresa inactiva'
+      });
+    }
+
+    req.empresaData = empresaData;
+    req.userData = decoded;
+    next();
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        error: 'Token inválido'
+      });
+    }
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        error: 'Token expirado'
+      });
+    }
+    console.error('❌ Error en requireAuthEmpresaOnly:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
+}
+
+module.exports = getEmpresaConnection;
+module.exports.requireAuthEmpresaOnly = requireAuthEmpresaOnly; 

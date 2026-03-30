@@ -1,4 +1,36 @@
 const axios = require('axios');
+const cloudinary = require('cloudinary').v2;
+const { remitosFolderFromEmpresaId } = require('../utils/cloudinaryRemitosFolder');
+
+function getCloudinaryRemitosPrefix() {
+  return (process.env.CLOUDINARY_REMITOS_PREFIX || 'remitos/empresa').replace(/^\/+|\/+$/g, '');
+}
+
+function isCloudinaryConfigured() {
+  return Boolean(
+    process.env.CLOUDINARY_CLOUD_NAME &&
+      process.env.CLOUDINARY_API_KEY &&
+      process.env.CLOUDINARY_API_SECRET
+  );
+}
+
+function configureCloudinary() {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+  });
+}
+
+function mapCloudinaryResource(r) {
+  return {
+    publicId: r.public_id,
+    secureUrl: r.secure_url,
+    width: r.width,
+    height: r.height,
+    createdAt: r.created_at
+  };
+}
 
 const PROMPT = `Esta imagen es un remito, lista de entrega o factura de proveedor. 
 Extrae cada ítem/línea que aparezca en la imagen.
@@ -141,3 +173,68 @@ function parseItemsFromResponse(content) {
       });
     }
   };
+
+/**
+ * Lista imágenes en Cloudinary bajo el prefijo configurado (p. ej. remitos/empresa).
+ * Query: q (búsqueda por nombre, opcional), cursor (paginación), limit (máx. 100).
+ */
+exports.listarImagenesCloudinary = async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+
+  if (!isCloudinaryConfigured()) {
+    return res.status(503).json({
+      success: false,
+      message:
+        'Cloudinary no configurado (faltan CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET)'
+    });
+  }
+  configureCloudinary();
+  const prefix = getCloudinaryRemitosPrefix();
+  console.log('🔄 Prefijo en Cloudinary:', prefix);
+  const q = (req.query.q || '').trim();
+  const cursor = req.query.cursor || undefined;
+  const maxResults = Math.min(Math.max(parseInt(String(req.query.limit || '30'), 10) || 30, 1), 100);
+
+  try {
+    if (q.length >= 1) {
+      const safe = q.replace(/[^\w\s.\-áéíóúÁÉÍÓÚñÑ]/g, '').trim();
+      if (!safe) {
+        return res.json({ items: [], next_cursor: null, folderPrefix: prefix });
+      }
+      const expr = `folder:"${prefix}" AND resource_type:image AND filename:*${safe}*`;
+      const result = await cloudinary.search
+        .expression(expr)
+        .sort_by('created_at', 'desc')
+        .max_results(maxResults)
+        .next_cursor(cursor)
+        .execute();
+      const items = (result.resources || []).map(mapCloudinaryResource);
+      return res.json({
+        items,
+        next_cursor: result.next_cursor || null,
+        folderPrefix: prefix
+      });
+    }
+
+    const result = await cloudinary.api.resources({
+      type: 'upload',
+      resource_type: 'image',
+      prefix,
+      max_results: maxResults,
+      next_cursor: cursor
+    });
+    const items = (result.resources || []).map(mapCloudinaryResource);
+    return res.json({
+      items,
+      next_cursor: result.next_cursor || null,
+      folderPrefix: prefix
+    });
+  } catch (err) {
+    console.error('Error en listarImagenesCloudinary:', err.message || err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || 'Error al listar imágenes en Cloudinary'
+    });
+  }
+};

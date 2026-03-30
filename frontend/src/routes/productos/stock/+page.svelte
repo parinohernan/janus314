@@ -248,7 +248,7 @@
         <Icon icon={Minus} size={18} />
         Egreso
       </Button>
-      <Button variant="primary" on:click={() => goto('/productos/stock/nuevo/ingreso-remito')} class="inline-flex items-center gap-2" title="Ingreso desde remito: suba una foto o escaneo del remito para extraer los ítems automáticamente">
+      <Button variant="primary" on:click={() => goto('/productos/stock/nuevo/ingreso-remito')} class="inline-flex items-center gap-2" title="Ingreso desde remito: archivo local o imagen en la nube; la IA extrae los ítems automáticamente">
         <Icon icon={Zap} size={18} />
         Ingreso Automático
       </Button>

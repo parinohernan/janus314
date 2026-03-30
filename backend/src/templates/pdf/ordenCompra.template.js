@@ -2,7 +2,16 @@ const renderHeader = require("./common/header");
 const { formatearFecha } = require("../../utils/formatters");
 const path = require("path");
 
-async function renderOrdenCompra(doc, { orden, items, logoPath }) {
+function formatearCantidadPdf(val) {
+  if (val == null || Number.isNaN(val)) return "—";
+  const v = parseFloat(val);
+  if (!Number.isFinite(v)) return "—";
+  if (Number.isInteger(v)) return String(v);
+  const s = v.toFixed(4).replace(/\.?0+$/, "");
+  return s || "0";
+}
+
+async function renderOrdenCompra(doc, { orden, items, logoPath, vistaProveedor = false }) {
   const finalLogoPath = logoPath || path.join(__dirname, "./common/logos/logoempresa.png");
   doc.font("Helvetica");
 
@@ -29,6 +38,12 @@ async function renderOrdenCompra(doc, { orden, items, logoPath }) {
   doc.fontSize(12).font("Helvetica-Bold");
   doc.text("Orden de Compra", 30, 2, { align: "center" });
   doc.font("Helvetica");
+  if (vistaProveedor) {
+    doc.fontSize(9).font("Helvetica-Oblique");
+    doc.text("Artículos en códigos y cantidades del proveedor", 30, 16, { align: "center" });
+    doc.font("Helvetica");
+    y += 12;
+  }
 
   // Información del proveedor
   y += 15;
@@ -52,34 +67,48 @@ async function renderOrdenCompra(doc, { orden, items, logoPath }) {
   y += 15;
 
   // Tabla de ítems (sin precios)
-  doc.font("Helvetica-Bold").fontSize(10);
-  doc.text("Código", 20, y, { width: 80 });
-  doc.text("Descripción", 100, y, { width: 340 });
-  doc.text("Cant.", 450, y, { width: 80, align: "right" });
-  y += 12;
-  doc.moveTo(20, y).lineTo(540, y).stroke();
-  y += 10;
+  const dibujarCabeceraTablaOc = () => {
+    doc.font("Helvetica-Bold").fontSize(9);
+    if (vistaProveedor) {
+      doc.text("Cód. prov.", 20, y, { width: 72 });
+      doc.text("Desc. prov.", 97, y, { width: 235 });
+      doc.text("Cant.", 418, y, { width: 78, align: "right" });
+    } else {
+      doc.text("Código", 20, y, { width: 72 });
+      doc.text("Descripción", 97, y, { width: 218 });
+      doc.text("Cant.empresa", 318, y, { width: 72, align: "right" });
+      doc.text("Cant.proveedor", 398, y, { width: 78, align: "right" });
+    }
+    y += 11;
+    doc.moveTo(20, y).lineTo(500, y).stroke();
+    y += 8;
+    doc.font("Helvetica").fontSize(9);
+  };
 
-  doc.font("Helvetica").fontSize(10);
+  dibujarCabeceraTablaOc();
+
   items.forEach((item) => {
     if (y > 640) {
       doc.addPage();
       y = 50;
-      doc.font("Helvetica-Bold");
-      doc.text("Código", 20, y, { width: 80 });
-      doc.text("Descripción", 100, y, { width: 340 });
-      doc.text("Cant.", 450, y, { width: 80, align: "right" });
-      y += 12;
-      doc.moveTo(20, y).lineTo(540, y).stroke();
-      y += 10;
-      doc.font("Helvetica");
+      dibujarCabeceraTablaOc();
     }
-    const descripcion = item.Descripcion || item.Articulo?.Descripcion || "";
-    const cantidad = parseFloat(item.Cantidad) || 0;
-    doc.text(item.CodigoArticulo || "", 20, y, { width: 80 });
-    doc.text(descripcion.substring(0, 55), 100, y, { width: 340 });
-    doc.text(cantidad.toString(), 450, y, { width: 80, align: "right" });
-    y += 14;
+    if (vistaProveedor) {
+      const codigoCol = item.CodigoArticuloProveedor ? String(item.CodigoArticuloProveedor) : "—";
+      const descripcionCol = item.DescripcionProveedor ? String(item.DescripcionProveedor) : "—";
+      const cantidadTxt = formatearCantidadPdf(item.CantidadProveedor);
+      doc.text(codigoCol, 20, y, { width: 72 });
+      doc.text(descripcionCol.substring(0, 42), 97, y, { width: 235 });
+      doc.text(cantidadTxt, 418, y, { width: 78, align: "right" });
+    } else {
+      const codigoCol = item.CodigoArticulo || "";
+      const descripcionCol = item.Descripcion || item.Articulo?.Descripcion || "";
+      doc.text(codigoCol, 20, y, { width: 72 });
+      doc.text(descripcionCol.substring(0, 40), 97, y, { width: 218 });
+      doc.text(formatearCantidadPdf(item.Cantidad), 318, y, { width: 72, align: "right" });
+      doc.text(formatearCantidadPdf(item.CantidadProveedor), 398, y, { width: 78, align: "right" });
+    }
+    y += 13;
   });
 
   y += 10;

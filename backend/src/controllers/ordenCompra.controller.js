@@ -1,5 +1,7 @@
 const { Op } = require('sequelize');
 const NumeroControlService = require('../services/numeroControl.service');
+const { enrichOrdenCompraItems } = require('../utils/ordenCompraRelacionesHelper');
+const { prvOrdenCompraItemsHasCantidadProveedor } = require('../utils/ordenCompraDbColumns');
 
 exports.listarOrdenes = async (req, res) => {
   try {
@@ -82,7 +84,7 @@ exports.listarOrdenes = async (req, res) => {
 
 exports.obtenerOrden = async (req, res) => {
   try {
-    const { OrdenCompraCabeza, OrdenCompraItem, Proveedor, Articulo } = req.models;
+    const { OrdenCompraCabeza, OrdenCompraItem, Proveedor, Articulo, RelacionArticuloProveedor } = req.models;
     const { tipo, sucursal, numero } = req.params;
     const docNumero = String(numero || "").trim().padStart(8, "0");
     const docSucursal = String(sucursal || "").trim();
@@ -119,13 +121,27 @@ exports.obtenerOrden = async (req, res) => {
       cabeza.FechaDeEntregaFormateada = d.toISOString().split('T')[0];
     }
 
+    const hasCantidadProveedorCol = await prvOrdenCompraItemsHasCantidadProveedor(
+      OrdenCompraItem.sequelize
+    );
+    const attrsItems = [
+      'DocumentoTipo',
+      'DocumentoSucursal',
+      'DocumentoNumero',
+      'ProveedorCodigo',
+      'CodigoArticulo',
+      'Cantidad',
+      'PrecioCostoUnitario',
+    ];
+    if (hasCantidadProveedorCol) attrsItems.splice(6, 0, 'CantidadProveedor');
+
     const items = await OrdenCompraItem.findAll({
       where: {
         DocumentoTipo: String(tipo || "").trim(),
         DocumentoSucursal: docSucursal,
         DocumentoNumero: docNumero,
       },
-      attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'ProveedorCodigo', 'CodigoArticulo', 'Cantidad', 'PrecioCostoUnitario'],
+      attributes: attrsItems,
       include: [
         {
           model: Articulo,
@@ -136,9 +152,16 @@ exports.obtenerOrden = async (req, res) => {
       ],
     });
 
+    const itemsPlain = items.map((i) => i.toJSON());
+    const itemsEnriquecidos = await enrichOrdenCompraItems(
+      itemsPlain,
+      cabeza.ProveedorCodigo,
+      RelacionArticuloProveedor
+    );
+
     return res.status(200).json({
       ...cabeza,
-      Items: items.map((i) => i.toJSON()),
+      Items: itemsEnriquecidos,
     });
   } catch (error) {
     console.error('Error al obtener orden de compra:', error);
@@ -160,6 +183,8 @@ exports.crearOrden = async (req, res) => {
     NumerosControl,
   } = req.models;
   const sequelize = Proveedor.sequelize;
+  const hasCantidadProveedorCol = await prvOrdenCompraItemsHasCantidadProveedor(sequelize);
+  let advertenciaMigracionBd = false;
   const t = await sequelize.transaction();
 
   try {
@@ -226,12 +251,19 @@ exports.crearOrden = async (req, res) => {
     let importeTotal = 0;
     const itemsParaCrear = [];
     for (const it of Items) {
-      const { CodigoArticulo, Cantidad, PrecioCostoUnitario } = it;
+      const { CodigoArticulo, Cantidad, PrecioCostoUnitario, CantidadProveedor } = it;
       if (!CodigoArticulo) continue;
       const cant = parseFloat(Cantidad) || 0;
       const precio = parseFloat(PrecioCostoUnitario) || 0;
       const subtotal = cant * precio;
       importeTotal += subtotal;
+      const cpRaw = CantidadProveedor;
+      const cantProv =
+        cpRaw != null && cpRaw !== ''
+          ? parseFloat(cpRaw)
+          : null;
+      const cantidadProveedor =
+        cantProv != null && Number.isFinite(cantProv) && cantProv > 0 ? cantProv : null;
       itemsParaCrear.push({
         DocumentoTipo: documentoTipo,
         DocumentoSucursal: sucursal,
@@ -239,6 +271,7 @@ exports.crearOrden = async (req, res) => {
         ProveedorCodigo: ProveedorCodigo.substring(0, 7),
         CodigoArticulo,
         Cantidad: cant,
+        CantidadProveedor: cantidadProveedor,
         PrecioCostoUnitario: precio,
       });
     }
@@ -249,6 +282,13 @@ exports.crearOrden = async (req, res) => {
         success: false,
         message: 'Debe incluir al menos un ítem válido',
       });
+    }
+
+    if (!hasCantidadProveedorCol) {
+      advertenciaMigracionBd = true;
+      for (const row of itemsParaCrear) {
+        delete row.CantidadProveedor;
+      }
     }
 
     await OrdenCompraCabeza.create(
@@ -288,6 +328,7 @@ exports.crearOrden = async (req, res) => {
         DocumentoSucursal: sucursal,
         DocumentoNumero: documentoNumero,
       },
+      ...(advertenciaMigracionBd ? { advertenciaMigracionBd: true } : {}),
     });
   } catch (error) {
     await t.rollback();
@@ -295,6 +336,97 @@ exports.crearOrden = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Error al crear la orden de compra',
+      error: error.message,
+    });
+  }
+};
+
+function parseOrdenParams(req) {
+  const { tipo, sucursal, numero } = req.params;
+  return {
+    docTipo: String(tipo || '').trim(),
+    docSucursal: String(sucursal || '').trim(),
+    docNumero: String(numero || '').trim().padStart(8, '0'),
+  };
+}
+
+exports.eliminarOrden = async (req, res) => {
+  const { OrdenCompraCabeza, OrdenCompraItem } = req.models;
+  const sequelize = OrdenCompraCabeza.sequelize;
+  const { docTipo, docSucursal, docNumero } = parseOrdenParams(req);
+  const t = await sequelize.transaction();
+  try {
+    const cabeza = await OrdenCompraCabeza.findOne({
+      where: { DocumentoTipo: docTipo, DocumentoSucursal: docSucursal, DocumentoNumero: docNumero },
+      transaction: t,
+    });
+    if (!cabeza) {
+      await t.rollback();
+      return res.status(404).json({ success: false, message: 'Orden de compra no encontrada' });
+    }
+    await OrdenCompraItem.destroy({
+      where: {
+        DocumentoTipo: docTipo,
+        DocumentoSucursal: docSucursal,
+        DocumentoNumero: docNumero,
+      },
+      transaction: t,
+    });
+    await OrdenCompraCabeza.destroy({
+      where: {
+        DocumentoTipo: docTipo,
+        DocumentoSucursal: docSucursal,
+        DocumentoNumero: docNumero,
+      },
+      transaction: t,
+    });
+    await t.commit();
+    return res.status(200).json({ success: true, message: 'Orden eliminada' });
+  } catch (error) {
+    await t.rollback();
+    console.error('Error al eliminar orden de compra:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al eliminar la orden de compra',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * PATCH body: { vigente: boolean } — false = anular (FechaAnulacion hoy), true = reactivar.
+ */
+exports.actualizarVigenciaOrden = async (req, res) => {
+  try {
+    const { OrdenCompraCabeza } = req.models;
+    const { docTipo, docSucursal, docNumero } = parseOrdenParams(req);
+    const vigente = req.body?.vigente;
+    if (typeof vigente !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'Debe enviar { "vigente": true } o { "vigente": false }',
+      });
+    }
+    const orden = await OrdenCompraCabeza.findOne({
+      where: { DocumentoTipo: docTipo, DocumentoSucursal: docSucursal, DocumentoNumero: docNumero },
+    });
+    if (!orden) {
+      return res.status(404).json({ success: false, message: 'Orden de compra no encontrada' });
+    }
+    const hoy = new Date().toISOString().split('T')[0];
+    await orden.update({
+      FechaAnulacion: vigente ? null : hoy,
+    });
+    return res.status(200).json({
+      success: true,
+      message: vigente ? 'Orden reactivada' : 'Orden anulada (no vigente)',
+      data: { FechaAnulacion: vigente ? null : hoy },
+    });
+  } catch (error) {
+    console.error('Error al actualizar vigencia de orden:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al actualizar el estado de la orden',
       error: error.message,
     });
   }

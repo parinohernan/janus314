@@ -85,6 +85,92 @@
   // Productos seleccionados para crear orden (key: proveedorCodigo|productoCodigo)
   let productosSeleccionados = $state<Set<string>>(new Set());
 
+  // Ordenamiento de la tabla de detalle
+  type SortColumn = 'proveedor' | 'producto' | 'existencia' | 'existenciaMinima' | 'cantidadSugerida' | 'cantidad' | 'importe';
+  let sortColumn = $state<SortColumn>('proveedor');
+  let sortDirection = $state<'asc' | 'desc'>('asc');
+
+  // Interfaz para filas aplanadas
+  interface FilaDetalle {
+    proveedor: ProveedorVenta;
+    producto: ProductoVenta;
+  }
+
+  // Función para cambiar ordenamiento
+  function toggleSort(column: SortColumn) {
+    if (sortColumn === column) {
+      sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortColumn = column;
+      sortDirection = 'asc';
+    }
+  }
+
+  // Datos ordenados para la tabla (derivado)
+  let datosOrdenados = $derived.by(() => {
+    if (!datosVentas || !datosVentas.proveedores) return [];
+    
+    // Aplanar los datos: cada fila es proveedor + producto
+    const filas: FilaDetalle[] = [];
+    for (const proveedor of datosVentas.proveedores) {
+      for (const producto of proveedor.productos) {
+        filas.push({ proveedor, producto });
+      }
+    }
+    
+    // Ordenar según la columna seleccionada
+    filas.sort((a, b) => {
+      let valorA: string | number;
+      let valorB: string | number;
+      
+      switch (sortColumn) {
+        case 'proveedor':
+          valorA = a.proveedor.descripcion.toLowerCase();
+          valorB = b.proveedor.descripcion.toLowerCase();
+          break;
+        case 'producto':
+          valorA = a.producto.descripcion.toLowerCase();
+          valorB = b.producto.descripcion.toLowerCase();
+          break;
+        case 'existencia':
+          valorA = a.producto.existencia ?? 0;
+          valorB = b.producto.existencia ?? 0;
+          break;
+        case 'existenciaMinima':
+          valorA = a.producto.existenciaMinima ?? 0;
+          valorB = b.producto.existenciaMinima ?? 0;
+          break;
+        case 'cantidadSugerida':
+          valorA = a.producto.cantidadSugerida ?? 0;
+          valorB = b.producto.cantidadSugerida ?? 0;
+          break;
+        case 'cantidad':
+          valorA = a.producto.cantidad;
+          valorB = b.producto.cantidad;
+          break;
+        case 'importe':
+          valorA = a.producto.importeTotal;
+          valorB = b.producto.importeTotal;
+          break;
+        default:
+          valorA = 0;
+          valorB = 0;
+      }
+      
+      // Comparar
+      let comparacion: number;
+      if (typeof valorA === 'string' && typeof valorB === 'string') {
+        comparacion = valorA.localeCompare(valorB);
+      } else {
+        comparacion = (valorA as number) - (valorB as number);
+      }
+      
+      return sortDirection === 'asc' ? comparacion : -comparacion;
+    });
+    
+    return filas;
+  });
+
   // Inicializar fechas al mes actual y cargar proveedores
   onMount(async () => {
     const hoy = new Date();
@@ -465,7 +551,19 @@
 
   function crearOrdenConSeleccionados() {
     if (!browser || !datosVentas) return;
-    const itemsByProvider = new Map<string, { proveedor: ProveedorVenta; items: { codigo: string; descripcion: string; cantidad: number }[] }>();
+    const itemsByProvider = new Map<
+      string,
+      {
+        proveedor: ProveedorVenta;
+        items: {
+          codigo: string;
+          descripcion: string;
+          cantidad: number;
+          existencia: number;
+          cantidadVendidaPeriodo: number;
+        }[];
+      }
+    >();
     for (const proveedor of datosVentas.proveedores) {
       if (proveedor.codigo === 'SIN_PROVEEDOR') continue;
       for (const producto of proveedor.productos) {
@@ -473,7 +571,13 @@
         const cant = producto.cantidadSugerida && producto.cantidadSugerida > 0 ? producto.cantidadSugerida : producto.cantidad;
         const qty = cant > 0 ? cant : producto.cantidad || 1;
         const list = itemsByProvider.get(proveedor.codigo);
-        const item = { codigo: producto.codigo, descripcion: producto.descripcion, cantidad: qty };
+        const item = {
+          codigo: producto.codigo,
+          descripcion: producto.descripcion,
+          cantidad: qty,
+          existencia: producto.existencia ?? 0,
+          cantidadVendidaPeriodo: producto.cantidad ?? 0
+        };
         if (list) list.items.push(item);
         else itemsByProvider.set(proveedor.codigo, { proveedor, items: [item] });
       }
@@ -495,7 +599,9 @@
         CodigoArticulo: it.codigo,
         Descripcion: it.descripcion,
         Cantidad: it.cantidad,
-        PrecioCostoUnitario: 0
+        PrecioCostoUnitario: 0,
+        Existencia: it.existencia,
+        CantidadVendidaPeriodo: it.cantidadVendidaPeriodo
       }))
     };
     error = null;
@@ -817,13 +923,97 @@
         <table class="w-full">
           <thead>
             <tr class="border-b border-gray-200">
-              <th class="text-left py-3 px-4 font-semibold">Proveedor</th>
-              <th class="text-left py-3 px-4 font-semibold">Producto</th>
-              <th class="text-right py-3 px-4 font-semibold">Existencia</th>
-              <th class="text-right py-3 px-4 font-semibold">Exist. mínima</th>
-              <th class="text-right py-3 px-4 font-semibold">Cant. sugerida</th>
-              <th class="text-right py-3 px-4 font-semibold">Cantidad</th>
-              <th class="text-right py-3 px-4 font-semibold">Importe</th>
+              <th 
+                class="text-left py-3 px-4 font-semibold cursor-pointer hover:bg-gray-100 select-none"
+                onclick={() => toggleSort('proveedor')}
+              >
+                <div class="flex items-center gap-1">
+                  Proveedor
+                  {#if sortColumn === 'proveedor'}
+                    <span class="text-blue-600">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+                  {:else}
+                    <span class="text-gray-300">▲</span>
+                  {/if}
+                </div>
+              </th>
+              <th 
+                class="text-left py-3 px-4 font-semibold cursor-pointer hover:bg-gray-100 select-none"
+                onclick={() => toggleSort('producto')}
+              >
+                <div class="flex items-center gap-1">
+                  Producto
+                  {#if sortColumn === 'producto'}
+                    <span class="text-blue-600">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+                  {:else}
+                    <span class="text-gray-300">▲</span>
+                  {/if}
+                </div>
+              </th>
+              <th 
+                class="text-right py-3 px-4 font-semibold cursor-pointer hover:bg-gray-100 select-none"
+                onclick={() => toggleSort('existencia')}
+              >
+                <div class="flex items-center justify-end gap-1">
+                  Existencia
+                  {#if sortColumn === 'existencia'}
+                    <span class="text-blue-600">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+                  {:else}
+                    <span class="text-gray-300">▲</span>
+                  {/if}
+                </div>
+              </th>
+              <th 
+                class="text-right py-3 px-4 font-semibold cursor-pointer hover:bg-gray-100 select-none"
+                onclick={() => toggleSort('existenciaMinima')}
+              >
+                <div class="flex items-center justify-end gap-1">
+                  Exist. mínima
+                  {#if sortColumn === 'existenciaMinima'}
+                    <span class="text-blue-600">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+                  {:else}
+                    <span class="text-gray-300">▲</span>
+                  {/if}
+                </div>
+              </th>
+              <th 
+                class="text-right py-3 px-4 font-semibold cursor-pointer hover:bg-gray-100 select-none"
+                onclick={() => toggleSort('cantidadSugerida')}
+              >
+                <div class="flex items-center justify-end gap-1">
+                  Cant. sugerida
+                  {#if sortColumn === 'cantidadSugerida'}
+                    <span class="text-blue-600">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+                  {:else}
+                    <span class="text-gray-300">▲</span>
+                  {/if}
+                </div>
+              </th>
+              <th 
+                class="text-right py-3 px-4 font-semibold cursor-pointer hover:bg-gray-100 select-none"
+                onclick={() => toggleSort('cantidad')}
+              >
+                <div class="flex items-center justify-end gap-1">
+                  Cantidad
+                  {#if sortColumn === 'cantidad'}
+                    <span class="text-blue-600">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+                  {:else}
+                    <span class="text-gray-300">▲</span>
+                  {/if}
+                </div>
+              </th>
+              <th 
+                class="text-right py-3 px-4 font-semibold cursor-pointer hover:bg-gray-100 select-none"
+                onclick={() => toggleSort('importe')}
+              >
+                <div class="flex items-center justify-end gap-1">
+                  Importe
+                  {#if sortColumn === 'importe'}
+                    <span class="text-blue-600">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+                  {:else}
+                    <span class="text-gray-300">▲</span>
+                  {/if}
+                </div>
+              </th>
               <th class="text-center py-3 px-4 font-semibold">
                 <label class="flex items-center justify-center gap-2 cursor-pointer">
                   <input
@@ -838,50 +1028,48 @@
             </tr>
           </thead>
           <tbody>
-            {#each datosVentas.proveedores as proveedor}
-              {#each proveedor.productos as producto, i}
-                <tr class="border-b border-gray-100 hover:bg-gray-50">
-                  <td class="py-3 px-4">
-                    {#if proveedor.codigo !== 'SIN_PROVEEDOR'}
-                      <span class="font-medium">{proveedor.descripcion}</span>
-                      <div class="text-sm text-gray-500">{proveedor.codigo}</div>
-                    {:else}
-                      <span class="text-gray-500 italic">Sin Proveedor</span>
-                    {/if}
-                  </td>
-                  <td class="py-3 px-4">
-                    <span class="font-medium">{producto.descripcion}</span>
-                    <div class="text-sm text-gray-500">{producto.codigo}</div>
-                  </td>
-                  <td class="py-3 px-4 text-right">
-                    <span class="text-gray-500 text-sm">
-                      {producto.existencia ?? 0} u
-                    </span>
-                  </td>
-                  <td class="py-3 px-4 text-right text-sm text-gray-600">
-                    {producto.existenciaMinima ?? 0} u
-                  </td>
-                  <td class="py-3 px-4 text-right">
-                    <span class="text-sm {producto.cantidadSugerida && producto.cantidadSugerida > 0 ? 'font-semibold text-amber-600' : 'text-gray-500'}">
-                      {producto.cantidadSugerida ?? 0} u
-                    </span>
-                  </td>
-                  <td class="py-3 px-4 text-right font-semibold">{producto.cantidad}</td>
-                  <td class="py-3 px-4 text-right font-semibold">{formatearMoneda(producto.importeTotal)}</td>
-                  <td class="py-3 px-4 text-center">
-                    {#if proveedor.codigo !== 'SIN_PROVEEDOR'}
-                      <input
-                        type="checkbox"
-                        checked={isProductoSeleccionado(proveedor, producto)}
-                        onchange={() => toggleProducto(proveedor, producto)}
-                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                      />
-                    {:else}
-                      <span class="text-gray-400">-</span>
-                    {/if}
-                  </td>
-                </tr>
-              {/each}
+            {#each datosOrdenados as { proveedor, producto }}
+              <tr class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="py-3 px-4">
+                  {#if proveedor.codigo !== 'SIN_PROVEEDOR'}
+                    <span class="font-medium">{proveedor.descripcion}</span>
+                    <div class="text-sm text-gray-500">{proveedor.codigo}</div>
+                  {:else}
+                    <span class="text-gray-500 italic">Sin Proveedor</span>
+                  {/if}
+                </td>
+                <td class="py-3 px-4">
+                  <span class="font-medium">{producto.descripcion}</span>
+                  <div class="text-sm text-gray-500">{producto.codigo}</div>
+                </td>
+                <td class="py-3 px-4 text-right">
+                  <span class="text-gray-500 text-sm">
+                    {producto.existencia ?? 0} u
+                  </span>
+                </td>
+                <td class="py-3 px-4 text-right text-sm text-gray-600">
+                  {producto.existenciaMinima ?? 0} u
+                </td>
+                <td class="py-3 px-4 text-right">
+                  <span class="text-sm {producto.cantidadSugerida && producto.cantidadSugerida > 0 ? 'font-semibold text-amber-600' : 'text-gray-500'}">
+                    {producto.cantidadSugerida ?? 0} u
+                  </span>
+                </td>
+                <td class="py-3 px-4 text-right font-semibold">{producto.cantidad}</td>
+                <td class="py-3 px-4 text-right font-semibold">{formatearMoneda(producto.importeTotal)}</td>
+                <td class="py-3 px-4 text-center">
+                  {#if proveedor.codigo !== 'SIN_PROVEEDOR'}
+                    <input
+                      type="checkbox"
+                      checked={isProductoSeleccionado(proveedor, producto)}
+                      onchange={() => toggleProducto(proveedor, producto)}
+                      class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                    />
+                  {:else}
+                    <span class="text-gray-400">-</span>
+                  {/if}
+                </td>
+              </tr>
             {/each}
           </tbody>
         </table>

@@ -14,6 +14,17 @@
     Cantidad: number;
     PrecioCostoUnitario: number;
     Articulo?: { Codigo: string; Descripcion: string };
+    /** Unidades al proveedor (persistida en prv_orden_compra_items o calculada) */
+    CantidadProveedor?: number | string | null;
+    Relacion?: number | null;
+  }
+
+  function fmtCantProveedor(n: number | string | null | undefined): string {
+    if (n == null || n === '') return '—';
+    const v = Number(n);
+    if (Number.isNaN(v)) return '—';
+    if (Number.isInteger(v)) return String(v);
+    return v.toFixed(4).replace(/\.?0+$/, '');
   }
 
   interface OrdenDetalle {
@@ -65,7 +76,7 @@
   <title>Orden de compra {tipo} {sucursal}-{numero}</title>
 </svelte:head>
 
-<div class="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
+<div class="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
   {#if loading}
     <p class="text-gray-500">Cargando orden...</p>
   {:else if error}
@@ -141,27 +152,41 @@
     <div class="mt-6 overflow-hidden rounded-lg border border-gray-200 bg-white shadow">
       <div class="border-b border-gray-200 px-4 py-3">
         <h2 class="text-lg font-medium text-gray-900">Ítems</h2>
+        <p class="mt-1 text-sm text-gray-500">
+          <span class="font-medium text-gray-700">Cant. proveedor</span>: unidades pedidas al proveedor (dato de la orden
+          o calculado con la relación artículo–proveedor).
+        </p>
       </div>
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
-          <tr>
-            <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Artículo</th>
-            <th class="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Cantidad</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-200 bg-white">
-          {#each orden.Items || [] as item}
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
             <tr>
-              <td class="px-4 py-2 text-sm text-gray-900">
-                {item.Articulo?.Descripcion ?? item.CodigoArticulo}
-              </td>
-              <td class="whitespace-nowrap px-4 py-2 text-right text-sm text-gray-600">
-                {item.Cantidad ?? 0}
-              </td>
+              <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Código</th>
+              <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Artículo</th>
+              <th class="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Cant. empresa</th>
+              <th class="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Cant. proveedor</th>
             </tr>
-          {/each}
-        </tbody>
-      </table>
+          </thead>
+          <tbody class="divide-y divide-gray-200 bg-white">
+            {#each orden.Items || [] as item}
+              <tr>
+                <td class="whitespace-nowrap px-4 py-2 font-mono text-sm text-gray-800">
+                  {item.CodigoArticulo ?? '—'}
+                </td>
+                <td class="px-4 py-2 text-sm text-gray-900">
+                  {item.Articulo?.Descripcion ?? '—'}
+                </td>
+                <td class="whitespace-nowrap px-4 py-2 text-right text-sm text-gray-700">
+                  {item.Cantidad ?? 0}
+                </td>
+                <td class="whitespace-nowrap px-4 py-2 text-right text-sm text-gray-900">
+                  {fmtCantProveedor(item.CantidadProveedor)}
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
     </div>
   {/if}
 </div>

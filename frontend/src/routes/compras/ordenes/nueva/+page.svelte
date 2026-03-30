@@ -7,15 +7,32 @@
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { confirm } from '$lib/utils/toast';
   import { navigationState } from '$lib/stores/navigationState';
+  import { Check, CheckCircle2, Pencil, X } from 'lucide-svelte';
 
   const STORAGE_KEY_ORDEN_INFORME = 'janus314_orden_desde_informe';
   const ORDEN_NUEVA_PATH = '/compras/ordenes/nueva';
 
+  interface RelacionApi {
+    ProveedorCodigo: string;
+    CodigoArticuloProveedor: string;
+    CodigoArticuloEmpresa: string;
+    Relacion: number;
+    DescripcionProveedor: string | null;
+    ArticuloEmpresa: { Codigo: string; Descripcion: string } | null;
+  }
+
   interface ItemOrden {
     CodigoArticulo: string;
     Descripcion: string;
-    Cantidad: number;
+    CantidadComprar: number;
     PrecioCostoUnitario: number;
+    Existencia: number | null;
+    CantidadVendidaPeriodo: number | null;
+    CodigoArticuloProveedor: string;
+    DescripcionProveedor: string;
+    Relacion: number;
+    CantidadBultos: number;
+    RelacionGuardada: boolean;
   }
 
   const hoy = new Date().toISOString().slice(0, 10);
@@ -23,6 +40,9 @@
   let loading = false;
   let error: string | null = null;
   let guardadoExitoso = false;
+  let relacionesCargando = false;
+  let savingRelacionRow: number | null = null;
+  let proveedorCodigoAnterior = '';
 
   let proveedoresOptions: { Codigo: string; Descripcion: string }[] = [];
   let proveedoresLoading = false;
@@ -51,6 +71,117 @@
 
   let items: ItemOrden[] = [];
 
+  function normalizeItemFromPayload(it: Record<string, unknown>): ItemOrden {
+    const cant = Number(it.CantidadComprar ?? it.Cantidad) || 0;
+    const rel = Number(it.Relacion) > 0 ? Number(it.Relacion) : 1;
+    let bultos: number;
+    if (it.CantidadBultos != null && it.CantidadBultos !== '') {
+      bultos = Number(it.CantidadBultos) || 0;
+    } else {
+      bultos = rel > 0 ? cant / rel : cant;
+    }
+    const ex = it.Existencia;
+    const vend = it.CantidadVendidaPeriodo;
+    return {
+      CodigoArticulo: String(it.CodigoArticulo ?? ''),
+      Descripcion: String(it.Descripcion ?? ''),
+      CantidadComprar: cant,
+      PrecioCostoUnitario: Number(it.PrecioCostoUnitario) || 0,
+      Existencia: ex != null && ex !== '' ? Number(ex) : null,
+      CantidadVendidaPeriodo: vend != null && vend !== '' ? Number(vend) : null,
+      CodigoArticuloProveedor: String(it.CodigoArticuloProveedor ?? ''),
+      DescripcionProveedor: String(it.DescripcionProveedor ?? ''),
+      Relacion: rel,
+      CantidadBultos: Number.isFinite(bultos) ? bultos : cant,
+      RelacionGuardada: !!it.RelacionGuardada
+    };
+  }
+
+  function nuevaFilaVacia(
+    codigo: string,
+    descripcion: string,
+    cantidadComprar: number,
+    precio: number,
+    existencia: number | null,
+    vendidos: number | null
+  ): ItemOrden {
+    const rel = 1;
+    return {
+      CodigoArticulo: codigo,
+      Descripcion: descripcion,
+      CantidadComprar: cantidadComprar,
+      PrecioCostoUnitario: precio,
+      Existencia: existencia,
+      CantidadVendidaPeriodo: vendidos,
+      CodigoArticuloProveedor: '',
+      DescripcionProveedor: '',
+      Relacion: rel,
+      CantidadBultos: cantidadComprar / rel,
+      RelacionGuardada: false
+    };
+  }
+
+  async function cargarRelacionesProveedor(): Promise<Map<string, RelacionApi>> {
+    const cod = orden.ProveedorCodigo?.trim();
+    if (!cod) return new Map();
+    try {
+      const res = await fetchWithAuth('/relaciones-articulo-proveedor', {
+        params: { proveedorCodigo: cod }
+      });
+      if (!res.ok) return new Map();
+      const data = await res.json();
+      const list: RelacionApi[] = data.items || [];
+      const map = new Map<string, RelacionApi>();
+      for (const r of list) {
+        const emp = String(r.CodigoArticuloEmpresa ?? '').trim();
+        if (emp) map.set(emp, r);
+      }
+      return map;
+    } catch {
+      return new Map();
+    }
+  }
+
+  function aplicarMapaRelaciones(map: Map<string, RelacionApi>, limpiarSiSinRelacion: boolean) {
+    items = items.map((item) => {
+      const key = item.CodigoArticulo.trim();
+      const rel = map.get(key);
+      if (rel) {
+        const r = rel.Relacion > 0 ? rel.Relacion : 1;
+        return {
+          ...item,
+          CodigoArticuloProveedor: rel.CodigoArticuloProveedor || '',
+          DescripcionProveedor: rel.DescripcionProveedor || '',
+          Relacion: r,
+          CantidadBultos: item.CantidadComprar / r,
+          RelacionGuardada: true
+        };
+      }
+      if (limpiarSiSinRelacion) {
+        return {
+          ...item,
+          CodigoArticuloProveedor: '',
+          DescripcionProveedor: '',
+          Relacion: 1,
+          CantidadBultos: item.CantidadComprar,
+          RelacionGuardada: false
+        };
+      }
+      return { ...item };
+    });
+  }
+
+  async function enriquecerItemsConRelaciones(limpiarSinRelacion = false) {
+    if (!orden.ProveedorCodigo?.trim() || items.length === 0) return;
+    relacionesCargando = true;
+    try {
+      const map = await cargarRelacionesProveedor();
+      aplicarMapaRelaciones(map, limpiarSinRelacion);
+    } finally {
+      relacionesCargando = false;
+    }
+  }
+
   const buscarProveedores = async (busqueda = '') => {
     if (timeoutProveedores) clearTimeout(timeoutProveedores);
     if (!busqueda || busqueda.length < 2) {
@@ -72,12 +203,18 @@
     }, 300);
   };
 
-  const seleccionarProveedor = (p: { Codigo: string; Descripcion: string }) => {
+  const seleccionarProveedor = async (p: { Codigo: string; Descripcion: string }) => {
+    const prev = proveedorCodigoAnterior;
+    const esCambioProveedor = prev !== '' && p.Codigo !== prev;
     orden.ProveedorCodigo = p.Codigo;
     orden.ProveedorDescripcion = p.Descripcion;
+    proveedorCodigoAnterior = p.Codigo;
     proveedoresBusqueda = `${p.Codigo} - ${p.Descripcion}`;
     mostrarSelectorProveedores = false;
     proveedoresOptions = [];
+    if (items.length > 0) {
+      await enriquecerItemsConRelaciones(esCambioProveedor);
+    }
   };
 
   const buscarArticulos = async (busqueda = '') => {
@@ -113,7 +250,7 @@
     articuloOptions = [];
   };
 
-  const agregarArticulo = () => {
+  const agregarArticulo = async () => {
     if (!articuloSeleccionado) return;
     if (!articuloSeleccionado.Codigo || cantidadArticulo <= 0) {
       error = 'Seleccione un artículo y una cantidad mayor a 0';
@@ -121,22 +258,104 @@
     }
     items = [
       ...items,
-      {
-        CodigoArticulo: articuloSeleccionado.Codigo,
-        Descripcion: articuloSeleccionado.Descripcion,
-        Cantidad: cantidadArticulo,
-        PrecioCostoUnitario: Number(articuloSeleccionado.PrecioCosto) || 0
-      }
+      nuevaFilaVacia(
+        articuloSeleccionado.Codigo,
+        articuloSeleccionado.Descripcion,
+        cantidadArticulo,
+        Number(articuloSeleccionado.PrecioCosto) || 0,
+        null,
+        null
+      )
     ];
     articuloSeleccionado = null;
     articuloBusqueda = '';
     cantidadArticulo = 1;
     error = null;
+    await enriquecerItemsConRelaciones();
   };
+
+  function actualizarRelacion(index: number, value: number) {
+    if (value <= 0) return;
+    const row = items[index];
+    row.Relacion = value;
+    row.CantidadComprar = row.CantidadBultos * value;
+    row.RelacionGuardada = false;
+    items = [...items];
+  }
+
+  function actualizarCantidadBultos(index: number, value: number) {
+    const v = value < 0 ? 0 : value;
+    const row = items[index];
+    row.CantidadBultos = v;
+    row.CantidadComprar = v * row.Relacion;
+    row.RelacionGuardada = false;
+    items = [...items];
+  }
+
+  function actualizarCantidadComprar(index: number, value: number) {
+    const v = value < 0 ? 0 : value;
+    const row = items[index];
+    row.CantidadComprar = v;
+    const r = row.Relacion > 0 ? row.Relacion : 1;
+    row.CantidadBultos = r > 0 ? v / r : v;
+    row.RelacionGuardada = false;
+    items = [...items];
+  }
+
+  function onCodigoProveedorInput(index: number) {
+    items[index].RelacionGuardada = false;
+    items = [...items];
+  }
+
+  function onDescripcionProveedorInput(index: number) {
+    items[index].RelacionGuardada = false;
+    items = [...items];
+  }
 
   const quitarFila = (index: number) => {
     items = items.filter((_, i) => i !== index);
   };
+
+  function focusEditarFila(index: number) {
+    if (browser) setTimeout(() => document.getElementById(`oc-cod-prov-${index}`)?.focus(), 0);
+  }
+
+  async function guardarRelacion(index: number) {
+    const f = items[index];
+    if (!orden.ProveedorCodigo?.trim()) {
+      error = 'Seleccione un proveedor en la cabecera antes de guardar la relación.';
+      return;
+    }
+    if (!f.CodigoArticuloProveedor?.trim() || !f.CodigoArticulo?.trim()) {
+      error = 'Complete código artículo proveedor y artículo de la empresa en la fila.';
+      return;
+    }
+    savingRelacionRow = index;
+    error = null;
+    try {
+      const res = await fetchWithAuth('/relaciones-articulo-proveedor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ProveedorCodigo: orden.ProveedorCodigo.trim(),
+          CodigoArticuloProveedor: f.CodigoArticuloProveedor.trim(),
+          CodigoArticuloEmpresa: f.CodigoArticulo.trim(),
+          Relacion: f.Relacion,
+          DescripcionProveedor: f.DescripcionProveedor?.trim() || null
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error((data as { message?: string }).message || 'Error al guardar la relación');
+      }
+      items[index].RelacionGuardada = true;
+      items = [...items];
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Error al guardar relación';
+    } finally {
+      savingRelacionRow = null;
+    }
+  }
 
   const cancelar = async () => {
     const ok = await confirm('¿Cancelar? Se perderán los datos ingresados.');
@@ -146,7 +365,6 @@
     }
   };
 
-  // Guardar estado al salir (persistencia como en informes/proveedores)
   beforeNavigate(({ from }) => {
     if (from?.url.pathname === ORDEN_NUEVA_PATH && browser) {
       const currentState = navigationState.getState(ORDEN_NUEVA_PATH) || {};
@@ -172,7 +390,7 @@
       return;
     }
     const itemsValidos = items.filter(
-      (it) => it.CodigoArticulo?.trim() && (Number(it.Cantidad) || 0) > 0
+      (it) => it.CodigoArticulo?.trim() && (Number(it.CantidadComprar) || 0) > 0
     );
     if (itemsValidos.length === 0) {
       error = 'Debe incluir al menos un ítem con artículo y cantidad mayor a cero';
@@ -190,11 +408,16 @@
         TipoPago: orden.TipoPago || undefined,
         Observacion: orden.Observacion || undefined,
         RemitoNro: orden.RemitoNro || undefined,
-        Items: itemsValidos.map((it) => ({
-          CodigoArticulo: it.CodigoArticulo.trim(),
-          Cantidad: Number(it.Cantidad) || 0,
-          PrecioCostoUnitario: Number(it.PrecioCostoUnitario) || 0
-        }))
+        Items: itemsValidos.map((it) => {
+          const bultos = Number(it.CantidadBultos);
+          return {
+            CodigoArticulo: it.CodigoArticulo.trim(),
+            Cantidad: Number(it.CantidadComprar) || 0,
+            CantidadProveedor:
+              Number.isFinite(bultos) && bultos > 0 ? bultos : null,
+            PrecioCostoUnitario: Number(it.PrecioCostoUnitario) || 0
+          };
+        })
       };
       const res = await fetchWithAuth('/ordenes-compra', {
         method: 'POST',
@@ -203,6 +426,11 @@
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || data.error || 'Error al crear orden');
+      if (browser && data.advertenciaMigracionBd) {
+        alert(
+          'Importante: su sistema no actualizó la base de datos. Pídale a soporte técnico que ejecute la migración de prv_orden_compra_items (columna CantidadProveedor). La orden se guardó correctamente, pero no se pudo registrar la cantidad del proveedor por ítem en la base.'
+        );
+      }
       guardadoExitoso = true;
       if (browser) navigationState.clearState(ORDEN_NUEVA_PATH);
       const d = data.data || {};
@@ -232,55 +460,62 @@
       })
       .catch(() => {});
 
-    if (browser && $page.url.searchParams.get('from') === 'informe') {
-      try {
-        const stored = sessionStorage.getItem(STORAGE_KEY_ORDEN_INFORME);
-        if (stored) {
-          const payload = JSON.parse(stored);
-          orden.ProveedorCodigo = payload.proveedorCodigo || '';
-          orden.ProveedorDescripcion = payload.proveedorDescripcion || '';
-          proveedoresBusqueda = orden.ProveedorDescripcion ? `${orden.ProveedorCodigo} - ${orden.ProveedorDescripcion}` : '';
-          if (payload.items && Array.isArray(payload.items) && payload.items.length > 0) {
-            items = payload.items.map((it: { CodigoArticulo: string; Descripcion: string; Cantidad: number; PrecioCostoUnitario?: number }) => ({
-              CodigoArticulo: it.CodigoArticulo || '',
-              Descripcion: it.Descripcion || '',
-              Cantidad: Number(it.Cantidad) || 0,
-              PrecioCostoUnitario: Number(it.PrecioCostoUnitario) || 0
-            }));
+    const boot = async () => {
+      if (browser && $page.url.searchParams.get('from') === 'informe') {
+        try {
+          const stored = sessionStorage.getItem(STORAGE_KEY_ORDEN_INFORME);
+          if (stored) {
+            const payload = JSON.parse(stored);
+            orden.ProveedorCodigo = payload.proveedorCodigo || '';
+            orden.ProveedorDescripcion = payload.proveedorDescripcion || '';
+            proveedorCodigoAnterior = orden.ProveedorCodigo;
+            proveedoresBusqueda = orden.ProveedorDescripcion
+              ? `${orden.ProveedorCodigo} - ${orden.ProveedorDescripcion}`
+              : '';
+            if (payload.items && Array.isArray(payload.items) && payload.items.length > 0) {
+              items = payload.items.map((it: Record<string, unknown>) => normalizeItemFromPayload(it));
+            }
+            sessionStorage.removeItem(STORAGE_KEY_ORDEN_INFORME);
           }
-          sessionStorage.removeItem(STORAGE_KEY_ORDEN_INFORME);
+        } catch (_) {}
+        await enriquecerItemsConRelaciones(false);
+      } else if (browser) {
+        const savedState = navigationState.getState(ORDEN_NUEVA_PATH);
+        const filters = savedState?.filters as
+          | { orden?: typeof orden; items?: Record<string, unknown>[]; proveedoresBusqueda?: string }
+          | undefined;
+        if (filters?.orden) {
+          orden = { ...orden, ...filters.orden };
+          proveedorCodigoAnterior = orden.ProveedorCodigo;
         }
-      } catch (_) {}
-    } else if (browser) {
-      // Restaurar estado persistido (misma técnica que informes/proveedores)
-      const savedState = navigationState.getState(ORDEN_NUEVA_PATH);
-      const filters = savedState?.filters as { orden?: typeof orden; items?: ItemOrden[]; proveedoresBusqueda?: string } | undefined;
-      if (filters?.orden) {
-        orden = { ...orden, ...filters.orden };
+        if (filters?.items && Array.isArray(filters.items) && filters.items.length > 0) {
+          items = filters.items.map((it) => normalizeItemFromPayload(it));
+        }
+        if (filters?.proveedoresBusqueda) {
+          proveedoresBusqueda = filters.proveedoresBusqueda;
+        }
+        if (savedState?.scroll && typeof window !== 'undefined') {
+          requestAnimationFrame(() => window.scrollTo(0, savedState.scroll));
+        }
+        if (orden.ProveedorCodigo && items.length > 0) {
+          await enriquecerItemsConRelaciones(false);
+        }
       }
-      if (filters?.items && Array.isArray(filters.items) && filters.items.length > 0) {
-        items = filters.items.map((it) => ({
-          CodigoArticulo: it.CodigoArticulo || '',
-          Descripcion: it.Descripcion || '',
-          Cantidad: Number(it.Cantidad) || 0,
-          PrecioCostoUnitario: Number(it.PrecioCostoUnitario) || 0
-        }));
-      }
-      if (filters?.proveedoresBusqueda) {
-        proveedoresBusqueda = filters.proveedoresBusqueda;
-      }
-      if (savedState?.scroll && typeof window !== 'undefined') {
-        requestAnimationFrame(() => window.scrollTo(0, savedState.scroll));
-      }
-    }
+    };
+    void boot();
   });
+
+  function fmtNum(n: number | null): string {
+    if (n === null || Number.isNaN(n)) return '—';
+    return String(n);
+  }
 </script>
 
 <svelte:head>
   <title>Nueva orden de compra</title>
 </svelte:head>
 
-<div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+<div class="mx-auto max-w-[100rem] px-4 py-6 sm:px-6 lg:px-8">
   <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
     <h1 class="text-2xl font-semibold text-gray-900">Nueva orden de compra</h1>
     <div class="flex gap-2">
@@ -396,7 +631,6 @@
   <div class="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
     <h2 class="mb-4 text-lg font-semibold text-gray-900">Ítems</h2>
 
-    <!-- Agregar artículo (estilo notascredito) -->
     <div class="mb-6 rounded-lg bg-gray-50 p-4">
       <h3 class="mb-3 text-sm font-semibold text-gray-700">Agregar artículo</h3>
       <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
@@ -433,11 +667,11 @@
           {/if}
         </div>
         <div>
-          <label for="cantidad" class="mb-1 block text-sm font-medium text-gray-700">Cantidad</label>
+          <label for="cantidad" class="mb-1 block text-sm font-medium text-gray-700">Cantidad (empresa)</label>
           <input
             id="cantidad"
             type="number"
-            min="1"
+            min="0.01"
             step="0.01"
             class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
             bind:value={cantidadArticulo}
@@ -464,30 +698,124 @@
       {/if}
     </div>
 
-    <div class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
+    <div class="overflow-x-auto -mx-2 px-2">
+      {#if relacionesCargando}
+        <div class="flex items-center gap-2 py-4 text-sm text-slate-600">
+          <div class="h-5 w-5 animate-spin rounded-full border-2 border-slate-400 border-t-transparent"></div>
+          Cargando relaciones con el proveedor…
+        </div>
+      {/if}
+      <table class="min-w-full border border-slate-200 text-sm">
+        <thead class="bg-slate-50">
           <tr>
-            <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Artículo</th>
-            <th class="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Cantidad</th>
-            <th class="px-4 py-2 w-12"></th>
+            <th class="px-3 py-2.5 text-left font-medium text-slate-600">Código</th>
+            <th class="px-3 py-2.5 text-left font-medium text-slate-600">Descripción</th>
+            <th class="px-3 py-2.5 text-right font-medium text-slate-600">Existencia</th>
+            <th class="px-3 py-2.5 text-right font-medium text-slate-600">Vendidos período</th>
+            <th class="px-3 py-2.5 text-right font-medium text-slate-600">Cant. a comprar</th>
+            <th class="px-3 py-2.5 text-left font-medium text-slate-600 bg-amber-50/90 border-l border-amber-200"
+              >Cód. prov.</th
+            >
+            <th class="px-3 py-2.5 text-left font-medium text-slate-600 bg-amber-50/90">Desc. prov.</th>
+            <th class="px-3 py-2.5 text-right font-medium text-slate-600 bg-amber-50/90">Relación</th>
+            <th class="px-3 py-2.5 text-right font-medium text-slate-600 bg-amber-50/90">Cant. bultos</th>
+            <th class="px-3 py-2.5 text-center font-medium text-slate-600">Acciones</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-200 bg-white">
-          {#each items as item, i}
-            <tr>
-              <td class="px-4 py-2 text-sm text-gray-900">
-                {item.CodigoArticulo} - {item.Descripcion}
+        <tbody>
+          {#each items as item, i (item.CodigoArticulo + '-' + i)}
+            <tr class="border-b border-slate-100 hover:bg-slate-50/50">
+              <td class="px-3 py-2 font-mono text-slate-800">{item.CodigoArticulo || '—'}</td>
+              <td class="px-3 py-2 text-slate-800 max-w-[14rem]">{item.Descripcion || '—'}</td>
+              <td class="px-3 py-2 text-right text-slate-700">{fmtNum(item.Existencia)}</td>
+              <td class="px-3 py-2 text-right text-slate-700">{fmtNum(item.CantidadVendidaPeriodo)}</td>
+              <td class="px-3 py-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={item.CantidadComprar}
+                  on:input={(e) => actualizarCantidadComprar(i, parseFloat(e.currentTarget.value) || 0)}
+                  class="w-24 px-2 py-1.5 border border-slate-300 rounded text-right"
+                />
               </td>
-              <td class="px-4 py-2 text-right text-sm text-gray-900">{item.Cantidad}</td>
-              <td class="px-4 py-2">
-                <button
-                  type="button"
-                  class="text-red-600 hover:text-red-800"
-                  on:click={() => quitarFila(i)}
-                >
-                  Quitar
-                </button>
+              <td class="px-3 py-2 bg-amber-50/80 border-l border-amber-200">
+                <input
+                  id="oc-cod-prov-{i}"
+                  type="text"
+                  bind:value={item.CodigoArticuloProveedor}
+                  on:input={() => onCodigoProveedorInput(i)}
+                  class="w-full min-w-[5rem] px-2 py-1.5 border border-slate-300 rounded text-slate-800"
+                />
+              </td>
+              <td class="px-3 py-2 bg-amber-50/80">
+                <input
+                  type="text"
+                  bind:value={item.DescripcionProveedor}
+                  on:input={() => onDescripcionProveedorInput(i)}
+                  class="w-full min-w-[8rem] px-2 py-1.5 border border-slate-300 rounded text-slate-800"
+                />
+              </td>
+              <td class="px-3 py-2 bg-amber-50/80">
+                <input
+                  type="number"
+                  min="0.0001"
+                  step="any"
+                  value={item.Relacion}
+                  on:change={(e) => actualizarRelacion(i, parseFloat(e.currentTarget.value) || 1)}
+                  class="w-20 px-2 py-1.5 border border-slate-300 rounded text-right"
+                />
+              </td>
+              <td class="px-3 py-2 bg-amber-50/80">
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={item.CantidadBultos}
+                  on:input={(e) => actualizarCantidadBultos(i, parseFloat(e.currentTarget.value) || 0)}
+                  class="w-20 px-2 py-1.5 border border-slate-300 rounded text-right"
+                />
+              </td>
+              <td class="px-3 py-2">
+                <div class="flex items-center justify-center gap-1">
+                  <button
+                    type="button"
+                    class="p-1.5 rounded flex items-center gap-1 {item.RelacionGuardada
+                      ? 'text-green-600 bg-green-100'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}"
+                    on:click={() => guardarRelacion(i)}
+                    disabled={savingRelacionRow !== null}
+                    title={item.RelacionGuardada
+                      ? 'Guardado. Clic para regrabar'
+                      : 'Guardar relación artículo proveedor'}
+                  >
+                    {#if savingRelacionRow === i}
+                      <span class="text-xs text-slate-500">…</span>
+                    {:else if item.RelacionGuardada}
+                      <CheckCircle2 size={18} class="text-green-600 shrink-0" />
+                      <span class="text-xs font-medium text-green-700 hidden sm:inline">Guardado</span>
+                    {:else}
+                      <Check size={18} class="text-slate-400 shrink-0" />
+                      <span class="text-xs hidden sm:inline">Guardar</span>
+                    {/if}
+                  </button>
+                  <button
+                    type="button"
+                    class="p-1.5 rounded text-slate-500 hover:text-blue-600 hover:bg-blue-50"
+                    on:click={() => focusEditarFila(i)}
+                    title="Editar código proveedor"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    class="p-1.5 rounded text-slate-500 hover:text-red-600 hover:bg-red-50"
+                    on:click={() => quitarFila(i)}
+                    title="Quitar fila"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
               </td>
             </tr>
           {/each}

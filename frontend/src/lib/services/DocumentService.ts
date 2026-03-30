@@ -5,7 +5,12 @@ export class DocumentService {
 	/**
 	 * Genera un PDF para un documento específico (factura, nota de crédito o nota de débito)
 	 */
-	static async generarPDF(tipo: string, sucursal: string, numero: string): Promise<string> {
+	static async generarPDF(
+		tipo: string,
+		sucursal: string,
+		numero: string,
+		options?: { vista?: 'empresa' | 'proveedor' }
+	): Promise<string> {
 		try {
 			// Determinar el endpoint según el tipo de documento
 			let endpoint = '/facturas/pdf';
@@ -22,8 +27,10 @@ export class DocumentService {
 			else if (tipo === 'OC') {
 				endpoint = '/ordenes-compra/pdf';
 			}
-			
-			const url = `${endpoint}/${tipo}/${sucursal}/${numero}`;
+
+			const qs =
+				tipo === 'OC' && options?.vista === 'proveedor' ? '?vista=proveedor' : '';
+			const url = `${endpoint}/${tipo}/${sucursal}/${numero}${qs}`;
 			console.log('URL PDF:', url);
 			
 			const response = await fetchWithAuth(

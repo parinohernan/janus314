@@ -5,9 +5,11 @@
   import { goto } from '$app/navigation';
   import { getTodayISOArgentina } from '$lib/utils/dateUtils';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
-  import { Check, CheckCircle2, Pencil, X } from 'lucide-svelte';
+  import { Check, CheckCircle2, CircleHelp, Cloud, FolderOpen, Pencil, X } from 'lucide-svelte';
 
   const STORAGE_KEY_PROVIDER_IA = 'janus314_ingreso_remito_provider_ia';
+  /** Página móvil para subir comprobantes a Cloudinary (misma empresa). */
+  const URL_SUBIR_COMPROBANTES_MOVIL = 'https://erp.janus314.com.ar/compras/subir-imagen';
 
   interface ItemRemito {
     codigoProveedor: string;
@@ -58,10 +60,28 @@
   let providerIA: 'groq' | 'gemini' = 'groq';
   let pasoActual: 1 | 2 | 3 = 1;
   let mostrarJsonParaEditar = false;
-  let extraccionLista = false;
-  let entradaDesdeJson = false;
   let tablaCargando = false;
   let skeletonFilasCount = 0;
+
+  interface CloudinaryItem {
+    publicId: string;
+    secureUrl: string;
+    width?: number;
+    height?: number;
+    createdAt?: string;
+  }
+  let modalCloudinaryAbierto = false;
+  let cloudinaryItems: CloudinaryItem[] = [];
+  let cloudinaryCargando = false;
+  let cloudinaryCargandoMas = false;
+  let cloudinaryErrorMsg: string | null = null;
+  let cloudinaryBusqueda = '';
+  let cloudinaryNextCursor: string | null = null;
+  let cloudinaryFolderPrefix: string | null = null;
+  let timeoutCloudinary: ReturnType<typeof setTimeout> | null = null;
+  let cloudinarySeleccionando = false;
+  let inputArchivoLocal: HTMLInputElement | null = null;
+  let modalAyudaNubeAbierto = false;
 
   interface ProveedorOption {
     Codigo: string;
@@ -213,18 +233,6 @@
     if (browser) localStorage.setItem(STORAGE_KEY_PROVIDER_IA, providerIA);
   }
 
-  function irADesdeJson() {
-    entradaDesdeJson = true;
-    textoPegado = '';
-    pasoActual = 2;
-    mostrarJsonParaEditar = true;
-  }
-
-  function volverAPaso1() {
-    entradaDesdeJson = false;
-    pasoActual = 1;
-  }
-
   function parsearTexto(): ItemRemito[] {
     const t = textoPegado.trim();
     if (!t) return [];
@@ -261,6 +269,90 @@
     imagenArchivo = null;
   }
 
+  function abrirModalCloudinary() {
+    modalCloudinaryAbierto = true;
+    cloudinaryItems = [];
+    cloudinaryNextCursor = null;
+    cloudinaryFolderPrefix = null;
+    cloudinaryBusqueda = '';
+    cloudinaryErrorMsg = null;
+    cargarCloudinary(true);
+  }
+
+  function cerrarModalCloudinary() {
+    modalCloudinaryAbierto = false;
+  }
+
+  async function cargarCloudinary(reset: boolean) {
+    if (!reset) {
+      if (!cloudinaryNextCursor) return;
+    } else {
+      cloudinaryCargando = true;
+      cloudinaryItems = [];
+      cloudinaryNextCursor = null;
+    }
+    if (!reset) cloudinaryCargandoMas = true;
+    cloudinaryErrorMsg = null;
+    try {
+      const params: Record<string, string> = { limit: '30' };
+      if (cloudinaryBusqueda.trim()) params.q = cloudinaryBusqueda.trim();
+      if (!reset && cloudinaryNextCursor) params.cursor = cloudinaryNextCursor;
+
+      const res = await fetchWithAuth('/remito/cloudinary', { params });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error((data as { message?: string }).message || 'Error al listar imágenes');
+      }
+      const items = (data.items || []) as CloudinaryItem[];
+      const next = (data as { next_cursor?: string | null }).next_cursor ?? null;
+      const folderPrefix = (data as { folderPrefix?: string }).folderPrefix;
+      if (folderPrefix) cloudinaryFolderPrefix = folderPrefix;
+      cloudinaryNextCursor = next;
+      if (reset) cloudinaryItems = items;
+      else cloudinaryItems = [...cloudinaryItems, ...items];
+    } catch (e) {
+      cloudinaryErrorMsg = e instanceof Error ? e.message : 'Error desconocido';
+    } finally {
+      cloudinaryCargando = false;
+      cloudinaryCargandoMas = false;
+    }
+  }
+
+  function onCloudinaryBusquedaInput() {
+    if (timeoutCloudinary) clearTimeout(timeoutCloudinary);
+    timeoutCloudinary = setTimeout(() => {
+      cargarCloudinary(true);
+    }, 400);
+  }
+
+  async function seleccionarImagenCloudinary(item: CloudinaryItem) {
+    cloudinarySeleccionando = true;
+    cloudinaryErrorMsg = null;
+    try {
+      const res = await fetch(item.secureUrl);
+      if (!res.ok) throw new Error('No se pudo descargar la imagen desde la nube');
+      const blob = await res.blob();
+      if (!blob.type.startsWith('image/')) {
+        throw new Error('El archivo no es una imagen válida');
+      }
+      const baseName = item.publicId.split('/').pop() || 'remito';
+      const mime = blob.type || 'image/jpeg';
+      const ext =
+        mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : mime.includes('gif') ? 'gif' : 'jpg';
+      const safeName = `${baseName.replace(/[^\w.\-]/g, '_')}.${ext}`;
+      const file = new File([blob], safeName, { type: mime });
+      if (imagenPreviewUrl) URL.revokeObjectURL(imagenPreviewUrl);
+      imagenArchivo = file;
+      imagenPreviewUrl = URL.createObjectURL(file);
+      modalCloudinaryAbierto = false;
+      error = null;
+    } catch (e) {
+      cloudinaryErrorMsg = e instanceof Error ? e.message : 'Error al cargar la imagen';
+    } finally {
+      cloudinarySeleccionando = false;
+    }
+  }
+
   async function procesarImagenConIA() {
     if (!imagenArchivo || !proveedorCodigo.trim()) {
       error = imagenArchivo ? 'Ingrese el código de proveedor' : 'Seleccione una imagen del remito';
@@ -283,7 +375,6 @@
       const data = await res.json();
       const items = data.items ?? data;
       textoPegado = JSON.stringify(Array.isArray(items) ? items : [items], null, 2);
-      extraccionLista = true;
       pasoActual = 2;
     } catch (err) {
       error = err instanceof Error ? err.message : 'Error al procesar con IA';
@@ -598,16 +689,82 @@
           </div>
 
           <div>
-            <label for="imagen-remito" class="block text-sm font-medium text-slate-700 mb-1.5">Imagen del remito</label>
-            <input
-              id="imagen-remito"
-              type="file"
-              accept="image/*"
-              on:change={onImagenSeleccionada}
-              class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            />
+            <p class="block text-sm font-medium text-slate-800 mb-1">Imagen del remito</p>
+            <p class="text-sm text-slate-500 mb-4">
+              Seleccioná el archivo desde <span class="font-medium text-slate-700">este equipo</span> o desde
+              <span class="font-medium text-slate-700">la nube</span> (galería Cloudinary de su empresa).
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div
+                class="rounded-xl border border-slate-200 bg-slate-50/80 p-4 flex flex-col gap-3 min-h-[9rem]"
+              >
+                <div class="flex items-start gap-3">
+                  <span class="mt-0.5 rounded-lg bg-white p-2 border border-slate-100 text-slate-600 shadow-sm">
+                    <FolderOpen size={22} aria-hidden="true" />
+                  </span>
+                  <div>
+                    <p class="font-medium text-slate-800">Equipo local</p>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                      Archivo en su equipo (explorador o galería del dispositivo).
+                    </p>
+                  </div>
+                </div>
+                <input
+                  bind:this={inputArchivoLocal}
+                  id="imagen-remito-local"
+                  type="file"
+                  accept="image/*"
+                  class="sr-only"
+                  on:change={onImagenSeleccionada}
+                />
+                <Button
+                  variant="secondary"
+                  class="w-full justify-center mt-auto"
+                  on:click={() => inputArchivoLocal?.click()}
+                >
+                  Seleccionar archivo
+                </Button>
+              </div>
+
+              <div
+                class="rounded-xl border border-slate-200 bg-slate-50/80 p-4 flex flex-col gap-3 min-h-[9rem]"
+              >
+                <div class="flex items-start gap-3">
+                  <span class="mt-0.5 rounded-lg bg-white p-2 border border-slate-100 text-sky-600 shadow-sm">
+                    <Cloud size={22} aria-hidden="true" />
+                  </span>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <p class="font-medium text-slate-800">En la nube</p>
+                      <button
+                        type="button"
+                        class="inline-flex rounded-full p-0.5 text-sky-600 hover:text-sky-800 hover:bg-sky-100/80 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-1"
+                        aria-label="Ayuda: cómo subir fotos a la nube desde el teléfono"
+                        title="Ayuda"
+                        on:click={() => (modalAyudaNubeAbierto = true)}
+                      >
+                        <CircleHelp size={20} strokeWidth={2} aria-hidden="true" />
+                      </button>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                      Imágenes ya guardadas en Cloudinary (carpeta de remitos de la empresa).
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="secondary"
+                  class="w-full justify-center inline-flex items-center gap-2 mt-auto"
+                  on:click={abrirModalCloudinary}
+                >
+                  <Cloud size={18} class="shrink-0 opacity-90" aria-hidden="true" />
+                  Seleccionar en la nube
+                </Button>
+              </div>
+            </div>
+
             {#if imagenPreviewUrl}
-              <div class="mt-4 flex flex-wrap items-start gap-4">
+              <div class="mt-6 flex flex-wrap items-start gap-4 pt-2 border-t border-slate-100">
                 <div class="relative">
                   <img
                     src={imagenPreviewUrl}
@@ -628,11 +785,6 @@
                 </div>
               </div>
             {/if}
-            <p class="mt-2 text-xs text-slate-500">Suba una foto o escaneo del remito para extraer los ítems.</p>
-            <p class="mt-3 text-sm text-slate-600">O bien:</p>
-            <Button variant="secondary" on:click={irADesdeJson} class="mt-1">
-              agregar texto manualmente
-            </Button>
           </div>
         </div>
       {/if}
@@ -640,29 +792,23 @@
       <!-- Paso 2: Extracción ok + opción ver/editar JSON -->
       {#if pasoActual === 2}
         <div class="p-6 space-y-6">
-          {#if entradaDesdeJson}
-            <div class="flex flex-wrap items-center gap-3">
-              <span class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm font-medium">
-                Agregue el JSON del remito a continuación
-              </span>
-            </div>
-          {:else}
-            <div class="flex flex-wrap items-center gap-3">
-              <span class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 text-sm font-medium">
-                <span aria-hidden="true">✓</span> Extracción desde la imagen ok
-              </span>
-              <button
-                type="button"
-                class="text-sm text-blue-600 hover:underline font-medium"
-                on:click={() => (mostrarJsonParaEditar = !mostrarJsonParaEditar)}
-              >
-                {mostrarJsonParaEditar ? 'Ocultar JSON' : 'Ver/editar JSON'}
-              </button>
-            </div>
-          {/if}
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 text-sm font-medium">
+              <span aria-hidden="true">✓</span> Extracción desde la imagen ok
+            </span>
+            <button
+              type="button"
+              class="text-sm text-blue-600 hover:underline font-medium"
+              on:click={() => (mostrarJsonParaEditar = !mostrarJsonParaEditar)}
+            >
+              {mostrarJsonParaEditar ? 'Ocultar JSON' : 'Ver/editar JSON'}
+            </button>
+          </div>
           {#if mostrarJsonParaEditar}
             <div>
-              <label for="texto" class="block text-sm font-medium text-slate-700 mb-1.5">JSON {entradaDesdeJson ? 'del remito' : '(solo para edición ocasional)'}</label>
+              <label for="texto" class="block text-sm font-medium text-slate-700 mb-1.5"
+                >JSON extraído (edición opcional)</label
+              >
               <textarea
                 id="texto"
                 bind:value={textoPegado}
@@ -672,11 +818,7 @@
             </div>
           {/if}
           <div class="flex flex-wrap gap-3">
-            {#if entradaDesdeJson}
-              <Button variant="secondary" on:click={volverAPaso1}>Volver al paso 1</Button>
-            {:else}
-              <Button variant="secondary" on:click={() => (pasoActual = 1)}>Cambiar imagen</Button>
-            {/if}
+            <Button variant="secondary" on:click={() => (pasoActual = 1)}>Cambiar imagen</Button>
             <Button variant="primary" on:click={armarTabla} disabled={loading}>
               Cargar tabla
             </Button>
@@ -915,4 +1057,173 @@
       {/if}
     </main>
   </div>
+
+  {#if modalCloudinaryAbierto}
+    <div
+      class="fixed inset-0 z-[100] flex items-start justify-center p-4 sm:p-8 overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cloudinary-modal-title"
+    >
+      <button
+        type="button"
+        class="fixed inset-0 bg-slate-900/50 backdrop-blur-[1px] border-0 cursor-default"
+        aria-label="Cerrar"
+        on:click={cerrarModalCloudinary}
+      ></button>
+      <div
+        class="relative z-10 w-full max-w-3xl rounded-xl border border-slate-200 bg-white shadow-xl my-8"
+      >
+        <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 id="cloudinary-modal-title" class="text-lg font-semibold text-slate-800">
+              Imágenes en la nube
+            </h2>
+            <p class="mt-1 text-sm text-slate-500">
+              Elija una imagen para usarla como remito.
+              {#if cloudinaryFolderPrefix}
+                <span class="block mt-1 font-mono text-xs text-slate-600"
+                  >Prefijo en servidor: {cloudinaryFolderPrefix}/</span
+                >
+              {/if}
+            </p>
+          </div>
+          <button
+            type="button"
+            class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            on:click={cerrarModalCloudinary}
+            title="Cerrar"
+          >
+            <X size={22} />
+          </button>
+        </div>
+        <div class="px-5 py-4 space-y-4">
+          <div>
+            <label for="cloudinary-busqueda" class="block text-sm font-medium text-slate-700 mb-1.5"
+              >Buscar por nombre de archivo (opcional)</label
+            >
+            <input
+              id="cloudinary-busqueda"
+              type="search"
+              bind:value={cloudinaryBusqueda}
+              on:input={onCloudinaryBusquedaInput}
+              placeholder="Escriba para filtrar…"
+              class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          {#if cloudinaryCargando && cloudinaryItems.length === 0}
+            <div class="flex items-center justify-center gap-2 py-16 text-slate-500 text-sm">
+              <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Cargando imágenes…
+            </div>
+          {:else if cloudinaryErrorMsg && cloudinaryItems.length === 0}
+            <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+              {cloudinaryErrorMsg}
+            </div>
+          {:else if cloudinaryItems.length === 0}
+            <p class="py-12 text-center text-sm text-slate-500">No hay imágenes en esta carpeta o no hay coincidencias.</p>
+          {:else}
+            <ul class="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[min(60vh,28rem)] overflow-y-auto pr-1">
+              {#each cloudinaryItems as item (item.publicId)}
+                <li>
+                  <button
+                    type="button"
+                    class="group w-full rounded-lg border border-slate-200 overflow-hidden text-left bg-slate-50 hover:border-blue-400 hover:ring-2 hover:ring-blue-100 transition-shadow disabled:opacity-50"
+                    on:click={() => seleccionarImagenCloudinary(item)}
+                    disabled={cloudinarySeleccionando}
+                  >
+                    <div class="aspect-[3/4] bg-white flex items-center justify-center p-1">
+                      <img
+                        src={item.secureUrl}
+                        alt=""
+                        class="max-h-full max-w-full object-contain"
+                        loading="lazy"
+                      />
+                    </div>
+                    <p class="px-2 py-1.5 text-xs text-slate-600 truncate" title={item.publicId}>{item.publicId}</p>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+            {#if cloudinaryErrorMsg}
+              <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                {cloudinaryErrorMsg}
+              </div>
+            {/if}
+            {#if cloudinaryNextCursor}
+              <div class="flex justify-center pt-2">
+                <Button
+                  variant="secondary"
+                  on:click={() => cargarCloudinary(false)}
+                  disabled={cloudinaryCargandoMas}
+                >
+                  {cloudinaryCargandoMas ? 'Cargando…' : 'Cargar más'}
+                </Button>
+              </div>
+            {/if}
+          {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if modalAyudaNubeAbierto}
+    <div
+      class="fixed inset-0 z-[101] flex items-center justify-center p-4 sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="ayuda-nube-titulo"
+    >
+      <button
+        type="button"
+        class="fixed inset-0 bg-slate-900/50 backdrop-blur-[1px] border-0 cursor-default"
+        aria-label="Cerrar"
+        on:click={() => (modalAyudaNubeAbierto = false)}
+      ></button>
+      <div
+        class="relative z-10 w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-xl p-6"
+      >
+        <div class="flex items-start justify-between gap-3 mb-4">
+          <div class="flex items-center gap-2 text-sky-600">
+            <CircleHelp size={24} class="shrink-0" aria-hidden="true" />
+            <h2 id="ayuda-nube-titulo" class="text-lg font-semibold text-slate-800">
+              Fotos en la nube
+            </h2>
+          </div>
+          <button
+            type="button"
+            class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 shrink-0"
+            on:click={() => (modalAyudaNubeAbierto = false)}
+            title="Cerrar"
+          >
+            <X size={22} />
+          </button>
+        </div>
+        <p class="text-sm text-slate-600 leading-relaxed">
+          Desde el teléfono podés subir las fotos de tus comprobantes a la nube de la empresa entrando a:
+        </p>
+        <p class="mt-3">
+          <a
+            href={URL_SUBIR_COMPROBANTES_MOVIL}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-sm font-medium text-blue-600 hover:underline break-all"
+          >
+            {URL_SUBIR_COMPROBANTES_MOVIL}
+          </a>
+        </p>
+        <p class="mt-4 text-sm text-slate-500">
+          Después, esas imágenes aparecen aquí al pulsar <span class="font-medium text-slate-700"
+            >Seleccionar en la nube</span
+          >.
+        </p>
+        <div class="mt-6 flex justify-end">
+          <Button variant="primary" on:click={() => (modalAyudaNubeAbierto = false)}>Entendido</Button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>

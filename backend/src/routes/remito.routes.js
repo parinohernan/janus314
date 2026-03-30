@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const getEmpresaConnection = require('../middleware/dbConnection');
+const requireAuthEmpresaOnly = getEmpresaConnection.requireAuthEmpresaOnly;
 const remitoController = require('../controllers/remito.controller');
 
 const storage = multer.memoryStorage();
@@ -22,5 +23,7 @@ router.post(
   upload.single('imagen'),
   remitoController.analizarImagen
 );
+
+router.get('/cloudinary', requireAuthEmpresaOnly, remitoController.listarImagenesCloudinary);
 
 module.exports = router;

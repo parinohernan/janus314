@@ -7,6 +7,8 @@
   export let documentoTipo: string = '';
   export let documentoSucursal: string = '';
   export let documentoNumero: string = '';
+  /** Si se informa, se usa para descargar/compartir (ej. OC con sufijo -proveedor) */
+  export let nombreArchivoPdf: string | null = null;
   
   // Funciones para manejar acciones
   function imprimir() {
@@ -15,12 +17,13 @@
     }
   }
   
+  function nombrePdf(): string {
+    return nombreArchivoPdf || `${documentoTipo}-${documentoSucursal}-${documentoNumero}.pdf`;
+  }
+
   function descargar() {
     if (pdfUrl) {
-      DocumentService.descargarPDF(
-        pdfUrl, 
-        `${documentoTipo}-${documentoSucursal}-${documentoNumero}.pdf`
-      );
+      DocumentService.descargarPDF(pdfUrl, nombrePdf());
     }
   }
   
@@ -30,7 +33,7 @@
     const resultado = await DocumentService.compartirPDF(
       pdfUrl,
       `${documentoTipo}-${documentoSucursal}-${documentoNumero}`,
-      `${documentoTipo}-${documentoSucursal}-${documentoNumero}.pdf`
+      nombrePdf()
     );
     
     if (!resultado) {

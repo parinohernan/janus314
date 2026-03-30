@@ -1613,6 +1613,7 @@ const initializeModels = (sequelize) => {
     ProveedorCodigo: { type: DataTypes.STRING(7), allowNull: true },
     CodigoArticulo: { type: DataTypes.STRING(13), primaryKey: true, allowNull: false },
     Cantidad: { type: DataTypes.DOUBLE(15, 2), allowNull: true, defaultValue: 0 },
+    CantidadProveedor: { type: DataTypes.DOUBLE(15, 4), allowNull: true, defaultValue: null },
     PrecioCostoUnitario: { type: DataTypes.DOUBLE(15, 3), allowNull: true, defaultValue: 0 }
   }, { tableName: 'prv_orden_compra_items', timestamps: false });
 

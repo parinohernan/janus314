@@ -42,6 +42,7 @@ export const MENU_ENTRIES: MenuEntry[] = [
 	{ id: '/compras/notascredito', url: '/compras/notascredito', label: 'Notas de Crédito (beta)', parentId: 'compras', parentLabel: 'Compras' },
 	{ id: '/compras/notasdebito', url: '/compras/notasdebito', label: 'Notas de Débito (beta)', parentId: 'compras', parentLabel: 'Compras' },
 	{ id: '/compras/cuentascorrientes', url: '/compras/cuentascorrientes', label: 'Cuentas Corrientes (beta)', parentId: 'compras', parentLabel: 'Compras' },
+	{ id: '/compras/subir-imagen', url: '/compras/subir-imagen', label: 'Subir imagen (móvil)', parentId: 'compras', parentLabel: 'Compras' },
 	// Productos
 	{ id: 'productos', url: '', label: 'Productos', parentId: '', parentLabel: '' },
 	{ id: '/productos', url: '/productos', label: 'Productos', parentId: 'productos', parentLabel: 'Productos' },

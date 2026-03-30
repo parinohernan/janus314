@@ -6,6 +6,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { formatDate } from '$lib/utils/dateUtils';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { confirm, toast } from '$lib/utils/toast';
 
   interface OrdenCompra {
     DocumentoTipo: string;
@@ -17,6 +18,7 @@
     FechaDeEntregaFormateada?: string;
     ImporteTotal: number;
     FechaAnulacion: string | null;
+    ProveedorCodigo?: string;
     ProveedorRelacion?: { Codigo: string; Descripcion: string };
   }
 
@@ -27,6 +29,8 @@
   let totalPages = 0;
   let loading = true;
   let error: string | null = null;
+  /** Clave tipo-sucursal-numero mientras corre una acción (anular / reactivar / eliminar) */
+  let busyKey: string | null = null;
 
   const hoy = new Date().toISOString().slice(0, 10);
   let filtroProveedor = '';
@@ -78,6 +82,79 @@
 
   const verDetalle = (o: OrdenCompra) => {
     goto(`/compras/ordenes/${o.DocumentoTipo}/${o.DocumentoSucursal}/${o.DocumentoNumero}`);
+  };
+
+  const keyOrden = (o: OrdenCompra) =>
+    `${o.DocumentoTipo}|${o.DocumentoSucursal}|${o.DocumentoNumero}`;
+
+  const urlOrdenApi = (o: OrdenCompra) =>
+    `/ordenes-compra/${encodeURIComponent(o.DocumentoTipo)}/${encodeURIComponent(o.DocumentoSucursal)}/${encodeURIComponent(o.DocumentoNumero)}`;
+
+  const anularOrden = async (o: OrdenCompra) => {
+    const ok = await confirm(
+      `¿Anular la orden ${o.DocumentoTipo} ${o.DocumentoSucursal}-${o.DocumentoNumero}? Quedará marcada como no vigente.`,
+      { confirmLabel: 'Anular', cancelLabel: 'Cancelar' }
+    );
+    if (!ok) return;
+    const k = keyOrden(o);
+    busyKey = k;
+    try {
+      const res = await fetchWithAuth(urlOrdenApi(o), {
+        method: 'PATCH',
+        body: JSON.stringify({ vigente: false })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || data.error || 'No se pudo anular');
+      toast.success('Orden anulada (no vigente)');
+      await cargarOrdenes();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error al anular');
+    } finally {
+      busyKey = null;
+    }
+  };
+
+  const reactivarOrden = async (o: OrdenCompra) => {
+    const ok = await confirm(
+      `¿Volver a dejar vigente la orden ${o.DocumentoTipo} ${o.DocumentoSucursal}-${o.DocumentoNumero}?`,
+      { confirmLabel: 'Reactivar', cancelLabel: 'Cancelar' }
+    );
+    if (!ok) return;
+    busyKey = keyOrden(o);
+    try {
+      const res = await fetchWithAuth(urlOrdenApi(o), {
+        method: 'PATCH',
+        body: JSON.stringify({ vigente: true })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || data.error || 'No se pudo reactivar');
+      toast.success('Orden vigente de nuevo');
+      await cargarOrdenes();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error al reactivar');
+    } finally {
+      busyKey = null;
+    }
+  };
+
+  const eliminarOrden = async (o: OrdenCompra) => {
+    const ok = await confirm(
+      `¿Eliminar definitivamente la orden ${o.DocumentoTipo} ${o.DocumentoSucursal}-${o.DocumentoNumero}? Se borrarán cabecera e ítems. Esta acción no se puede deshacer.`,
+      { confirmLabel: 'Eliminar', cancelLabel: 'Cancelar' }
+    );
+    if (!ok) return;
+    busyKey = keyOrden(o);
+    try {
+      const res = await fetchWithAuth(urlOrdenApi(o), { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || data.error || 'No se pudo eliminar');
+      toast.success('Orden eliminada');
+      await cargarOrdenes();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error al eliminar');
+    } finally {
+      busyKey = null;
+    }
   };
 
   onMount(async () => {
@@ -191,39 +268,76 @@
             <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Proveedor</th>
             <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Fecha entrega</th>
             <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Estado</th>
-            <th class="px-4 py-2"></th>
+            <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Acciones</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-200 bg-white">
           {#each ordenes as o}
+            {@const k = keyOrden(o)}
+            {@const busy = busyKey === k}
             <tr class="hover:bg-gray-50">
               <td class="whitespace-nowrap px-4 py-2 text-sm text-gray-900">
                 {o.DocumentoTipo} {o.DocumentoSucursal}-{o.DocumentoNumero}
               </td>
               <td class="whitespace-nowrap px-4 py-2 text-sm text-gray-600">
-                {formatDate(o.FechaFormateada || o.Fecha)}
+                {formatDate(o.FechaFormateada || o.Fecha || '')}
               </td>
               <td class="px-4 py-2 text-sm text-gray-600">
                 {o.ProveedorRelacion?.Descripcion ?? o.ProveedorCodigo ?? '-'}
               </td>
               <td class="whitespace-nowrap px-4 py-2 text-sm text-gray-600">
-                {o.FechaDeEntregaFormateada || o.FechaDeEntrega ? formatDate(o.FechaDeEntregaFormateada || o.FechaDeEntrega) : '-'}
+                {#if o.FechaDeEntregaFormateada || o.FechaDeEntrega}
+                  {formatDate(String(o.FechaDeEntregaFormateada || o.FechaDeEntrega))}
+                {:else}
+                  -
+                {/if}
               </td>
               <td class="whitespace-nowrap px-4 py-2 text-sm">
                 {#if o.FechaAnulacion}
-                  <span class="text-red-600">Anulada</span>
+                  <span class="text-red-600">No vigente</span>
+                  <span class="block text-xs text-gray-500">Anulada {formatDate(String(o.FechaAnulacion).slice(0, 10))}</span>
                 {:else}
                   <span class="text-green-600">Vigente</span>
                 {/if}
               </td>
-              <td class="whitespace-nowrap px-4 py-2">
-                <button
-                  type="button"
-                  class="text-indigo-600 hover:text-indigo-900"
-                  on:click={() => verDetalle(o)}
-                >
-                  Ver
-                </button>
+              <td class="px-4 py-2 text-sm">
+                <div class="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-1">
+                  <button
+                    type="button"
+                    class="text-left text-indigo-600 hover:text-indigo-900 disabled:opacity-50"
+                    disabled={busy}
+                    on:click={() => verDetalle(o)}
+                  >
+                    Ver
+                  </button>
+                  {#if !o.FechaAnulacion}
+                    <button
+                      type="button"
+                      class="text-left text-amber-700 hover:text-amber-900 disabled:opacity-50"
+                      disabled={busy}
+                      on:click={() => anularOrden(o)}
+                    >
+                      Anular
+                    </button>
+                  {:else}
+                    <button
+                      type="button"
+                      class="text-left text-green-700 hover:text-green-900 disabled:opacity-50"
+                      disabled={busy}
+                      on:click={() => reactivarOrden(o)}
+                    >
+                      Reactivar
+                    </button>
+                  {/if}
+                  <button
+                    type="button"
+                    class="text-left text-red-600 hover:text-red-800 disabled:opacity-50"
+                    disabled={busy}
+                    on:click={() => eliminarOrden(o)}
+                  >
+                    Eliminar
+                  </button>
+                </div>
               </td>
             </tr>
           {/each}

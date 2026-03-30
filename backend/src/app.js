@@ -86,8 +86,42 @@ const envCorsOrigins = (process.env.CORS_ORIGINS || '')
 // Unir y de-duplicar
 const allowedOrigins = Array.from(new Set([...staticCorsOrigins, ...envCorsOrigins]));
 
+const viteDevPorts = new Set(['5173', '4173', '5174']);
+
+/**
+ * En desarrollo, permite Vite desde la red local (p. ej. http://192.168.x.x:5173 desde el celular).
+ * Con credentials: true el origen debe estar permitido explícitamente; localhost:5173 no cubre la IP LAN.
+ */
+function isDevLanViteOrigin(origin) {
+  if (process.env.NODE_ENV === 'production') return false;
+  try {
+    const u = new URL(origin);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+    if (!viteDevPorts.has(u.port)) return false;
+    if (u.hostname === '127.0.0.1' || u.hostname === 'localhost') return true;
+    if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(u.hostname)) return true;
+    if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(u.hostname)) return true;
+    if (/^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(u.hostname)) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 const corsOptions = {
-  origin: allowedOrigins,
+  origin(origin, callback) {
+    if (!origin) {
+      return callback(null, true);
+    }
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    if (isDevLanViteOrigin(origin)) {
+      return callback(null, true);
+    }
+    console.warn('[CORS] Origen no permitido:', origin);
+    return callback(null, false);
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   credentials: true,

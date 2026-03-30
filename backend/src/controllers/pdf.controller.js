@@ -632,7 +632,10 @@ exports.generarNotaCreditoPDF = async (req, res) => {
 exports.generarOrdenCompraPDF = async (req, res) => {
   try {
     const { tipo, sucursal, numero } = req.params;
-    const { OrdenCompraCabeza, OrdenCompraItem, Proveedor, Articulo, DatosEmpresa } = req.models;
+    const vistaProveedor = String(req.query.vista || "").toLowerCase() === "proveedor";
+    const { enrichOrdenCompraItems } = require("../utils/ordenCompraRelacionesHelper");
+    const { prvOrdenCompraItemsHasCantidadProveedor } = require("../utils/ordenCompraDbColumns");
+    const { OrdenCompraCabeza, OrdenCompraItem, Proveedor, Articulo, DatosEmpresa, RelacionArticuloProveedor } = req.models;
 
     const docNumero = String(numero || "").trim().padStart(8, "0");
     const docSucursal = String(sucursal || "").trim();
@@ -655,23 +658,40 @@ exports.generarOrdenCompraPDF = async (req, res) => {
       });
     }
 
+    const hasCantidadProveedorCol = await prvOrdenCompraItemsHasCantidadProveedor(
+      OrdenCompraItem.sequelize
+    );
+    const attrsOcItems = [
+      "DocumentoTipo",
+      "DocumentoSucursal",
+      "DocumentoNumero",
+      "ProveedorCodigo",
+      "CodigoArticulo",
+      "Cantidad",
+      "PrecioCostoUnitario",
+    ];
+    if (hasCantidadProveedorCol) attrsOcItems.splice(6, 0, "CantidadProveedor");
+
     const items = await OrdenCompraItem.findAll({
       where: {
         DocumentoTipo: docTipo,
         DocumentoSucursal: docSucursal,
         DocumentoNumero: docNumero,
       },
-      attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'ProveedorCodigo', 'CodigoArticulo', 'Cantidad', 'PrecioCostoUnitario'],
+      attributes: attrsOcItems,
       include: [{ model: Articulo, as: "Articulo", required: false, attributes: ["Codigo", "Descripcion"] }],
     });
 
-    const itemsConDescripcion = items.map((i) => {
-      const plain = i.get({ plain: true });
-      return {
-        ...plain,
-        Descripcion: plain.Articulo?.Descripcion || "",
-      };
-    });
+    const itemsPlain = items.map((i) => i.get({ plain: true }));
+    const itemsEnriquecidos = await enrichOrdenCompraItems(
+      itemsPlain,
+      orden.get("ProveedorCodigo"),
+      RelacionArticuloProveedor
+    );
+    const itemsConDescripcion = itemsEnriquecidos.map((plain) => ({
+      ...plain,
+      Descripcion: plain.Articulo?.Descripcion || "",
+    }));
 
     const datosEmpresa = await DatosEmpresa.findOne();
     if (!datosEmpresa) {
@@ -688,13 +708,15 @@ exports.generarOrdenCompraPDF = async (req, res) => {
     const doc = new PDFDocument(docFacturaA4);
 
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="orden-compra-${tipo}-${sucursal}-${numero}.pdf"`);
+    const suffix = vistaProveedor ? "-proveedor" : "";
+    res.setHeader("Content-Disposition", `inline; filename="orden-compra-${tipo}-${sucursal}-${numero}${suffix}.pdf"`);
     doc.pipe(res);
 
     await renderOrdenCompra(doc, {
       orden: ordenData,
       items: itemsConDescripcion,
       logoPath,
+      vistaProveedor,
     });
 
     doc.end();

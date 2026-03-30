@@ -1032,9 +1032,9 @@ exports.rotacionStock = async (req, res) => {
 // Informe detallado de ventas por vendedor con notas de crédito
 exports.informeVentasVendedor = async (req, res) => {
   try {
-    const { fechaDesde, fechaHasta, vendedorCodigo } = req.query;
+    const { fechaDesde, fechaHasta, vendedorCodigo, pagoTipo } = req.query;
     
-    console.log("Parámetros recibidos:", { fechaDesde, fechaHasta, vendedorCodigo });
+    console.log("Parámetros recibidos:", { fechaDesde, fechaHasta, vendedorCodigo, pagoTipo });
     
     // Validar parámetros
     if (!fechaDesde || !fechaHasta || !vendedorCodigo) {
@@ -1054,14 +1054,19 @@ exports.informeVentasVendedor = async (req, res) => {
       });
     }
 
-    // 1. Obtener facturas del vendedor en el rango de fechas
+    // 1. Obtener facturas del vendedor en el rango de fechas (opcional: filtro por forma de pago)
+    const whereFacturas = {
+      VendedorCodigo: vendedorCodigo,
+      Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
+      FechaAnulacion: null,
+      DocumentoTipo: { [Op.in]: ['FCA', 'FCB', 'FCC', 'PRF'] } // Facturas y prefacturas
+    };
+    if (pagoTipo) {
+      whereFacturas.PagoTipo = pagoTipo;
+    }
+
     const facturas = await FacturaCabeza.findAll({
-      where: {
-        VendedorCodigo: vendedorCodigo,
-        Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
-        FechaAnulacion: null,
-        DocumentoTipo: { [Op.in]: ['FCA', 'FCB', 'FCC', 'PRF'] } // Facturas y prefacturas
-      },
+      where: whereFacturas,
       attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'Fecha', 'ClienteCodigo', 'ImporteTotal'],
       include: [
         {
@@ -1223,9 +1228,9 @@ exports.informeVentasVendedor = async (req, res) => {
 // Generar PDF del informe de ventas por vendedor
 exports.generarPDFInformeVendedor = async (req, res) => {
   try {
-    const { fechaDesde, fechaHasta, vendedorCodigo } = req.query;
+    const { fechaDesde, fechaHasta, vendedorCodigo, pagoTipo } = req.query;
     
-    console.log("Generando PDF - Parámetros recibidos:", { fechaDesde, fechaHasta, vendedorCodigo });
+    console.log("Generando PDF - Parámetros recibidos:", { fechaDesde, fechaHasta, vendedorCodigo, pagoTipo });
     
     // Validar parámetros
     if (!fechaDesde || !fechaHasta || !vendedorCodigo) {
@@ -1247,13 +1252,18 @@ exports.generarPDFInformeVendedor = async (req, res) => {
 
     // Reutilizar la misma lógica del endpoint informeVentasVendedor
     // 1. Obtener facturas del vendedor en el rango de fechas
+    const whereFacturasPdf = {
+      VendedorCodigo: vendedorCodigo,
+      Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
+      FechaAnulacion: null,
+      DocumentoTipo: { [Op.in]: ['FCA', 'FCB', 'FCC', 'PRF'] }
+    };
+    if (pagoTipo) {
+      whereFacturasPdf.PagoTipo = pagoTipo;
+    }
+
     const facturas = await FacturaCabeza.findAll({
-      where: {
-        VendedorCodigo: vendedorCodigo,
-        Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
-        FechaAnulacion: null,
-        DocumentoTipo: { [Op.in]: ['FCA', 'FCB', 'FCC', 'PRF'] }
-      },
+      where: whereFacturasPdf,
       attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'Fecha', 'ClienteCodigo', 'ImporteTotal'],
       include: [
         {
