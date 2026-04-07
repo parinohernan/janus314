@@ -684,65 +684,77 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     recalcularTotales();
   };
   
+  /** Factura B y PRF (IVA en precio): el total del comprobante puede alinearse a la suma de ítems. */
+  const esFacturaTotalPorSumaItems = () =>
+    factura.DocumentoTipo === 'FCB' || factura.DocumentoTipo === 'PRF';
+
   // Recalcular totales (actualizado)
   const recalcularTotales = () => {
-    // Inicializar valores
     let importeBruto = 0;
-    let importeIva1 = 0; // IVA 21%
-    let importeIva2 = 0; // IVA 10.5%
-    
-    factura.Items.forEach(item => {
-      // Calcular importe bruto (suma de precios unitarios * cantidad)
+    let importeIva1 = 0;
+    let importeIva2 = 0;
+
+    factura.Items.forEach((item) => {
       importeBruto += item.PrecioUnitario * item.Cantidad;
     });
-    
-    // Actualizar importe bruto
+
     factura.ImporteBruto = parseFloat(importeBruto.toFixed(2));
-    
-    // Calcular descuento general
-    factura.ImporteBonificado = parseFloat((factura.ImporteBruto * (factura.PorcentajeBonificacion / 100)).toFixed(2));
-    
-    // Calcular importe neto (después del descuento)
-    factura.ImporteNeto = parseFloat((factura.ImporteBruto - factura.ImporteBonificado).toFixed(2));
-    
-    // Calcular IVA sobre el importe neto (después del descuento general)
-    // Necesitamos calcular la proporción de cada alícuota de IVA en el total
+
+    factura.ImporteBonificado = parseFloat(
+      (factura.ImporteBruto * (factura.PorcentajeBonificacion / 100)).toFixed(2)
+    );
+
+    factura.ImporteNeto = parseFloat(
+      (factura.ImporteBruto - factura.ImporteBonificado).toFixed(2)
+    );
+
     let baseIva21 = 0;
     let baseIva10_5 = 0;
-    
-    factura.Items.forEach(item => {
+
+    factura.Items.forEach((item) => {
       const importeItem = item.PrecioUnitario * item.Cantidad;
-      // Aplicar el mismo porcentaje de descuento general a cada ítem
-      const importeItemConDescuento = importeItem * (1 - (factura.PorcentajeBonificacion / 100));
-      
+      const importeItemConDescuento =
+        importeItem * (1 - factura.PorcentajeBonificacion / 100);
+
       if (item.PorcentajeIva === 21) {
         baseIva21 += importeItemConDescuento;
       } else if (item.PorcentajeIva === 10.5) {
         baseIva10_5 += importeItemConDescuento;
       }
     });
-    
-    // Calcular IVA sobre las bases imponibles con descuento aplicado
+
     importeIva1 = baseIva21 * 0.21;
     importeIva2 = baseIva10_5 * 0.105;
-    
-    // Actualizar valores de IVA y bases imponibles
+
     factura.ImporteIva1 = parseFloat(importeIva1.toFixed(2));
     factura.ImporteIva2 = parseFloat(importeIva2.toFixed(2));
     factura.ImporteIva = parseFloat((importeIva1 + importeIva2).toFixed(2));
     factura.BaseImponible1 = parseFloat(baseIva21.toFixed(2));
     factura.BaseImponible2 = parseFloat(baseIva10_5.toFixed(2));
-    
-    // Calcular Ingresos Brutos
-    factura.ImporteIngresosBrutos = parseFloat((factura.ImporteNeto * (factura.PorcentajeIngresosBrutos / 100)).toFixed(2));
-    
-    // Calcular importe total
-    factura.ImporteTotal = parseFloat((
-      factura.ImporteNeto + 
-      factura.ImporteIva1 + 
-      factura.ImporteIva2 + 
-      factura.ImporteIngresosBrutos
-    ).toFixed(2));
+
+    factura.ImporteIngresosBrutos = parseFloat(
+      (factura.ImporteNeto * (factura.PorcentajeIngresosBrutos / 100)).toFixed(2)
+    );
+
+    const totalPorNetoIva =
+      factura.ImporteNeto +
+      factura.ImporteIva1 +
+      factura.ImporteIva2 +
+      factura.ImporteIngresosBrutos;
+
+    const sinBonifNiIibb =
+      (factura.PorcentajeBonificacion || 0) === 0 &&
+      (factura.PorcentajeIngresosBrutos || 0) === 0;
+
+    if (esFacturaTotalPorSumaItems() && sinBonifNiIibb && factura.Items.length > 0) {
+      const sumaItems = factura.Items.reduce(
+        (s, it) => s + (Number(it.Total) || 0),
+        0
+      );
+      factura.ImporteTotal = parseFloat(sumaItems.toFixed(2));
+    } else {
+      factura.ImporteTotal = parseFloat(totalPorNetoIva.toFixed(2));
+    }
   };
   
   // Actualizar descuento general
@@ -1470,7 +1482,10 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
             <select 
               id="tipoDocumento" 
               bind:value={factura.DocumentoTipo}
-              on:change={obtenerProximoNumero}
+              on:change={async () => {
+                await obtenerProximoNumero();
+                recalcularTotales();
+              }}
               class="w-2/5 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Seleccionar tipo</option>

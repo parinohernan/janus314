@@ -65,7 +65,7 @@ function renderItemsListConIva(doc, items, startY, interlineado = 10) {
   doc.text("P. Lista", x, tableTop, { width: columnWidth.precioLista, align: "right" });
   x += columnWidth.precioLista;
 
-  doc.text("% Desc.", x, tableTop, { width: columnWidth.descuento, align: "right" });
+  doc.text("Desc.", x, tableTop, { width: columnWidth.descuento, align: "right" });
   x += columnWidth.descuento;
 
   doc.text("Precio U.", x, tableTop, { width: columnWidth.precioUnitario, align: "right" });
