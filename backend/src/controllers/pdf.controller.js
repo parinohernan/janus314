@@ -11,6 +11,7 @@ const { getTemplateRenderer } = require("../templates/pdf");
 const renderFacturaA = require("../templates/pdf/facturaA.template");
 const renderFacturaB = require("../templates/pdf/facturaB.template");
 const renderPrefactura = require("../templates/pdf/prefactura.template.js");
+const renderPrefacturaConEmpresa = require("../templates/pdf/prefacturaConEmpresa.template.js");
 const renderNotaCreditoA = require("../templates/pdf/notaCreditoA.template.js");
 const renderNotaCreditoB = require("../templates/pdf/notaCreditoB.template.js");
 const renderNotaCreditoF = require("../templates/pdf/notaCreditoF.template.js");
@@ -35,7 +36,7 @@ exports.generarFacturaPDF = async (req, res) => {
     console.log(`Generando PDF para factura: ${tipo}-${sucursal}-${numero}`);
     
     // Obtener los modelos dinámicos de la empresa actual
-    const { FacturaCabeza, FacturaItem, Cliente, Articulo, DatosEmpresa } = req.models;
+    const { FacturaCabeza, FacturaItem, Cliente, Articulo, DatosEmpresa, Configuracion } = req.models;
 
     // Obtener datos de la factura con el cliente
     const factura = await FacturaCabeza.findOne({
@@ -181,11 +182,33 @@ exports.generarFacturaPDF = async (req, res) => {
         logoPath,
       });
     } else if (tipo === "PRF") {
-      await renderPrefactura(doc, {
-        prefactura: factura, // ✅ Corregido: cambiar 'factura' por 'prefactura'
-        items: itemsConArticulos,
-        logoPath,
-      });
+      let mostrarInfoEmpresaRemito = false;
+      try {
+        if (Configuracion) {
+          const cfg = await Configuracion.findOne({
+            where: { Codigo: "mostrar_info_en_remitos" },
+            attributes: ["ValorConfig"],
+          });
+          mostrarInfoEmpresaRemito =
+            cfg && String(cfg.ValorConfig || "").trim() === "1";
+        }
+      } catch (e) {
+        console.warn("[PDF PRF] No se pudo leer mostrar_info_en_remitos:", e.message);
+      }
+
+      if (mostrarInfoEmpresaRemito) {
+        await renderPrefacturaConEmpresa(doc, {
+          prefactura: factura,
+          items: itemsConArticulos,
+          logoPath,
+        });
+      } else {
+        await renderPrefactura(doc, {
+          prefactura: factura,
+          items: itemsConArticulos,
+          logoPath,
+        });
+      }
     } else {
       doc.fontSize(20).text("Tipo de factura no soportado", 100, 100);
     }

@@ -4,7 +4,6 @@
   import type { Configuracion } from '$lib/types';
   import { menuVisibilityStore, MENU_ENTRIES } from '$lib/stores/menuVisibilityStore';
   
-  let configuraciones = $state<Configuracion[]>([]);
   let cargando = $state(true);
   let guardando = $state(false);
   let mensaje = $state('');
@@ -12,9 +11,12 @@
   
   // Valores editables
   let valores: Record<string, string> = $state({});
+
+  type FilaParametro = { codigo: string; config: Configuracion | null };
+  let filasParametros = $state<FilaParametro[]>([]);
   
-  // Configuraciones que queremos mostrar
-  const configuracionesVisibles = ['CANT_ITEMS'];
+  // Códigos en t_configuracion (misma tabla que CANT_ITEMS)
+  const configuracionesVisibles = ['CANT_ITEMS', 'mostrar_info_en_remitos'] as const;
   
   onMount(async () => {
     await cargarConfiguraciones();
@@ -24,16 +26,21 @@
     try {
       cargando = true;
       const todasLasConfigs = await ConfiguracionService.obtenerConfiguraciones();
-      
-      // Filtrar solo las configuraciones visibles
-      configuraciones = todasLasConfigs.filter(c => 
-        configuracionesVisibles.includes(c.Codigo)
-      );
-      
-      // Inicializar valores
-      configuraciones.forEach(config => {
-        valores[config.Codigo] = config.ValorConfig || '';
-      });
+
+      filasParametros = configuracionesVisibles.map((codigo) => ({
+        codigo,
+        config: todasLasConfigs.find((c) => c.Codigo === codigo) ?? null
+      }));
+
+      for (const fila of filasParametros) {
+        if (!fila.config) continue;
+        if (fila.codigo === 'mostrar_info_en_remitos') {
+          const v = String(fila.config.ValorConfig ?? '').trim();
+          valores[fila.codigo] = v === '1' ? '1' : '0';
+        } else {
+          valores[fila.codigo] = fila.config.ValorConfig ?? '';
+        }
+      }
       
     } catch (error) {
       console.error('Error al cargar configuraciones:', error);
@@ -46,9 +53,13 @@
   async function guardarConfiguracion(codigo: string) {
     try {
       guardando = true;
+      let valorAGuardar = valores[codigo];
+      if (codigo === 'mostrar_info_en_remitos') {
+        valorAGuardar = valorAGuardar === '1' ? '1' : '0';
+      }
       const exito = await ConfiguracionService.actualizarConfiguracion(
         codigo,
-        valores[codigo]
+        valorAGuardar
       );
       
       if (exito) {
@@ -75,16 +86,23 @@
   
   function obtenerDescripcionAmigable(codigo: string): string {
     const descripciones: Record<string, string> = {
-      'CANT_ITEMS': 'Cantidad de Items por Página'
+      CANT_ITEMS: 'Cantidad de Items por Página',
+      mostrar_info_en_remitos: 'Mostrar información en remitos'
     };
     return descripciones[codigo] || codigo;
   }
   
+  /** 'number' | 'flag01' | 'text' */
   function obtenerTipoInput(codigo: string): string {
     const tipos: Record<string, string> = {
-      'CANT_ITEMS': 'number'
+      CANT_ITEMS: 'number',
+      mostrar_info_en_remitos: 'flag01'
     };
     return tipos[codigo] || 'text';
+  }
+
+  function parametroDisponible(fila: FilaParametro): boolean {
+    return fila.config !== null;
   }
 </script>
 
@@ -178,37 +196,60 @@
     <div class="bg-white rounded-lg shadow-md">
       <div class="p-6">
         <h2 class="text-xl font-semibold text-gray-800 mb-4">Parámetros generales</h2>
-        {#if configuraciones.length === 0}
-          <p class="text-center text-gray-500 py-8">No hay configuraciones disponibles</p>
-        {:else}
-          <div class="space-y-6">
-            {#each configuraciones as config}
-              <div class="border-b border-gray-200 pb-6 last:border-b-0 last:pb-0">
-                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div class="flex-1">
-                    <label 
-                      for={config.Codigo}
-                      class="block text-lg font-semibold text-gray-700 mb-1"
+        <div class="space-y-6">
+          {#each filasParametros as fila}
+            {@const disponible = parametroDisponible(fila)}
+            {@const config = fila.config}
+            {@const tipo = obtenerTipoInput(fila.codigo)}
+            <div
+              class="border-b border-gray-200 pb-6 last:border-b-0 last:pb-0 rounded-lg px-3 py-3 -mx-3
+                {!disponible ? 'bg-gray-100 text-gray-500' : ''}"
+            >
+              <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div class="flex-1">
+                  <span
+                    class="block text-lg font-semibold mb-1 {!disponible ? 'text-gray-500' : 'text-gray-700'}"
+                  >
+                    {obtenerDescripcionAmigable(fila.codigo)}
+                  </span>
+                  {#if disponible && config?.Descripcion}
+                    <p class="text-sm text-gray-500">{config.Descripcion}</p>
+                  {:else if !disponible}
+                    <p class="text-sm text-gray-500">
+                      No hay fila para este código en la tabla de configuración; no se puede editar hasta que exista en la base.
+                    </p>
+                  {/if}
+                </div>
+
+                <div class="flex items-center gap-3 md:w-1/3">
+                  {#if !disponible}
+                    <span
+                      class="flex-1 px-4 py-2 border border-gray-200 rounded-lg bg-gray-200 text-gray-500 text-sm"
+                      aria-disabled="true"
                     >
-                      {obtenerDescripcionAmigable(config.Codigo)}
-                    </label>
-                    {#if config.Descripcion}
-                      <p class="text-sm text-gray-500">{config.Descripcion}</p>
-                    {/if}
-                  </div>
-                  
-                  <div class="flex items-center gap-3 md:w-1/3">
-                    <input
-                      type={obtenerTipoInput(config.Codigo)}
-                      id={config.Codigo}
-                      bind:value={valores[config.Codigo]}
-                      class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      disabled={guardando}
-                    />
-                    
+                      —
+                    </span>
                     <button
-                      onclick={() => guardarConfiguracion(config.Codigo)}
-                      disabled={guardando || valores[config.Codigo] === config.ValorConfig}
+                      type="button"
+                      disabled
+                      class="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed whitespace-nowrap"
+                    >
+                      Guardar
+                    </button>
+                  {:else if tipo === 'flag01'}
+                    <select
+                      id={fila.codigo}
+                      bind:value={valores[fila.codigo]}
+                      class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      disabled={guardando}
+                    >
+                      <option value="0">No (0)</option>
+                      <option value="1">Sí (1)</option>
+                    </select>
+                    <button
+                      type="button"
+                      onclick={() => guardarConfiguracion(fila.codigo)}
+                      disabled={guardando || valores[fila.codigo] === config!.ValorConfig}
                       class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                     >
                       {#if guardando}
@@ -217,16 +258,36 @@
                         Guardar
                       {/if}
                     </button>
-                  </div>
-                </div>
-                
-                <div class="mt-2 text-xs text-gray-400">
-                  Código: {config.Codigo}
+                  {:else}
+                    <input
+                      type={tipo === 'number' ? 'number' : 'text'}
+                      id={fila.codigo}
+                      bind:value={valores[fila.codigo]}
+                      class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={guardando}
+                    />
+                    <button
+                      type="button"
+                      onclick={() => guardarConfiguracion(fila.codigo)}
+                      disabled={guardando || valores[fila.codigo] === config!.ValorConfig}
+                      class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                    >
+                      {#if guardando}
+                        Guardando...
+                      {:else}
+                        Guardar
+                      {/if}
+                    </button>
+                  {/if}
                 </div>
               </div>
-            {/each}
-          </div>
-        {/if}
+
+              <div class="mt-2 text-xs text-gray-400">
+                Código: {fila.codigo}
+              </div>
+            </div>
+          {/each}
+        </div>
       </div>
     </div>
     

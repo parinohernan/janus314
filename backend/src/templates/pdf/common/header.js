@@ -22,6 +22,7 @@ function renderHeader(doc, options = {}) {
     isNotaCredito = false, // Para distinguir notas de crédito
     isNotaDebito = false, // Para distinguir notas de débito
     isOrdenCompra = false, // Para órdenes de compra
+    isRemito = false, // PRF / remito interno con encabezado completo
   } = options;
 
   // constantes de posicionamiento
@@ -85,6 +86,8 @@ function renderHeader(doc, options = {}) {
       documentTypeText = "Nota de Débito";
     } else if (isOrdenCompra) {
       documentTypeText = "Orden de Compra";
+    } else if (isRemito) {
+      documentTypeText = "Remito";
     }
     
     doc.fontSize(12).text(`${documentTypeText} N° ${documentNumber}`, { align: "right" });
