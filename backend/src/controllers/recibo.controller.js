@@ -857,9 +857,10 @@ exports.anularRecibo = async (req, res) => {
       Cliente, 
       FacturaCabeza, 
       NotaDebito, 
-      NotaCreditoCabeza,
+      NotaCredito,
       CajaCabeza,
-      CajaMovimientos 
+      CajaMovimientos,
+      TipoDePago
     } = req.models;
 
     // Obtener la instancia de sequelize desde cualquier modelo
@@ -940,7 +941,7 @@ exports.anularRecibo = async (req, res) => {
           if (['NCF', 'NCA', 'NCB', 'NCC'].includes(valor.ValorCodigo)) {
             console.log('Procesando nota de crédito:', valor.toJSON());
             
-            const notaCredito = await NotaCreditoCabeza.findOne({
+            const notaCredito = await NotaCredito.findOne({
               where: {
                 DocumentoTipo: valor.ValorCodigo,
                 DocumentoSucursal: valor.ValorSucursal,
@@ -1053,6 +1054,12 @@ exports.anularRecibo = async (req, res) => {
           });
         }
 
+        const codigosMetodoPagoValidos = new Set(
+          (await TipoDePago.findAll({ attributes: ['Codigo'], transaction })).map((r) => r.Codigo).filter(Boolean)
+        );
+        const metodoPagoParaMovimientoCaja = (codigo) =>
+          codigo && codigosMetodoPagoValidos.has(codigo) ? codigo : 'OT';
+
         // 3. Generar movimientos de caja para cancelar los ingresos
         for (const valor of valores) {
           // Solo generar movimiento para formas de pago que no aplican saldo
@@ -1062,7 +1069,7 @@ exports.anularRecibo = async (req, res) => {
               Tipo: 'egreso',
               Importe: valor.ValorImporte,
               Concepto: `Anulación de recibo ${recibo.DocumentoSucursal}-${recibo.DocumentoNumero} - ${valor.ValorDescripcion || 'Sin descripción'}`,
-              MetodoPago: valor.ValorCodigo,
+              MetodoPago: metodoPagoParaMovimientoCaja(valor.ValorCodigo),
               Referencia: valor.ValorNumero || null,
               Banco: valor.ValorBanco || null,
               ValorFecha: valor.ValorFecha || new Date().toISOString().split('T')[0],
