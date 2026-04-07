@@ -1,0 +1,3 @@
+El cliente quiero saber que articulos y que camtidad son tachados en las preventas.  El informe puede ser por entre fechas y filtrado por provedor y por vendedor.
+
+Situacion, un vendedor realiza una preventa confiando en el stock que ve, pero no es 100% confiable por lo que aveces en depocito "TACHAN" por falta de stock algunos articulos de las preventas. el gerente de la empresa necesita un informe para reforzar esos articulos.

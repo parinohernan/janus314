@@ -1,6 +1,8 @@
 import { e as escape_html, c as pop, p as push } from "../../../../chunks/index3.js";
 import "clsx";
+import "../../../../chunks/client.js";
 import { B as Button } from "../../../../chunks/Button.js";
+import "../../../../chunks/navigationState.js";
 function _page($$payload, $$props) {
   push();
   let totalPages = 0;

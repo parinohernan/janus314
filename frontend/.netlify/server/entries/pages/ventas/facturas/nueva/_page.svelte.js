@@ -1,6 +1,7 @@
 import { d as store_get, z as copy_payload, A as assign_payload, u as unsubscribe_stores, c as pop, p as push, e as escape_html, k as attr, l as ensure_array_like, m as attr_class } from "../../../../../chunks/index3.js";
 import { p as page } from "../../../../../chunks/stores.js";
 import "../../../../../chunks/client.js";
+import "../../../../../chunks/navigationState.js";
 import { B as Button } from "../../../../../chunks/Button.js";
 import "../../../../../chunks/authStore.js";
 import { C as CaeModal, I as ImprimirModal } from "../../../../../chunks/ImprimirModal.js";

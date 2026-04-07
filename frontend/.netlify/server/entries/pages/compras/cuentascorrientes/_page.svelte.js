@@ -1,5 +1,6 @@
 import { h as head, k as attr, c as pop, p as push, e as escape_html, l as ensure_array_like, m as attr_class, n as stringify } from "../../../../chunks/index3.js";
 import "../../../../chunks/client.js";
+import "../../../../chunks/navigationState.js";
 import { debounce } from "lodash-es";
 import { B as Button } from "../../../../chunks/Button.js";
 import { f as fetchWithAuth } from "../../../../chunks/authStore.js";

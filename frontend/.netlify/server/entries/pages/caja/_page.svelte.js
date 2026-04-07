@@ -3,6 +3,7 @@ import "../../../chunks/client.js";
 import "clsx";
 import { a as auth } from "../../../chunks/authStore.js";
 import { B as Button } from "../../../chunks/Button.js";
+import "../../../chunks/navigationState.js";
 function _page($$payload, $$props) {
   push();
   var $$store_subs;

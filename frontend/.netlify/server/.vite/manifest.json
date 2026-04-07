@@ -39,6 +39,14 @@
       "_utils.js"
     ]
   },
+  "_DetalleFacturaModal.js": {
+    "file": "chunks/DetalleFacturaModal.js",
+    "name": "DetalleFacturaModal",
+    "imports": [
+      "_index3.js",
+      "_utils.js"
+    ]
+  },
   "_EntitySelector.js": {
     "file": "chunks/EntitySelector.js",
     "name": "EntitySelector",
@@ -122,9 +130,9 @@
       "_utils.js"
     ]
   },
-  "_app.BCZ83I-G.css": {
-    "file": "_app/immutable/assets/app.BCZ83I-G.css",
-    "src": "_app.BCZ83I-G.css"
+  "_app.FrecquAp.css": {
+    "file": "_app/immutable/assets/app.FrecquAp.css",
+    "src": "_app.FrecquAp.css"
   },
   "_authStore.js": {
     "file": "chunks/authStore.js",
@@ -222,6 +230,13 @@
       "_index3.js"
     ]
   },
+  "_menuVisibilityStore.js": {
+    "file": "chunks/menuVisibilityStore.js",
+    "name": "menuVisibilityStore",
+    "imports": [
+      "_index2.js"
+    ]
+  },
   "_mobile-fix.BVNc3r7Z.css": {
     "file": "_app/immutable/assets/mobile-fix.BVNc3r7Z.css",
     "src": "_mobile-fix.BVNc3r7Z.css"
@@ -301,11 +316,12 @@
       "_stores.js",
       "_tabsStore.js",
       "_index2.js",
+      "_menuVisibilityStore.js",
       "_navigationState.js"
     ],
     "css": [
       "_app/immutable/assets/_layout.DcXCc9sz.css",
-      "_app/immutable/assets/app.BCZ83I-G.css",
+      "_app/immutable/assets/app.FrecquAp.css",
       "_app/immutable/assets/Icon.Yrz8ANaq.css"
     ]
   },
@@ -366,7 +382,9 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
-      "_authStore.js"
+      "_client.js",
+      "_authStore.js",
+      "_navigationState.js"
     ]
   },
   "src/routes/caja/+page.svelte": {
@@ -378,7 +396,8 @@
       "_index3.js",
       "_client.js",
       "_authStore.js",
-      "_Button.js"
+      "_Button.js",
+      "_navigationState.js"
     ]
   },
   "src/routes/caja/arqueo/+page.svelte": {
@@ -402,7 +421,8 @@
       "_index3.js",
       "_client.js",
       "_authStore.js",
-      "_Button.js"
+      "_Button.js",
+      "_navigationState.js"
     ]
   },
   "src/routes/caja/cierre/+page.svelte": {
@@ -448,9 +468,9 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
-      "_Button.js",
       "_client.js",
       "_navigationState.js",
+      "_Button.js",
       "_ClienteService.js",
       "_tabsStore.js"
     ]
@@ -524,6 +544,7 @@
     "imports": [
       "_index3.js",
       "_client.js",
+      "_navigationState.js",
       "_Button.js",
       "_authStore.js"
     ]
@@ -549,6 +570,7 @@
     "imports": [
       "_index3.js",
       "_client.js",
+      "_navigationState.js",
       "_Button.js",
       "_authStore.js"
     ]
@@ -573,6 +595,7 @@
     "imports": [
       "_index3.js",
       "_client.js",
+      "_navigationState.js",
       "_Button.js",
       "_authStore.js"
     ]
@@ -584,6 +607,8 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
+      "_client.js",
+      "_navigationState.js",
       "_Button.js",
       "_authStore.js"
     ]
@@ -595,8 +620,61 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
+      "_client.js",
+      "_navigationState.js",
       "_Button.js",
       "_authStore.js"
+    ]
+  },
+  "src/routes/compras/ordenes/+page.svelte": {
+    "file": "entries/pages/compras/ordenes/_page.svelte.js",
+    "name": "entries/pages/compras/ordenes/_page.svelte",
+    "src": "src/routes/compras/ordenes/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_client.js",
+      "_navigationState.js",
+      "_Button.js",
+      "_authStore.js"
+    ]
+  },
+  "src/routes/compras/ordenes/[tipo]/[sucursal]/[numero]/+page.svelte": {
+    "file": "entries/pages/compras/ordenes/_tipo_/_sucursal_/_numero_/_page.svelte.js",
+    "name": "entries/pages/compras/ordenes/_tipo_/_sucursal_/_numero_/_page.svelte",
+    "src": "src/routes/compras/ordenes/[tipo]/[sucursal]/[numero]/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_client.js",
+      "_stores.js",
+      "_authStore.js"
+    ]
+  },
+  "src/routes/compras/ordenes/imprimir/[tipo]/[sucursal]/[numero]/+page.svelte": {
+    "file": "entries/pages/compras/ordenes/imprimir/_tipo_/_sucursal_/_numero_/_page.svelte.js",
+    "name": "entries/pages/compras/ordenes/imprimir/_tipo_/_sucursal_/_numero_/_page.svelte",
+    "src": "src/routes/compras/ordenes/imprimir/[tipo]/[sucursal]/[numero]/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_stores.js",
+      "_client.js",
+      "_Button.js",
+      "_authStore.js"
+    ]
+  },
+  "src/routes/compras/ordenes/nueva/+page.svelte": {
+    "file": "entries/pages/compras/ordenes/nueva/_page.svelte.js",
+    "name": "entries/pages/compras/ordenes/nueva/_page.svelte",
+    "src": "src/routes/compras/ordenes/nueva/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_client.js",
+      "_Button.js",
+      "_authStore.js",
+      "_navigationState.js"
     ]
   },
   "src/routes/compras/proveedores/+page.svelte": {
@@ -608,6 +686,7 @@
       "_index3.js",
       "_Button.js",
       "_client.js",
+      "_navigationState.js",
       "_authStore.js"
     ]
   },
@@ -632,6 +711,7 @@
     "imports": [
       "_index3.js",
       "_client.js",
+      "_navigationState.js",
       "_Button.js",
       "_authStore.js"
     ]
@@ -644,6 +724,7 @@
     "imports": [
       "_index3.js",
       "_client.js",
+      "_navigationState.js",
       "_Button.js",
       "_Input.js",
       "_authStore.js"
@@ -656,7 +737,8 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
-      "_authStore.js"
+      "_authStore.js",
+      "_menuVisibilityStore.js"
     ],
     "css": [
       "_app/immutable/assets/_page.tn0RQdqM.css"
@@ -700,9 +782,10 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
-      "_Button.js",
       "_client.js",
-      "_public.js"
+      "_Button.js",
+      "_public.js",
+      "_navigationState.js"
     ]
   },
   "src/routes/localidades/[id]/+page.svelte": {
@@ -785,8 +868,10 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
+      "_client.js",
       "_Button.js",
-      "_authStore.js"
+      "_authStore.js",
+      "_navigationState.js"
     ],
     "css": [
       "_app/immutable/assets/_page.DHCqY7QL.css"
@@ -811,9 +896,11 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
+      "_client.js",
       "_Button.js",
       "_MultiSelect.js",
-      "_authStore.js"
+      "_authStore.js",
+      "_navigationState.js"
     ]
   },
   "src/routes/productos/precios/actualizacion/+page.ts": {
@@ -822,6 +909,20 @@
     "src": "src/routes/productos/precios/actualizacion/+page.ts",
     "isEntry": true
   },
+  "src/routes/productos/precios/actualizacionmanual/+page.svelte": {
+    "file": "entries/pages/productos/precios/actualizacionmanual/_page.svelte.js",
+    "name": "entries/pages/productos/precios/actualizacionmanual/_page.svelte",
+    "src": "src/routes/productos/precios/actualizacionmanual/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index3.js",
+      "_client.js",
+      "_Button.js",
+      "_MultiSelect.js",
+      "_authStore.js",
+      "_navigationState.js"
+    ]
+  },
   "src/routes/productos/precios/actualizarconlista/+page.svelte": {
     "file": "entries/pages/productos/precios/actualizarconlista/_page.svelte.js",
     "name": "entries/pages/productos/precios/actualizarconlista/_page.svelte",
@@ -829,7 +930,9 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
-      "_authStore.js"
+      "_client.js",
+      "_authStore.js",
+      "_navigationState.js"
     ]
   },
   "src/routes/productos/precios/listado/+page.svelte": {
@@ -839,8 +942,10 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
+      "_client.js",
       "_Button.js",
-      "_authStore.js"
+      "_authStore.js",
+      "_navigationState.js"
     ],
     "css": [
       "_app/immutable/assets/_page.AjU6dzHS.css"
@@ -895,6 +1000,7 @@
       "_Button.js",
       "_client.js",
       "_stores.js",
+      "_navigationState.js",
       "_dateUtils.js",
       "_authStore.js"
     ]
@@ -919,9 +1025,10 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
-      "_Button.js",
       "_client.js",
-      "_public.js"
+      "_Button.js",
+      "_public.js",
+      "_navigationState.js"
     ]
   },
   "src/routes/provincias/[id]/+page.svelte": {
@@ -944,9 +1051,10 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
-      "_Button.js",
       "_client.js",
-      "_authStore.js"
+      "_Button.js",
+      "_authStore.js",
+      "_navigationState.js"
     ]
   },
   "src/routes/rubros/[id]/+page.svelte": {
@@ -989,7 +1097,9 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
-      "_authStore.js"
+      "_client.js",
+      "_authStore.js",
+      "_navigationState.js"
     ]
   },
   "src/routes/sincronizacion/descargar-datos/+page.svelte": {
@@ -1009,7 +1119,9 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
-      "_authStore.js"
+      "_client.js",
+      "_authStore.js",
+      "_navigationState.js"
     ]
   },
   "src/routes/tablas/+page.svelte": {
@@ -1043,7 +1155,7 @@
     ],
     "css": [
       "_app/immutable/assets/_layout.BrYJRjP2.css",
-      "_app/immutable/assets/app.BCZ83I-G.css",
+      "_app/immutable/assets/app.FrecquAp.css",
       "_app/immutable/assets/bot.Dt4rRzuC.css",
       "_app/immutable/assets/mobile-fix.BVNc3r7Z.css"
     ]
@@ -1058,7 +1170,7 @@
       "_client.js"
     ],
     "css": [
-      "_app/immutable/assets/app.BCZ83I-G.css"
+      "_app/immutable/assets/app.FrecquAp.css"
     ]
   },
   "src/routes/ventas/bot/alerta-stock/+page.svelte": {
@@ -1074,7 +1186,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.BjJ6uiLj.css",
-      "_app/immutable/assets/app.BCZ83I-G.css",
+      "_app/immutable/assets/app.FrecquAp.css",
       "_app/immutable/assets/bot.Dt4rRzuC.css"
     ]
   },
@@ -1091,7 +1203,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.BNZraZku.css",
-      "_app/immutable/assets/app.BCZ83I-G.css",
+      "_app/immutable/assets/app.FrecquAp.css",
       "_app/immutable/assets/index.IgqDV6XQ.css"
     ]
   },
@@ -1108,7 +1220,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.BQpKksDj.css",
-      "_app/immutable/assets/app.BCZ83I-G.css"
+      "_app/immutable/assets/app.FrecquAp.css"
     ]
   },
   "src/routes/ventas/bot/caja/cerradas/+page.svelte": {
@@ -1125,7 +1237,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.LYBzHH5F.css",
-      "_app/immutable/assets/app.BCZ83I-G.css"
+      "_app/immutable/assets/app.FrecquAp.css"
     ]
   },
   "src/routes/ventas/bot/caja/cierre/+page.svelte": {
@@ -1141,7 +1253,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.V70zeI-m.css",
-      "_app/immutable/assets/app.BCZ83I-G.css"
+      "_app/immutable/assets/app.FrecquAp.css"
     ]
   },
   "src/routes/ventas/bot/caja/egreso/+page.svelte": {
@@ -1157,7 +1269,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.DYXN5TfF.css",
-      "_app/immutable/assets/app.BCZ83I-G.css",
+      "_app/immutable/assets/app.FrecquAp.css",
       "_app/immutable/assets/index.IgqDV6XQ.css"
     ]
   },
@@ -1174,7 +1286,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.DYXN5TfF.css",
-      "_app/immutable/assets/app.BCZ83I-G.css",
+      "_app/immutable/assets/app.FrecquAp.css",
       "_app/immutable/assets/index.IgqDV6XQ.css"
     ]
   },
@@ -1209,7 +1321,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.2TiMSiuD.css",
-      "_app/immutable/assets/app.BCZ83I-G.css"
+      "_app/immutable/assets/app.FrecquAp.css"
     ]
   },
   "src/routes/ventas/bot/clientes/detalles/[codigo]/+page.js": {
@@ -1235,7 +1347,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.DwvAF-ih.css",
-      "_app/immutable/assets/app.BCZ83I-G.css"
+      "_app/immutable/assets/app.FrecquAp.css"
     ]
   },
   "src/routes/ventas/bot/clientes/editar/[codigo]/+page.svelte": {
@@ -1251,7 +1363,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.BIHkbUvh.css",
-      "_app/immutable/assets/app.BCZ83I-G.css"
+      "_app/immutable/assets/app.FrecquAp.css"
     ]
   },
   "src/routes/ventas/bot/clientes/editar/[codigo]/+page.ts": {
@@ -1275,7 +1387,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.OS6H0Cau.css",
-      "_app/immutable/assets/app.BCZ83I-G.css"
+      "_app/immutable/assets/app.FrecquAp.css"
     ]
   },
   "src/routes/ventas/bot/comprobantes/+page.svelte": {
@@ -1342,7 +1454,7 @@
     ],
     "css": [
       "_app/immutable/assets/_layout.BtZoUbJE.css",
-      "_app/immutable/assets/app.BCZ83I-G.css"
+      "_app/immutable/assets/app.FrecquAp.css"
     ]
   },
   "src/routes/ventas/bot/minimonster/+page.svelte": {
@@ -1357,7 +1469,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.D48S5l0E.css",
-      "_app/immutable/assets/app.BCZ83I-G.css"
+      "_app/immutable/assets/app.FrecquAp.css"
     ]
   },
   "src/routes/ventas/bot/nueva/+page.svelte": {
@@ -1399,7 +1511,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.CnBXzJve.css",
-      "_app/immutable/assets/app.BCZ83I-G.css"
+      "_app/immutable/assets/app.FrecquAp.css"
     ]
   },
   "src/routes/ventas/bot/productos/detalles/[codigo]/+page.js": {
@@ -1425,7 +1537,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.DYdG8Ysd.css",
-      "_app/immutable/assets/app.BCZ83I-G.css"
+      "_app/immutable/assets/app.FrecquAp.css"
     ]
   },
   "src/routes/ventas/bot/productos/editar/[codigo]/+page.js": {
@@ -1450,7 +1562,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.CQ9hZf1g.css",
-      "_app/immutable/assets/app.BCZ83I-G.css"
+      "_app/immutable/assets/app.FrecquAp.css"
     ]
   },
   "src/routes/ventas/bot/productos/nuevo/+page.js": {
@@ -1472,7 +1584,7 @@
     ],
     "css": [
       "_app/immutable/assets/_page.IxFokcQy.css",
-      "_app/immutable/assets/app.BCZ83I-G.css"
+      "_app/immutable/assets/app.FrecquAp.css"
     ]
   },
   "src/routes/ventas/bot/recibos/+page.svelte": {
@@ -1589,6 +1701,7 @@
       "_index3.js",
       "_stores.js",
       "_client.js",
+      "_navigationState.js",
       "_Button.js",
       "_authStore.js",
       "_ImprimirModal.js"
@@ -1601,10 +1714,12 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
+      "_client.js",
       "_authStore.js",
       "_DatePicker.js",
       "_Button.js",
-      "_Icon.js"
+      "_Icon.js",
+      "_navigationState.js"
     ],
     "css": [
       "_app/immutable/assets/_page.CZ5AHdmx.css"
@@ -1617,12 +1732,14 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
+      "_client.js",
       "_authStore.js",
       "_DatePicker.js",
       "_Button.js",
       "_index-server.js",
       "_utils.js",
       "_Icon.js",
+      "_navigationState.js",
       "_file-text.js"
     ],
     "css": [
@@ -1636,10 +1753,12 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
+      "_client.js",
       "_DatePicker.js",
       "_EntitySelector.js",
       "_authStore.js",
-      "_Icon.js"
+      "_Icon.js",
+      "_navigationState.js"
     ],
     "css": [
       "_app/immutable/assets/_page.BIMiKIqS.css"
@@ -1652,9 +1771,11 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
+      "_client.js",
       "_DatePicker.js",
       "_authStore.js",
-      "_Icon.js"
+      "_Icon.js",
+      "_navigationState.js"
     ],
     "css": [
       "_app/immutable/assets/_page.DO2Ny_lA.css"
@@ -1667,9 +1788,11 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
+      "_client.js",
       "_DatePicker.js",
       "_authStore.js",
-      "_Icon.js"
+      "_Icon.js",
+      "_navigationState.js"
     ],
     "css": [
       "_app/immutable/assets/_page.DO2Ny_lA.css"
@@ -1682,9 +1805,11 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
+      "_client.js",
       "_authStore.js",
       "_Button.js",
       "_Icon.js",
+      "_navigationState.js",
       "_circle-user.js"
     ]
   },
@@ -1726,10 +1851,11 @@
     "imports": [
       "_index3.js",
       "_client.js",
+      "_navigationState.js",
       "_authStore.js",
       "_Button.js",
-      "_ImprimirModal.js",
-      "_utils.js"
+      "_DetalleFacturaModal.js",
+      "_ImprimirModal.js"
     ]
   },
   "src/routes/ventas/notascredito/rapida/+page.svelte": {
@@ -1741,8 +1867,10 @@
       "_index3.js",
       "_stores.js",
       "_client.js",
+      "_navigationState.js",
       "_Button.js",
-      "_authStore.js"
+      "_authStore.js",
+      "_DetalleFacturaModal.js"
     ],
     "css": [
       "_app/immutable/assets/_page.CKTLqZX8.css",
@@ -1799,6 +1927,7 @@
       "_index3.js",
       "_index-server.js",
       "_client.js",
+      "_navigationState.js",
       "_Button.js",
       "_authStore.js"
     ]
@@ -1810,7 +1939,9 @@
     "isEntry": true,
     "imports": [
       "_index3.js",
-      "_Button.js"
+      "_client.js",
+      "_Button.js",
+      "_navigationState.js"
     ]
   },
   "src/routes/ventas/preventas/+page.svelte": {
@@ -1823,6 +1954,7 @@
       "_client.js",
       "_Button.js",
       "_authStore.js",
+      "_navigationState.js",
       "_EntitySelector.js",
       "_MultiSelect.js"
     ],
@@ -1850,7 +1982,8 @@
       "_stores.js",
       "_Button.js",
       "_authStore.js",
-      "_client.js"
+      "_client.js",
+      "_navigationState.js"
     ],
     "css": [
       "_app/immutable/assets/_page.tn0RQdqM.css"
@@ -1912,7 +2045,8 @@
       "_Input.js",
       "_authStore.js",
       "_FormasPago.js",
-      "_client.js"
+      "_client.js",
+      "_navigationState.js"
     ]
   },
   "src/routes/ventas/recibos/nuevo/+page.svelte": {

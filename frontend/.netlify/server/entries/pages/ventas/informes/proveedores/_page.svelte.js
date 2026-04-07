@@ -1,8 +1,11 @@
 import { g as sanitize_props, j as spread_props, f as slot, z as copy_payload, A as assign_payload, c as pop, p as push, l as ensure_array_like, h as head, k as attr, e as escape_html } from "../../../../../chunks/index3.js";
+import "../../../../../chunks/client.js";
 import "chart.js/auto";
 import { D as DatePicker } from "../../../../../chunks/DatePicker.js";
 import "../../../../../chunks/authStore.js";
 import { I as Icon, a as Icon$1 } from "../../../../../chunks/Icon.js";
+import "idb";
+import "../../../../../chunks/navigationState.js";
 function Factory($$payload, $$props) {
   const $$sanitized_props = sanitize_props($$props);
   const iconNode = [
@@ -38,13 +41,11 @@ function _page($$payload, $$props) {
   let proveedoresSeleccionados = [];
   let formasPago = [];
   let todosLosProveedores = [];
-  let cargandoProveedores = false;
   let busquedaProveedor = "";
   let $$settled = true;
   let $$inner_payload;
   function $$render_inner($$payload2) {
     const each_array = ensure_array_like(formasPago);
-    const each_array_1 = ensure_array_like(todosLosProveedores);
     head($$payload2, ($$payload3) => {
       $$payload3.title = `<title>Informe de Ventas por Proveedor</title>`;
     });
@@ -82,12 +83,7 @@ function _page($$payload, $$props) {
       let fp = each_array[$$index];
       $$payload2.out += `<option${attr("value", fp.value)}>${escape_html(fp.label)}</option>`;
     }
-    $$payload2.out += `<!--]--></select></div> <div class="md:col-span-4"><label for="proveedor" class="block text-sm font-medium text-gray-700 mb-2">Filtrar por Proveedores (Opcional)</label> <div class="flex gap-2 mb-2"><select id="proveedor" class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"${attr("disabled", cargandoProveedores, true)}><option value="">Agregar proveedor...</option><!--[-->`;
-    for (let $$index_1 = 0, $$length = each_array_1.length; $$index_1 < $$length; $$index_1++) {
-      let proveedor = each_array_1[$$index_1];
-      $$payload2.out += `<option${attr("value", proveedor.codigo)}>${escape_html(proveedor.descripcion)}</option>`;
-    }
-    $$payload2.out += `<!--]--></select> `;
+    $$payload2.out += `<!--]--></select></div> <div class="md:col-span-4"><label for="busquedaProveedor" class="block text-sm font-medium text-gray-700 mb-2">Filtrar por Proveedores (Opcional)</label> <div class="flex gap-2 mb-2">`;
     if (todosLosProveedores.length > 0) {
       $$payload2.out += "<!--[-->";
       $$payload2.out += `<button type="button" class="px-3 py-2 bg-green-100 text-green-700 hover:bg-green-200 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm whitespace-nowrap flex-shrink-0" title="Seleccionar todos los proveedores">Todos</button>`;
@@ -112,7 +108,7 @@ function _page($$payload, $$props) {
     } else {
       $$payload2.out += "<!--[!-->";
     }
-    $$payload2.out += `<!--]--> <div class="relative"><input type="text"${attr("value", busquedaProveedor)} placeholder="Buscar proveedor..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"> `;
+    $$payload2.out += `<!--]--> <div class="relative"><input id="busquedaProveedor" type="text"${attr("value", busquedaProveedor)} placeholder="Buscar y agregar proveedores..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"> `;
     {
       $$payload2.out += "<!--[!-->";
     }

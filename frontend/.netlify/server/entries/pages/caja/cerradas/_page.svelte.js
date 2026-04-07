@@ -2,6 +2,7 @@ import { l as ensure_array_like, k as attr, e as escape_html, m as attr_class, n
 import "../../../../chunks/client.js";
 import "../../../../chunks/authStore.js";
 import { B as Button } from "../../../../chunks/Button.js";
+import "../../../../chunks/navigationState.js";
 function _page($$payload, $$props) {
   push();
   let cajas = [];

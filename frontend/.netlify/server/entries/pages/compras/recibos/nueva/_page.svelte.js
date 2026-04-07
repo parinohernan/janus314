@@ -1,5 +1,6 @@
 import { l as ensure_array_like, h as head, k as attr, e as escape_html, m as attr_class, c as pop, p as push, n as stringify } from "../../../../../chunks/index3.js";
 import "../../../../../chunks/client.js";
+import "../../../../../chunks/navigationState.js";
 import { B as Button } from "../../../../../chunks/Button.js";
 import { I as Input } from "../../../../../chunks/Input.js";
 import "../../../../../chunks/authStore.js";

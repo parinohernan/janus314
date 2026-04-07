@@ -1,6 +1,7 @@
 import { l as ensure_array_like, k as attr, e as escape_html, c as pop, p as push } from "../../../../../chunks/index3.js";
 import { o as onDestroy } from "../../../../../chunks/index-server.js";
 import "../../../../../chunks/client.js";
+import "../../../../../chunks/navigationState.js";
 import { B as Button } from "../../../../../chunks/Button.js";
 import { a as auth } from "../../../../../chunks/authStore.js";
 function _page($$payload, $$props) {

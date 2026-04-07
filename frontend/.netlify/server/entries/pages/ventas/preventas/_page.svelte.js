@@ -2,6 +2,7 @@ import { z as copy_payload, A as assign_payload, c as pop, p as push, k as attr,
 import "../../../../chunks/client.js";
 import { B as Button } from "../../../../chunks/Button.js";
 import "../../../../chunks/authStore.js";
+import "../../../../chunks/navigationState.js";
 import { E as EntitySelector } from "../../../../chunks/EntitySelector.js";
 import { M as MultiSelect } from "../../../../chunks/MultiSelect.js";
 function _page($$payload, $$props) {

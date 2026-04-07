@@ -5,6 +5,7 @@ import { I as Input } from "../../../../../chunks/Input.js";
 import { a as auth } from "../../../../../chunks/authStore.js";
 import { F as FormasPago } from "../../../../../chunks/FormasPago.js";
 import "../../../../../chunks/client.js";
+import "../../../../../chunks/navigationState.js";
 function _page($$payload, $$props) {
   push();
   let importeTotalRecibo;

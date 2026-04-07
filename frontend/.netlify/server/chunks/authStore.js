@@ -34,18 +34,6 @@ function getAuthToken() {
   const authState = get(auth);
   console.log("Estado de autenticación:", authState);
   let token = authState.token;
-  if (!token && browser) {
-    token = localStorage.getItem("authToken");
-    console.log("Token obtenido del localStorage:", token);
-  }
-  if (!token && browser) {
-    console.log("No hay token, intentando verificar sesión...");
-    auth.verifySession().then(() => {
-      const newAuthState = get(auth);
-      token = newAuthState.token;
-      console.log("Nuevo estado de autenticación después de verificar:", newAuthState);
-    });
-  }
   tokenCache = token;
   lastTokenCheck = now;
   console.log("Token final:", token);

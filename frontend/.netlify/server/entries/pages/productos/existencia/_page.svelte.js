@@ -1,6 +1,8 @@
 import { h as head, e as escape_html, m as attr_class, k as attr, l as ensure_array_like, c as pop, p as push, u as unsubscribe_stores, d as store_get, n as stringify } from "../../../../chunks/index3.js";
+import "../../../../chunks/client.js";
 import { B as Button } from "../../../../chunks/Button.js";
 import { a as auth } from "../../../../chunks/authStore.js";
+import "../../../../chunks/navigationState.js";
 function _page($$payload, $$props) {
   push();
   var $$store_subs;

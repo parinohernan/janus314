@@ -1,5 +1,7 @@
 import { h as head, l as ensure_array_like, k as attr, e as escape_html, c as pop, p as push } from "../../../../../chunks/index3.js";
+import "../../../../../chunks/client.js";
 import "../../../../../chunks/authStore.js";
+import "../../../../../chunks/navigationState.js";
 function _page($$payload, $$props) {
   push();
   let proveedoresOptions = [];

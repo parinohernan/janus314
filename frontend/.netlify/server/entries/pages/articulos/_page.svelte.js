@@ -1,6 +1,8 @@
 import "clsx";
 import { c as pop, p as push } from "../../../chunks/index3.js";
+import "../../../chunks/client.js";
 import "../../../chunks/authStore.js";
+import "../../../chunks/navigationState.js";
 function _page($$payload, $$props) {
   push();
   $$payload.out += `<div class="container mx-auto px-4 py-8"><h1 class="text-3xl font-bold mb-8">Artículos</h1> `;

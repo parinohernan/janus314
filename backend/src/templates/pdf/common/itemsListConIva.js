@@ -14,7 +14,7 @@ function renderItemsListConIva(doc, items, startY, interlineado = 10) {
   const columnWidth = {
     codigo: 40,
     cantidad: 26,
-    descripcion: 218,
+    descripcion: 270,
     precioLista: 54,
     precioUnitario: 62,
     descuento: 38,

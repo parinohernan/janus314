@@ -2,6 +2,7 @@ import { d as store_get, h as head, e as escape_html, k as attr, l as ensure_arr
 import { B as Button } from "../../../../../../chunks/Button.js";
 import "../../../../../../chunks/client.js";
 import { p as page } from "../../../../../../chunks/stores.js";
+import "../../../../../../chunks/navigationState.js";
 import { debounce } from "lodash-es";
 import { g as getTodayISOArgentina } from "../../../../../../chunks/dateUtils.js";
 import { f as fetchWithAuth } from "../../../../../../chunks/authStore.js";
@@ -12,7 +13,7 @@ function _page($$payload, $$props) {
   let documento = {
     Fecha: getTodayISOArgentina(),
     // Usar la función para la fecha en zona Argentina
-    Observacion: ""
+    Observacion: tipoMovimiento === "ING" ? "ING -" : "EGR - "
   };
   let items = [];
   let loading = false;

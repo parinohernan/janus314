@@ -1,10 +1,12 @@
 import { g as sanitize_props, j as spread_props, f as slot, p as push, y as attr_style, v as bind_props, c as pop, n as stringify, z as copy_payload, A as assign_payload, h as head, e as escape_html, l as ensure_array_like, k as attr } from "../../../../../chunks/index3.js";
+import "../../../../../chunks/client.js";
 import { f as fetchWithAuth } from "../../../../../chunks/authStore.js";
 import { D as DatePicker } from "../../../../../chunks/DatePicker.js";
 import { B as Button } from "../../../../../chunks/Button.js";
 import { o as onDestroy } from "../../../../../chunks/index-server.js";
 import { z as fallback } from "../../../../../chunks/utils.js";
 import { I as Icon, a as Icon$1 } from "../../../../../chunks/Icon.js";
+import "../../../../../chunks/navigationState.js";
 import { F as File_text } from "../../../../../chunks/file-text.js";
 function Chart_pie($$payload, $$props) {
   const $$sanitized_props = sanitize_props($$props);

@@ -7,6 +7,7 @@ import "../../chunks/client.js";
 import { p as page } from "../../chunks/stores.js";
 import "../../chunks/tabsStore.js";
 import { w as writable } from "../../chunks/index2.js";
+import "../../chunks/menuVisibilityStore.js";
 import "../../chunks/navigationState.js";
 const initialCollapsed = false;
 const sidebarCollapsed = writable(initialCollapsed);

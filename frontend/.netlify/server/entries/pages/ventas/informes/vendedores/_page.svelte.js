@@ -1,7 +1,9 @@
 import { l as ensure_array_like, k as attr, e as escape_html, c as pop, p as push } from "../../../../../chunks/index3.js";
+import "../../../../../chunks/client.js";
 import "../../../../../chunks/authStore.js";
 import { B as Button } from "../../../../../chunks/Button.js";
 import { a as Icon } from "../../../../../chunks/Icon.js";
+import "../../../../../chunks/navigationState.js";
 import { C as Circle_user } from "../../../../../chunks/circle-user.js";
 function _page($$payload, $$props) {
   push();

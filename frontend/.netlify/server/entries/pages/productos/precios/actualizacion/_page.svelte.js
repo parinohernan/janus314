@@ -1,7 +1,10 @@
 import { z as copy_payload, A as assign_payload, c as pop, p as push, h as head, k as attr, l as ensure_array_like, e as escape_html, m as attr_class, n as stringify } from "../../../../../chunks/index3.js";
+import "../../../../../chunks/client.js";
 import { B as Button } from "../../../../../chunks/Button.js";
 import { M as MultiSelect } from "../../../../../chunks/MultiSelect.js";
 import "../../../../../chunks/authStore.js";
+import "idb";
+import "../../../../../chunks/navigationState.js";
 function _page($$payload, $$props) {
   push();
   let articulosSeleccionados;

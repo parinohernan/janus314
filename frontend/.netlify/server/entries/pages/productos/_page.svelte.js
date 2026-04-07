@@ -42,7 +42,6 @@ function _page($$payload, $$props) {
       if (filters.rubro) ;
       const response = await fetchWithAuth("/articulos", { params });
       if (!response.ok) throw new Error("Error al cargar los artículos");
-      console.log(response);
       const data = await response.json();
       articulos = data.items;
       pagination = {

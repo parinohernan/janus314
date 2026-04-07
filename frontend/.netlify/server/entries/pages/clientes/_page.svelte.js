@@ -1,8 +1,8 @@
 import { l as ensure_array_like, h as head, k as attr, e as escape_html, c as pop, p as push, m as attr_class, n as stringify } from "../../../chunks/index3.js";
-import { B as Button } from "../../../chunks/Button.js";
 import "../../../chunks/client.js";
 import { debounce } from "lodash-es";
 import "../../../chunks/navigationState.js";
+import { B as Button } from "../../../chunks/Button.js";
 import { C as ClienteService } from "../../../chunks/ClienteService.js";
 import "../../../chunks/tabsStore.js";
 function _page($$payload, $$props) {

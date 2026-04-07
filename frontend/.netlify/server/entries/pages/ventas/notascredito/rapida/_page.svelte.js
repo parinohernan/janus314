@@ -1,15 +1,21 @@
 import { d as store_get, z as copy_payload, A as assign_payload, u as unsubscribe_stores, c as pop, p as push } from "../../../../../chunks/index3.js";
 import { p as page } from "../../../../../chunks/stores.js";
 import "../../../../../chunks/client.js";
+import "../../../../../chunks/navigationState.js";
 import { B as Button } from "../../../../../chunks/Button.js";
 import "clsx";
 import "../../../../../chunks/authStore.js";
 /* empty css                                                           */
 /* empty css                                                                */
+import { D as DetalleFacturaModal } from "../../../../../chunks/DetalleFacturaModal.js";
 function _page($$payload, $$props) {
   push();
   var $$store_subs;
   let preventaParam, preventaTipo, preventaSucursal, preventaNumero;
+  let showDetalleFacturaModal = false;
+  let facturaSeleccionadaParaDetalle = null;
+  let itemsFacturaDetalle = [];
+  let cargandoDetalleFactura = false;
   preventaParam = store_get($$store_subs ??= {}, "$page", page).url.searchParams.get("preventa");
   [
     preventaTipo,
@@ -36,6 +42,19 @@ function _page($$payload, $$props) {
       $$payload2.out += `<div class="flex justify-center py-12"><div class="spinner svelte-j5tdg7"></div></div>`;
     }
     $$payload2.out += `<!--]--></div> `;
+    DetalleFacturaModal($$payload2, {
+      factura: facturaSeleccionadaParaDetalle,
+      items: itemsFacturaDetalle,
+      loading: cargandoDetalleFactura,
+      get show() {
+        return showDetalleFacturaModal;
+      },
+      set show($$value) {
+        showDetalleFacturaModal = $$value;
+        $$settled = false;
+      }
+    });
+    $$payload2.out += `<!----> `;
     {
       $$payload2.out += "<!--[!-->";
     }

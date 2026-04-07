@@ -1,8 +1,10 @@
 import { g as sanitize_props, j as spread_props, f as slot, z as copy_payload, A as assign_payload, c as pop, p as push, l as ensure_array_like, h as head, k as attr, e as escape_html } from "../../../../../chunks/index3.js";
+import "../../../../../chunks/client.js";
 import "chart.js/auto";
 import { D as DatePicker } from "../../../../../chunks/DatePicker.js";
 import "../../../../../chunks/authStore.js";
 import { I as Icon, a as Icon$1 } from "../../../../../chunks/Icon.js";
+import "../../../../../chunks/navigationState.js";
 function Tag($$payload, $$props) {
   const $$sanitized_props = sanitize_props($$props);
   const iconNode = [
