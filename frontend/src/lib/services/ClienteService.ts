@@ -31,6 +31,9 @@ export interface Comprobante {
 	Debitos: number;
 	Creditos: number;
 	Saldo: number;
+	TipoComprobante?: string;
+	/** Facturas: condición de venta (ej. CC cuenta corriente). */
+	PagoTipo?: string | null;
 }
 
 export class ClienteService {

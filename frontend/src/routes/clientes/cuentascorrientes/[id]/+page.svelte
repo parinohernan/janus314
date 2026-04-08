@@ -297,7 +297,13 @@
               <td class="px-6 py-4 whitespace-nowrap text-right border-b border-gray-200 text-red-600">
                 {comprobante.Debitos > 0 ? formatCurrency(comprobante.Debitos) : ''}
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right border-b border-gray-200 text-green-600">
+              <td
+                class="px-6 py-4 whitespace-nowrap text-right border-b border-gray-200 text-green-600 {comprobante.TipoComprobante === 'FAC' &&
+                comprobante.PagoTipo === 'CC' &&
+                comprobante.Creditos > 0
+                  ? 'opacity-40'
+                  : ''}"
+              >
                 {comprobante.Creditos > 0 ? formatCurrency(comprobante.Creditos) : ''}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-right border-b border-gray-200 font-medium {comprobante.Saldo < 0 ? 'text-red-600' : 'text-green-600'}">

@@ -25,10 +25,9 @@
   const hoy = new Date();
 hoy.setHours(hoy.getHours() - 3);
 const fechaFormateada = hoy.toISOString().substring(0, 10);
-  let sucursalActual = '0001';
   let factura = {
     DocumentoTipo: '',
-    DocumentoSucursal: sucursalActual,
+    DocumentoSucursal: '0001',
     DocumentoNumero: '',
     Fecha: fechaFormateada,// esto es la fecha de hoy
     ClienteCodigo: '',
@@ -125,33 +124,21 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   }> = [];
   let usarPreciosActuales = false;
   
-  // Función asíncrona para inicializar la sucursal
+  // Función asíncrona para inicializar la sucursal (hasta que /datos-empresa confirme en el otro onMount)
   async function inicializarSucursal() {
     try {
-      const sucursal = await EmpresaService.obtenerSucursal();
-      sucursalActual = sucursal;
+      factura.DocumentoSucursal = await EmpresaService.obtenerSucursal();
     } catch (error) {
       console.error('Error al obtener sucursal:', error);
-      // sucursalActual = '0001';
     } finally {
       loading = false;
     }
   }
 
-  // Llamar a la función en onMount
   onMount(() => {
     inicializarSucursal();
   });
 
-  // Si necesitas usar la sucursal en alguna función
-  async function algunaFuncion() {
-    if (loading) {
-      await inicializarSucursal();
-    }
-    // Usar sucursalActual aquí
-    return sucursalActual;
-  }
-  
   // Cargar formas de pago desde la API
   onMount(async () => {
     try {
@@ -165,9 +152,6 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
       
       
       try {
-        // Obtener sucursal usando el servicio
-        sucursalActual = await EmpresaService.obtenerSucursal();
-        
         // Obtener formas de pago
         const response = await fetchWithAuth(`/tipos-pago`);
         if (response.ok) {
@@ -288,18 +272,38 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     factura.DocumentoTipo = '';
   };
   
-  // Obtener próximo número de comprobante
-  const obtenerProximoNumero = async () => {
-    console.log('obtenerProximoNumero', factura.DocumentoTipo, sucursalActual);
+  let actualizandoProximoNumero = false;
+
+  /** Próximo número de control: siempre usa la sucursal del comprobante (`factura.DocumentoSucursal`). */
+  const obtenerProximoNumero = async (opciones?: { mostrarFeedback?: boolean }) => {
+    const mostrarFeedback = opciones?.mostrarFeedback ?? false;
+    const tipo = factura.DocumentoTipo?.trim();
+    const sucursal = factura.DocumentoSucursal?.trim();
+    if (!tipo || !sucursal) {
+      if (mostrarFeedback) {
+        toast.error(
+          !tipo
+            ? 'Seleccione el tipo de documento.'
+            : 'No hay sucursal cargada. Recargue la página o revise la conexión.'
+        );
+      }
+      return null;
+    }
+    actualizandoProximoNumero = true;
     try {
-      const response = await fetchWithAuth(`/numeros-control/${factura.DocumentoTipo}/${sucursalActual}`);
+      const response = await fetchWithAuth(`/numeros-control/${tipo}/${sucursal}`);
       if (response.ok) {
         const data = await response.json();
         factura.DocumentoNumero = data.data.proximoNumero;
+        if (mostrarFeedback) toast.success('Próximo número actualizado');
         return data.data.proximoNumero;
       }
+      if (mostrarFeedback) toast.error('No se pudo obtener el próximo número');
     } catch (error) {
       console.error('Error obteniendo próximo número:', error);
+      if (mostrarFeedback) toast.error('Error de red al obtener el próximo número');
+    } finally {
+      actualizandoProximoNumero = false;
     }
     return null;
   };
@@ -1478,7 +1482,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
         <!-- Tipo de Documento - aumentado a col-span-4 -->
         <div class="lg:col-span-4">
           <label for="tipoDocumento" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
-          <div class="flex space-x-2">
+          <div class="flex flex-wrap items-center gap-2">
             <select 
               id="tipoDocumento" 
               bind:value={factura.DocumentoTipo}
@@ -1486,7 +1490,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                 await obtenerProximoNumero();
                 recalcularTotales();
               }}
-              class="w-2/5 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="w-full sm:w-2/5 min-w-[8rem] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Seleccionar tipo</option>
               {#each tiposDocumento as tipo}
@@ -1494,14 +1498,31 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
               {/each}
             </select>
             
-            <input 
-              id="sucursal" 
-              type="text" 
-              bind:value={sucursalNumeroDisplay}
-              disabled
-              class="w-3/5 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
-              title="Próximo número de documento"
-            />
+            <div class="flex flex-1 min-w-0 items-center gap-1 sm:w-3/5">
+              <input 
+                id="sucursal" 
+                type="text" 
+                bind:value={sucursalNumeroDisplay}
+                disabled
+                class="min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
+                title="Sucursal y próximo número de documento"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="shrink-0 px-2"
+                disabled={!factura.DocumentoTipo || actualizandoProximoNumero}
+                title="Actualizar próximo número"
+                on:click={() => obtenerProximoNumero({ mostrarFeedback: true })}
+              >
+                {#if actualizandoProximoNumero}
+                  <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-500 border-t-transparent" aria-hidden="true"></span>
+                {:else}
+                  <span class="text-xs font-medium">Actualizar</span>
+                {/if}
+              </Button>
+            </div>
           </div>
         </div>
         

@@ -145,13 +145,51 @@ const initializeModels = (sequelize) => {
       allowNull: true,
       defaultValue: 0
     },
+    SiempreSeDescarga: {
+      type: DataTypes.TINYINT.UNSIGNED,
+      allowNull: true,
+      defaultValue: 0
+    },
+    Iva2SobreNeto: {
+      type: DataTypes.TINYINT,
+      allowNull: true,
+      defaultValue: 0
+    },
     PorcentajeVendedor: {
       type: DataTypes.DECIMAL(18, 2),
       allowNull: true
     },
+    DescuentoXCantidad: {
+      type: DataTypes.STRING(245),
+      allowNull: true,
+      defaultValue: '0'
+    },
+    SeVende: {
+      type: DataTypes.TINYINT,
+      allowNull: true,
+      defaultValue: 1
+    },
     Activo: {
       type: DataTypes.TINYINT,
       defaultValue: 1
+    },
+    EnviadoACentral: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0
+    },
+    RequiereFrio: {
+      type: DataTypes.TINYINT,
+      allowNull: true,
+      defaultValue: 0
+    },
+    FamiliaCodigo: {
+      type: DataTypes.STRING(2),
+      allowNull: true
+    },
+    SubFamiliaCodigo: {
+      type: DataTypes.STRING(4),
+      allowNull: true
     },
     UbicacionDeposito: {
       type: DataTypes.STRING(100),
@@ -164,7 +202,16 @@ const initializeModels = (sequelize) => {
     ProveedorArticuloCodigo: {
       type: DataTypes.STRING(20),
       allowNull: true,
-      defaultValue: ""
+      defaultValue: ' '
+    },
+    EsCompuesto: {
+      type: DataTypes.TINYINT,
+      allowNull: false,
+      defaultValue: 0
+    },
+    UV_OrdenDeEntrega: {
+      type: DataTypes.CHAR(3),
+      allowNull: true
     }
   }, {
     tableName: 't_articulos',

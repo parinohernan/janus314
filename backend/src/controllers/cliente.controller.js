@@ -400,7 +400,8 @@ const getComprobantesCliente = async (req, res) => {
       Saldo: factura.PagoTipo === 'CC' ? 
         factura.ImporteTotal : 
         (factura.ImporteTotal - factura.ImportePagado),
-      TipoComprobante: 'FAC'
+      TipoComprobante: 'FAC',
+      PagoTipo: factura.PagoTipo || null
     }));
 
     // Obtener notas de crédito (excluyendo las anuladas)

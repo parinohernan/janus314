@@ -27,6 +27,53 @@ const upload = multer({
   }
 }).single('archivo');
 
+/** Alineado a t_articulos: valores si el cliente no los envía en el alta. */
+const ARTICULO_CREATE_DEFAULTS = {
+  Existencia: 0,
+  ExistenciaMinima: 0,
+  ExistenciaMaxima: 0,
+  PrecioCosto: 0,
+  PrecioCostoMasImp: 0,
+  PorcentajeIVA1: 0,
+  PorcentajeIVA2: 0,
+  Lista1: 0,
+  Lista2: 0,
+  Lista3: 0,
+  Lista4: 0,
+  Lista5: 0,
+  Peso: 0,
+  SiempreSeDescarga: 0,
+  Iva2SobreNeto: 0,
+  PorcentajeVendedor: 0,
+  DescuentoXCantidad: '0',
+  SeVende: 1,
+  Activo: 1,
+  EnviadoACentral: 0,
+  RequiereFrio: 0,
+  EsCompuesto: 0,
+  ProveedorArticuloCodigo: ' ',
+};
+
+/** En actualización: si el cuerpo no trae la clave, se persiste este valor (columnas que el front suele omitir). */
+const ARTICULO_UPDATE_DEFAULTS_IF_ABSENT = {
+  SiempreSeDescarga: 0,
+  Iva2SobreNeto: 0,
+  DescuentoXCantidad: '0',
+  EnviadoACentral: 0,
+  RequiereFrio: 0,
+  EsCompuesto: 0,
+};
+
+function mergeArticuloUpdateDefaults(body) {
+  const articuloData = { ...body };
+  for (const [k, v] of Object.entries(ARTICULO_UPDATE_DEFAULTS_IF_ABSENT)) {
+    if (!Object.prototype.hasOwnProperty.call(articuloData, k)) {
+      articuloData[k] = v;
+    }
+  }
+  return articuloData;
+}
+
 // Obtener todos los artículos para listado de precios (sin paginación)
 exports.getAllArticulosForPricing = async (req, res) => {
   try {
@@ -296,8 +343,7 @@ exports.createArticulo = async (req, res) => {
       });
     }
 
-    // Procesar los datos para manejar correctamente campos vacíos que son claves foráneas
-    const articuloData = { ...req.body };
+    const articuloData = { ...ARTICULO_CREATE_DEFAULTS, ...req.body };
 
     // Convertir cadenas vacías a NULL para campos que son claves foráneas
     if (articuloData.ProveedorCodigo === "") {
@@ -353,8 +399,7 @@ exports.updateArticulo = async (req, res) => {
       return res.status(404).json({ message: "Artículo no encontrado" });
     }
 
-    // Procesar los datos para manejar correctamente campos vacíos que son claves foráneas
-    const articuloData = { ...req.body };
+    const articuloData = mergeArticuloUpdateDefaults(req.body);
 
     // Convertir cadenas vacías a NULL para campos que son claves foráneas
     if (articuloData.ProveedorCodigo === "") {

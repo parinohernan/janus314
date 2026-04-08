@@ -1,7 +1,16 @@
 const NumerosControlController = require('../controllers/numerosControl.controller');
-const { Op } = require('sequelize');
+const { Op, QueryTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const jwt = require('jsonwebtoken');
+
+async function rollbackTransactionQuietly(transaction) {
+  if (!transaction) return;
+  try {
+    await transaction.rollback();
+  } catch (_) {
+    // Transacción ya confirmada, revertida o inválida
+  }
+}
 
 // Obtener todos los recibos (con filtros y paginación)
 exports.getAllRecibos = async (req, res) => {
@@ -224,25 +233,26 @@ exports.getReciboById = async (req, res) => {
 
 // Crear un nuevo recibo
 exports.createRecibo = async (req, res) => {
+  let t = null;
   try {
-    const { 
-      Recibo, 
-      ReciboItem, 
-      ReciboValor, 
-      NotaCredito, 
-      NotaDebito, 
-      FacturaCabeza, 
-      Cliente, 
-      CajaCabeza, 
-      CajaMovimientos 
+    const {
+      Recibo,
+      ReciboItem,
+      ReciboValor,
+      NotaCredito,
+      NotaDebito,
+      FacturaCabeza,
+      Cliente,
+      CajaCabeza,
+      CajaMovimientos,
+      TipoDePago
     } = req.models;
-    
-    // Obtener la instancia de sequelize desde cualquier modelo
+
     const sequelize = Recibo.sequelize;
-    const t = await sequelize.transaction();
-    
+    t = await sequelize.transaction();
+
     console.log("___________DATOS DEL RECIBO A GRABAR", req.body);
-    
+
     const {
       DocumentoTipo,
       DocumentoSucursal,
@@ -257,18 +267,17 @@ exports.createRecibo = async (req, res) => {
       VendedorCodigo
     } = req.body;
 
-    // Validar datos requeridos
     if (!DocumentoTipo || !DocumentoSucursal || !DocumentoNumero || !Fecha || !CodigoCliente || !VendedorCodigo) {
+      await rollbackTransactionQuietly(t);
       return res.status(400).json({
         success: false,
         message: 'Faltan datos requeridos'
       });
     }
 
-    // Obtener el vendedor del token de autenticación
     const authHeader = req.headers.authorization;
     if (!authHeader) {
-      await t.rollback();
+      await rollbackTransactionQuietly(t);
       return res.status(401).json({
         success: false,
         message: 'No se proporcionó token de autenticación'
@@ -276,18 +285,27 @@ exports.createRecibo = async (req, res) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    let decodedToken;
+    try {
+      decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (jwtErr) {
+      await rollbackTransactionQuietly(t);
+      return res.status(401).json({
+        success: false,
+        message: 'Token inválido o expirado'
+      });
+    }
+
     const vendedorCodigo = decodedToken.userId;
 
     if (!vendedorCodigo) {
-      await t.rollback();
+      await rollbackTransactionQuietly(t);
       return res.status(401).json({
         success: false,
         message: 'Token inválido o sin información de vendedor'
       });
     }
 
-    // Verificar que el vendedor tenga una caja abierta
     const cajaAbierta = await CajaCabeza.findOne({
       where: {
         VendedorId: vendedorCodigo,
@@ -297,20 +315,18 @@ exports.createRecibo = async (req, res) => {
     });
 
     if (!cajaAbierta) {
-      await t.rollback();
+      await rollbackTransactionQuietly(t);
       return res.status(400).json({
         success: false,
         message: 'El vendedor no tiene una caja abierta'
       });
     }
 
-    // Verificar que las facturas existan antes de proceder
     if (DocumentosDeuda && DocumentosDeuda.length > 0) {
       for (const doc of DocumentosDeuda) {
         let documento;
-        
+
         if (doc.DocumentoTipo === 'NDF' || doc.DocumentoTipo === 'NDA' || doc.DocumentoTipo === 'NDC' || doc.DocumentoTipo === 'NDB') {
-          // Es una nota de débito
           documento = await NotaDebito.findOne({
             where: {
               DocumentoTipo: doc.DocumentoTipo,
@@ -320,7 +336,6 @@ exports.createRecibo = async (req, res) => {
             transaction: t
           });
         } else {
-          // Es una factura
           documento = await FacturaCabeza.findOne({
             where: {
               DocumentoTipo: doc.DocumentoTipo,
@@ -332,17 +347,16 @@ exports.createRecibo = async (req, res) => {
         }
 
         if (!documento) {
-          await t.rollback();
+          await rollbackTransactionQuietly(t);
           return res.status(400).json({
             success: false,
             message: `El documento ${doc.DocumentoTipo}-${doc.DocumentoSucursal}-${doc.DocumentoNumero} no existe`
           });
         }
 
-        // Verificar el saldo pendiente
         const saldoPendiente = documento.ImporteTotal - (documento.ImportePagado || 0);
         if (doc.Importe > saldoPendiente) {
-          await t.rollback();
+          await rollbackTransactionQuietly(t);
           return res.status(400).json({
             success: false,
             message: `El importe a pagar (${doc.Importe}) excede el saldo pendiente (${saldoPendiente}) del documento ${doc.DocumentoTipo}-${doc.DocumentoSucursal}-${doc.DocumentoNumero}`
@@ -351,24 +365,61 @@ exports.createRecibo = async (req, res) => {
       }
     }
 
-    // Mapear los documentos de deuda para evitar conflictos de nombres
-    const documentosDeudaMapeados = DocumentosDeuda.map(doc => ({
+    const documentosDeudaMapeados = (DocumentosDeuda || []).map((doc) => ({
       DocDeudaDocumentoTipo: doc.DocumentoTipo,
       DocDeudaDocumentoSucursal: doc.DocumentoSucursal,
       DocDeudaDocumentoNumero: doc.DocumentoNumero,
       DocDeudaImporte: doc.Importe
     }));
 
-    // Mapear los documentos de crédito para evitar conflictos de nombres
-    const documentosCreditoMapeados = DocumentosCredito.map(doc => ({
-      DocCreditoDocumentoTipo: doc.Documento.split('-')[0],
-      DocCreditoDocumentoSucursal: doc.Documento.split('-')[1], 
-      DocCreditoDocumentoNumero: doc.Documento.split('-')[2],
-      DocCreditoImporte: doc.Importe
-    }));
+    const documentosCreditoMapeados = (DocumentosCredito || [])
+      .filter((doc) => doc && doc.Documento && typeof doc.Documento === 'string')
+      .map((doc) => {
+        const parts = doc.Documento.split('-');
+        return {
+          DocCreditoDocumentoTipo: parts[0],
+          DocCreditoDocumentoSucursal: parts[1],
+          DocCreditoDocumentoNumero: parts[2],
+          DocCreditoImporte: doc.Importe
+        };
+      });
+
+    const formasPagoList = Array.isArray(FormasPago) ? FormasPago : [];
+
+    const codigosMetodoPagoValidos = new Set(
+      (await TipoDePago.findAll({ attributes: ['Codigo'], transaction: t }))
+        .map((r) => r.Codigo)
+        .filter(Boolean)
+    );
+    const metodoPagoParaMovimientoCaja = (codigo) =>
+      codigo && codigosMetodoPagoValidos.has(codigo) ? codigo : 'OT';
 
     try {
-      // 1. Crear primero el recibo
+      const [numRows] = await sequelize.query(
+        `SELECT NumeroProximo FROM t_numeroscontrol WHERE Codigo = ? AND Sucursal = ? FOR UPDATE`,
+        {
+          replacements: [DocumentoTipo, DocumentoSucursal],
+          type: QueryTypes.SELECT,
+          transaction: t
+        }
+      );
+
+      if (!numRows || numRows.NumeroProximo === undefined || numRows.NumeroProximo === null) {
+        throw new Error('Número de control no encontrado');
+      }
+
+      const esperadoNum = String(numRows.NumeroProximo).padStart(8, '0');
+      const enviadoNum = String(DocumentoNumero).padStart(8, '0');
+      if (esperadoNum !== enviadoNum) {
+        await rollbackTransactionQuietly(t);
+        t = null;
+        return res.status(409).json({
+          success: false,
+          message:
+            'El número de recibo ya no es válido (numeración desactualizada). Obtenga un número nuevo e intente de nuevo.'
+        });
+      }
+
       console.log("Paso 1: Creando recibo y formas de pago...");
       const recibo = await grabarReciboYFormasPago(
         DocumentoTipo,
@@ -377,7 +428,7 @@ exports.createRecibo = async (req, res) => {
         Fecha,
         CodigoCliente,
         Observaciones,
-        FormasPago,
+        formasPagoList,
         ImporteTotal,
         VendedorCodigo,
         t,
@@ -385,48 +436,54 @@ exports.createRecibo = async (req, res) => {
       );
       console.log("Recibo creado:", recibo.toJSON());
 
-      // 2. Actualizar documentos de deuda (facturas o notas de débito)
       console.log("Paso 2: Actualizando documentos de deuda...");
       await actualizarDocumentosDeuda(
-        documentosDeudaMapeados, 
-        {DocumentoTipo, DocumentoSucursal, DocumentoNumero}, 
+        documentosDeudaMapeados,
+        { DocumentoTipo, DocumentoSucursal, DocumentoNumero },
         t,
         { FacturaCabeza, NotaDebito, ReciboItem }
       );
       console.log("Documentos de deuda actualizados correctamente");
 
-      // 3. Actualizar documentos de crédito
       console.log("Paso 3: Actualizando documentos de crédito...");
-      await actualizarDocumentosCredito(documentosCreditoMapeados, {DocumentoTipo, DocumentoSucursal, DocumentoNumero}, t, { NotaCredito, ReciboValor });
+      await actualizarDocumentosCredito(
+        documentosCreditoMapeados,
+        { DocumentoTipo, DocumentoSucursal, DocumentoNumero },
+        t,
+        { NotaCredito, ReciboValor }
+      );
       console.log("Documentos de crédito actualizados correctamente");
 
-      // 4. Registrar movimientos en caja
       console.log("Paso 4: Registrando movimientos en caja...");
-      for (const formaPago of FormasPago) {
-        await CajaMovimientos.create({
-          CajaCabezaId: cajaAbierta.Codigo,
-          Tipo: 'ingreso',
-          Importe: formaPago.Importe,
-          Concepto: `Recibo ${DocumentoTipo}-${DocumentoSucursal}-${DocumentoNumero}`,
-          MetodoPago: formaPago.Codigo,
-          Referencia: formaPago.Numero || null,
-          Banco: formaPago.Banco || null,
-          ValorFecha: formaPago.Fecha || new Date(),
-          DocumentoAsociado: `${DocumentoTipo}-${DocumentoSucursal}-${DocumentoNumero}`,
-          TipoDocumento: 'REC',
-          FechaHora: new Date(),
-          UsuarioId: VendedorCodigo
-        }, { transaction: t });
+      for (const formaPago of formasPagoList) {
+        await CajaMovimientos.create(
+          {
+            CajaCabezaId: cajaAbierta.Codigo,
+            Tipo: 'ingreso',
+            Importe: formaPago.Importe,
+            Concepto: `Recibo ${DocumentoTipo}-${DocumentoSucursal}-${DocumentoNumero}`,
+            MetodoPago: metodoPagoParaMovimientoCaja(formaPago.Codigo),
+            Referencia: formaPago.Numero || null,
+            Banco: formaPago.Banco || null,
+            ValorFecha: formaPago.Fecha || new Date(),
+            DocumentoAsociado: `${DocumentoTipo}-${DocumentoSucursal}-${DocumentoNumero}`,
+            TipoDocumento: 'REC',
+            FechaHora: new Date(),
+            UsuarioId: VendedorCodigo
+          },
+          { transaction: t }
+        );
       }
 
-      // 5. Actualizar saldo teórico de la caja
-      const totalFormasPago = FormasPago.reduce((total, formaPago) => total + formaPago.Importe, 0);
-      await cajaAbierta.update({
-        SaldoTeorico: parseFloat(cajaAbierta.SaldoTeorico || 0) + totalFormasPago
-      }, { transaction: t });
+      const totalFormasPago = formasPagoList.reduce((total, formaPago) => total + formaPago.Importe, 0);
+      await cajaAbierta.update(
+        {
+          SaldoTeorico: parseFloat(cajaAbierta.SaldoTeorico || 0) + totalFormasPago
+        },
+        { transaction: t }
+      );
       console.log("Movimientos de caja registrados correctamente");
 
-      // 6. Actualizar número de control
       console.log("Paso 6: Actualizando número de control...");
       try {
         await NumerosControlController.actualizarNumeroDirecto(
@@ -439,7 +496,8 @@ exports.createRecibo = async (req, res) => {
         console.log("Número de control actualizado correctamente");
       } catch (errorNumero) {
         console.error("Error al actualizar número de control:", errorNumero);
-        await t.rollback();
+        await rollbackTransactionQuietly(t);
+        t = null;
         return res.status(500).json({
           success: false,
           message: "Error al actualizar el número de control",
@@ -448,27 +506,25 @@ exports.createRecibo = async (req, res) => {
         });
       }
 
-      // 7. Actualizar la deuda del cliente
       console.log("Paso 7: Actualizando deuda del cliente...");
       try {
-        // Obtener el cliente
         const cliente = await Cliente.findByPk(CodigoCliente, { transaction: t });
-        
+
         if (!cliente) {
           throw new Error(`Cliente no encontrado: ${CodigoCliente}`);
         }
-        
-        // Actualizar la deuda del cliente
+
         await cliente.update(
-          { 
-            ImporteDeuda: (cliente.ImporteDeuda || 0) - totalFormasPago 
+          {
+            ImporteDeuda: (cliente.ImporteDeuda || 0) - totalFormasPago
           },
           { transaction: t }
         );
         console.log("Deuda del cliente actualizada correctamente");
       } catch (errorCliente) {
         console.error("Error al actualizar deuda del cliente:", errorCliente);
-        await t.rollback();
+        await rollbackTransactionQuietly(t);
+        t = null;
         return res.status(500).json({
           success: false,
           message: "Error al actualizar la deuda del cliente",
@@ -477,24 +533,31 @@ exports.createRecibo = async (req, res) => {
         });
       }
 
-      // Confirmar transacción
       console.log("Confirmando transacción...");
       await t.commit();
+      t = null;
       console.log("Transacción confirmada exitosamente");
-      
+
       return res.status(201).json({
         success: true,
         message: 'Recibo creado correctamente',
         data: recibo
       });
     } catch (error) {
-      // Revertir transacción en caso de error
       console.error("Error en el proceso de creación:", error);
       console.error("Stack trace:", error.stack);
-      await t.rollback();
-      throw error;
+      await rollbackTransactionQuietly(t);
+      t = null;
+      return res.status(500).json({
+        success: false,
+        message: 'Error al crear el recibo',
+        error: error.message,
+        stack: error.stack,
+        details: error.toString()
+      });
     }
   } catch (error) {
+    await rollbackTransactionQuietly(t);
     console.error('Error al crear recibo:', error);
     console.error('Stack trace:', error.stack);
     return res.status(500).json({
