@@ -418,7 +418,13 @@ const copiarClientes = async (empresaSequelize, preventasSequelize) => {
 
   // Insertar en la base de datos de preventas
   if (clientes.length > 0) {
-    const values = clientes.map(cliente => `(
+    const values = clientes.map((cliente) => {
+      const deuda = parseFloat(cliente.ImporteDeuda);
+      const ntcNoAplicado = parseFloat(cliente.SaldoNTCNoAplicado);
+      const deudaNum = Number.isFinite(deuda) ? deuda : 0;
+      const ntcNum = Number.isFinite(ntcNoAplicado) ? ntcNoAplicado : 0;
+      const importeDeudaPreventas = deudaNum - ntcNum;
+      return `(
       '${cliente.Codigo || ''}',
       '${(cliente.Descripcion || '').replace(/'/g, "''")}',
       '${cliente.Cuit || ''}',
@@ -433,12 +439,13 @@ const copiarClientes = async (empresaSequelize, preventasSequelize) => {
       '${(cliente.ContactoComercial || '').replace(/'/g, "''")}',
       '${cliente.CategoriaIva || ''}',
       ${cliente.ListaPrecio || 1},
-      ${cliente.ImporteDeuda || 0},
+      ${importeDeudaPreventas},
       '${cliente.CodigoVendedor || ''}',
       ${cliente.Actualizado ? 1 : 0},
-      ${cliente.SaldoNTCNoAplicado || 0},
+      0,
       ${cliente.LimiteCredito || 0}
-    )`).join(',');
+    )`;
+    }).join(',');
 
     await preventasSequelize.query(`
       INSERT INTO t_clientes (
