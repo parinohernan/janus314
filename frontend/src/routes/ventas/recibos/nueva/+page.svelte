@@ -1,21 +1,14 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
   import Select from '$lib/components/ui/Select.svelte';
   import Input from '$lib/components/ui/Input.svelte';
   import { formatDate } from '$lib/utils/dateUtils';
   import { EmpresaService } from '$lib/services/EmpresaService';
   import FormasPago from '$lib/components/recibos/FormasPago.svelte';
-  import { goto, beforeNavigate } from '$app/navigation';
-  import { browser } from '$app/environment';
-  import { navigationState } from '$lib/stores/navigationState';
+  import { goto } from '$app/navigation';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { auth } from '$lib/stores/authStore';
-  import { get } from 'svelte/store';
-
-  const RECIBO_NUEVA_PATH = '/ventas/recibos/nueva';
-  let skipPersist = false;
 
   // Estado del formulario
   let loading = false;
@@ -314,9 +307,29 @@
     }, 300);
   };
 
+  /** Limpia selección de documentos, importes editados, crédito y formas de pago (otro cliente o cambiar cliente). */
+  function reiniciarEstadoComprobantesYPagos() {
+    documentosSeleccionados = [];
+    importeTotalPagar = 0;
+    importesEditados = {};
+    erroresImportes = {};
+    documentosCreditoSeleccionados = [];
+    importeTotalCredito = 0;
+    importesCreditoEditados = {};
+    erroresImportesCredito = {};
+    formasPago = [];
+    importeTotalFormasPago = 0;
+  }
+
   // Seleccionar un cliente
   function seleccionarCliente(cliente: any) {
     console.log('Cliente seleccionado:', cliente);
+    reiniciarEstadoComprobantesYPagos();
+    documentosDeuda = [];
+    documentosCredito = [];
+    errorDocumentosDeuda = null;
+    errorDocumentosCredito = null;
+
     clienteSeleccionado = cliente;
     recibo.ClienteId = cliente.Id;
     clienteSearch = cliente.Descripcion;
@@ -395,50 +408,6 @@
       const sucursal = await EmpresaService.obtenerSucursal();
       recibo.DocumentoSucursal = sucursal;
       await obtenerProximoNumero();
-
-      // Restaurar estado persistido
-      if (browser) {
-        const savedState = navigationState.getState(RECIBO_NUEVA_PATH);
-        const filters = savedState?.filters as {
-          recibo?: typeof recibo;
-          clienteSeleccionado?: any;
-          clienteSearch?: string;
-          documentosDeuda?: any[];
-          documentosCredito?: any[];
-          documentosSeleccionados?: any[];
-          documentosCreditoSeleccionados?: any[];
-          importesEditados?: Record<string, number>;
-          importesCreditoEditados?: Record<string, number>;
-          formasPago?: any[];
-        } | undefined;
-        if (filters?.recibo) {
-          Object.assign(recibo, filters.recibo);
-          recibo.DocumentoSucursal = sucursal;
-        }
-        if (filters?.clienteSeleccionado) clienteSeleccionado = filters.clienteSeleccionado;
-        if (filters?.clienteSearch) clienteSearch = filters.clienteSearch;
-        if (filters?.documentosDeuda?.length) documentosDeuda = filters.documentosDeuda;
-        if (filters?.documentosCredito?.length) documentosCredito = filters.documentosCredito;
-        if (filters?.documentosSeleccionados?.length) documentosSeleccionados = filters.documentosSeleccionados;
-        if (filters?.documentosCreditoSeleccionados?.length) documentosCreditoSeleccionados = filters.documentosCreditoSeleccionados;
-        if (filters?.importesEditados) importesEditados = { ...importesEditados, ...filters.importesEditados };
-        if (filters?.importesCreditoEditados) importesCreditoEditados = { ...importesCreditoEditados, ...filters.importesCreditoEditados };
-        if (filters?.formasPago?.length) formasPago = filters.formasPago;
-        if (documentosSeleccionados.length > 0) {
-          importeTotalPagar = documentosSeleccionados.reduce((total, doc) => {
-            const key = getDocumentoKey(doc);
-            return total + (importesEditados[key] !== undefined ? importesEditados[key] : (doc.ImporteTotal - (doc.ImportePagado || 0)));
-          }, 0);
-        }
-        if (documentosCreditoSeleccionados.length > 0) {
-          importeTotalCredito = documentosCreditoSeleccionados.reduce((total, doc) => {
-            return total + (importesCreditoEditados[doc.documento] !== undefined ? importesCreditoEditados[doc.documento] : doc.saldo);
-          }, 0);
-        }
-        if (savedState?.scroll && typeof window !== 'undefined') {
-          requestAnimationFrame(() => window.scrollTo(0, savedState.scroll));
-        }
-      }
     } catch (err) {
       console.error('Error cargando datos iniciales:', err);
       error = err instanceof Error ? err.message : 'Error desconocido';
@@ -463,36 +432,8 @@
   // Función para confirmar cancelación
   function confirmCancel() {
     showCancelConfirm = false;
-    skipPersist = true;
-    if (browser) navigationState.clearState(RECIBO_NUEVA_PATH);
     goto('/ventas/recibos');
   }
-
-  beforeNavigate(({ from }) => {
-    if (skipPersist) {
-      skipPersist = false;
-      return;
-    }
-    if (from?.url.pathname === RECIBO_NUEVA_PATH && browser) {
-      const currentState = navigationState.getState(RECIBO_NUEVA_PATH) || {};
-      navigationState.saveState(RECIBO_NUEVA_PATH, {
-        ...currentState,
-        scroll: typeof window !== 'undefined' ? window.scrollY : 0,
-        filters: {
-          recibo: { ...recibo },
-          clienteSeleccionado,
-          clienteSearch,
-          documentosDeuda: [...documentosDeuda],
-          documentosCredito: [...documentosCredito],
-          documentosSeleccionados: [...documentosSeleccionados],
-          documentosCreditoSeleccionados: [...documentosCreditoSeleccionados],
-          importesEditados: { ...importesEditados },
-          importesCreditoEditados: { ...importesCreditoEditados },
-          formasPago: [...formasPago]
-        }
-      });
-    }
-  });
 
   // Función para grabar recibo
   async function handleGrabar() {
@@ -573,8 +514,6 @@
       success = true;
       successMessage = 'Recibo grabado correctamente';
       
-      skipPersist = true;
-      if (browser) navigationState.clearState(RECIBO_NUEVA_PATH);
       // Redirigir después de 2 segundos
       setTimeout(() => {
         goto('/ventas/recibos');
@@ -666,10 +605,14 @@
                 type="button" 
                 class="text-sm text-blue-600 hover:text-blue-800"
                 on:click={() => { 
+                  reiniciarEstadoComprobantesYPagos();
                   clienteSeleccionado = null; 
                   recibo.ClienteId = ''; 
                   clienteSearch = ''; 
                   documentosDeuda = [];
+                  documentosCredito = [];
+                  errorDocumentosDeuda = null;
+                  errorDocumentosCredito = null;
                 }}
               >
                 Cambiar
