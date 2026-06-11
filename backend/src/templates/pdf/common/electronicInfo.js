@@ -74,17 +74,22 @@ async function renderElectronicInfo(doc, factura, yTotales) {
       console.error(`Error al cargar el logo ARCA: ${error.message}`);
     }
 
-    //Mostrar CAE y fecha de vencimiento debajo del logo ARCA
-    doc.x = -190
-    doc.y = yTotales + 50 // Posición debajo del logo
+    // Mostrar CAE y fecha de vencimiento debajo del logo ARCA
     doc.fontSize(10);
-    
+    const caeX = 140;
+    const caeY = yTotales + 50;
+
     if (factura.afip_cae) {
-      doc.text(`CAE: ${factura.afip_cae}`, { align: "center" });
+      doc.text(`CAE N°: ${factura.afip_cae}`, caeX, caeY, { width: 200, align: "left" });
     }
-    
+
     if (factura.afip_cae_vencimiento) {
-      doc.text(`Vto: ${new Date(factura.afip_cae_vencimiento).toLocaleDateString("es-AR")}`, { align: "center" });
+      doc.text(
+        `Fecha Vto. CAE: ${new Date(factura.afip_cae_vencimiento).toLocaleDateString("es-AR")}`,
+        caeX,
+        caeY + 14,
+        { width: 200, align: "left" }
+      );
     }
   }
 
