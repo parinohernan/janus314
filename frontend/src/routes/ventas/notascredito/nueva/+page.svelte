@@ -487,11 +487,11 @@
       loading = true;
       error = null;
       
-      // defino importe utilizado segun el pago
-      if (notaCredito.FormaPagoCodigo === 'CC') {
-        notaCredito.ImporteUtilizado = 0;
-      } else {
+      // ImporteUtilizado lo define el servidor según FormaPagoCodigo (CO = total, CC = 0).
+      if (notaCredito.FormaPagoCodigo === 'CO' || notaCredito.FormaPagoCodigo === 'CT') {
         notaCredito.ImporteUtilizado = notaCredito.ImporteTotal;
+      } else {
+        notaCredito.ImporteUtilizado = 0;
       }
       
       // Agregar log para debug

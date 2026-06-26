@@ -448,7 +448,6 @@ exports.crearNotaCreditoRapidaDesdePreventa = async (req, res) => {
       PorcentajeIva1: 21,
       PorcentajeIva2: 10.5,
       ImporteTotal: importeTotal,
-      ImporteUtilizado: 0,
       Observacion: (cabeza.Observacion || "") + (cabeza.Observacion ? " " : "") + `[NC rápida desde ${preventaTipo}-${preventaSucursal}-${preventaNumero}]`,
       PorStock: true,
       Items,
@@ -621,11 +620,12 @@ exports.anularNotaCredito = async (req, res) => {
 
     if (cliente) {
       // Al anular NC, restamos el saldo de NC no aplicado
+      // esto no lo hacemos mas porque ya no se usa saldo.
       // Solo afecta el saldo disponible (ImporteTotal - ImporteUtilizado)
       const saldoDisponible = (notaCredito.ImporteTotal || 0) - (notaCredito.ImporteUtilizado || 0);
-      await cliente.update({
-        SaldoNTCNoAplicado: Math.max(0, (cliente.SaldoNTCNoAplicado || 0) - saldoDisponible)
-      }, { transaction: t });
+      // await cliente.update({
+      //   SaldoNTCNoAplicado: Math.max(0, (cliente.SaldoNTCNoAplicado || 0) - saldoDisponible)
+      // }, { transaction: t });
     }
 
       await t.commit();

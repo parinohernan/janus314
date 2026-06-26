@@ -26,6 +26,7 @@ const renderOrdenCompra = require("../templates/pdf/ordenCompra.template.js");
 // const NotaCreditoItem = require("../models/notaCreditoItem.model");
 // const datosEmpresaController = require("../controllers/datosEmpresa.controller");
 const logoManager = require("../utils/logoManager");
+const { enriquecerClienteLocalidad } = require("../utils/clienteLocalidad.util");
 const docFacturaA4 = { margin: 42.5, size: "A4" }; // 1.5cm = 42.5 puntos (1cm = 28.35 puntos)
 
 // Función para generar PDF de factura
@@ -36,7 +37,7 @@ exports.generarFacturaPDF = async (req, res) => {
     console.log(`Generando PDF para factura: ${tipo}-${sucursal}-${numero}`);
     
     // Obtener los modelos dinámicos de la empresa actual
-    const { FacturaCabeza, FacturaItem, Cliente, Articulo, DatosEmpresa, Configuracion } = req.models;
+    const { FacturaCabeza, FacturaItem, Cliente, Articulo, DatosEmpresa, Configuracion, Localidad } = req.models;
 
     // Obtener datos de la factura con el cliente
     const factura = await FacturaCabeza.findOne({
@@ -76,6 +77,10 @@ exports.generarFacturaPDF = async (req, res) => {
     }
 
     console.log('Cliente encontrado:', factura.Cliente ? 'Sí' : 'No');
+
+    if (factura.Cliente) {
+      await enriquecerClienteLocalidad(factura.Cliente, Localidad);
+    }
 
     // Obtener ítems de la factura
     const items = await FacturaItem.findAll({
@@ -231,7 +236,7 @@ exports.generarPrefacturaPDF = async (req, res) => {
     const { tipo, sucursal, numero } = req.params;
     
     // Obtener los modelos dinámicos de la empresa actual
-    const { PreventaCabeza, PreventaItem, Cliente, Articulo, DatosEmpresa } = req.models;
+    const { PreventaCabeza, PreventaItem, Cliente, Articulo, DatosEmpresa, Localidad } = req.models;
 
     // Obtener datos de la prefactura con el cliente
     const prefactura = await PreventaCabeza.findOne({
@@ -249,6 +254,10 @@ exports.generarPrefacturaPDF = async (req, res) => {
         success: false,
         message: "Prefactura no encontrada",
       });
+    }
+
+    if (prefactura.Cliente) {
+      await enriquecerClienteLocalidad(prefactura.Cliente, Localidad);
     }
 
     // Obtener ítems de la prefactura
@@ -422,7 +431,7 @@ exports.generarNotaCreditoPDF = async (req, res) => {
     const { tipo, sucursal, numero } = req.params;
     
     // Obtener los modelos dinámicos de la empresa actual
-    const { NotaCreditoCabeza, NotaCreditoItem, Cliente, Articulo, DatosEmpresa } = req.models;
+    const { NotaCreditoCabeza, NotaCreditoItem, Cliente, Articulo, DatosEmpresa, Localidad } = req.models;
 
     // Obtener datos de la nota de crédito con el cliente
     const notaCredito = await NotaCreditoCabeza.findOne({
@@ -440,6 +449,10 @@ exports.generarNotaCreditoPDF = async (req, res) => {
         success: false,
         message: "Nota de crédito no encontrada",
       });
+    }
+
+    if (notaCredito.Cliente) {
+      await enriquecerClienteLocalidad(notaCredito.Cliente, Localidad);
     }
 
     // Obtener ítems de la nota de crédito - CORREGIDO: solo columnas que existen
@@ -587,9 +600,22 @@ exports.generarNotaCreditoPDF = async (req, res) => {
       notaCredito.Empresa.InicioActividades = new Date(notaCredito.Empresa.InicioActividades);
     }
     
-    // Agregar PagoTipo para mostrar en el PDF (derivado de ImporteUtilizado)
-    // Si ImporteUtilizado es 0, es Cuenta Corriente (CC), sino es Contado (CO)
-    notaCredito.PagoTipo = notaCredito.ImporteUtilizado === 0 ? 'CC' : 'CO';
+    // Tipo de pago en PDF: sin columna dedicada — contado implica ImporteUtilizado >= ImporteTotal al emitir; CC arranca en 0.
+    // Quitar sufijo legado [#FP:XX] en Observacion si existiera.
+    const obsRaw = String(
+      notaCredito.get && notaCredito.get("Observacion") != null
+        ? notaCredito.get("Observacion")
+        : notaCredito.Observacion || ""
+    );
+    const obsLimpia = obsRaw.replace(/\s*\[#FP:(CC|CO)\]\s*$/i, "").trimEnd();
+    if (typeof notaCredito.set === "function") {
+      notaCredito.set("Observacion", obsLimpia);
+    } else {
+      notaCredito.Observacion = obsLimpia;
+    }
+    const total = parseFloat(notaCredito.ImporteTotal) || 0;
+    const util = parseFloat(notaCredito.ImporteUtilizado) || 0;
+    notaCredito.PagoTipo = total > 0 && util >= total ? "CO" : "CC";
 
     // Preparar el logo de la empresa usando el LogoManager
     console.log('🖼️ Configurando logo de empresa para nota de crédito...');
@@ -1086,7 +1112,7 @@ exports.generarNotaDebitoPDF = async (req, res) => {
     console.log(`Generando PDF para nota de débito: ${tipo}-${sucursal}-${numero}`);
     
     // Obtener los modelos dinámicos de la empresa actual
-    const { NotaDebitoCabeza, NotaDebitoItem, Cliente, DatosEmpresa } = req.models;
+    const { NotaDebitoCabeza, NotaDebitoItem, Cliente, DatosEmpresa, Localidad } = req.models;
 
     // Obtener datos de la nota de débito con el cliente
     const notaDebito = await NotaDebitoCabeza.findOne({
@@ -1104,6 +1130,10 @@ exports.generarNotaDebitoPDF = async (req, res) => {
         success: false,
         message: "Nota de débito no encontrada",
       });
+    }
+
+    if (notaDebito.ClienteRelacion) {
+      await enriquecerClienteLocalidad(notaDebito.ClienteRelacion, Localidad);
     }
 
     console.log('Nota de débito encontrada:', notaDebito.DocumentoTipo);

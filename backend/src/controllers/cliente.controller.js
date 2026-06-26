@@ -2,11 +2,16 @@ const { Op } = require("sequelize");
 const sequelize = require("sequelize");
 const pool = require("../config/database");
 const { v4: uuidv4 } = require('uuid');
+const {
+  resolverLocalidadDesdeCodigoPostal,
+  aplicarLocalidadDesdeCodigoPostal,
+  enriquecerLocalidadEnClientes,
+} = require("../utils/clienteLocalidad.util");
 
 // Obtener todos los clientes (con filtros y paginación)
 const getAllClientes = async (req, res) => {
   try {
-    const { Cliente, CategoriaIva } = req.models;
+    const { Cliente, CategoriaIva, Localidad } = req.models;
     const {
       page = 1,
       limit = 10,
@@ -83,8 +88,11 @@ const getAllClientes = async (req, res) => {
         "CategoriaIva",
         "ListaPrecio",
         "CodigoVendedor",
+        "CodigoPostal",
       ],
     });
+
+    await enriquecerLocalidadEnClientes(clientes, Localidad);
 
     // Calcular páginas totales y devolver con metadatos de paginación
     const totalPages = Math.ceil(count / limit);
@@ -135,7 +143,7 @@ const getLocalidadesDistinct = async (req, res) => {
 // Obtener un cliente por Código
 const getClienteById = async (req, res) => {
   try {
-    const { Cliente, CategoriaIva } = req.models;
+    const { Cliente, CategoriaIva, Localidad } = req.models;
     const cliente = await Cliente.findByPk(req.params.id, {
       include: [
         {
@@ -148,6 +156,14 @@ const getClienteById = async (req, res) => {
 
     if (!cliente) {
       return res.status(404).json({ message: "Cliente no encontrado" });
+    }
+
+    const descripcion = await resolverLocalidadDesdeCodigoPostal(
+      cliente.CodigoPostal,
+      Localidad
+    );
+    if (descripcion) {
+      cliente.set("Localidad", descripcion);
     }
 
     return res.status(200).json(cliente);
@@ -166,7 +182,7 @@ function generarCodigoUnico() {
 // Crear nuevo cliente
 const createCliente = async (req, res) => {
   try {
-    const { Cliente } = req.models;
+    const { Cliente, Localidad } = req.models;
     const clienteData = { ...req.body };
 
     // Validar campos obligatorios
@@ -191,6 +207,8 @@ const createCliente = async (req, res) => {
     // Asignar el código generado
     clienteData.Codigo = codigoGenerado;
 
+    await aplicarLocalidadDesdeCodigoPostal(clienteData, Localidad);
+
     const nuevoCliente = await Cliente.create(clienteData);
     return res.status(201).json(nuevoCliente);
   } catch (error) {
@@ -202,8 +220,12 @@ const createCliente = async (req, res) => {
 // Actualizar cliente
 const updateCliente = async (req, res) => {
   try {
-    const { Cliente } = req.models;
+    const { Cliente, Localidad } = req.models;
     const cliente = await Cliente.findByPk(req.params.id);
+
+    if (!cliente) {
+      return res.status(404).json({ message: "Cliente no encontrado" });
+    }
 
     // Validar campos obligatorios
     if (!req.body.Descripcion) {
@@ -245,8 +267,11 @@ const updateCliente = async (req, res) => {
       clienteData.FechaDeBaja = null;
     }
 
+    await aplicarLocalidadDesdeCodigoPostal(clienteData, Localidad);
+
     // Actualizar los campos con los datos procesados
     await cliente.update(clienteData);
+    await cliente.reload();
 
     return res.status(200).json(cliente);
   } catch (error) {

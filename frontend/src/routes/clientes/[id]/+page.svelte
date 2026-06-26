@@ -72,6 +72,14 @@
   let error: string | null = null;
   let successMessage: string | null = null;
   let formErrors: Record<string, string> = {};
+
+  const sincronizarLocalidadDesdeCodigoPostal = (): void => {
+    if (!cliente.CodigoPostal) return;
+    const loc = codigosPostales.find((cp) => cp.Codigo === cliente.CodigoPostal);
+    if (loc?.Descripcion) {
+      cliente.Localidad = loc.Descripcion;
+    }
+  };
   
   // Cargar datos
   onMount(async () => {
@@ -113,6 +121,9 @@
       try {
         const localidadesData = await LocalidadService.obtenerLocalidades();
         codigosPostales = localidadesData;
+        if (isEditing && cliente.CodigoPostal) {
+          sincronizarLocalidadDesdeCodigoPostal();
+        }
       } catch (err) {
         console.error('Error cargando localidades:', err);
         // No bloquear la carga del formulario por este error
@@ -169,6 +180,8 @@
       loading = true;
       error = null;
       successMessage = null;
+
+      sincronizarLocalidadDesdeCodigoPostal();
       
       const savedCliente = await ClienteService.guardarCliente(cliente, isEditing);
       
@@ -433,6 +446,7 @@
                 <select
                   id="codigoPostal"
                   bind:value={cliente.CodigoPostal}
+                  on:change={sincronizarLocalidadDesdeCodigoPostal}
                   required
                   class="w-full px-3 py-2 border {formErrors.CodigoPostal ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >

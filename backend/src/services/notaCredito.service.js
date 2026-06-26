@@ -146,14 +146,21 @@ const NotaCreditoService = {
   async crearCabeceraNotaCredito(notaCreditoData, transaction, NotaCreditoCabezaModel) {
     try {
       // Mapear explícitamente los campos para asegurar que se guarden correctamente
+      const importeTotal = parseFloat(notaCreditoData.ImporteTotal) || 0;
+      // Sin columna "tipo de pago": contado (CO) = NC totalmente "utilizada" al emitir; CC = 0 hasta aplicar en recibos.
+      const esContado =
+        notaCreditoData.FormaPagoCodigo === "CO" ||
+        notaCreditoData.FormaPagoCodigo === "CT";
+      const importeUtilizadoInicial = esContado ? importeTotal : 0;
+
       const datosCabecera = {
         DocumentoTipo: notaCreditoData.DocumentoTipo,
         DocumentoSucursal: notaCreditoData.DocumentoSucursal,
         DocumentoNumero: notaCreditoData.DocumentoNumero,
         CodigoCliente: notaCreditoData.CodigoCliente,
         Fecha: notaCreditoData.Fecha,
-        ImporteTotal: parseFloat(notaCreditoData.ImporteTotal) || 0,
-        ImporteUtilizado: 0, // Una nota de crédito nueva siempre tiene ImporteUtilizado = 0
+        ImporteTotal: importeTotal,
+        ImporteUtilizado: importeUtilizadoInicial,
         ImporteNeto: parseFloat(notaCreditoData.ImporteNeto) || 0,
         ImporteIva1: parseFloat(notaCreditoData.ImporteIva1) || 0,
         ImporteIva2: parseFloat(notaCreditoData.ImporteIva2) || 0,
@@ -165,7 +172,9 @@ const NotaCreditoService = {
         ImporteBonificado: parseFloat(notaCreditoData.ImporteBonificado) || 0,
         ImporteAdicional: parseFloat(notaCreditoData.ImporteAdicional) || 0,
         ListaNumero: notaCreditoData.ListaNumero || 1,
-        Observacion: notaCreditoData.Observacion || '',
+        Observacion: String(notaCreditoData.Observacion || "")
+          .replace(/\s*\[#FP:(CC|CO)\]\s*$/i, "")
+          .trimEnd(),
         PorStock: notaCreditoData.PorStock ? 1 : 0,
         CodigoUsuario: notaCreditoData.CodigoUsuario || 'admin',
         CajaNumero: notaCreditoData.CajaNumero || null,

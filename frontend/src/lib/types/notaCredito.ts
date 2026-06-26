@@ -48,5 +48,6 @@ export interface NotaCredito {
 		numero: string;
 	};
 	Items: ItemNotaCredito[];
+	/** CC cuenta corriente, CO contado (obligatorio al crear; persistido en cabecera). */
 	FormaPagoCodigo: string;
 }
