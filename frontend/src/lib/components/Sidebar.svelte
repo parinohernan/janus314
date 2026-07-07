@@ -129,6 +129,7 @@
     'vendedores': UserCircle,
     'productos-informe': Box,
     'rubros': Tag,
+    'rubros-provincia': Map,
     'marcas': Tag,
     
     // Submenús - Compras
@@ -255,6 +256,7 @@
           submenus: [
             { label: 'Productos', url: '/ventas/informes/productos', icon: 'productos-informe' },
             { label: 'Rubros', url: '/ventas/informes/rubros', icon: 'rubros' },
+            { label: 'Rubros por Provincia', url: '/ventas/informes/rubros-provincia', icon: 'rubros-provincia' },
             { label: 'Marcas', url: '/ventas/informes/marcas', icon: 'marcas' }
           ]
         },

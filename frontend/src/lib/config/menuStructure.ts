@@ -62,6 +62,7 @@ export const MENU_ENTRIES: MenuEntry[] = [
 	{ id: '/ventas/informes/vendedores', url: '/ventas/informes/vendedores', label: 'Vendedores', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/productos', url: '/ventas/informes/productos', label: 'Productos', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/rubros', url: '/ventas/informes/rubros', label: 'Rubros', parentId: 'informes', parentLabel: 'Informes' },
+	{ id: '/ventas/informes/rubros-provincia', url: '/ventas/informes/rubros-provincia', label: 'Rubros por Provincia', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/marcas', url: '/ventas/informes/marcas', label: 'Marcas', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/clientes', url: '/ventas/informes/clientes', label: 'Clientes', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/proveedores', url: '/ventas/informes/proveedores', label: 'Proveedores', parentId: 'informes', parentLabel: 'Informes' },

@@ -25,6 +25,8 @@ router.get('/ventas-por-proveedor', informesController.ventasPorProveedor);
 
 // Ruta para el informe de ventas por rubro
 router.get('/ventas-por-rubro', informesController.ventasPorRubro);
+router.get('/ventas-rubros-provincia', informesController.ventasPorRubroProvincia);
+router.get('/ventas-rubros-provincia/pdf', informesController.generarPDFVentasPorRubroProvincia);
 
 // Ruta para el informe de ventas por clientes
 router.get('/ventas-por-clientes', informesController.informeVentasPorClientes);
