@@ -26,7 +26,6 @@ const renderOrdenCompra = require("../templates/pdf/ordenCompra.template.js");
 // const NotaCreditoItem = require("../models/notaCreditoItem.model");
 // const datosEmpresaController = require("../controllers/datosEmpresa.controller");
 const logoManager = require("../utils/logoManager");
-const { enriquecerClienteLocalidad } = require("../utils/clienteLocalidad.util");
 const docFacturaA4 = { margin: 42.5, size: "A4" }; // 1.5cm = 42.5 puntos (1cm = 28.35 puntos)
 
 // Función para generar PDF de factura
@@ -37,7 +36,7 @@ exports.generarFacturaPDF = async (req, res) => {
     console.log(`Generando PDF para factura: ${tipo}-${sucursal}-${numero}`);
     
     // Obtener los modelos dinámicos de la empresa actual
-    const { FacturaCabeza, FacturaItem, Cliente, Articulo, DatosEmpresa, Configuracion, Localidad } = req.models;
+    const { FacturaCabeza, FacturaItem, Cliente, Articulo, DatosEmpresa, Configuracion } = req.models;
 
     // Obtener datos de la factura con el cliente
     const factura = await FacturaCabeza.findOne({
@@ -77,10 +76,6 @@ exports.generarFacturaPDF = async (req, res) => {
     }
 
     console.log('Cliente encontrado:', factura.Cliente ? 'Sí' : 'No');
-
-    if (factura.Cliente) {
-      await enriquecerClienteLocalidad(factura.Cliente, Localidad);
-    }
 
     // Obtener ítems de la factura
     const items = await FacturaItem.findAll({
@@ -236,7 +231,7 @@ exports.generarPrefacturaPDF = async (req, res) => {
     const { tipo, sucursal, numero } = req.params;
     
     // Obtener los modelos dinámicos de la empresa actual
-    const { PreventaCabeza, PreventaItem, Cliente, Articulo, DatosEmpresa, Localidad } = req.models;
+    const { PreventaCabeza, PreventaItem, Cliente, Articulo, DatosEmpresa } = req.models;
 
     // Obtener datos de la prefactura con el cliente
     const prefactura = await PreventaCabeza.findOne({
@@ -254,10 +249,6 @@ exports.generarPrefacturaPDF = async (req, res) => {
         success: false,
         message: "Prefactura no encontrada",
       });
-    }
-
-    if (prefactura.Cliente) {
-      await enriquecerClienteLocalidad(prefactura.Cliente, Localidad);
     }
 
     // Obtener ítems de la prefactura
@@ -431,7 +422,7 @@ exports.generarNotaCreditoPDF = async (req, res) => {
     const { tipo, sucursal, numero } = req.params;
     
     // Obtener los modelos dinámicos de la empresa actual
-    const { NotaCreditoCabeza, NotaCreditoItem, Cliente, Articulo, DatosEmpresa, Localidad } = req.models;
+    const { NotaCreditoCabeza, NotaCreditoItem, Cliente, Articulo, DatosEmpresa } = req.models;
 
     // Obtener datos de la nota de crédito con el cliente
     const notaCredito = await NotaCreditoCabeza.findOne({
@@ -449,10 +440,6 @@ exports.generarNotaCreditoPDF = async (req, res) => {
         success: false,
         message: "Nota de crédito no encontrada",
       });
-    }
-
-    if (notaCredito.Cliente) {
-      await enriquecerClienteLocalidad(notaCredito.Cliente, Localidad);
     }
 
     // Obtener ítems de la nota de crédito - CORREGIDO: solo columnas que existen
@@ -1112,7 +1099,7 @@ exports.generarNotaDebitoPDF = async (req, res) => {
     console.log(`Generando PDF para nota de débito: ${tipo}-${sucursal}-${numero}`);
     
     // Obtener los modelos dinámicos de la empresa actual
-    const { NotaDebitoCabeza, NotaDebitoItem, Cliente, DatosEmpresa, Localidad } = req.models;
+    const { NotaDebitoCabeza, NotaDebitoItem, Cliente, DatosEmpresa } = req.models;
 
     // Obtener datos de la nota de débito con el cliente
     const notaDebito = await NotaDebitoCabeza.findOne({
@@ -1130,10 +1117,6 @@ exports.generarNotaDebitoPDF = async (req, res) => {
         success: false,
         message: "Nota de débito no encontrada",
       });
-    }
-
-    if (notaDebito.ClienteRelacion) {
-      await enriquecerClienteLocalidad(notaDebito.ClienteRelacion, Localidad);
     }
 
     console.log('Nota de débito encontrada:', notaDebito.DocumentoTipo);
