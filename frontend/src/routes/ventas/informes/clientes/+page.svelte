@@ -29,6 +29,7 @@
 
   // Vista detallada de cliente
   let clienteSeleccionado: any = null;
+  let exportandoCodigo: string | null = null;
 
   // Inicializar fechas al mes actual
   onMount(async () => {
@@ -188,6 +189,44 @@
     clienteSeleccionado = null;
   }
 
+  async function exportarDetalleCliente(cliente: any) {
+    if (!cliente?.codigo || !fechaDesde || !fechaHasta) return;
+
+    try {
+      exportandoCodigo = cliente.codigo;
+      error = null;
+
+      const params = new URLSearchParams({
+        clienteCodigo: cliente.codigo,
+        fechaDesde: fechaDesde.toISOString().split('T')[0],
+        fechaHasta: fechaHasta.toISOString().split('T')[0]
+      });
+
+      const response = await fetchWithAuth(`/informes/ventas-por-clientes/detalle-pdf?${params}`);
+      if (!response.ok) {
+        throw new Error('Error al generar el PDF del detalle');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const nombre = String(cliente.descripcion || cliente.codigo)
+        .replace(/[^\w\-]+/g, '_')
+        .slice(0, 40);
+      a.href = url;
+      a.download = `detalle-cliente-${nombre}-${fechaDesde.toISOString().split('T')[0]}-${fechaHasta.toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Error exportando detalle PDF:', err);
+      error = err instanceof Error ? err.message : 'Error al exportar el detalle';
+    } finally {
+      exportandoCodigo = null;
+    }
+  }
+
   // Reactive statement para cargar datos cuando cambien los filtros principales
   $: if (fechaDesde && fechaHasta) {
     cargarDatos();
@@ -320,44 +359,39 @@
     </div>
   {:else if datos}
     <!-- Estadísticas Generales -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-blue-100 text-sm font-medium">Total Clientes</p>
-            <p class="text-3xl font-bold">{datos.estadisticasGenerales.totalClientes}</p>
-          </div>
-          <div class="text-4xl">👥</div>
-        </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-5 rounded-xl shadow-lg">
+        <p class="text-blue-100 text-sm font-medium">Total Clientes</p>
+        <p class="text-2xl font-bold mt-1">{datos.estadisticasGenerales.totalClientes}</p>
       </div>
 
-      <div class="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-green-100 text-sm font-medium">Total Ventas</p>
-            <p class="text-3xl font-bold">{formatearMoneda(datos.estadisticasGenerales.totalVentas)}</p>
-          </div>
-          <div class="text-4xl">💰</div>
-        </div>
+      <div class="bg-gradient-to-br from-green-500 to-green-600 text-white p-5 rounded-xl shadow-lg">
+        <p class="text-green-100 text-sm font-medium">Total Ventas</p>
+        <p class="text-2xl font-bold mt-1">{formatearMoneda(datos.estadisticasGenerales.totalVentas)}</p>
       </div>
 
-      <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-purple-100 text-sm font-medium">Total Facturas</p>
-            <p class="text-3xl font-bold">{datos.estadisticasGenerales.totalFacturas}</p>
-          </div>
-          <div class="text-4xl">📄</div>
-        </div>
+      <div class="bg-gradient-to-br from-red-500 to-red-600 text-white p-5 rounded-xl shadow-lg">
+        <p class="text-red-100 text-sm font-medium">Total NC</p>
+        <p class="text-2xl font-bold mt-1">{formatearMoneda(datos.estadisticasGenerales.totalNotasCredito || 0)}</p>
       </div>
 
-      <div class="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-6 rounded-xl shadow-lg">
+      <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white p-5 rounded-xl shadow-lg">
+        <p class="text-emerald-100 text-sm font-medium">Total Neto</p>
+        <p class="text-2xl font-bold mt-1">{formatearMoneda(datos.estadisticasGenerales.totalNeto ?? (datos.estadisticasGenerales.totalVentas - (datos.estadisticasGenerales.totalNotasCredito || 0)))}</p>
+      </div>
+
+      <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-5 rounded-xl shadow-lg">
+        <p class="text-purple-100 text-sm font-medium">Total Facturas</p>
+        <p class="text-2xl font-bold mt-1">{datos.estadisticasGenerales.totalFacturas}</p>
+      </div>
+
+      <div class="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-5 rounded-xl shadow-lg">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-orange-100 text-sm font-medium">Promedio x Cliente</p>
-            <p class="text-3xl font-bold">{formatearMoneda(datos.estadisticasGenerales.promedioVentaCliente)}</p>
+            <p class="text-2xl font-bold mt-1">{formatearMoneda(datos.estadisticasGenerales.promedioVentaCliente)}</p>
           </div>
-          <Icon icon={BarChart3} size={40} strokeWidth={2} glass={true} />
+          <Icon icon={BarChart3} size={32} strokeWidth={2} glass={true} />
         </div>
       </div>
     </div>
@@ -370,7 +404,7 @@
         <div class="text-center py-12">
           <div class="text-6xl mb-4">🔍</div>
           <h3 class="text-xl font-semibold text-gray-900 mb-2">No hay datos</h3>
-          <p class="text-gray-600">No se encontraron ventas de clientes con los filtros seleccionados.</p>
+          <p class="text-gray-600">No se encontraron ventas ni notas de crédito con los filtros seleccionados.</p>
         </div>
       {:else}
         <div class="overflow-x-auto">
@@ -384,7 +418,9 @@
                 <th class="text-left py-3 px-4 font-semibold">Vendedor</th>
                 <th class="text-left py-3 px-4 font-semibold">Cat. IVA</th>
                 <th class="text-right py-3 px-4 font-semibold">Facturas</th>
-                <th class="text-right py-3 px-4 font-semibold">Total</th>
+                <th class="text-right py-3 px-4 font-semibold">Ventas</th>
+                <th class="text-right py-3 px-4 font-semibold">NC</th>
+                <th class="text-right py-3 px-4 font-semibold">Neto</th>
                 <th class="text-center py-3 px-4 font-semibold">Acciones</th>
               </tr>
             </thead>
@@ -414,13 +450,31 @@
                   </td>
                   <td class="py-3 px-4 text-right text-gray-600">{cliente.cantidadFacturas}</td>
                   <td class="py-3 px-4 text-right font-semibold text-green-600">{formatearMoneda(cliente.totalVentas)}</td>
+                  <td class="py-3 px-4 text-right font-semibold text-red-600">
+                    {formatearMoneda(cliente.totalNotasCredito || 0)}
+                    {#if cliente.cantidadNotasCredito}
+                      <div class="text-xs font-normal text-gray-500">{cliente.cantidadNotasCredito} NC</div>
+                    {/if}
+                  </td>
+                  <td class="py-3 px-4 text-right font-semibold text-slate-800">
+                    {formatearMoneda(cliente.totalNeto ?? (cliente.totalVentas - (cliente.totalNotasCredito || 0)))}
+                  </td>
                   <td class="py-3 px-4 text-center">
-                    <button
-                      on:click={() => mostrarDetalleCliente(cliente)}
-                      class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-blue-500 text-white hover:bg-blue-600 transition-colors"
-                    >
-                      👁️ Ver Detalle
-                    </button>
+                    <div class="flex items-center justify-center gap-2 flex-wrap">
+                      <button
+                        on:click={() => mostrarDetalleCliente(cliente)}
+                        class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+                      >
+                        👁️ Ver Detalle
+                      </button>
+                      <button
+                        on:click={() => exportarDetalleCliente(cliente)}
+                        disabled={exportandoCodigo === cliente.codigo}
+                        class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {exportandoCodigo === cliente.codigo ? '⏳ Exportando...' : '📄 Exportar Detalle'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               {/each}
@@ -467,19 +521,31 @@
       <!-- Contenido del Modal -->
       <div class="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
         <!-- Resumen -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div class="bg-blue-50 p-4 rounded-lg">
             <p class="text-sm text-blue-600 font-medium mb-1">Total Ventas</p>
             <p class="text-2xl font-bold text-blue-900">{formatearMoneda(clienteSeleccionado.totalVentas)}</p>
+            <p class="text-xs text-blue-500 mt-1">{clienteSeleccionado.cantidadFacturas} facturas</p>
+          </div>
+          <div class="bg-red-50 p-4 rounded-lg">
+            <p class="text-sm text-red-600 font-medium mb-1">Total NC</p>
+            <p class="text-2xl font-bold text-red-900">{formatearMoneda(clienteSeleccionado.totalNotasCredito || 0)}</p>
+            <p class="text-xs text-red-500 mt-1">{clienteSeleccionado.cantidadNotasCredito || 0} notas</p>
           </div>
           <div class="bg-green-50 p-4 rounded-lg">
-            <p class="text-sm text-green-600 font-medium mb-1">Cantidad Facturas</p>
-            <p class="text-2xl font-bold text-green-900">{clienteSeleccionado.cantidadFacturas}</p>
+            <p class="text-sm text-green-600 font-medium mb-1">Total Neto</p>
+            <p class="text-2xl font-bold text-green-900">
+              {formatearMoneda(clienteSeleccionado.totalNeto ?? (clienteSeleccionado.totalVentas - (clienteSeleccionado.totalNotasCredito || 0)))}
+            </p>
           </div>
           <div class="bg-purple-50 p-4 rounded-lg">
             <p class="text-sm text-purple-600 font-medium mb-1">Promedio Factura</p>
             <p class="text-2xl font-bold text-purple-900">
-              {formatearMoneda(clienteSeleccionado.totalVentas / clienteSeleccionado.cantidadFacturas)}
+              {formatearMoneda(
+                clienteSeleccionado.cantidadFacturas
+                  ? clienteSeleccionado.totalVentas / clienteSeleccionado.cantidadFacturas
+                  : 0
+              )}
             </p>
           </div>
         </div>
@@ -504,42 +570,95 @@
         </div>
 
         <!-- Lista de Facturas -->
-        <div>
+        <div class="mb-8">
           <h4 class="font-semibold mb-3">Facturas del Período</h4>
-          <div class="overflow-x-auto">
-            <table class="w-full">
-              <thead>
-                <tr class="border-b border-gray-200 bg-gray-50">
-                  <th class="text-left py-2 px-3 text-sm font-semibold">Tipo</th>
-                  <th class="text-left py-2 px-3 text-sm font-semibold">Número</th>
-                  <th class="text-left py-2 px-3 text-sm font-semibold">Fecha</th>
-                  <th class="text-right py-2 px-3 text-sm font-semibold">Importe</th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each clienteSeleccionado.facturas as factura}
-                  <tr class="border-b border-gray-100">
-                    <td class="py-2 px-3">
-                      <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {factura.tipo}
-                      </span>
-                    </td>
-                    <td class="py-2 px-3 text-sm">{factura.numero}</td>
-                    <td class="py-2 px-3 text-sm text-gray-600">
-                      {new Date(factura.fecha).toLocaleDateString('es-AR')}
-                    </td>
-                    <td class="py-2 px-3 text-sm text-right font-semibold">{formatearMoneda(factura.importe)}</td>
+          {#if !clienteSeleccionado.facturas?.length}
+            <p class="text-sm text-gray-500">No hay facturas en el período.</p>
+          {:else}
+            <div class="overflow-x-auto">
+              <table class="w-full">
+                <thead>
+                  <tr class="border-b border-gray-200 bg-gray-50">
+                    <th class="text-left py-2 px-3 text-sm font-semibold">Tipo</th>
+                    <th class="text-left py-2 px-3 text-sm font-semibold">Número</th>
+                    <th class="text-left py-2 px-3 text-sm font-semibold">Fecha</th>
+                    <th class="text-right py-2 px-3 text-sm font-semibold">Importe</th>
                   </tr>
-                {/each}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {#each clienteSeleccionado.facturas as factura}
+                    <tr class="border-b border-gray-100">
+                      <td class="py-2 px-3">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {factura.tipo}
+                        </span>
+                      </td>
+                      <td class="py-2 px-3 text-sm">{factura.numero}</td>
+                      <td class="py-2 px-3 text-sm text-gray-600">
+                        {new Date(factura.fecha).toLocaleDateString('es-AR')}
+                      </td>
+                      <td class="py-2 px-3 text-sm text-right font-semibold">{formatearMoneda(factura.importe)}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {/if}
+        </div>
+
+        <!-- Lista de Notas de Crédito -->
+        <div>
+          <h4 class="font-semibold mb-3">Notas de Crédito del Período</h4>
+          {#if !clienteSeleccionado.notasCredito?.length}
+            <p class="text-sm text-gray-500">No hay notas de crédito en el período.</p>
+          {:else}
+            <div class="overflow-x-auto">
+              <table class="w-full">
+                <thead>
+                  <tr class="border-b border-gray-200 bg-red-50">
+                    <th class="text-left py-2 px-3 text-sm font-semibold">Tipo</th>
+                    <th class="text-left py-2 px-3 text-sm font-semibold">Número</th>
+                    <th class="text-left py-2 px-3 text-sm font-semibold">Fecha</th>
+                    <th class="text-left py-2 px-3 text-sm font-semibold">Fact. Relac.</th>
+                    <th class="text-right py-2 px-3 text-sm font-semibold">Importe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each clienteSeleccionado.notasCredito as nc}
+                    <tr class="border-b border-gray-100">
+                      <td class="py-2 px-3">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          {nc.tipo}
+                        </span>
+                      </td>
+                      <td class="py-2 px-3 text-sm">{nc.numero}</td>
+                      <td class="py-2 px-3 text-sm text-gray-600">
+                        {new Date(nc.fecha).toLocaleDateString('es-AR')}
+                      </td>
+                      <td class="py-2 px-3 text-sm text-gray-600">{nc.facturaRelacionada || '—'}</td>
+                      <td class="py-2 px-3 text-sm text-right font-semibold text-red-600">
+                        {formatearMoneda(-(nc.importe || 0))}
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {/if}
         </div>
       </div>
 
       <!-- Footer del Modal -->
-      <div class="p-4 bg-gray-50 border-t border-gray-200">
-        <Button variant="secondary" on:click={cerrarDetalle} class="w-full">
+      <div class="p-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row gap-3">
+        <Button
+          variant="primary"
+          on:click={() => exportarDetalleCliente(clienteSeleccionado)}
+          disabled={exportandoCodigo === clienteSeleccionado.codigo}
+          class="w-full sm:w-auto"
+        >
+          {exportandoCodigo === clienteSeleccionado.codigo ? '⏳ Exportando...' : '📄 Exportar Detalle PDF'}
+        </Button>
+        <Button variant="secondary" on:click={cerrarDetalle} class="w-full sm:flex-1">
           Cerrar
         </Button>
       </div>

@@ -4,6 +4,7 @@ const helmet = require("helmet");
 const dotenv = require("dotenv");
 const { requestLogger, logError } = require('./utils/logger');
 const getEmpresaConnection = require('./middleware/dbConnection');
+const requireAdmin = require('./middleware/requireAdmin');
 require("./config/timezone");
 
 // Cargar variables de entorno
@@ -52,7 +53,7 @@ const proveedoresNotaCreditoRoutes = require('./routes/proveedoresNotaCredito.ro
 const proveedoresNotaDebitoRoutes = require('./routes/proveedoresNotaDebito.routes');
 const optimizacionRoutes = require('./routes/optimizacion.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
-const requireAdmin = require('./middleware/requireAdmin');
+const wikiRoutes = require('./routes/wiki.routes');
 
 // Crear app Express
 const app = express();
@@ -188,6 +189,9 @@ app.use('/api/config', getEmpresaConnection, configRoutes);
 
 // Optimización (solo vendedor Codigo=admin)
 app.use('/api/optimizacion', getEmpresaConnection, requireAdmin, optimizacionRoutes);
+
+// Wiki / Ayuda (contenido compartido en BD maestra)
+app.use('/api/wiki', getEmpresaConnection.requireAuthEmpresaOnly, wikiRoutes);
 
 // Rutas de informes
 app.use("/api/informes", getEmpresaConnection, informesRoutes);

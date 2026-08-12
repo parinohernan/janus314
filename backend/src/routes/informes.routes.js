@@ -33,5 +33,6 @@ router.post('/ventas-rubros-provincia/export-auto', informesController.exportarR
 
 // Ruta para el informe de ventas por clientes
 router.get('/ventas-por-clientes', informesController.informeVentasPorClientes);
+router.get('/ventas-por-clientes/detalle-pdf', informesController.generarPDFDetalleCliente);
 
 module.exports = router; 

@@ -1,6 +1,7 @@
 const { Op, fn, col, QueryTypes } = require('sequelize');
 const PDFDocument = require('pdfkit');
 const renderInformeVendedor = require('../templates/pdf/informeVendedor.template');
+const renderInformeClienteDetalle = require('../templates/pdf/informeClienteDetalle.template');
 const {
   obtenerDatosVentasPorRubroProvincia,
   generarPdfBuffer
@@ -1906,6 +1907,30 @@ exports.exportarRubrosProvinciaAuto = async (req, res) => {
 // INFORME DE VENTAS POR CLIENTES
 // ================================================================
 
+function crearClienteInformeBase(clienteCodigo, cliente) {
+  return {
+    codigo: clienteCodigo,
+    descripcion: cliente?.Descripcion || 'Sin descripción',
+    localidad: cliente?.Localidad || 'Sin localidad',
+    vendedorCodigo: cliente?.CodigoVendedor || null,
+    categoriaIva: cliente?.CategoriaIva || null,
+    cuit: cliente?.Cuit || null,
+    cantidadFacturas: 0,
+    totalVentas: 0,
+    totalIva: 0,
+    facturas: [],
+    cantidadNotasCredito: 0,
+    totalNotasCredito: 0,
+    notasCredito: [],
+    totalNeto: 0
+  };
+}
+
+function facturaRelacionadaNc(nc) {
+  if (!nc.factura_tipo || !nc.factura_sucursal || !nc.factura_numero) return null;
+  return `${nc.factura_tipo}-${nc.factura_sucursal}-${nc.factura_numero}`;
+}
+
 // Informe de ventas por clientes con filtros
 exports.informeVentasPorClientes = async (req, res) => {
   try {
@@ -1921,7 +1946,7 @@ exports.informeVentasPorClientes = async (req, res) => {
     }
 
     // Obtener los modelos específicos de la empresa
-    const { FacturaCabeza, Cliente, Vendedor, CategoriaIva } = req.models;
+    const { FacturaCabeza, Cliente, Vendedor, CategoriaIva, NotaCredito } = req.models;
     
     if (!FacturaCabeza || !Cliente) {
       return res.status(500).json({
@@ -1965,6 +1990,8 @@ exports.informeVentasPorClientes = async (req, res) => {
             totalClientes: 0,
             totalVentas: 0,
             totalFacturas: 0,
+            totalNotasCredito: 0,
+            totalNeto: 0,
             promedioVentaCliente: 0
           },
           periodo: {
@@ -1978,20 +2005,19 @@ exports.informeVentasPorClientes = async (req, res) => {
     // Obtener códigos de clientes filtrados
     const codigosClientes = clientesFiltrados.map(c => c.Codigo);
 
-    // Construir consulta para facturas
-    const facturaWhereClause = {
-      Fecha: {
-        [Op.between]: [fechaDesde, fechaHasta]
-      },
-      FechaAnulacion: null,
-      ClienteCodigo: {
-        [Op.in]: codigosClientes
-      }
-    };
+    // Crear un mapa de clientes para acceso rápido
+    const clientesMap = clientesFiltrados.reduce((acc, cliente) => {
+      acc[cliente.Codigo] = cliente;
+      return acc;
+    }, {});
 
     // Obtener facturas de los clientes filtrados
     const facturas = await FacturaCabeza.findAll({
-      where: facturaWhereClause,
+      where: {
+        Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
+        FechaAnulacion: null,
+        ClienteCodigo: { [Op.in]: codigosClientes }
+      },
       attributes: [
         'DocumentoTipo',
         'DocumentoSucursal',
@@ -2009,43 +2035,69 @@ exports.informeVentasPorClientes = async (req, res) => {
 
     console.log(`Facturas encontradas: ${facturas.length}`);
 
-    // Crear un mapa de clientes para acceso rápido
-    const clientesMap = clientesFiltrados.reduce((acc, cliente) => {
-      acc[cliente.Codigo] = cliente;
-      return acc;
-    }, {});
+    let notasCredito = [];
+    if (NotaCredito) {
+      notasCredito = await NotaCredito.findAll({
+        where: {
+          Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
+          FechaAnulacion: null,
+          CodigoCliente: { [Op.in]: codigosClientes }
+        },
+        attributes: [
+          'DocumentoTipo',
+          'DocumentoSucursal',
+          'DocumentoNumero',
+          'Fecha',
+          'CodigoCliente',
+          'ImporteTotal',
+          'factura_tipo',
+          'factura_sucursal',
+          'factura_numero'
+        ],
+        order: [['Fecha', 'DESC']],
+        raw: true
+      });
+    }
 
-    // Agrupar facturas por cliente
+    console.log(`Notas de crédito encontradas: ${notasCredito.length}`);
+
+    // Agrupar facturas y NC por cliente
     const ventasPorCliente = {};
+
+    const ensureCliente = (clienteCodigo) => {
+      if (!ventasPorCliente[clienteCodigo]) {
+        ventasPorCliente[clienteCodigo] = crearClienteInformeBase(
+          clienteCodigo,
+          clientesMap[clienteCodigo]
+        );
+      }
+      return ventasPorCliente[clienteCodigo];
+    };
     
     facturas.forEach(factura => {
-      const clienteCodigo = factura.ClienteCodigo;
-      const cliente = clientesMap[clienteCodigo];
-      
-      if (!ventasPorCliente[clienteCodigo]) {
-        ventasPorCliente[clienteCodigo] = {
-          codigo: clienteCodigo,
-          descripcion: cliente?.Descripcion || 'Sin descripción',
-          localidad: cliente?.Localidad || 'Sin localidad',
-          vendedorCodigo: cliente?.CodigoVendedor || null,
-          categoriaIva: cliente?.CategoriaIva || null,
-          cuit: cliente?.Cuit || null,
-          cantidadFacturas: 0,
-          totalVentas: 0,
-          totalIva: 0,
-          facturas: []
-        };
-      }
-      
-      ventasPorCliente[clienteCodigo].cantidadFacturas++;
-      ventasPorCliente[clienteCodigo].totalVentas += parseFloat(factura.ImporteTotal) || 0;
-      ventasPorCliente[clienteCodigo].totalIva += (parseFloat(factura.ImporteIva1) || 0) + (parseFloat(factura.ImporteIva2) || 0);
-      
-      ventasPorCliente[clienteCodigo].facturas.push({
+      const entry = ensureCliente(factura.ClienteCodigo);
+      entry.cantidadFacturas++;
+      entry.totalVentas += parseFloat(factura.ImporteTotal) || 0;
+      entry.totalIva += (parseFloat(factura.ImporteIva1) || 0) + (parseFloat(factura.ImporteIva2) || 0);
+      entry.facturas.push({
         tipo: factura.DocumentoTipo,
         numero: `${factura.DocumentoSucursal}-${factura.DocumentoNumero}`,
         fecha: factura.Fecha,
         importe: parseFloat(factura.ImporteTotal) || 0
+      });
+    });
+
+    notasCredito.forEach((nc) => {
+      const entry = ensureCliente(nc.CodigoCliente);
+      const importe = parseFloat(nc.ImporteTotal) || 0;
+      entry.cantidadNotasCredito++;
+      entry.totalNotasCredito += importe;
+      entry.notasCredito.push({
+        tipo: nc.DocumentoTipo,
+        numero: `${nc.DocumentoSucursal}-${nc.DocumentoNumero}`,
+        fecha: nc.Fecha,
+        importe,
+        facturaRelacionada: facturaRelacionadaNc(nc)
       });
     });
 
@@ -2091,7 +2143,7 @@ exports.informeVentasPorClientes = async (req, res) => {
       }, {});
     }
 
-    // Agregar descripciones de vendedor y categoría IVA
+    // Agregar descripciones y neto
     Object.values(ventasPorCliente).forEach(cliente => {
       cliente.vendedorDescripcion = cliente.vendedorCodigo ? 
         (vendedoresMap[cliente.vendedorCodigo] || 'Vendedor no encontrado') : 
@@ -2100,23 +2152,29 @@ exports.informeVentasPorClientes = async (req, res) => {
       cliente.categoriaIvaDescripcion = cliente.categoriaIva ? 
         (categoriasIvaMap[cliente.categoriaIva] || 'Categoría no encontrada') : 
         'Sin categoría';
+
+      cliente.totalNeto = cliente.totalVentas - cliente.totalNotasCredito;
     });
 
-    // Convertir a array y ordenar por total de ventas
+    // Convertir a array y ordenar por total neto
     const clientesArray = Object.values(ventasPorCliente)
-      .sort((a, b) => b.totalVentas - a.totalVentas);
+      .sort((a, b) => b.totalNeto - a.totalNeto);
 
     // Calcular estadísticas generales
     const totalVentas = clientesArray.reduce((sum, c) => sum + c.totalVentas, 0);
     const totalFacturas = clientesArray.reduce((sum, c) => sum + c.cantidadFacturas, 0);
+    const totalNotasCredito = clientesArray.reduce((sum, c) => sum + c.totalNotasCredito, 0);
+    const totalNeto = totalVentas - totalNotasCredito;
 
     // Preparar respuesta
     const respuesta = {
       clientes: clientesArray,
       estadisticasGenerales: {
         totalClientes: clientesArray.length,
-        totalVentas: totalVentas,
-        totalFacturas: totalFacturas,
+        totalVentas,
+        totalFacturas,
+        totalNotasCredito,
+        totalNeto,
         promedioVentaCliente: clientesArray.length > 0 ? totalVentas / clientesArray.length : 0,
         promedioFacturasCliente: clientesArray.length > 0 ? totalFacturas / clientesArray.length : 0
       },
@@ -2144,5 +2202,177 @@ exports.informeVentasPorClientes = async (req, res) => {
       message: "Error al generar el informe",
       error: error.message
     });
+  }
+};
+
+// PDF detalle de ventas de un cliente
+exports.generarPDFDetalleCliente = async (req, res) => {
+  try {
+    const { fechaDesde, fechaHasta, clienteCodigo } = req.query;
+
+    if (!fechaDesde || !fechaHasta || !clienteCodigo) {
+      return res.status(400).json({
+        success: false,
+        message: "Se requieren fechaDesde, fechaHasta y clienteCodigo"
+      });
+    }
+
+    const { FacturaCabeza, Cliente, Vendedor, CategoriaIva, DatosEmpresa, NotaCredito } = req.models || {};
+
+    if (!FacturaCabeza || !Cliente) {
+      return res.status(500).json({
+        success: false,
+        message: "Error: Modelos no disponibles"
+      });
+    }
+
+    const cliente = await Cliente.findOne({
+      where: { Codigo: clienteCodigo },
+      attributes: ['Codigo', 'Descripcion', 'Localidad', 'CodigoVendedor', 'CategoriaIva', 'Cuit'],
+      raw: true
+    });
+
+    if (!cliente) {
+      return res.status(404).json({
+        success: false,
+        message: "Cliente no encontrado"
+      });
+    }
+
+    const facturas = await FacturaCabeza.findAll({
+      where: {
+        ClienteCodigo: clienteCodigo,
+        Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
+        FechaAnulacion: null
+      },
+      attributes: [
+        'DocumentoTipo',
+        'DocumentoSucursal',
+        'DocumentoNumero',
+        'Fecha',
+        'ImporteTotal',
+        'ImporteIva1',
+        'ImporteIva2'
+      ],
+      order: [['Fecha', 'DESC'], ['DocumentoNumero', 'DESC']],
+      raw: true
+    });
+
+    let notasCredito = [];
+    if (NotaCredito) {
+      notasCredito = await NotaCredito.findAll({
+        where: {
+          CodigoCliente: clienteCodigo,
+          Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
+          FechaAnulacion: null
+        },
+        attributes: [
+          'DocumentoTipo',
+          'DocumentoSucursal',
+          'DocumentoNumero',
+          'Fecha',
+          'ImporteTotal',
+          'factura_tipo',
+          'factura_sucursal',
+          'factura_numero'
+        ],
+        order: [['Fecha', 'DESC'], ['DocumentoNumero', 'DESC']],
+        raw: true
+      });
+    }
+
+    let vendedorDescripcion = 'Sin vendedor';
+    if (Vendedor && cliente.CodigoVendedor) {
+      const vendedor = await Vendedor.findOne({
+        where: { Codigo: cliente.CodigoVendedor },
+        attributes: ['Descripcion'],
+        raw: true
+      });
+      if (vendedor?.Descripcion) vendedorDescripcion = vendedor.Descripcion;
+    }
+
+    let categoriaIvaDescripcion = 'Sin categoría';
+    if (CategoriaIva && cliente.CategoriaIva) {
+      const categoria = await CategoriaIva.findOne({
+        where: { Codigo: cliente.CategoriaIva },
+        attributes: ['Descripcion'],
+        raw: true
+      });
+      if (categoria?.Descripcion) categoriaIvaDescripcion = categoria.Descripcion;
+    }
+
+    const facturasPdf = facturas.map((factura) => ({
+      tipo: factura.DocumentoTipo,
+      numero: `${factura.DocumentoSucursal}-${factura.DocumentoNumero}`,
+      fecha: factura.Fecha,
+      importe: parseFloat(factura.ImporteTotal) || 0
+    }));
+
+    const notasCreditoPdf = notasCredito.map((nc) => ({
+      tipo: nc.DocumentoTipo,
+      numero: `${nc.DocumentoSucursal}-${nc.DocumentoNumero}`,
+      fecha: nc.Fecha,
+      importe: parseFloat(nc.ImporteTotal) || 0,
+      facturaRelacionada: facturaRelacionadaNc(nc)
+    }));
+
+    const totalVentas = facturasPdf.reduce((sum, f) => sum + f.importe, 0);
+    const totalNotasCredito = notasCreditoPdf.reduce((sum, nc) => sum + nc.importe, 0);
+    const totalIva = facturas.reduce(
+      (sum, f) => sum + (parseFloat(f.ImporteIva1) || 0) + (parseFloat(f.ImporteIva2) || 0),
+      0
+    );
+    const cantidadFacturas = facturasPdf.length;
+    const cantidadNotasCredito = notasCreditoPdf.length;
+
+    const datosEmpresa = DatosEmpresa ? await DatosEmpresa.findOne({ raw: true }) : {};
+
+    const datosPDF = {
+      cliente: {
+        codigo: cliente.Codigo,
+        descripcion: cliente.Descripcion,
+        cuit: cliente.Cuit,
+        localidad: cliente.Localidad || 'Sin localidad',
+        vendedorDescripcion,
+        categoriaIvaDescripcion
+      },
+      periodo: { fechaDesde, fechaHasta },
+      facturas: facturasPdf,
+      notasCredito: notasCreditoPdf,
+      totales: {
+        totalVentas,
+        totalNotasCredito,
+        totalNeto: totalVentas - totalNotasCredito,
+        totalIva,
+        cantidadFacturas,
+        cantidadNotasCredito,
+        promedioFactura: cantidadFacturas > 0 ? totalVentas / cantidadFacturas : 0
+      }
+    };
+
+    const safeName = String(cliente.Descripcion || clienteCodigo)
+      .replace(/[^\w\-]+/g, '_')
+      .slice(0, 40);
+
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="detalle-cliente-${safeName}-${fechaDesde}-${fechaHasta}.pdf"`
+    );
+    doc.pipe(res);
+    await renderInformeClienteDetalle(doc, datosPDF, datosEmpresa || {});
+    doc.end();
+  } catch (error) {
+    console.error("Error al generar PDF de detalle de cliente:", error);
+    console.error("Stack trace:", error.stack);
+
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        message: "Error al generar el PDF",
+        error: error.message
+      });
+    }
   }
 }; 

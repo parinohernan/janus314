@@ -125,7 +125,9 @@ export function getLabelFromUrl(url: string): string {
     'ingreso': 'Ingreso',
     'egreso': 'Egreso',
     'cierre': 'Cierre',
-    'optimizacion': 'Optimización'
+    'optimizacion': 'Optimización',
+    'ayuda': 'Ayuda',
+    'wiki': 'Wiki'
   };
   
   // Intentar construir un label más descriptivo
@@ -198,6 +200,8 @@ export function getIconFromUrl(url: string): string {
     'arca': '🏛️',
     'vendedores': '👔',
     'presupuestos': '📋',
+    'ayuda': '❓',
+    'wiki': '📖',
     'arqueo': '🔢',
     'optimizacion': '⚡'
   };

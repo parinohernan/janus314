@@ -48,7 +48,9 @@
     TrendingUp as TrendingUpIcon,
     Calendar,
     Pencil,
-    FolderSync
+    FolderSync,
+    CircleHelp,
+    BookOpen
   } from 'lucide-svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
 
@@ -163,7 +165,11 @@
     // Submenús - Configuración
     'general-config': Settings,
     'reportes-auto': FolderSync,
-    'optimizacion': Zap
+    'optimizacion': Zap,
+
+    // Ayuda
+    'ayuda': CircleHelp,
+    'wiki': BookOpen
   };
 
   // Estructura del menú con iconos (sin configuracionItems en definición inicial)
@@ -281,6 +287,14 @@
         { label: 'Descargar Preventas', url: '/sincronizacion/preventas', icon: 'preventas-sync' },
         { label: 'Actualizar Datos', url: '/sincronizacion/actualizar-datos', icon: 'actualizar' },
         { label: 'Configuración', url: '/sincronizacion/configuracion', icon: 'configuracion-sync' }
+      ]
+    },
+    {
+      id: 'ayuda',
+      label: 'Ayuda',
+      icon: 'ayuda',
+      items: [
+        { label: 'Wiki', url: '/ayuda', icon: 'wiki' }
       ]
     },
     {
