@@ -16,9 +16,13 @@
     esAdmin
       ? [
           { label: 'General', url: '/configuracion' },
+          { label: 'Reportes automáticos', url: '/configuracion/reportes' },
           { label: 'Optimización', url: '/configuracion/optimizacion' }
         ]
-      : [{ label: 'General', url: '/configuracion' }]
+      : [
+          { label: 'General', url: '/configuracion' },
+          { label: 'Reportes automáticos', url: '/configuracion/reportes' }
+        ]
   );
 
   interface MenuItem {
@@ -74,6 +78,7 @@
         { label: 'Productos', url: '/ventas/informes/productos' },
         { label: 'Clientes', url: '/ventas/informes/clientes' },
         { label: 'Vendedores', url: '/ventas/informes/vendedores' },
+        { label: 'Preventistas', url: '/ventas/informes/vendedores-preventa' },
         { label: 'Rubros', url: '/ventas/informes/rubros' },
         { label: 'Marcas', url: '/ventas/informes/marcas' },
         { label: 'Proveedores', url: '/ventas/informes/proveedores' },

@@ -1,7 +1,18 @@
 const { Op, fn, col, QueryTypes } = require('sequelize');
 const PDFDocument = require('pdfkit');
 const renderInformeVendedor = require('../templates/pdf/informeVendedor.template');
-const renderInformeRubrosProvincia = require('../templates/pdf/informeRubrosProvincia.template');
+const {
+  obtenerDatosVentasPorRubroProvincia,
+  generarPdfBuffer
+} = require('../services/informeRubrosProvincia.service');
+const { exportarRubrosProvinciaADisco } = require('../services/reportesAuto.service');
+const {
+  obtenerDatosInformePreventista,
+  TIPOS_FACTURA_DEFAULT,
+  TIPOS_NC_DEFAULT,
+  parseTipos,
+  obtenerNotasCreditoDeFacturas
+} = require('../services/informeVentasPreventista.service');
 
 // Informe de ventas por productos
 exports.ventasPorProductos = async (req, res) => {
@@ -1033,9 +1044,9 @@ exports.rotacionStock = async (req, res) => {
 // Informe detallado de ventas por vendedor con notas de crédito
 exports.informeVentasVendedor = async (req, res) => {
   try {
-    const { fechaDesde, fechaHasta, vendedorCodigo, pagoTipo } = req.query;
+    const { fechaDesde, fechaHasta, vendedorCodigo, pagoTipo, tiposFactura, tiposNotaCredito } = req.query;
     
-    console.log("Parámetros recibidos:", { fechaDesde, fechaHasta, vendedorCodigo, pagoTipo });
+    console.log("Parámetros recibidos:", { fechaDesde, fechaHasta, vendedorCodigo, pagoTipo, tiposFactura, tiposNotaCredito });
     
     // Validar parámetros
     if (!fechaDesde || !fechaHasta || !vendedorCodigo) {
@@ -1055,68 +1066,25 @@ exports.informeVentasVendedor = async (req, res) => {
       });
     }
 
+    const tiposFacturaFiltro = parseTipos(tiposFactura, TIPOS_FACTURA_DEFAULT, TIPOS_FACTURA_DEFAULT);
+    const tiposNcFiltro = parseTipos(tiposNotaCredito, TIPOS_NC_DEFAULT, TIPOS_NC_DEFAULT);
+
     // 1. Obtener facturas del vendedor en el rango de fechas (opcional: filtro por forma de pago)
-    const whereFacturas = {
-      VendedorCodigo: vendedorCodigo,
-      Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
-      FechaAnulacion: null,
-      DocumentoTipo: { [Op.in]: ['FCA', 'FCB', 'FCC', 'PRF'] } // Facturas y prefacturas
-    };
-    if (pagoTipo) {
-      whereFacturas.PagoTipo = pagoTipo;
-    }
-
-    const facturas = await FacturaCabeza.findAll({
-      where: whereFacturas,
-      attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'Fecha', 'ClienteCodigo', 'ImporteTotal'],
-      include: [
-        {
-          model: Cliente,
-          attributes: ['Codigo', 'Descripcion'],
-          required: false
-        }
-      ],
-      raw: true
-    });
-
-    console.log(`Facturas encontradas: ${facturas.length}`);
-
-    // 2. Obtener notas de crédito relacionadas con esas facturas (SIN filtro de fecha)
-    // Usar sistema eficiente con mapa
-    let notasCredito = [];
-    
-    if (facturas.length > 0) {
-      // Función para normalizar tipo de documento
-      const normalizarTipo = (tipo) => {
-        if (!tipo) return null;
-        const tipoUpper = tipo.toUpperCase();
-        // Mapear tipos cortos a completos
-        if (tipoUpper === 'A') return 'FCA';
-        if (tipoUpper === 'B') return 'FCB';
-        if (tipoUpper === 'C') return 'FCC';
-        if (tipoUpper === 'F') return 'PRF';
-        return tipoUpper;
+    let facturas = [];
+    if (tiposFacturaFiltro.length > 0) {
+      const whereFacturas = {
+        VendedorCodigo: vendedorCodigo,
+        Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
+        FechaAnulacion: null,
+        DocumentoTipo: { [Op.in]: tiposFacturaFiltro }
       };
-      
-      // Crear un mapa de facturas para búsqueda rápida
-      const facturasMap = new Map();
-      facturas.forEach(f => {
-        // Clave exacta
-        const claveExacta = `${f.DocumentoTipo}-${f.DocumentoSucursal}-${f.DocumentoNumero}`;
-        facturasMap.set(claveExacta, f);
-        
-        // Clave normalizada (sin ceros a la izquierda)
-        const claveNormalizada = `${f.DocumentoTipo}-${parseInt(f.DocumentoSucursal)}-${parseInt(f.DocumentoNumero)}`;
-        facturasMap.set(claveNormalizada, f);
-      });
-      
-      // Obtener TODAS las NC sin filtro previo
-      const todasLasNC = await NotaCredito.findAll({
-        where: {
-          FechaAnulacion: null
-        },
-        attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'Fecha', 'CodigoCliente', 'ImporteTotal', 
-                     'factura_tipo', 'factura_sucursal', 'factura_numero'],
+      if (pagoTipo) {
+        whereFacturas.PagoTipo = pagoTipo;
+      }
+
+      facturas = await FacturaCabeza.findAll({
+        where: whereFacturas,
+        attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'Fecha', 'ClienteCodigo', 'ImporteTotal'],
         include: [
           {
             model: Cliente,
@@ -1126,36 +1094,17 @@ exports.informeVentasVendedor = async (req, res) => {
         ],
         raw: true
       });
-      
-      console.log(`Total de NC en BD (no anuladas): ${todasLasNC.length}`);
-      
-      // Filtrar NC que coincidan con las facturas del vendedor
-      for (const nc of todasLasNC) {
-        if (nc.factura_tipo && nc.factura_sucursal && nc.factura_numero) {
-          // Normalizar el tipo de factura
-          const tipoNormalizado = normalizarTipo(nc.factura_tipo);
-          
-          // Intentar diferentes combinaciones de búsqueda
-          const claves = [
-            // Con tipo normalizado, exacto
-            `${tipoNormalizado}-${nc.factura_sucursal}-${nc.factura_numero}`,
-            // Con tipo original, exacto
-            `${nc.factura_tipo.toUpperCase()}-${nc.factura_sucursal}-${nc.factura_numero}`,
-            // Con tipo normalizado, sin ceros
-            `${tipoNormalizado}-${parseInt(nc.factura_sucursal)}-${parseInt(nc.factura_numero)}`
-          ];
-          
-          let encontrada = false;
-          for (const clave of claves) {
-            if (facturasMap.has(clave)) {
-              notasCredito.push(nc);
-              encontrada = true;
-              break;
-            }
-          }
-        }
-      }
     }
+
+    console.log(`Facturas encontradas: ${facturas.length}`);
+
+    // 2. NC relacionadas con esas facturas, filtradas por tipo
+    const notasCredito = await obtenerNotasCreditoDeFacturas(
+      NotaCredito,
+      Cliente,
+      facturas,
+      tiposNcFiltro
+    );
 
     console.log(`Notas de crédito relacionadas encontradas: ${notasCredito.length}`);
 
@@ -1179,6 +1128,11 @@ exports.informeVentasVendedor = async (req, res) => {
       periodo: {
         fechaDesde,
         fechaHasta
+      },
+      filtrosAplicados: {
+        tiposFactura: tiposFacturaFiltro,
+        tiposNotaCredito: tiposNcFiltro,
+        pagoTipo: pagoTipo || null
       },
       facturas: facturas.map(f => ({
         tipo: f.DocumentoTipo,
@@ -1229,9 +1183,9 @@ exports.informeVentasVendedor = async (req, res) => {
 // Generar PDF del informe de ventas por vendedor
 exports.generarPDFInformeVendedor = async (req, res) => {
   try {
-    const { fechaDesde, fechaHasta, vendedorCodigo, pagoTipo } = req.query;
+    const { fechaDesde, fechaHasta, vendedorCodigo, pagoTipo, tiposFactura, tiposNotaCredito } = req.query;
     
-    console.log("Generando PDF - Parámetros recibidos:", { fechaDesde, fechaHasta, vendedorCodigo, pagoTipo });
+    console.log("Generando PDF - Parámetros recibidos:", { fechaDesde, fechaHasta, vendedorCodigo, pagoTipo, tiposFactura, tiposNotaCredito });
     
     // Validar parámetros
     if (!fechaDesde || !fechaHasta || !vendedorCodigo) {
@@ -1251,59 +1205,24 @@ exports.generarPDFInformeVendedor = async (req, res) => {
       });
     }
 
-    // Reutilizar la misma lógica del endpoint informeVentasVendedor
-    // 1. Obtener facturas del vendedor en el rango de fechas
-    const whereFacturasPdf = {
-      VendedorCodigo: vendedorCodigo,
-      Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
-      FechaAnulacion: null,
-      DocumentoTipo: { [Op.in]: ['FCA', 'FCB', 'FCC', 'PRF'] }
-    };
-    if (pagoTipo) {
-      whereFacturasPdf.PagoTipo = pagoTipo;
-    }
+    const tiposFacturaFiltro = parseTipos(tiposFactura, TIPOS_FACTURA_DEFAULT, TIPOS_FACTURA_DEFAULT);
+    const tiposNcFiltro = parseTipos(tiposNotaCredito, TIPOS_NC_DEFAULT, TIPOS_NC_DEFAULT);
 
-    const facturas = await FacturaCabeza.findAll({
-      where: whereFacturasPdf,
-      attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'Fecha', 'ClienteCodigo', 'ImporteTotal'],
-      include: [
-        {
-          model: Cliente,
-          attributes: ['Codigo', 'Descripcion'],
-          required: false
-        }
-      ],
-      raw: true
-    });
-
-    // 2. Obtener notas de crédito (mismo sistema eficiente)
-    let notasCredito = [];
-    
-    if (facturas.length > 0) {
-      const normalizarTipo = (tipo) => {
-        if (!tipo) return null;
-        const tipoUpper = tipo.toUpperCase();
-        if (tipoUpper === 'A') return 'FCA';
-        if (tipoUpper === 'B') return 'FCB';
-        if (tipoUpper === 'C') return 'FCC';
-        if (tipoUpper === 'F') return 'PRF';
-        return tipoUpper;
+    let facturas = [];
+    if (tiposFacturaFiltro.length > 0) {
+      const whereFacturasPdf = {
+        VendedorCodigo: vendedorCodigo,
+        Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
+        FechaAnulacion: null,
+        DocumentoTipo: { [Op.in]: tiposFacturaFiltro }
       };
-      
-      const facturasMap = new Map();
-      facturas.forEach(f => {
-        const claveExacta = `${f.DocumentoTipo}-${f.DocumentoSucursal}-${f.DocumentoNumero}`;
-        facturasMap.set(claveExacta, f);
-        const claveNormalizada = `${f.DocumentoTipo}-${parseInt(f.DocumentoSucursal)}-${parseInt(f.DocumentoNumero)}`;
-        facturasMap.set(claveNormalizada, f);
-      });
-      
-      const todasLasNC = await NotaCredito.findAll({
-        where: {
-          FechaAnulacion: null
-        },
-        attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'Fecha', 'CodigoCliente', 'ImporteTotal', 
-                     'factura_tipo', 'factura_sucursal', 'factura_numero'],
+      if (pagoTipo) {
+        whereFacturasPdf.PagoTipo = pagoTipo;
+      }
+
+      facturas = await FacturaCabeza.findAll({
+        where: whereFacturasPdf,
+        attributes: ['DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'Fecha', 'ClienteCodigo', 'ImporteTotal'],
         include: [
           {
             model: Cliente,
@@ -1313,25 +1232,14 @@ exports.generarPDFInformeVendedor = async (req, res) => {
         ],
         raw: true
       });
-      
-      for (const nc of todasLasNC) {
-        if (nc.factura_tipo && nc.factura_sucursal && nc.factura_numero) {
-          const tipoNormalizado = normalizarTipo(nc.factura_tipo);
-          const claves = [
-            `${tipoNormalizado}-${nc.factura_sucursal}-${nc.factura_numero}`,
-            `${nc.factura_tipo.toUpperCase()}-${nc.factura_sucursal}-${nc.factura_numero}`,
-            `${tipoNormalizado}-${parseInt(nc.factura_sucursal)}-${parseInt(nc.factura_numero)}`
-          ];
-          
-          for (const clave of claves) {
-            if (facturasMap.has(clave)) {
-              notasCredito.push(nc);
-              break;
-            }
-          }
-        }
-      }
     }
+
+    const notasCredito = await obtenerNotasCreditoDeFacturas(
+      NotaCredito,
+      Cliente,
+      facturas,
+      tiposNcFiltro
+    );
 
     // 3. Calcular totales
     const totalFacturas = facturas.reduce((sum, f) => sum + (parseFloat(f.ImporteTotal) || 0), 0);
@@ -1417,6 +1325,65 @@ exports.generarPDFInformeVendedor = async (req, res) => {
       res.status(500).json({
         success: false,
         message: "Error al generar el PDF",
+        error: error.message
+      });
+    }
+  }
+};
+
+// Informe de ventas por preventista (vendedor de la preventa que originó la factura)
+exports.informeVentasPreventista = async (req, res) => {
+  try {
+    const data = await obtenerDatosInformePreventista(
+      { db: req.db, models: req.models },
+      req.query
+    );
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error al generar informe de ventas por preventista:', error);
+    console.error('Stack trace:', error.stack);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.statusCode ? error.message : 'Error al generar el informe',
+      error: error.message
+    });
+  }
+};
+
+// PDF del informe de ventas por preventista
+exports.generarPDFInformePreventista = async (req, res) => {
+  try {
+    const { fechaDesde, fechaHasta, vendedorCodigo } = req.query;
+    if (!fechaDesde || !fechaHasta || !vendedorCodigo) {
+      return res.status(400).json({
+        success: false,
+        message: 'Se requieren fechaDesde, fechaHasta y vendedorCodigo'
+      });
+    }
+
+    const { DatosEmpresa } = req.models || {};
+    const data = await obtenerDatosInformePreventista(
+      { db: req.db, models: req.models },
+      req.query
+    );
+    const datosEmpresa = DatosEmpresa ? await DatosEmpresa.findOne({ raw: true }) : {};
+
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="informe-preventista-${vendedorCodigo}-${fechaDesde}-${fechaHasta}.pdf"`
+    );
+    doc.pipe(res);
+    await renderInformeVendedor(doc, data, datosEmpresa || {});
+    doc.end();
+  } catch (error) {
+    console.error('Error al generar PDF de informe por preventista:', error);
+    console.error('Stack trace:', error.stack);
+    if (!res.headersSent) {
+      res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.statusCode ? error.message : 'Error al generar el PDF',
         error: error.message
       });
     }
@@ -1853,208 +1820,13 @@ exports.ventasPorRubro = async (req, res) => {
   }
 };
 
-// Datos base del informe de ventas por rubro agrupado por provincia.
-async function obtenerDatosVentasPorRubroProvincia(req, query) {
-  try {
-    const { fechaDesde, fechaHasta, pagoTipo, provinciaCodigo, tipo = 'facturas' } = query;
-    const esNotasCredito = tipo === 'notasCredito';
-    const tablaCabeza = esNotasCredito ? 'notacreditocabeza' : 'facturacabeza';
-    const tablaItems = esNotasCredito ? 'notacreditoitems' : 'facturaitems';
-    const campoCliente = esNotasCredito ? 'CodigoCliente' : 'ClienteCodigo';
-
-    if (!fechaDesde || !fechaHasta) {
-      const error = new Error("Se requieren fechaDesde y fechaHasta");
-      error.statusCode = 400;
-      throw error;
-    }
-
-    if (!req.db) {
-      const error = new Error("Error: conexión de empresa no disponible");
-      error.statusCode = 500;
-      throw error;
-    }
-
-    const replacements = {
-      fechaDesde,
-      fechaHasta
-    };
-    const filtros = [
-      "fc.Fecha BETWEEN :fechaDesde AND :fechaHasta",
-      "fc.FechaAnulacion IS NULL",
-      "CAST(COALESCE(NULLIF(TRIM(fc.afip_cae), ''), '0') AS UNSIGNED) > 0"
-    ];
-
-    if (!esNotasCredito) {
-      filtros.push("fc.DocumentoTipo IN ('FCA', 'FCB', 'FCC', 'PRF')");
-    }
-
-    if (pagoTipo && !esNotasCredito) {
-      replacements.pagoTipo = pagoTipo;
-      filtros.push("fc.PagoTipo = :pagoTipo");
-    }
-
-    if (provinciaCodigo) {
-      replacements.provinciaCodigo = provinciaCodigo;
-      filtros.push("COALESCE(c.ProvinciaCodigo, cp.Provincia) = :provinciaCodigo");
-    }
-
-    const importeItem = esNotasCredito
-      ? "COALESCE(fi.PrecioUnitario, 0) * COALESCE(fi.Cantidad, 0)"
-      : "CASE WHEN COALESCE(fi.ImporteBonificado, 0) <> 0 THEN fi.ImporteBonificado ELSE COALESCE(fi.PrecioUnitario, 0) * COALESCE(fi.Cantidad, 0) END";
-    const categoria = "UPPER(COALESCE(ci.Descripcion, ''))";
-    const iva = "ROUND(COALESCE(a.PorcentajeIVA1, 0), 1)";
-
-    const rows = await req.db.query(
-      `
-      SELECT
-        COALESCE(p_cli.Codigo, p_cp.Codigo, 'SIN_PROVINCIA') AS provinciaCodigo,
-        COALESCE(p_cli.Descripcion, p_cp.Descripcion, 'Sin provincia') AS provinciaDescripcion,
-        COALESCE(r.Codigo, 'SIN_RUBRO') AS rubroCodigo,
-        COALESCE(r.Descripcion, 'Sin Rubro') AS rubroDescripcion,
-        SUM(COALESCE(fi.Cantidad, 0)) AS cantidadTotal,
-
-        SUM(CASE
-          WHEN (${categoria} LIKE '%INSCRIP%' OR ${categoria} LIKE '%RESPONSABLE%')
-           AND ${iva} = 10.5
-          THEN ${importeItem}
-          ELSE 0
-        END) AS ri105,
-
-        SUM(CASE
-          WHEN (${categoria} LIKE '%INSCRIP%' OR ${categoria} LIKE '%RESPONSABLE%')
-           AND ${iva} = 21.0
-          THEN ${importeItem}
-          ELSE 0
-        END) AS ri21,
-
-        SUM(CASE
-          WHEN ${categoria} LIKE '%MONOTR%'
-           AND ${iva} = 10.5
-          THEN ${importeItem}
-          ELSE 0
-        END) AS rm105,
-
-        SUM(CASE
-          WHEN ${categoria} LIKE '%MONOTR%'
-           AND ${iva} = 21.0
-          THEN ${importeItem}
-          ELSE 0
-        END) AS rm21,
-
-        SUM(CASE
-          WHEN ${categoria} NOT LIKE '%INSCRIP%'
-           AND ${categoria} NOT LIKE '%RESPONSABLE%'
-           AND ${categoria} NOT LIKE '%MONOTR%'
-           AND ${iva} = 10.5
-          THEN ${importeItem}
-          ELSE 0
-        END) AS otros105,
-
-        SUM(CASE
-          WHEN ${categoria} NOT LIKE '%INSCRIP%'
-           AND ${categoria} NOT LIKE '%RESPONSABLE%'
-           AND ${categoria} NOT LIKE '%MONOTR%'
-           AND ${iva} = 21.0
-          THEN ${importeItem}
-          ELSE 0
-        END) AS otros21,
-
-        SUM(${importeItem}) AS total
-      FROM ${tablaCabeza} fc
-      INNER JOIN ${tablaItems} fi
-        ON fi.DocumentoTipo = fc.DocumentoTipo
-       AND fi.DocumentoSucursal = fc.DocumentoSucursal
-       AND fi.DocumentoNumero = fc.DocumentoNumero
-      INNER JOIN t_articulos a ON a.Codigo = fi.CodigoArticulo
-      LEFT JOIN t_rubros r ON r.Codigo = a.RubroCodigo
-      LEFT JOIN t_clientes c ON c.Codigo = fc.${campoCliente}
-      LEFT JOIN t_categoriasiva ci ON ci.Codigo = c.CategoriaIva
-      LEFT JOIN t_codigospostales cp ON cp.Codigo = c.CodigoPostal
-      LEFT JOIN t_provincias p_cli ON p_cli.Codigo = c.ProvinciaCodigo
-      LEFT JOIN t_provincias p_cp ON p_cp.Codigo = cp.Provincia
-      WHERE ${filtros.join('\n        AND ')}
-      GROUP BY
-        COALESCE(p_cli.Codigo, p_cp.Codigo, 'SIN_PROVINCIA'),
-        COALESCE(p_cli.Descripcion, p_cp.Descripcion, 'Sin provincia'),
-        COALESCE(r.Codigo, 'SIN_RUBRO'),
-        COALESCE(r.Descripcion, 'Sin Rubro')
-      ORDER BY
-        provinciaDescripcion ASC,
-        rubroDescripcion ASC
-      `,
-      {
-        replacements,
-        type: QueryTypes.SELECT
-      }
-    );
-
-    const columnas = ['ri105', 'ri21', 'rm105', 'rm21', 'otros105', 'otros21', 'total', 'cantidadTotal'];
-    const crearTotales = () => columnas.reduce((acc, columna) => {
-      acc[columna] = 0;
-      return acc;
-    }, {});
-    const toNumber = (value) => Number.parseFloat(value) || 0;
-    const provinciasMap = new Map();
-    const totales = crearTotales();
-
-    for (const row of rows) {
-      const provinciaCodigoRow = row.provinciaCodigo || 'SIN_PROVINCIA';
-      if (!provinciasMap.has(provinciaCodigoRow)) {
-        provinciasMap.set(provinciaCodigoRow, {
-          codigo: provinciaCodigoRow,
-          descripcion: row.provinciaDescripcion || 'Sin provincia',
-          rubros: [],
-          subtotales: crearTotales()
-        });
-      }
-
-      const provincia = provinciasMap.get(provinciaCodigoRow);
-      const rubro = {
-        codigo: row.rubroCodigo || 'SIN_RUBRO',
-        descripcion: row.rubroDescripcion || 'Sin Rubro'
-      };
-
-      for (const columna of columnas) {
-        rubro[columna] = toNumber(row[columna]);
-        provincia.subtotales[columna] += rubro[columna];
-        totales[columna] += rubro[columna];
-      }
-
-      provincia.rubros.push(rubro);
-    }
-
-    const provincias = Array.from(provinciasMap.values()).sort((a, b) =>
-      a.descripcion.localeCompare(b.descripcion, 'es')
-    );
-
-    return {
-      provincias,
-      totales,
-      totalVentas: totales.total,
-      periodo: {
-        fechaDesde,
-        fechaHasta
-      },
-      filtrosAplicados: {
-        pagoTipo: esNotasCredito ? null : (pagoTipo || null),
-        provinciaCodigo: provinciaCodigo || null,
-        tipo: esNotasCredito ? 'notasCredito' : 'facturas'
-      },
-      tipoInforme: esNotasCredito ? 'notasCredito' : 'facturas',
-      titulo: esNotasCredito
-        ? 'Informe de Notas de Crédito por Rubro y Provincia'
-        : 'Informe de Ventas por Rubro y Provincia'
-    };
-  } catch (error) {
-    console.error("Error obteniendo datos de ventas por rubro y provincia:", error);
-    throw error;
-  }
-}
-
 // Informe de ventas por rubro agrupado por provincia
 exports.ventasPorRubroProvincia = async (req, res) => {
   try {
-    const data = await obtenerDatosVentasPorRubroProvincia(req, req.query);
+    const data = await obtenerDatosVentasPorRubroProvincia(
+      { db: req.db, models: req.models },
+      req.query
+    );
 
     res.json({
       success: true,
@@ -2074,24 +1846,14 @@ exports.ventasPorRubroProvincia = async (req, res) => {
 // PDF del informe de ventas por rubro agrupado por provincia
 exports.generarPDFVentasPorRubroProvincia = async (req, res) => {
   try {
-    const data = await obtenerDatosVentasPorRubroProvincia(req, req.query);
-    const { DatosEmpresa } = req.models || {};
-    const datosEmpresa = DatosEmpresa ? await DatosEmpresa.findOne({ raw: true }) : {};
+    const { buffer, filename } = await generarPdfBuffer(
+      { db: req.db, models: req.models },
+      req.query
+    );
 
-    const doc = new PDFDocument({
-      margin: 30,
-      size: 'A4',
-      layout: 'landscape'
-    });
-
-    const prefijo = data.tipoInforme === 'notasCredito' ? 'notas-credito-rubros-provincia' : 'ventas-rubros-provincia';
-    const filename = `${prefijo}-${data.periodo.fechaDesde}-${data.periodo.fechaHasta}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-
-    doc.pipe(res);
-    await renderInformeRubrosProvincia(doc, data, datosEmpresa || {});
-    doc.end();
+    res.send(buffer);
   } catch (error) {
     console.error("Error al generar PDF de ventas por rubro y provincia:", error);
     console.error("Stack trace:", error.stack);
@@ -2103,6 +1865,40 @@ exports.generarPDFVentasPorRubroProvincia = async (req, res) => {
         error: error.message
       });
     }
+  }
+};
+
+/**
+ * Genera los PDF del informe y los guarda en la carpeta configurada
+ * (reportes_auto_dir / rclone). Pensado para "Generar ahora" en /configuracion/reportes.
+ * Body/query: fechaDesde, fechaHasta, tipo (facturas|notasCredito|ambos)
+ */
+exports.exportarRubrosProvinciaAuto = async (req, res) => {
+  try {
+    const src = { ...req.query, ...req.body };
+    const result = await exportarRubrosProvinciaADisco(
+      { db: req.db, models: req.models },
+      {
+        fechaDesde: src.fechaDesde,
+        fechaHasta: src.fechaHasta,
+        tipo: src.tipo || 'ambos',
+        force: true,
+        requireEnabled: false
+      }
+    );
+
+    res.json({
+      success: true,
+      message: `Se generaron ${result.files.length} archivo(s) en ${result.outDir}`,
+      data: result
+    });
+  } catch (error) {
+    console.error('Error en exportarRubrosProvinciaAuto:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.statusCode ? error.message : 'Error al exportar el informe',
+      error: error.message
+    });
   }
 };
 

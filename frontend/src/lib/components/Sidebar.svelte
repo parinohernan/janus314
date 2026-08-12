@@ -47,7 +47,8 @@
     PieChart,
     TrendingUp as TrendingUpIcon,
     Calendar,
-    Pencil
+    Pencil,
+    FolderSync
   } from 'lucide-svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
 
@@ -77,9 +78,13 @@
     esAdmin
       ? [
           { label: 'General', url: '/configuracion', icon: 'general-config' },
+          { label: 'Reportes automáticos', url: '/configuracion/reportes', icon: 'reportes-auto' },
           { label: 'Optimización', url: '/configuracion/optimizacion', icon: 'optimizacion' }
         ]
-      : [{ label: 'General', url: '/configuracion', icon: 'general-config' }]
+      : [
+          { label: 'General', url: '/configuracion', icon: 'general-config' },
+          { label: 'Reportes automáticos', url: '/configuracion/reportes', icon: 'reportes-auto' }
+        ]
   );
 
   // Mapeo de iconos de Lucide (menú principal y submenús)
@@ -127,6 +132,7 @@
     // Submenús - Informes (nivel 2 - detalles)
     'facturacion': PieChart,
     'vendedores': UserCircle,
+    'preventistas': ClipboardList,
     'productos-informe': Box,
     'rubros': Tag,
     'rubros-provincia': Map,
@@ -156,6 +162,7 @@
     
     // Submenús - Configuración
     'general-config': Settings,
+    'reportes-auto': FolderSync,
     'optimizacion': Zap
   };
 
@@ -246,7 +253,8 @@
           icon: 'informes-ventas',
           submenus: [
             { label: 'Facturación', url: '/ventas/informes/facturacion', icon: 'facturacion' },
-            { label: 'Vendedores', url: '/ventas/informes/vendedores', icon: 'vendedores' }
+            { label: 'Vendedores', url: '/ventas/informes/vendedores', icon: 'vendedores' },
+            { label: 'Preventistas', url: '/ventas/informes/vendedores-preventa', icon: 'preventistas' }
           ]
         },
         { 

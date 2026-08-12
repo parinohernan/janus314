@@ -60,6 +60,7 @@ export const MENU_ENTRIES: MenuEntry[] = [
 	{ id: 'informes', url: '', label: 'Informes', parentId: '', parentLabel: '' },
 	{ id: '/ventas/informes/facturacion', url: '/ventas/informes/facturacion', label: 'Facturación', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/vendedores', url: '/ventas/informes/vendedores', label: 'Vendedores', parentId: 'informes', parentLabel: 'Informes' },
+	{ id: '/ventas/informes/vendedores-preventa', url: '/ventas/informes/vendedores-preventa', label: 'Preventistas', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/productos', url: '/ventas/informes/productos', label: 'Productos', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/rubros', url: '/ventas/informes/rubros', label: 'Rubros', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/rubros-provincia', url: '/ventas/informes/rubros-provincia', label: 'Rubros por Provincia', parentId: 'informes', parentLabel: 'Informes' },
@@ -75,5 +76,6 @@ export const MENU_ENTRIES: MenuEntry[] = [
 	// Configuración
 	{ id: 'configuracion', url: '', label: 'Configuración', parentId: '', parentLabel: '' },
 	{ id: '/configuracion', url: '/configuracion', label: 'General', parentId: 'configuracion', parentLabel: 'Configuración' },
+	{ id: '/configuracion/reportes', url: '/configuracion/reportes', label: 'Reportes automáticos', parentId: 'configuracion', parentLabel: 'Configuración' },
 	{ id: '/configuracion/optimizacion', url: '/configuracion/optimizacion', label: 'Optimización', parentId: 'configuracion', parentLabel: 'Configuración' }
 ];

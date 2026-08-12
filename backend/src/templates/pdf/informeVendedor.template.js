@@ -7,6 +7,9 @@ const logoManager = require('../../utils/logoManager');
 async function renderInformeVendedor(doc, data, datosEmpresa) {
   try {
     const { vendedor, periodo, facturas, notasCredito, totales } = data;
+    const tituloInforme = data.titulo || 'INFORME DE VENTAS POR VENDEDOR';
+    const etiquetaPersona = data.origen === 'preventa' ? 'Preventista:' : 'Vendedor:';
+    const mostrarPreventa = data.origen === 'preventa';
     
     // Configurar el documento
     const pageWidth = doc.page.width;
@@ -25,9 +28,9 @@ async function renderInformeVendedor(doc, data, datosEmpresa) {
     }
 
     // Título del informe
-    doc.fontSize(18)
+    doc.fontSize(mostrarPreventa ? 16 : 18)
        .font('Helvetica-Bold')
-       .text('INFORME DE VENTAS POR VENDEDOR', margin + 100, 40, { align: 'left' });
+       .text(tituloInforme.toUpperCase(), margin + 100, 40, { align: 'left' });
 
     // Información de la empresa
     doc.fontSize(9)
@@ -44,14 +47,14 @@ async function renderInformeVendedor(doc, data, datosEmpresa) {
 
     yPos += 15;
 
-    // Información del vendedor y período
+    // Información del vendedor/preventista y período
     doc.fontSize(12)
        .font('Helvetica-Bold')
-       .text('Vendedor:', margin, yPos);
+       .text(etiquetaPersona, margin, yPos);
     
     doc.fontSize(11)
        .font('Helvetica')
-       .text(`${vendedor.descripcion} (${vendedor.codigo})`, margin + 80, yPos);
+       .text(`${vendedor.descripcion} (${vendedor.codigo})`, margin + 90, yPos);
 
     yPos += 20;
 
@@ -137,8 +140,12 @@ async function renderInformeVendedor(doc, data, datosEmpresa) {
       yPos += 20;
 
       // Encabezados de tabla
-      const colWidths = [45, 70, 70, 200, 85];
-      const cols = ['Tipo', 'Número', 'Fecha', 'Cliente', 'Importe'];
+      const colWidths = mostrarPreventa
+        ? [40, 65, 60, 145, 85, 75]
+        : [45, 70, 70, 200, 85];
+      const cols = mostrarPreventa
+        ? ['Tipo', 'Número', 'Fecha', 'Cliente', 'Preventa', 'Importe']
+        : ['Tipo', 'Número', 'Fecha', 'Cliente', 'Importe'];
       let xPos = margin;
 
       doc.fontSize(9)
@@ -151,8 +158,9 @@ async function renderInformeVendedor(doc, data, datosEmpresa) {
 
       yPos += 5;
 
+      const importeIdx = cols.length - 1;
       cols.forEach((col, i) => {
-        doc.text(col, xPos + 5, yPos, { width: colWidths[i] - 10, align: i === 4 ? 'right' : 'left' });
+        doc.text(col, xPos + 5, yPos, { width: colWidths[i] - 10, align: i === importeIdx ? 'right' : 'left' });
         xPos += colWidths[i];
       });
 
@@ -169,21 +177,30 @@ async function renderInformeVendedor(doc, data, datosEmpresa) {
         doc.rect(margin, yPos, contentWidth, 25).fill(bgColor);
 
         xPos = margin;
-        const rowData = [
-          factura.tipo,
-          factura.numero,
-          factura.fecha,
-          `${factura.clienteDescripcion} (${factura.clienteCodigo})`,
-          formatCurrency(factura.importe)
-        ];
+        const rowData = mostrarPreventa
+          ? [
+              factura.tipo,
+              factura.numero,
+              factura.fecha,
+              `${factura.clienteDescripcion} (${factura.clienteCodigo})`,
+              factura.preventa?.label || '',
+              formatCurrency(factura.importe)
+            ]
+          : [
+              factura.tipo,
+              factura.numero,
+              factura.fecha,
+              `${factura.clienteDescripcion} (${factura.clienteCodigo})`,
+              formatCurrency(factura.importe)
+            ];
 
         doc.fillColor(index % 2 === 0 ? '#000000' : '#111827')
-           .fontSize(8);
+           .fontSize(mostrarPreventa ? 7.5 : 8);
 
-        rowData.forEach((data, i) => {
-          doc.text(data, xPos + 3, yPos + 8, { 
+        rowData.forEach((cell, i) => {
+          doc.text(cell, xPos + 3, yPos + 8, { 
             width: colWidths[i] - 6, 
-            align: i === 4 ? 'right' : 'left',
+            align: i === importeIdx ? 'right' : 'left',
             ellipsis: true
           });
           xPos += colWidths[i];
