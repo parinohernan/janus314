@@ -196,16 +196,27 @@ const createCliente = async (req, res) => {
       return res.status(400).json({ message: "El CUIT es obligatorio y debe tener 11 dígitos" });
     }
 
-    // Generar código único
-    let codigoGenerado;
-    let clienteExistente;
-    do {
-      codigoGenerado = generarCodigoUnico();
-      clienteExistente = await Cliente.findByPk(codigoGenerado);
-    } while (clienteExistente); // Repetir si el código ya existe
+    let codigo = (clienteData.Codigo || '').trim().toUpperCase();
 
-    // Asignar el código generado
-    clienteData.Codigo = codigoGenerado;
+    if (codigo) {
+      if (codigo.length > 8) {
+        return res.status(400).json({ message: 'El código no puede superar 8 caracteres' });
+      }
+      const existente = await Cliente.findByPk(codigo);
+      if (existente) {
+        return res.status(400).json({ message: 'Ya existe un cliente con ese código' });
+      }
+    } else {
+      let codigoGenerado;
+      let clienteExistente;
+      do {
+        codigoGenerado = generarCodigoUnico();
+        clienteExistente = await Cliente.findByPk(codigoGenerado);
+      } while (clienteExistente);
+      codigo = codigoGenerado;
+    }
+
+    clienteData.Codigo = codigo;
 
     await aplicarLocalidadDesdeCodigoPostal(clienteData, Localidad);
 

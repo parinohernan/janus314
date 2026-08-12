@@ -1,4 +1,9 @@
 const { QueryTypes } = require('sequelize');
+const {
+  JOIN_PREVENTA_A_FACTURA,
+  WHERE_PREVENTA_VIGENTE_FACTURADA,
+  claveFacturaNormalizada,
+} = require('./preventaFacturaLink.service');
 
 const TIPOS_FACTURA_DEFAULT = ['FCA', 'FCB', 'FCC', 'PRF'];
 const TIPOS_NC_DEFAULT = ['NCA', 'NCB', 'NCF'];
@@ -156,15 +161,10 @@ async function obtenerDatosInformePreventista(ctx, query) {
         p.DocumentoNumero AS PreventaNumero,
         c.Descripcion AS ClienteDescripcion
       FROM preventa_cabeza p
-      INNER JOIN facturacabeza f
-        ON TRIM(f.DocumentoTipo) = TRIM(p.FacturaTipo)
-       AND CAST(f.DocumentoSucursal AS UNSIGNED) = CAST(NULLIF(TRIM(p.FacturaSucursal), '') AS UNSIGNED)
-       AND CAST(f.DocumentoNumero AS UNSIGNED) = CAST(NULLIF(TRIM(p.FacturaNumero), '') AS UNSIGNED)
+      ${JOIN_PREVENTA_A_FACTURA}
       LEFT JOIN t_clientes c ON c.Codigo = f.ClienteCodigo
       WHERE p.VendedorCodigo = :vendedorCodigo
-        AND p.FacturaNumero IS NOT NULL
-        AND TRIM(p.FacturaNumero) <> ''
-        AND p.FechaAnulacion IS NULL
+        AND ${WHERE_PREVENTA_VIGENTE_FACTURADA}
         AND f.FechaAnulacion IS NULL
         AND f.Fecha BETWEEN :fechaDesde AND :fechaHasta
         AND f.DocumentoTipo IN (${tiposIn})
@@ -176,7 +176,11 @@ async function obtenerDatosInformePreventista(ctx, query) {
 
     const seen = new Set();
     for (const row of rows) {
-      const key = `${row.DocumentoTipo}-${row.DocumentoSucursal}-${row.DocumentoNumero}`;
+      const key = claveFacturaNormalizada(
+        row.DocumentoTipo,
+        row.DocumentoSucursal,
+        row.DocumentoNumero
+      );
       if (seen.has(key)) continue;
       seen.add(key);
       facturas.push(row);

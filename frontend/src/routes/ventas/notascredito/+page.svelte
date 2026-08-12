@@ -9,6 +9,7 @@
   import { writable } from 'svelte/store';
   import { EmpresaService } from '$lib/services/EmpresaService';
   import { VendedorService, type VendedorOption } from '$lib/services/VendedorService';
+  import { NotaCreditoService } from '$lib/services/NotaCreditoService';
   import CaeModal from '$lib/components/facturas/CaeModal.svelte';
   // Remover: import CaeManualModal from '$lib/components/facturas/CaeManualModal.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
@@ -23,13 +24,18 @@
     Fecha: string;
     ImporteTotal: number;
     FechaAnulacion: string | null;
+    CodigoVendedor?: string;
     afip_cae?: string;
     afip_cae_vencimiento?: string;
     afip_cae_observaciones?: string;
     Cliente?: {
       Codigo: string;
       Descripcion: string;
-    }
+    };
+    Vendedor?: {
+      Codigo: string;
+      Descripcion: string;
+    };
   }
   
   interface ClienteOption {
@@ -298,6 +304,78 @@
     DocumentoSucursal: string, 
     DocumentoNumero: string 
   } | null = null;
+
+  let showModalVendedor = false;
+  let ncSeleccionadaVendedor: NotaCredito | null = null;
+  let vendedorNuevoCodigo = '';
+  let guardandoVendedor = false;
+
+  const etiquetaVendedor = (nc: NotaCredito) =>
+    nc.Vendedor?.Descripcion || nc.Vendedor?.Codigo || nc.CodigoVendedor || '—';
+
+  const codigoVendedorActual = (nc: NotaCredito) =>
+    nc.Vendedor?.Codigo || nc.CodigoVendedor || '';
+
+  const abrirModalCambiarVendedor = (nc: NotaCredito) => {
+    if (nc.FechaAnulacion) return;
+    ncSeleccionadaVendedor = nc;
+    vendedorNuevoCodigo = codigoVendedorActual(nc);
+    showModalVendedor = true;
+  };
+
+  const cerrarModalVendedor = () => {
+    showModalVendedor = false;
+    ncSeleccionadaVendedor = null;
+    vendedorNuevoCodigo = '';
+    guardandoVendedor = false;
+  };
+
+  const confirmarCambioVendedor = async () => {
+    if (!ncSeleccionadaVendedor || !vendedorNuevoCodigo) {
+      toast.error('Seleccione un vendedor');
+      return;
+    }
+
+    const codigoActual = codigoVendedorActual(ncSeleccionadaVendedor);
+    if (vendedorNuevoCodigo === codigoActual) {
+      toast.info('El vendedor seleccionado es el mismo que el actual');
+      return;
+    }
+
+    const vendedorNuevo = vendedoresOptions.find((v) => v.value === vendedorNuevoCodigo);
+    const etiquetaActual = etiquetaVendedor(ncSeleccionadaVendedor);
+    const etiquetaNueva = vendedorNuevo?.label || vendedorNuevoCodigo;
+
+    const ok = await confirm(
+      `¿Cambiar el vendedor de ${ncSeleccionadaVendedor.DocumentoTipo}-${ncSeleccionadaVendedor.DocumentoSucursal}-${ncSeleccionadaVendedor.DocumentoNumero} de "${etiquetaActual}" a "${etiquetaNueva}"?`,
+      { confirmLabel: 'Confirmar', cancelLabel: 'Cancelar' }
+    );
+    if (!ok) return;
+
+    guardandoVendedor = true;
+    try {
+      const resultado = await NotaCreditoService.actualizarVendedor(
+        ncSeleccionadaVendedor.DocumentoTipo,
+        ncSeleccionadaVendedor.DocumentoSucursal,
+        ncSeleccionadaVendedor.DocumentoNumero,
+        vendedorNuevoCodigo
+      );
+
+      if (!resultado.success) {
+        toast.error(resultado.error || 'No se pudo actualizar el vendedor');
+        return;
+      }
+
+      toast.success('Vendedor actualizado correctamente');
+      cerrarModalVendedor();
+      await cargarNotasCredito();
+    } catch (err) {
+      console.error('Error actualizando vendedor:', err);
+      toast.error(err instanceof Error ? err.message : 'Error al actualizar el vendedor');
+    } finally {
+      guardandoVendedor = false;
+    }
+  };
 
   const abrirModalCAE = (tipo: string, sucursal: string, numero: string) => {
     notaCreditoSeleccionada = { 
@@ -594,6 +672,7 @@
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Número</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendedor</th>
             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">CAE</th>
             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
@@ -621,6 +700,20 @@
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 {nc.Cliente ? nc.Cliente.Descripcion || 'Cliente no asignado' : 'Cliente no asignado'}
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                {#if nc.FechaAnulacion}
+                  <span>{etiquetaVendedor(nc)}</span>
+                {:else}
+                  <button
+                    type="button"
+                    class="text-left text-indigo-700 hover:text-indigo-900 hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-400 rounded px-1 -mx-1"
+                    title="Cambiar vendedor"
+                    on:click={() => abrirModalCambiarVendedor(nc)}
+                  >
+                    {etiquetaVendedor(nc)}
+                  </button>
+                {/if}
               </td>
               <td class="px-4 py-3 whitespace-nowrap text-right">
                 {nc.ImporteTotal ? nc.ImporteTotal.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' }) : '$0,00'}
@@ -780,4 +873,64 @@
     on:close={cerrarModalCAE}
     on:caeObtenido={handleCaeObtenido}
   />
-{/if} 
+{/if}
+
+{#if showModalVendedor && ncSeleccionadaVendedor}
+  <div
+    class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+    on:click={cerrarModalVendedor}
+    role="presentation"
+  >
+    <div
+      class="relative top-20 mx-auto p-5 border w-11/12 max-w-md shadow-lg rounded-md bg-white"
+      on:click|stopPropagation
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-vendedor-title"
+    >
+      <div class="flex justify-between items-center mb-4 pb-3 border-b">
+        <h3 id="modal-vendedor-title" class="text-lg font-semibold text-gray-900">
+          Cambiar vendedor
+        </h3>
+        <button
+          type="button"
+          on:click={cerrarModalVendedor}
+          class="text-gray-400 hover:text-gray-600"
+          aria-label="Cerrar"
+        >
+          <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <p class="text-sm text-gray-600 mb-4">
+        NC {ncSeleccionadaVendedor.DocumentoTipo}-{ncSeleccionadaVendedor.DocumentoSucursal}-{ncSeleccionadaVendedor.DocumentoNumero}
+      </p>
+
+      <div class="mb-4">
+        <label for="vendedorNc" class="block text-sm font-medium text-gray-700 mb-1">Vendedor</label>
+        <select
+          id="vendedorNc"
+          bind:value={vendedorNuevoCodigo}
+          disabled={guardandoVendedor || vendedoresLoading}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          <option value="">Seleccionar vendedor</option>
+          {#each vendedoresOptions as vendedor}
+            <option value={vendedor.value}>{vendedor.label}</option>
+          {/each}
+        </select>
+      </div>
+
+      <div class="flex justify-end gap-2">
+        <Button variant="secondary" on:click={cerrarModalVendedor} disabled={guardandoVendedor}>
+          Cancelar
+        </Button>
+        <Button variant="primary" on:click={confirmarCambioVendedor} disabled={guardandoVendedor || !vendedorNuevoCodigo}>
+          {guardandoVendedor ? 'Guardando...' : 'Guardar'}
+        </Button>
+      </div>
+    </div>
+  </div>
+{/if}

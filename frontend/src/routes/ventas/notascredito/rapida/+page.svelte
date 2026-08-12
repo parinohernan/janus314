@@ -48,6 +48,12 @@
 	$: preventaParam = $page.url.searchParams.get('preventa'); // PRV/0001/00000123
 	$: [preventaTipo, preventaSucursal, preventaNumero] = preventaParam ? preventaParam.split('/') : [null, null, null];
 
+	const subtotalPreventaItem = (item: Preventa['items'][number]) =>
+		(item.Cantidad ?? 0) * (item.PrecioUnitario ?? 0);
+
+	$: totalItemsPreventa =
+		preventa?.items?.reduce((sum, item) => sum + subtotalPreventaItem(item), 0) ?? 0;
+
 	onMount(async () => {
 		if (!preventaParam || !preventaTipo || !preventaSucursal || !preventaNumero) {
 			error = 'Falta el parámetro preventa (ej: ?preventa=PRV/0001/00000123)';
@@ -291,10 +297,16 @@
 								<td class="py-1">{item.Articulo?.Descripcion || item.CodigoArticulo}</td>
 								<td class="text-right">{item.Cantidad}</td>
 								<td class="text-right">{formatCurrency(item.PrecioUnitario ?? 0)}</td>
-								<td class="text-right">{formatCurrency((item.Cantidad ?? 0) * (item.PrecioUnitario ?? 0))}</td>
+								<td class="text-right">{formatCurrency(subtotalPreventaItem(item))}</td>
 							</tr>
 						{/each}
 					</tbody>
+					<tfoot>
+						<tr class="border-t-2 border-gray-300 bg-gray-50 font-semibold">
+							<td colspan="3" class="py-2 text-right text-gray-700">Total</td>
+							<td class="py-2 text-right text-gray-900">{formatCurrency(totalItemsPreventa)}</td>
+						</tr>
+					</tfoot>
 				</table>
 			</div>
 		</div>

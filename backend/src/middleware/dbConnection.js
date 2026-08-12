@@ -89,6 +89,7 @@ const getEmpresaConnection = async (req, res, next) => {
     
     // Agregar la conexión, modelos y datos al request
     req.db = empresaDB;
+    req.dbConnection = empresaDB;
     req.models = models;
     req.empresaData = empresaData;
     req.userData = decoded;

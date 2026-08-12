@@ -172,4 +172,42 @@ export class FacturaService {
 			};
 		}
 	}
+
+	/**
+	 * Actualiza el vendedor de una factura
+	 */
+	public static async actualizarVendedor(
+		tipo: string,
+		sucursal: string,
+		numero: string,
+		vendedorCodigo: string
+	): Promise<{ success: boolean; data?: any; error?: string }> {
+		try {
+			const response = await fetchWithAuth(
+				`/facturas/vendedor/${tipo}/${sucursal}/${numero}`,
+				{
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ VendedorCodigo: vendedorCodigo })
+				}
+			);
+
+			const data = await response.json().catch(() => ({}));
+
+			if (!response.ok) {
+				return {
+					success: false,
+					error: data.message || 'Error al actualizar el vendedor'
+				};
+			}
+
+			return { success: true, data: data.data };
+		} catch (error) {
+			console.error('Error al actualizar vendedor de factura:', error);
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : 'Error desconocido'
+			};
+		}
+	}
 }

@@ -69,6 +69,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   // Artículo seleccionado actualmente
   let articuloSeleccionado: Articulo | null = null;
   let cantidadArticulo = 1;
+  let descuentoArticulo = 0;
   // Estados
   let loading: boolean = true;
   let error: string | null = null;
@@ -522,12 +523,14 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     // Usar el PorcentajeIVA1 del artículo o 21 como valor predeterminado
     const porcentajeIva = articuloSeleccionado.PorcentajeIVA1 || 21;
     
+    const porcentajeDescuento = Math.min(100, Math.max(0, Number(descuentoArticulo) || 0));
+
     const nuevoItem: ItemFactura = {
       ArticuloCodigo: articuloSeleccionado.Codigo,
       Descripcion: articuloSeleccionado.Descripcion,
       Cantidad: cantidadArticulo,
       PrecioLista: precioLista,
-      PorcentajeBonificado: 0,
+      PorcentajeBonificado: porcentajeDescuento,
       ImporteBonificado: 0, // Se calculará en recalcularItem
       PrecioUnitario: precioLista, // Inicialmente igual al precio de lista (sin descuento)
       PorcentajeIva: porcentajeIva,
@@ -553,6 +556,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     articuloSeleccionado = null;
     articuloBusqueda = '';
     cantidadArticulo = 1;
+    descuentoArticulo = 0;
   };
   
   // Obtener precio según la lista seleccionada
@@ -1601,8 +1605,8 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
     <h2 class="text-lg font-semibold mb-4">Artículos</h2>
     
-    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-4">
-      <div class="md:col-span-2">
+    <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-4">
+      <div class="md:col-span-2 lg:col-span-2">
         <label for="articulo" class="block text-sm font-medium text-gray-700 mb-1">Artículo</label>
         <div class="relative">
           <input
@@ -1649,6 +1653,19 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
           min="1" 
           step="1"
           bind:value={cantidadArticulo}
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      <div>
+        <label for="descuento" class="block text-sm font-medium text-gray-700 mb-1">% Desc.</label>
+        <input
+          id="descuento"
+          type="number"
+          min="0"
+          max="100"
+          step="0.1"
+          bind:value={descuentoArticulo}
           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>

@@ -7,6 +7,55 @@ const { Op } = require("sequelize");
 const numerosControlController = require("./numerosControl.controller");
 const NotaCreditoService = require("../services/notaCredito.service");
 
+function normalizarTipoFactura(tipo) {
+  if (!tipo) return null;
+  const tipoUpper = tipo.toUpperCase();
+  if (tipoUpper === 'A') return 'FCA';
+  if (tipoUpper === 'B') return 'FCB';
+  if (tipoUpper === 'C') return 'FCC';
+  if (tipoUpper === 'F') return 'PRF';
+  return tipoUpper;
+}
+
+async function adjuntarVendedoresNotasCredito(items, dbConnection) {
+  if (!items?.length) return [];
+
+  const plainItems = items.map((row) => (row.toJSON ? row.toJSON() : { ...row }));
+  const FacturaCabeza = dbConnection.model('FacturaCabeza');
+  const Vendedor = dbConnection.model('Vendedor');
+
+  FacturaCabeza.belongsTo(Vendedor, {
+    foreignKey: 'VendedorCodigo',
+    targetKey: 'Codigo',
+  });
+
+  for (const item of plainItems) {
+    if (item.Vendedor?.Descripcion) continue;
+    if (!item.factura_tipo || !item.factura_sucursal || !item.factura_numero) continue;
+
+    const tipos = [...new Set([
+      normalizarTipoFactura(item.factura_tipo),
+      item.factura_tipo.toUpperCase(),
+    ].filter(Boolean))];
+
+    const factura = await FacturaCabeza.findOne({
+      where: {
+        DocumentoTipo: { [Op.in]: tipos },
+        DocumentoSucursal: item.factura_sucursal,
+        DocumentoNumero: item.factura_numero,
+        FechaAnulacion: null,
+      },
+      include: [{ model: Vendedor, attributes: ['Codigo', 'Descripcion'] }],
+    });
+
+    if (factura?.Vendedor) {
+      item.Vendedor = factura.Vendedor;
+    }
+  }
+
+  return plainItems;
+}
+
 // Obtener listado de notas de crédito (con paginación y filtros)
 exports.listarNotasCredito = async (req, res) => {
   try {
@@ -52,25 +101,34 @@ exports.listarNotasCredito = async (req, res) => {
     });
     
     const ClienteEmpresa = req.dbConnection.model('Cliente');
+    const VendedorEmpresa = req.dbConnection.model('Vendedor');
     
-    // Establecer asociación
+    // Establecer asociaciones
     NotaCreditoCabezaEmpresa.belongsTo(ClienteEmpresa, {
       foreignKey: "CodigoCliente",
       targetKey: "Codigo",
     });
+    NotaCreditoCabezaEmpresa.belongsTo(VendedorEmpresa, {
+      foreignKey: "CodigoVendedor",
+      targetKey: "Codigo",
+    });
 
-    // Consulta con join a cliente
+    // Consulta con join a cliente y vendedor
     const notasCredito = await NotaCreditoCabezaEmpresa.findAndCountAll({
       where: whereClause,
       attributes: [
         'DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero', 'Fecha', 
         'ImporteTotal', 'FechaAnulacion', 'afip_cae', 'afip_cae_vencimiento',
-        'afip_cae_observaciones', 'CodigoCliente', 
+        'afip_cae_observaciones', 'CodigoCliente', 'CodigoVendedor',
         'factura_tipo', 'factura_sucursal', 'factura_numero'
       ],
       include: [
         {
           model: ClienteEmpresa,
+          attributes: ["Codigo", "Descripcion"],
+        },
+        {
+          model: VendedorEmpresa,
           attributes: ["Codigo", "Descripcion"],
         },
       ],
@@ -89,18 +147,6 @@ exports.listarNotasCredito = async (req, res) => {
     // Si hay filtro por vendedor, filtrar por facturas relacionadas
     if (vendedorCodigo) {
       const FacturaCabezaEmpresa = req.dbConnection.model('FacturaCabeza');
-      
-      // Función para normalizar tipo de documento
-      const normalizarTipo = (tipo) => {
-        if (!tipo) return null;
-        const tipoUpper = tipo.toUpperCase();
-        // Mapear tipos cortos a completos
-        if (tipoUpper === 'A') return 'FCA';
-        if (tipoUpper === 'B') return 'FCB';
-        if (tipoUpper === 'C') return 'FCC';
-        if (tipoUpper === 'F') return 'PRF';
-        return tipoUpper;
-      };
       
       // Obtener todas las facturas del vendedor para cachearlas
       const facturasVendedor = await FacturaCabezaEmpresa.findAll({
@@ -131,7 +177,7 @@ exports.listarNotasCredito = async (req, res) => {
       for (const nc of notasCredito.rows) {
         if (nc.factura_tipo && nc.factura_sucursal && nc.factura_numero) {
           // Normalizar el tipo de factura
-          const tipoNormalizado = normalizarTipo(nc.factura_tipo);
+          const tipoNormalizado = normalizarTipoFactura(nc.factura_tipo);
           
           // Intentar diferentes combinaciones de búsqueda
           const claves = [
@@ -169,8 +215,10 @@ exports.listarNotasCredito = async (req, res) => {
       itemsFiltrados = ncFiltradas.slice(start, end);
     }
 
+    const itemsRespuesta = await adjuntarVendedoresNotasCredito(itemsFiltrados, req.dbConnection);
+
     res.json({
-      items: itemsFiltrados,
+      items: itemsRespuesta,
       meta: {
         totalItems: totalFiltrado,
         itemsPerPage: limit,
@@ -643,6 +691,97 @@ exports.anularNotaCredito = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error al anular nota de crédito",
+      error: error.message,
+    });
+  }
+};
+
+// Actualizar vendedor de una nota de crédito
+exports.actualizarVendedorNotaCredito = async (req, res) => {
+  try {
+    const { NotaCreditoCabeza, Vendedor } = req.models;
+    const { tipo, sucursal, numero } = req.params;
+    const codigoVendedor = (req.body?.CodigoVendedor || '').trim();
+
+    if (!codigoVendedor) {
+      return res.status(400).json({
+        success: false,
+        message: 'Debe indicar un vendedor',
+      });
+    }
+
+    const vendedor = await Vendedor.findByPk(codigoVendedor);
+    if (!vendedor) {
+      return res.status(400).json({
+        success: false,
+        message: 'El vendedor seleccionado no existe',
+      });
+    }
+
+    NotaCreditoCabeza.belongsTo(Vendedor, {
+      foreignKey: 'CodigoVendedor',
+      targetKey: 'Codigo',
+    });
+
+    const notaCredito = await NotaCreditoCabeza.findOne({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero,
+      },
+    });
+
+    if (!notaCredito) {
+      return res.status(404).json({
+        success: false,
+        message: 'Nota de crédito no encontrada',
+      });
+    }
+
+    if (notaCredito.FechaAnulacion) {
+      return res.status(400).json({
+        success: false,
+        message: 'No se puede modificar el vendedor de una nota de crédito anulada',
+      });
+    }
+
+    if (notaCredito.CodigoVendedor === codigoVendedor) {
+      return res.status(400).json({
+        success: false,
+        message: 'La nota de crédito ya tiene asignado ese vendedor',
+      });
+    }
+
+    await notaCredito.update({ CodigoVendedor: codigoVendedor });
+
+    const actualizada = await NotaCreditoCabeza.findOne({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero,
+      },
+      attributes: [
+        'DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero',
+        'CodigoVendedor', 'FechaAnulacion',
+      ],
+      include: [
+        {
+          model: Vendedor,
+          attributes: ['Codigo', 'Descripcion'],
+        },
+      ],
+    });
+
+    res.json({
+      success: true,
+      message: 'Vendedor actualizado correctamente',
+      data: actualizada,
+    });
+  } catch (error) {
+    console.error('Error al actualizar vendedor de nota de crédito:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al actualizar el vendedor',
       error: error.message,
     });
   }

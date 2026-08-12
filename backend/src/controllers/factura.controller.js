@@ -3,6 +3,7 @@ const { Op } = require("sequelize");
 const fetch = require("node-fetch");
 const numerosControlController = require("./numerosControl.controller");
 const FacturaService = require("../services/factura.service");
+const { adjuntarPreventistasAFacturas } = require("../services/preventaFacturaLink.service");
 
 // Obtener listado de facturas (con paginación y filtros)
 exports.listarFacturas = async (req, res) => {
@@ -61,7 +62,8 @@ exports.listarFacturas = async (req, res) => {
         'ImporteTotal',
         'FechaAnulacion',
         'afip_cae',
-        'PagoTipo'
+        'PagoTipo',
+        'VendedorCodigo'
       ],
       include: [
         {
@@ -95,8 +97,10 @@ exports.listarFacturas = async (req, res) => {
       return item;
     });
 
+    const itemsConPreventista = await adjuntarPreventistasAFacturas(itemsMapeados, req.db);
+
     res.json({
-      items: itemsMapeados,
+      items: itemsConPreventista,
       meta: {
         totalItems: facturas.count,
         itemsPerPage: limit,
@@ -523,6 +527,92 @@ exports.anularFactura = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error al anular factura",
+      error: error.message,
+    });
+  }
+};
+
+// Actualizar vendedor de una factura
+exports.actualizarVendedorFactura = async (req, res) => {
+  try {
+    const { FacturaCabeza, Vendedor } = req.models;
+    const { tipo, sucursal, numero } = req.params;
+    const vendedorCodigo = (req.body?.VendedorCodigo || req.body?.CodigoVendedor || '').trim();
+
+    if (!vendedorCodigo) {
+      return res.status(400).json({
+        success: false,
+        message: 'Debe indicar un vendedor',
+      });
+    }
+
+    const vendedor = await Vendedor.findByPk(vendedorCodigo);
+    if (!vendedor) {
+      return res.status(400).json({
+        success: false,
+        message: 'El vendedor seleccionado no existe',
+      });
+    }
+
+    const factura = await FacturaCabeza.findOne({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero,
+      },
+    });
+
+    if (!factura) {
+      return res.status(404).json({
+        success: false,
+        message: 'Factura no encontrada',
+      });
+    }
+
+    if (factura.FechaAnulacion) {
+      return res.status(400).json({
+        success: false,
+        message: 'No se puede modificar el vendedor de una factura anulada',
+      });
+    }
+
+    if (factura.VendedorCodigo === vendedorCodigo) {
+      return res.status(400).json({
+        success: false,
+        message: 'La factura ya tiene asignado ese vendedor',
+      });
+    }
+
+    await factura.update({ VendedorCodigo: vendedorCodigo });
+
+    const actualizada = await FacturaCabeza.findOne({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero,
+      },
+      attributes: [
+        'DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero',
+        'VendedorCodigo', 'FechaAnulacion',
+      ],
+      include: [
+        {
+          model: Vendedor,
+          attributes: ['Codigo', 'Descripcion'],
+        },
+      ],
+    });
+
+    res.json({
+      success: true,
+      message: 'Vendedor actualizado correctamente',
+      data: actualizada,
+    });
+  } catch (error) {
+    console.error('Error al actualizar vendedor de factura:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al actualizar el vendedor',
       error: error.message,
     });
   }

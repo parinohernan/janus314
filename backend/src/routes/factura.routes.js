@@ -16,6 +16,9 @@ router.post("/", facturaController.crearFactura);
 // Anular factura (No se elimina físicamente)
 router.put("/anular/:tipo/:sucursal/:numero", facturaController.anularFactura);
 
+// Actualizar vendedor de una factura
+router.put("/vendedor/:tipo/:sucursal/:numero", facturaController.actualizarVendedorFactura);
+
 // Nueva ruta para generar PDF
 router.get("/pdf/:tipo/:sucursal/:numero", getEmpresaConnection, pdfController.generarFacturaPDF);
 

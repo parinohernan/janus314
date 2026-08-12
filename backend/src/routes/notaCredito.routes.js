@@ -28,6 +28,12 @@ router.put(
   notaCreditoController.anularNotaCredito
 );
 
+// Actualizar vendedor de una nota de crédito
+router.put(
+  "/vendedor/:tipo/:sucursal/:numero",
+  notaCreditoController.actualizarVendedorNotaCredito
+);
+
 // Generar PDF de nota de crédito
 router.get("/pdf/:tipo/:sucursal/:numero", pdfController.generarNotaCreditoPDF);
 

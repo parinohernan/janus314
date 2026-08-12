@@ -212,6 +212,44 @@ export class NotaCreditoService {
 	}
 
 	/**
+	 * Actualiza el vendedor de una nota de crédito
+	 */
+	public static async actualizarVendedor(
+		tipo: string,
+		sucursal: string,
+		numero: string,
+		codigoVendedor: string
+	): Promise<{ success: boolean; data?: any; error?: string }> {
+		try {
+			const response = await fetchWithAuth(
+				`/notascredito/vendedor/${tipo}/${sucursal}/${numero}`,
+				{
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ CodigoVendedor: codigoVendedor })
+				}
+			);
+
+			const data = await response.json().catch(() => ({}));
+
+			if (!response.ok) {
+				return {
+					success: false,
+					error: data.message || 'Error al actualizar el vendedor'
+				};
+			}
+
+			return { success: true, data: data.data };
+		} catch (error) {
+			console.error('Error al actualizar vendedor de nota de crédito:', error);
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : 'Error desconocido'
+			};
+		}
+	}
+
+	/**
 	 * Anula una nota de crédito existente
 	 */
 	public static async anularNotaCredito(
