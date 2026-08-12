@@ -62,13 +62,13 @@ exports.getAllConfiguraciones = async (req, res) => {
 };
 
 /**
- * Actualizar el valor de una configuración
+ * Actualizar el valor de una configuración (crea la fila si no existe).
  */
 exports.actualizarConfiguracion = async (req, res) => {
   try {
     const { Configuracion } = req.models;
     const { codigo } = req.params;
-    const { valor } = req.body;
+    const { valor, descripcion } = req.body;
 
     if (!codigo) {
       return res.status(400).json({
@@ -84,20 +84,30 @@ exports.actualizarConfiguracion = async (req, res) => {
       });
     }
 
-    // Buscar la configuración
-    const config = await Configuracion.findOne({
+    const descripcionesPorDefecto = {
+      reportes_auto_enabled: 'Activar export automático Rubros-Provincia',
+      reportes_auto_dir: 'Carpeta local de reportes del contador',
+      reportes_auto_rclone: 'Remoto rclone (ej. gdrive:Contabilidad/RubrosProvincia)',
+      CANT_ITEMS: 'Cantidad de Items por Página',
+      mostrar_info_en_remitos: 'Mostrar información en remitos',
+    };
+
+    let config = await Configuracion.findOne({
       where: { Codigo: codigo }
     });
 
     if (!config) {
-      return res.status(404).json({
-        success: false,
-        message: `No se encontró la configuración con código: ${codigo}`,
+      config = await Configuracion.create({
+        Codigo: codigo,
+        Descripcion: descripcion || descripcionesPorDefecto[codigo] || codigo,
+        ValorConfig: String(valor),
+        pasar_a_ipaqs: false
       });
+    } else {
+      const updates = { ValorConfig: String(valor) };
+      if (descripcion) updates.Descripcion = descripcion;
+      await config.update(updates);
     }
-
-    // Actualizar la configuración
-    await config.update({ ValorConfig: valor });
 
     return res.status(200).json({
       success: true,

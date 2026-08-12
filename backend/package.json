@@ -8,7 +8,8 @@
     "seed": "sequelize-cli db:seed:all",
     "seed:undo": "sequelize-cli db:seed:undo",
     "test:auth": "node src/scripts/test-auth-tenant.js",
-    "test:routes": "node src/scripts/test-routes.js"
+    "test:routes": "node src/scripts/test-routes.js",
+    "job:rubros-provincia": "node src/scripts/export-rubros-provincia-mensual.js"
   },
   "dependencies": {
     "@faker-js/faker": "^8.x",
