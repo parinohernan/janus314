@@ -16,6 +16,7 @@
   import { EmpresaService } from '$lib/services/EmpresaService';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { toast, confirm } from '$lib/utils/toast';
+  import { datosComercialesDesdeCliente } from '$lib/utils/facturaClienteDefaults';
   // import { formatDateOnly } from '$lib/utils/dateUtils';
 
   const FACTURA_NUEVA_PATH = '/ventas/facturas/nueva';
@@ -471,6 +472,16 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     }
   };
   
+  const aplicarDatosComercialesCliente = (cliente: Cliente) => {
+    const { listaPrecio, porcentajeBonificacion } = datosComercialesDesdeCliente(cliente);
+    factura.ListaPrecio = listaPrecio;
+    factura.PorcentajeBonificacion = porcentajeBonificacion;
+    if (factura.Items.length > 0) {
+      cambiarListaPrecio();
+    }
+    recalcularTotales();
+  };
+
   // Seleccionar cliente
   const seleccionarCliente = (cliente: Cliente) => {
     factura.ClienteCodigo = cliente.Codigo;
@@ -491,7 +502,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
       buscarDatosVendedor(cliente.CodigoVendedor);
     }
 
-
+    aplicarDatosComercialesCliente(cliente);
     
     // Actualizar tipos de documento según categoría IVA
     actualizarTiposDocumento(cliente.CategoriaIva);
@@ -1155,22 +1166,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
           const cliente = await cargarClientePorCodigo(preventaCargada.preventa.ClienteCodigo);
           
           if (cliente) {
-            // Aplicar los mismos cambios que en seleccionarCliente
-            factura.ClienteCodigo = cliente.Codigo;
-            factura.Cliente = cliente;
-            clientesBusqueda = `${cliente.Codigo} - ${cliente.Descripcion}`;
-            
-            // Actualizar tipos de documento según categoría IVA
-            actualizarTiposDocumento(cliente.CategoriaIva);
-            
-            // Obtener próximo número de comprobante
-            obtenerProximoNumero();
-            
-            // Si el cliente tiene un vendedor asignado, cargarlo
-            if (cliente.CodigoVendedor) {
-              factura.VendedorCodigo = cliente.CodigoVendedor;
-              buscarDatosVendedor(cliente.CodigoVendedor);
-            }
+            seleccionarCliente(cliente);
           }
         }
         
