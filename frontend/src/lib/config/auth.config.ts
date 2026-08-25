@@ -12,6 +12,7 @@ export const authConfig = {
     online: {
       login: '/auth/login',
       loginLegacy: '/auth/online/login',
+      asociar: '/auth/asociar',
       logout: '/auth/online/logout',
       verify: '/auth/online/verify'
     }

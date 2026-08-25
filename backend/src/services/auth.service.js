@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const { v4: uuidv4 } = require('uuid');
 const Empresa = require('../models/Empresa');
 const CuentaAcceso = require('../models/cuentaAcceso.model');
 const DBManager = require('../utils/DBManager');
@@ -7,6 +8,8 @@ const { logAuthEvent } = require('../utils/logger');
 const BCRYPT_ROUNDS = CuentaAcceso.BCRYPT_ROUNDS || 12;
 
 const INVALID_CREDENTIALS = 'Credenciales inválidas';
+const MIN_PASSWORD_LENGTH = 8;
+const USUARIO_REGEX = /^[a-z0-9._-]{3,64}$/;
 const DUMMY_HASH = bcrypt.hashSync('__janus314-timing-dummy__', BCRYPT_ROUNDS);
 
 function requireJwtSecret() {
@@ -188,6 +191,61 @@ async function loginSuperadmin(usuario, password) {
   };
 }
 
+async function asociarCuenta({ usuario, password, empresaId, vendedorCodigo, claveVendedor }) {
+  const usuarioNorm = String(usuario || '').trim().toLowerCase();
+  const clave = String(claveVendedor || '');
+  const codigo = String(vendedorCodigo || '').trim();
+  const empresa = String(empresaId || '').trim();
+
+  if (!usuarioNorm || !password || !empresa || !codigo || !clave) {
+    throw httpError(400, 'Todos los campos son requeridos');
+  }
+  if (!USUARIO_REGEX.test(usuarioNorm)) {
+    throw httpError(400, 'El usuario debe tener 3-64 caracteres (letras, números, punto, guion o guion bajo)');
+  }
+  if (String(password).length < MIN_PASSWORD_LENGTH) {
+    throw httpError(400, `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres`);
+  }
+
+  const empresaData = await loadEmpresa(empresa);
+  const empresaDB = await DBManager.getConnectionWithConfig(empresaData);
+  const [row] = await empresaDB.query(
+    'SELECT * FROM t_vendedores WHERE codigo = ? AND activo = 1 AND clave = ? LIMIT 1',
+    {
+      replacements: [codigo, clave],
+      type: empresaDB.QueryTypes.SELECT
+    }
+  );
+  const vendedor = normalizeVendedor(row);
+  if (!vendedor) {
+    throw httpError(401, INVALID_CREDENTIALS);
+  }
+
+  try {
+    const cuenta = await CuentaAcceso.create({
+      id: uuidv4(),
+      usuario: usuarioNorm,
+      password_hash: password,
+      empresa_id: empresaData.id,
+      vendedor_codigo: String(vendedor.Codigo),
+      activo: true
+    });
+    logAuthEvent(usuarioNorm, 'asociar-cuenta', true, {
+      empresaId: empresaData.id,
+      vendedor: vendedor.Codigo
+    });
+    return {
+      success: true,
+      data: cuenta.toJSON()
+    };
+  } catch (error) {
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      throw httpError(409, 'Ya existe una cuenta con ese usuario o ese vendedor en la empresa');
+    }
+    throw error;
+  }
+}
+
 async function getVendedorEnEmpresa(empresaId, codigo) {
   const empresaData = await loadEmpresa(empresaId);
   const { vendedor, empresaDB } = await loadVendedor(empresaData, codigo);
@@ -212,6 +270,7 @@ module.exports = {
   loginLegacy,
   verifySession,
   loginSuperadmin,
+  asociarCuenta,
   loadEmpresa,
   getVendedorEnEmpresa,
   listVendedoresDeEmpresa,

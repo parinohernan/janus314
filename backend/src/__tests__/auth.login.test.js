@@ -39,6 +39,10 @@ jest.mock('../utils/cache', () => ({
   enabled: false
 }));
 
+jest.mock('../middleware/loginRateLimit', () => ({
+  loginRateLimit: (_req, _res, next) => next()
+}));
+
 jest.mock('../config/masterDB', () => ({
   getConnection: () => ({}),
   testConnection: jest.fn()
@@ -239,5 +243,81 @@ describe('POST /api/auth/superadmin/login', () => {
 
     expect(res.status).toBe(401);
     expect(res.body.error).toBe('Credenciales inválidas');
+  });
+});
+
+describe('POST /api/auth/asociar', () => {
+  let app;
+
+  beforeEach(() => {
+    app = createApp();
+    Empresa.findByPk.mockResolvedValue(empresaActiva);
+    CuentaAcceso.create.mockImplementation(async (data) => ({
+      ...data,
+      toJSON() {
+        const values = { ...data };
+        delete values.password_hash;
+        return values;
+      }
+    }));
+  });
+
+  test('crea la cuenta si empresa, vendedor y clave coinciden', async () => {
+    mockTenantQuery([vendedorAdmin]);
+
+    const res = await request(app)
+      .post('/api/auth/asociar')
+      .send({
+        usuario: 'hernan',
+        password: 'secret1234',
+        empresa: '1',
+        vendedor: '001',
+        clave: '1234'
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.usuario).toBe('hernan');
+    expect(res.body.data.password_hash).toBeUndefined();
+    expect(CuentaAcceso.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        usuario: 'hernan',
+        empresa_id: '1',
+        vendedor_codigo: '001',
+        password_hash: 'secret1234'
+      })
+    );
+  });
+
+  test('rechaza si la clave del vendedor es incorrecta', async () => {
+    mockTenantQuery([]);
+
+    const res = await request(app)
+      .post('/api/auth/asociar')
+      .send({
+        usuario: 'hernan',
+        password: 'secret1234',
+        empresa: '1',
+        vendedor: '001',
+        clave: 'mala'
+      });
+
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('Credenciales inválidas');
+  });
+
+  test('rechaza password nueva corta', async () => {
+    const res = await request(app)
+      .post('/api/auth/asociar')
+      .send({
+        usuario: 'hernan',
+        password: 'corta',
+        empresa: '1',
+        vendedor: '001',
+        clave: '1234'
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/8 caracteres/);
   });
 });

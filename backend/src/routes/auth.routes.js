@@ -54,6 +54,22 @@ router.post('/online/login', loginRateLimit, async (req, res) => {
   }
 });
 
+router.post('/asociar', loginRateLimit, async (req, res) => {
+  try {
+    const { usuario, password, empresa, vendedor, clave } = req.body;
+    const payload = await authService.asociarCuenta({
+      usuario,
+      password,
+      empresaId: empresa,
+      vendedorCodigo: vendedor,
+      claveVendedor: clave
+    });
+    res.status(201).json(payload);
+  } catch (error) {
+    sendAuthError(res, error, req.body?.usuario);
+  }
+});
+
 router.post('/superadmin/login', loginRateLimit, async (req, res) => {
   try {
     const { usuario, password } = req.body;
