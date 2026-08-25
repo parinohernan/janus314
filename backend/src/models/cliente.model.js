@@ -105,7 +105,94 @@ class Cliente extends sequelize.Sequelize.Model {
         type: DataTypes.DOUBLE(15, 2),
         allowNull: true,
         defaultValue: 0.0,
-      }
+      },
+      CanalCodigo: {
+        type: DataTypes.STRING(2),
+        allowNull: true,
+      },
+      FechaDeAlta: {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+      },
+      FechaDeBaja: {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+      },
+      TransporteCodigo: {
+        type: DataTypes.STRING(3),
+        allowNull: true,
+      },
+      DirEntregaCalle: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+      },
+      DirEntregaNumero: {
+        type: DataTypes.STRING(10),
+        allowNull: true,
+      },
+      DirEntregaPiso: {
+        type: DataTypes.STRING(3),
+        allowNull: true,
+      },
+      DirEntregaDpto: {
+        type: DataTypes.STRING(5),
+        allowNull: true,
+      },
+      DirEntregaProvinciaCodigo: {
+        type: DataTypes.STRING(3),
+        allowNull: true,
+      },
+      DirEntregaLocalidadCodigo: {
+        type: DataTypes.STRING(10),
+        allowNull: true,
+      },
+      CondicionVentaCodigo: {
+        type: DataTypes.STRING(3),
+        allowNull: true,
+      },
+      PorcentajeBonificacionGeneral: {
+        type: DataTypes.DOUBLE(15, 2),
+        allowNull: true,
+        defaultValue: 0.0,
+      },
+      GrupoPercepcionIIBBCodigo: {
+        type: DataTypes.STRING(10),
+        allowNull: true,
+      },
+      PorcentajePercepcionIIBB: {
+        type: DataTypes.DOUBLE(15, 2),
+        allowNull: true,
+        defaultValue: 0.0,
+      },
+      GrupoCodigo: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+      },
+      cant_facturas_impagas_max: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: 0,
+      },
+      ZonaCodigo: {
+        type: DataTypes.STRING(3),
+        allowNull: true,
+      },
+      InvCuentaVentas: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+      CliCuentaCredito: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+      TipoDocumento: {
+        type: DataTypes.STRING(2),
+        allowNull: true,
+      },
+      CodigoLocalidad: {
+        type: DataTypes.STRING(8),
+        allowNull: true,
+      },
     };
   }
 }

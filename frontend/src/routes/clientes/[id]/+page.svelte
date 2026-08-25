@@ -92,7 +92,11 @@
       if (isEditing) {
         const clienteData = await ClienteService.obtenerClientePorCodigo($page.params.id);
         if (clienteData) {
-          cliente = clienteData;
+          cliente = {
+            ...cliente,
+            ...clienteData,
+            PorcentajeBonificacionGeneral: Number(clienteData.PorcentajeBonificacionGeneral) || 0
+          };
         } else {
           throw new Error('Error al cargar los datos del cliente');
         }
@@ -158,7 +162,6 @@
     if (!cliente.CategoriaIva) formErrors.CategoriaIva = 'La categoría IVA es obligatoria';
     if (!cliente.Cuit) formErrors.Cuit = 'El CUIT es obligatorio';
     if (!cliente.Calle) formErrors.Calle = 'La calle es obligatoria';
-    if (!cliente.Numero) formErrors.Numero = 'El número es obligatorio';
     if (!cliente.ProvinciaCodigo) formErrors.ProvinciaCodigo = 'La provincia es obligatoria';
     if (!cliente.CodigoPostal) formErrors.CodigoPostal = 'La localidad es obligatoria';
     if (!cliente.CodigoVendedor) formErrors.CodigoVendedor = 'El vendedor es obligatorio';
@@ -182,6 +185,7 @@
       successMessage = null;
 
       sincronizarLocalidadDesdeCodigoPostal();
+      cliente.PorcentajeBonificacionGeneral = Number(cliente.PorcentajeBonificacionGeneral) || 0;
       
       const savedCliente = await ClienteService.guardarCliente(cliente, isEditing);
       
@@ -378,19 +382,15 @@
               
               <div>
                 <label for="numero" class="block text-sm font-medium text-gray-700 mb-1">
-                  Número *
+                  Número
                 </label>
                 <input
                   type="text"
                   id="numero"
                   bind:value={cliente.Numero}
-                  required
                   maxlength="15"
-                  class="w-full px-3 py-2 border {formErrors.Numero ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                {#if formErrors.Numero}
-                  <p class="mt-1 text-sm text-red-600">{formErrors.Numero}</p>
-                {/if}
               </div>
               
               <div>

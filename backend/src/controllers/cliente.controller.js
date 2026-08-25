@@ -89,6 +89,7 @@ const getAllClientes = async (req, res) => {
         "ListaPrecio",
         "CodigoVendedor",
         "CodigoPostal",
+        "PorcentajeBonificacionGeneral",
       ],
     });
 
@@ -220,6 +221,11 @@ const createCliente = async (req, res) => {
 
     await aplicarLocalidadDesdeCodigoPostal(clienteData, Localidad);
 
+    if (clienteData.PorcentajeBonificacionGeneral !== undefined) {
+      const n = parseFloat(clienteData.PorcentajeBonificacionGeneral);
+      clienteData.PorcentajeBonificacionGeneral = Number.isFinite(n) ? n : 0;
+    }
+
     const nuevoCliente = await Cliente.create(clienteData);
     return res.status(201).json(nuevoCliente);
   } catch (error) {
@@ -279,6 +285,11 @@ const updateCliente = async (req, res) => {
     }
 
     await aplicarLocalidadDesdeCodigoPostal(clienteData, Localidad);
+
+    if (clienteData.PorcentajeBonificacionGeneral !== undefined) {
+      const n = parseFloat(clienteData.PorcentajeBonificacionGeneral);
+      clienteData.PorcentajeBonificacionGeneral = Number.isFinite(n) ? n : 0;
+    }
 
     // Actualizar los campos con los datos procesados
     await cliente.update(clienteData);
