@@ -1,5 +1,6 @@
 const masterDB = require('./masterDB');
 const { ensureWikiTableAndSeed } = require('../models/wikiArticulo.model');
+const CuentaAcceso = require('../models/cuentaAcceso.model');
 
 async function initializeDatabase() {
   try {
@@ -7,6 +8,12 @@ async function initializeDatabase() {
   } catch (error) {
     console.error('Error al conectar la base de datos maestra:', error);
     process.exit(1);
+  }
+
+  try {
+    await CuentaAcceso.sync();
+  } catch (error) {
+    console.error('⚠️ Error al sincronizar cuentas_acceso (se continua el arranque):', error.message || error);
   }
 
   try {

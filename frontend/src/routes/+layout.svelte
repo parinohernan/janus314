@@ -17,10 +17,11 @@
 	
 	// Página móvil de subida (Compras): sin layout ERP; sigue exigiendo login como el resto
 	let esSubirImagenMovil = $derived($page.url.pathname === '/compras/subir-imagen');
+	let esRutaAdmin = $derived($page.url.pathname.startsWith('/admin'));
 
 	// MainBar, TabBar, Sidebar y footer solo en el ERP “completo”
 	let usarChromePrincipal = $derived(
-		!$page.url.pathname.includes('/ventas/bot/') && !esSubirImagenMovil
+		!$page.url.pathname.includes('/ventas/bot/') && !esSubirImagenMovil && !esRutaAdmin
 	);
 
 	// Margen fijo del rail (16); el panel expandido del sidebar flota encima sin empujar el layout
@@ -33,13 +34,13 @@
 	let esMiniWebTelegram = $derived($page.url.pathname.includes('/ventas/bot/'));
 	
 	onMount(async () => {
-		// Solo verificar autenticación si no estamos en una ruta del bot
-		if (!esMiniWebTelegram) {
+		// Solo verificar autenticación si no estamos en una ruta del bot ni del admin Janus
+		if (!esMiniWebTelegram && !esRutaAdmin) {
 			const isAuthenticated = await auth.verifySession();
 			if (!isAuthenticated && $page.url.pathname !== '/login') {
 				goto('/login');
 			}
-		} else {
+		} else if (esMiniWebTelegram) {
 			// Si es una ruta del bot y no hay token, configurar uno temporal
 			if (typeof localStorage !== 'undefined' && !localStorage.getItem('authToken')) {
 				localStorage.setItem('authToken', 'bot-telegram-token-temporal');
@@ -50,7 +51,7 @@
 	
 	// Effect para manejar cambios en la autenticación
 	$effect(() => {
-		if (browser && !isLoading && !esMiniWebTelegram) {
+		if (browser && !isLoading && !esMiniWebTelegram && !esRutaAdmin) {
 			const token = localStorage.getItem('authToken');
 			if (!$auth.isAuthenticated && token && $page.url.pathname !== '/login') {
 				// Si hay token pero no está autenticado, verificar la sesión
@@ -94,6 +95,7 @@
 				!to.url.pathname.includes('/ventas/bot/') &&
 				to.url.pathname !== '/compras/subir-imagen' &&
 				to.url.pathname !== '/login' &&
+				!to.url.pathname.startsWith('/admin') &&
 				to.url.pathname !== '/'
 			) {
 				const label = getLabelFromUrl(to.url.pathname);

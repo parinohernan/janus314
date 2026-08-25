@@ -3,11 +3,10 @@ const router = express.Router();
 const DBManager = require('../utils/DBManager');
 const adminAuth = require('../middlewares/adminAuth');
 const { validateAllSchemas } = require('../scripts/validate-schemas');
+const cuentaAccesoController = require('../controllers/cuentaAcceso.controller');
 
-// Middleware de autenticación para todas las rutas admin
 router.use(adminAuth);
 
-// Ruta para obtener el estado de las conexiones
 router.get('/db-status', async (req, res) => {
   try {
     const status = await DBManager.getPoolStatus();
@@ -21,7 +20,6 @@ router.get('/db-status', async (req, res) => {
   }
 });
 
-// Ruta para validar esquemas
 router.post('/validate-schemas', async (req, res) => {
   try {
     const results = await validateAllSchemas();
@@ -42,4 +40,10 @@ router.post('/validate-schemas', async (req, res) => {
   }
 });
 
-module.exports = router; 
+router.get('/cuentas', cuentaAccesoController.listarCuentas);
+router.post('/cuentas', cuentaAccesoController.crearCuenta);
+router.patch('/cuentas/:id', cuentaAccesoController.actualizarCuenta);
+router.get('/empresas', cuentaAccesoController.listarEmpresas);
+router.get('/empresas/:id/vendedores', cuentaAccesoController.listarVendedoresEmpresa);
+
+module.exports = router;

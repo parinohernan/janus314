@@ -10,7 +10,8 @@ export const authConfig = {
       verify: '/auth/local/verify'
     },
     online: {
-      login: '/auth/online/login',
+      login: '/auth/login',
+      loginLegacy: '/auth/online/login',
       logout: '/auth/online/logout',
       verify: '/auth/online/verify'
     }

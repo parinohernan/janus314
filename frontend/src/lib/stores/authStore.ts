@@ -34,7 +34,7 @@ function createAuthStore() {
     subscribe,
     login: async (credentials: { usuario: string; password: string; empresa?: string }) => {
       try {
-        console.log('Iniciando login con credenciales:', credentials);
+        console.log('Iniciando login', { usuario: credentials.usuario, empresa: credentials.empresa || null });
         
         // En modo local, verificar credenciales por defecto
         if (authConfig.mode === 'local') {
@@ -71,7 +71,10 @@ function createAuthStore() {
         }
 
         // En modo online, hacer la llamada al servidor
-        const endpoint = `${PUBLIC_API_URL}${authConfig.endpoints.online.login}`;
+        const loginPath = credentials.empresa
+          ? authConfig.endpoints.online.loginLegacy
+          : authConfig.endpoints.online.login;
+        const endpoint = `${PUBLIC_API_URL}${loginPath}`;
         console.log('Haciendo login online en:', endpoint, 'PUBLIC_API_URL:', PUBLIC_API_URL);
         
         const response = await fetch(endpoint, {
