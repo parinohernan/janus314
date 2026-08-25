@@ -2,6 +2,7 @@ const renderHeader = require("./common/header");
 const renderClienteInfo = require("./common/clienteInfo.js");
 const renderItemsListConIva = require("./common/itemsListConIva.js");
 const renderElectronicInfo = require("./common/electronicInfo.js");
+const { textoImporteBonificado } = require("./common/formatBonificacion");
 const path = require("path");
 
 /**
@@ -79,10 +80,12 @@ async function renderFacturaB(doc, data) {
       y += 20;
 
       doc.text("Bonificación:", xTotales, y, { width: 90, align: "right" });
-      doc.text(factura.ImporteBonificado.toFixed(2), xTotales + 90, y, {
-        width: 70,
-        align: "right",
-      });
+      doc.text(
+        textoImporteBonificado(factura.ImporteBonificado, factura.PorcentajeBonificacion),
+        xTotales + 70,
+        y,
+        { width: 90, align: "right" }
+      );
       y += 20;
     }
 

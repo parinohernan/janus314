@@ -2,6 +2,7 @@ const renderHeader = require("./common/header");
 const renderClienteInfo = require("./common/clienteInfo.js");
 const renderItemsList = require("./common/itemsList.js");
 const renderElectronicInfo = require("./common/electronicInfo.js");
+const { textoImporteBonificado } = require("./common/formatBonificacion");
 const path = require("path");
 
 /**
@@ -77,14 +78,27 @@ doc.fontSize(26).text(title, doc.page.width / 2 - 14, 26, {
 
     // Totales
     doc.font("Helvetica-Bold");
+    const hayBonificacion = Number(factura.ImporteBonificado) > 0;
+    const subtotalA = hayBonificacion ? factura.ImporteBruto : factura.ImporteNeto;
     doc.text("Subtotal:", xTotales, y, { width: 90, align: "right" });
     doc.text(
-      factura.ImporteNeto ? factura.ImporteNeto.toFixed(2) : "0.00",
+      subtotalA ? Number(subtotalA).toFixed(2) : "0.00",
       xTotales + 90,
       y,
       { width: 70, align: "right" }
     );
     y += 20;
+
+    if (hayBonificacion) {
+      doc.text("Bonificación:", xTotales, y, { width: 90, align: "right" });
+      doc.text(
+        textoImporteBonificado(factura.ImporteBonificado, factura.PorcentajeBonificacion),
+        xTotales + 70,
+        y,
+        { width: 90, align: "right" }
+      );
+      y += 20;
+    }
 
     doc.text("IVA 21%:", xTotales, y, { width: 90, align: "right" });
     doc.text(

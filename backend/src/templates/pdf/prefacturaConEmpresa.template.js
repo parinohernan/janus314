@@ -1,6 +1,7 @@
 const renderHeader = require("./common/header");
 const renderClienteInfo = require("./common/clienteInfo.js");
 const renderItemsListConIva = require("./common/itemsListConIva.js");
+const { textoImporteBonificado } = require("./common/formatBonificacion");
 const path = require("path");
 
 /**
@@ -64,10 +65,15 @@ async function renderPrefacturaConEmpresa(doc, data) {
     y += interlineado;
 
     doc.text("Bonificación:", xTotales, y, { width: 90, align: "right" });
-    doc.text(prefactura.ImporteBonificado.toFixed(2), xTotales + 90, y, {
-      width: 70,
-      align: "right",
-    });
+    doc.text(
+      textoImporteBonificado(prefactura.ImporteBonificado, prefactura.PorcentajeBonificacion),
+      xTotales + 90,
+      y,
+      {
+        width: 90,
+        align: "right",
+      }
+    );
     y += interlineado;
   }
 
