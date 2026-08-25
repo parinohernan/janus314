@@ -95,7 +95,7 @@
     'general': Building2,
     'caja': Wallet,
     'ventas': ShoppingCart,
-    'compras': Package,
+    'compras': ShoppingBag,
     'productos': Package,
     'clientes': Users,
     'informes': BarChart3,

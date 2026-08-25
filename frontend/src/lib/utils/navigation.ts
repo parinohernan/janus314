@@ -181,7 +181,7 @@ export function getIconFromUrl(url: string): string {
     'productos': '📦',
     'articulos': '📦',
     'proveedores': '🏭',
-    'compras': '📦',
+    'compras': '🛍️',
     'informes': '📊',
     'configuracion': '⚙️',
     'notascredito': '📝',
