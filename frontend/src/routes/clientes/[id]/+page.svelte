@@ -5,7 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import EntitySelector from '$lib/components/ui/EntitySelector.svelte';
   import type { Cliente } from '$lib/types/cliente';
-  import { ClienteService } from '$lib/services/ClienteService';
+  import { ClienteService, ClienteGuardarError } from '$lib/services/ClienteService';
   import { CategoriaIvaService, type CategoriaIva } from '$lib/services/CategoriaIvaService';
   import { ProvinciaService, type Provincia } from '$lib/services/ProvinciaService';
   import { LocalidadService, type Localidad } from '$lib/services/LocalidadService';
@@ -70,6 +70,7 @@
   
   let loading = true;
   let error: string | null = null;
+  let errorDetalle: string | null = null;
   let successMessage: string | null = null;
   let formErrors: Record<string, string> = {};
 
@@ -175,19 +176,27 @@
     event.preventDefault();
     
     if (!validateForm()) {
-      error = 'Por favor complete todos los campos obligatorios';
+      error = `Faltan datos: ${Object.values(formErrors).join('. ')}.`;
+      errorDetalle = null;
       return;
     }
     
     try {
       loading = true;
       error = null;
+      errorDetalle = null;
       successMessage = null;
 
       sincronizarLocalidadDesdeCodigoPostal();
       cliente.PorcentajeBonificacionGeneral = Number(cliente.PorcentajeBonificacionGeneral) || 0;
+
+      const payload = {
+        ...cliente,
+        FechaDeAlta: cliente.FechaDeAlta || null,
+        FechaDeBaja: cliente.FechaDeBaja || null
+      };
       
-      const savedCliente = await ClienteService.guardarCliente(cliente, isEditing);
+      const savedCliente = await ClienteService.guardarCliente(payload, isEditing);
       
       // Actualizar el cliente con los datos del servidor
       cliente = savedCliente;
@@ -204,10 +213,18 @@
       goto('/clientes', { replaceState: true });
     } catch (err: unknown) {
       console.error('Error guardando cliente:', err);
-      if (err instanceof Error) {
+      if (err instanceof ClienteGuardarError) {
         error = err.message;
+        errorDetalle = err.detalle && err.detalle !== err.message ? err.detalle : null;
+        if (err.campo) {
+          formErrors = { ...formErrors, [err.campo]: err.message };
+        }
+      } else if (err instanceof Error) {
+        error = err.message;
+        errorDetalle = null;
       } else {
-        error = 'Error desconocido';
+        error = 'No se pudo guardar el cliente.';
+        errorDetalle = null;
       }
     } finally {
       loading = false;
@@ -230,7 +247,10 @@
     
     {#if error}
       <div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-        {error}
+        <p class="font-medium">{error}</p>
+        {#if errorDetalle}
+          <p class="mt-1 text-sm text-red-600/80 break-words">{errorDetalle}</p>
+        {/if}
       </div>
     {/if}
     

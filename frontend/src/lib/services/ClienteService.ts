@@ -36,6 +36,18 @@ export interface Comprobante {
 	PagoTipo?: string | null;
 }
 
+export class ClienteGuardarError extends Error {
+	campo?: string;
+	detalle?: string;
+
+	constructor(message: string, campo?: string, detalle?: string) {
+		super(message);
+		this.name = 'ClienteGuardarError';
+		this.campo = campo;
+		this.detalle = detalle;
+	}
+}
+
 export class ClienteService {
 	/**
 	 * Obtiene la lista paginada de clientes
@@ -177,8 +189,19 @@ export class ClienteService {
 			});
 			
 			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.message || 'Error al guardar el cliente');
+				let errorData: { message?: string; campo?: string; detalle?: string } = {};
+				try {
+					errorData = await response.json();
+				} catch {
+					throw new ClienteGuardarError(
+						`No se pudo guardar el cliente (error ${response.status}).`
+					);
+				}
+				throw new ClienteGuardarError(
+					errorData.message || 'No se pudo guardar el cliente.',
+					errorData.campo,
+					errorData.detalle
+				);
 			}
 			
 			return await response.json();

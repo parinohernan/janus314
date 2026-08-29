@@ -7,6 +7,10 @@ const {
   aplicarLocalidadDesdeCodigoPostal,
   enriquecerLocalidadEnClientes,
 } = require("../utils/clienteLocalidad.util");
+const {
+  prepararDatosCliente,
+  describirErrorCliente,
+} = require("../utils/clientePersistencia.util");
 
 // Obtener todos los clientes (con filtros y paginación)
 const getAllClientes = async (req, res) => {
@@ -226,11 +230,14 @@ const createCliente = async (req, res) => {
       clienteData.PorcentajeBonificacionGeneral = Number.isFinite(n) ? n : 0;
     }
 
+    Object.assign(clienteData, prepararDatosCliente(clienteData));
+
     const nuevoCliente = await Cliente.create(clienteData);
     return res.status(201).json(nuevoCliente);
   } catch (error) {
     console.error('Error al crear cliente:', error);
-    return res.status(500).json({ message: "Error al crear el cliente" });
+    const { status, message, campo, detalle } = describirErrorCliente(error, 'crear');
+    return res.status(status).json({ message, campo, detalle });
   }
 };
 
@@ -252,37 +259,7 @@ const updateCliente = async (req, res) => {
     }
 
     // Procesar los datos para manejar correctamente campos vacíos que son claves foráneas
-    const clienteData = { ...req.body };
-
-    // Convertir cadenas vacías a NULL para campos que son claves foráneas
-    if (clienteData.CategoriaIva === "") {
-      clienteData.CategoriaIva = null;
-    }
-
-    if (clienteData.CodigoVendedor === "") {
-      clienteData.CodigoVendedor = null;
-    }
-
-    if (clienteData.CondicionVentaCodigo === "") {
-      clienteData.CondicionVentaCodigo = null;
-    }
-
-    if (clienteData.TransporteCodigo === "") {
-      clienteData.TransporteCodigo = null;
-    }
-
-    if (clienteData.CanalCodigo === "") {
-      clienteData.CanalCodigo = null;
-    }
-
-    // Formatear fechas si vienen como cadenas vacías
-    if (clienteData.FechaDeAlta === "") {
-      clienteData.FechaDeAlta = null;
-    }
-
-    if (clienteData.FechaDeBaja === "") {
-      clienteData.FechaDeBaja = null;
-    }
+    const clienteData = prepararDatosCliente({ ...req.body });
 
     await aplicarLocalidadDesdeCodigoPostal(clienteData, Localidad);
 
@@ -297,18 +274,9 @@ const updateCliente = async (req, res) => {
 
     return res.status(200).json(cliente);
   } catch (error) {
-    console.error(error);
-
-    // Si hay un error de clave foránea, proporcionar un mensaje más específico
-    if (error.name === "SequelizeForeignKeyConstraintError") {
-      return res.status(400).json({
-        message: `Error de clave foránea: No existe el valor proporcionado en la tabla ${
-          error.table
-        } para el campo ${error.fields.join(", ")}`,
-      });
-    }
-
-    return res.status(500).json({ message: "Error al actualizar el cliente" });
+    console.error('Error al actualizar cliente:', error);
+    const { status, message, campo, detalle } = describirErrorCliente(error, 'actualizar');
+    return res.status(status).json({ message, campo, detalle });
   }
 };
 

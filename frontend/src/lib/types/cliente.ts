@@ -28,8 +28,8 @@ export interface Cliente {
 	SaldoNTCNoAplicado: number;
 	LimiteCredito: number;
 	CanalCodigo: string;
-	FechaDeAlta: string;
-	FechaDeBaja: string;
+	FechaDeAlta: string | null;
+	FechaDeBaja: string | null;
 	TransporteCodigo: string;
 	DirEntregaCalle: string;
 	DirEntregaNumero: string;
