@@ -12,4 +12,12 @@ function textoImporteBonificado(importe, porcentaje) {
   return `${amount} (${pct}%)`;
 }
 
-module.exports = { textoImporteBonificado };
+/** Suma de renglones con IVA (NCB/NCF/PRF). */
+function subtotalConIvaDesdeItems(items) {
+  if (!Array.isArray(items)) return 0;
+  return items.reduce((sum, item) => {
+    return sum + (Number(item?.TotalConIva) || Number(item?.Subtotal) || 0);
+  }, 0);
+}
+
+module.exports = { textoImporteBonificado, subtotalConIvaDesdeItems };

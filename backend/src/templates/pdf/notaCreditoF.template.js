@@ -1,7 +1,7 @@
 const renderHeader = require("./common/header");
 const renderClienteInfo = require("./common/clienteInfo.js");
 const renderElectronicInfo = require("./common/electronicInfo.js");
-const { textoImporteBonificado } = require("./common/formatBonificacion");
+const { textoImporteBonificado, subtotalConIvaDesdeItems } = require("./common/formatBonificacion");
 const { formatearNumero, formatearFecha } = require("../../utils/formatters");
 const path = require("path");
 
@@ -113,18 +113,22 @@ async function renderNotaCreditoF(doc, { factura: notaCredito, items, logoPath }
     doc.font("Helvetica-Bold").fontSize(10);
 
     if (notaCredito.ImporteBonificado && notaCredito.ImporteBonificado > 0) {
+      const subtotalConIva = subtotalConIvaDesdeItems(items);
       doc.text("Subtotal:", xTotales, y, { width: 90, align: "right" });
       doc.text(
-        notaCredito.ImporteBruto ? Number(notaCredito.ImporteBruto).toFixed(2) : "0.00",
+        formatearNumero(subtotalConIva),
         xTotales + 90,
         y,
         { width: 70, align: "right" }
       );
       y += 20;
 
+      const pct = Number(notaCredito.PorcentajeBonificacion) || 0;
+      const bonificacionConIva =
+        pct > 0 ? subtotalConIva * (pct / 100) : Number(notaCredito.ImporteBonificado) || 0;
       doc.text("Bonificación:", xTotales, y, { width: 90, align: "right" });
       doc.text(
-        textoImporteBonificado(notaCredito.ImporteBonificado, notaCredito.PorcentajeBonificacion),
+        textoImporteBonificado(bonificacionConIva, notaCredito.PorcentajeBonificacion),
         xTotales + 70,
         y,
         { width: 90, align: "right" }
