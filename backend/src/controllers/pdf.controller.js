@@ -502,6 +502,7 @@ exports.generarNotaCreditoPDF = async (req, res) => {
         UnidadVenta: articulo.UnidadVenta || '',
         PrecioUnitario: precioUnitario,
         PrecioBase: precioBase,
+        PrecioLista: precioBase,
         PorcentajeIVA1: porcentajeIva1,
         PorcentajeIVA2: porcentajeIva2,
         PorcentajeIva: porcentajeIva, // El porcentaje principal aplicado

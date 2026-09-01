@@ -6,12 +6,15 @@
  * @param {Object} options - Opciones de configuración
  * @returns {number} - Posición Y final
  */
+const renderTable = require("./table");
+const { resolverPrecioLista } = require("./precioItem");
+
 function renderItemsList(doc, items, y, options = {}) {
   // Preparar los items con la información necesaria
   
   const itemsConSubtotal = items.map((item) => {
     const cantidad = item.Cantidad || 0;
-    const precioLista = item.PrecioLista || 0;
+    const precioLista = resolverPrecioLista(item);
     const descuento = item.PorcentajeBonificado || 0;
     // Subtotal = cantidad × precioLista menos el descuento (%)
     const subtotal = cantidad * precioLista * (1 - descuento / 100);
@@ -95,8 +98,5 @@ function renderItemsList(doc, items, y, options = {}) {
 
   return y;
 }
-
-// Importar la función renderTable
-const renderTable = require("./table");
 
 module.exports = renderItemsList; 

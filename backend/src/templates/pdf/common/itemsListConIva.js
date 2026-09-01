@@ -1,3 +1,5 @@
+const { resolverPrecioLista } = require("./precioItem");
+
 /**
  * Renderiza la lista de ítems con IVA individual para facturas B y PRF
  * PrecioLista en BD sin IVA; columna P. Lista muestra lista con IVA incluido.
@@ -23,7 +25,7 @@ function renderItemsListConIva(doc, items, startY, interlineado = 10) {
 
   const itemsConSubtotal = items.map((item) => {
     const cantidad = item.Cantidad || 0;
-    const precioLista = item.PrecioLista || 0;
+    const precioLista = resolverPrecioLista(item);
     const descuento = item.PorcentajeBonificado || 0;
     const porcentajeIva = item.PorcentajeIVA1 || item.PorcentajeIVA2 || 0;
 
