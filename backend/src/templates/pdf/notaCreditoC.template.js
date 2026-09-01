@@ -2,6 +2,7 @@ const renderHeader = require("./common/header");
 const renderClienteInfo = require("./common/clienteInfo.js");
 const renderItemsList = require("./common/itemsList.js");
 const renderElectronicInfo = require("./common/electronicInfo.js");
+const { textoImporteBonificado } = require("./common/formatBonificacion");
 const path = require("path");
 
 /**
@@ -76,14 +77,27 @@ async function renderNotaCreditoC(doc, data) {
 
     // Totales
     doc.font("Helvetica-Bold");
+    const hayBonificacion = Number(notaCredito.ImporteBonificado) > 0;
+    const subtotalC = hayBonificacion ? notaCredito.ImporteBruto : notaCredito.ImporteNeto;
     doc.text("Subtotal:", xTotales, y, { width: 90, align: "right" });
     doc.text(
-      notaCredito.ImporteNeto ? notaCredito.ImporteNeto.toFixed(2) : "0.00",
+      subtotalC ? Number(subtotalC).toFixed(2) : "0.00",
       xTotales + 90,
       y,
       { width: 70, align: "right" }
     );
     y += 20;
+
+    if (hayBonificacion) {
+      doc.text("Bonificación:", xTotales, y, { width: 90, align: "right" });
+      doc.text(
+        textoImporteBonificado(notaCredito.ImporteBonificado, notaCredito.PorcentajeBonificacion),
+        xTotales + 70,
+        y,
+        { width: 90, align: "right" }
+      );
+      y += 20;
+    }
 
     // Línea antes de los TOTALES
     doc.strokeColor("#000000").moveTo(20, 650).lineTo(580, 650).stroke();

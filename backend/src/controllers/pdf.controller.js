@@ -7,6 +7,7 @@ const PDFDocument = require("pdfkit");
 const fs = require("fs");
 const path = require("path");
 const { getTemplateRenderer } = require("../templates/pdf");
+const { porcentajeBonificacionDesdeFactura } = require("../utils/bonificacionGeneral");
 // const DatosEmpresa = require("../models/datosEmpresa.model");
 const renderFacturaA = require("../templates/pdf/facturaA.template");
 const renderFacturaB = require("../templates/pdf/facturaB.template");
@@ -561,14 +562,22 @@ exports.generarNotaCreditoPDF = async (req, res) => {
     notaCredito.ImporteIva1 = notaCredito.ImporteIva1 || iva21;
     notaCredito.ImporteIva2 = notaCredito.ImporteIva2 || iva105;
     notaCredito.ImporteTotal = notaCredito.ImporteTotal || totales.total;
-    
-    // Agregar array de IVAs por porcentaje para el template
-    notaCredito.IvasPorPorcentaje = Object.entries(totales.ivasPorPorcentaje)
-      .map(([porcentaje, importe]) => ({
-        porcentaje: parseFloat(porcentaje),
-        importe: importe
-      }))
-      .sort((a, b) => b.porcentaje - a.porcentaje); // Ordenar de mayor a menor
+    notaCredito.PorcentajeBonificacion = porcentajeBonificacionDesdeFactura(notaCredito);
+
+    // Si hay bonificación general, el IVA de cabecera ya está descontado
+    if (Number(notaCredito.ImporteBonificado) > 0) {
+      notaCredito.IvasPorPorcentaje = [
+        { porcentaje: 21, importe: Number(notaCredito.ImporteIva1) || 0 },
+        { porcentaje: 10.5, importe: Number(notaCredito.ImporteIva2) || 0 },
+      ].filter((iva) => iva.importe > 0);
+    } else {
+      notaCredito.IvasPorPorcentaje = Object.entries(totales.ivasPorPorcentaje)
+        .map(([porcentaje, importe]) => ({
+          porcentaje: parseFloat(porcentaje),
+          importe: importe
+        }))
+        .sort((a, b) => b.porcentaje - a.porcentaje);
+    }
 
     // Obtener datos de la empresa
     const datosEmpresa = await DatosEmpresa.findOne();

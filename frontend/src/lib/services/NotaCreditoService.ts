@@ -77,6 +77,7 @@ export class NotaCreditoService {
 			CodigoVendedor: '1',
 			ListaNumero: '1',
 			ImporteBruto: 0,
+			PorcentajeBonificacion: 0,
 			ImporteBonificado: 0,
 			ImporteNeto: 0,
 			ImporteIva1: 0,

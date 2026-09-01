@@ -30,6 +30,7 @@ export interface NotaCredito {
 	CodigoVendedor?: string;
 	ListaNumero: string;
 	ImporteBruto: number;
+	PorcentajeBonificacion?: number;
 	ImporteBonificado: number;
 	ImporteNeto: number;
 	ImporteIva1: number;

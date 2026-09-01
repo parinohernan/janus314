@@ -15,6 +15,10 @@
   import ImprimirModal from '$lib/components/facturas/ImprimirModal.svelte';
   import DetalleFacturaModal from '$lib/components/facturas/DetalleFacturaModal.svelte';
   import { toast, confirm } from '$lib/utils/toast';
+  import {
+    calcularTotalesNotaCredito,
+    porcentajeBonificacionDesdeFactura
+  } from '$lib/utils/notaCreditoTotales';
 
   const NOTA_CREDITO_NUEVA_PATH = '/ventas/notascredito/nueva';
   let skipPersist = false;
@@ -38,6 +42,7 @@
     Cliente: null,
     ListaNumero: '1',
     ImporteBruto: 0,
+    PorcentajeBonificacion: 0,
     ImporteBonificado: 0,
     ImporteNeto: 0,
     ImporteIva1: 0,
@@ -313,6 +318,10 @@
           TotalConIva: (item.Cantidad || item.cantidad) * (item.PrecioUnitario || item.precioUnitario) * (1 + (item.PorcentajeIva || item.PorcentajeIVA1 || item.porcentajeIva1 || 21) / 100),
           enEdicion: false
         }));
+
+        notaCredito.PorcentajeBonificacion = porcentajeBonificacionDesdeFactura(
+          data.encabezado || data
+        );
         
         // Actualizar búsqueda y limpiar opciones
         facturaReferenciaBusqueda = factura.label;
@@ -416,35 +425,17 @@
 
   // Calcular totales de la nota de crédito
   function calcularTotales() {
-    if (!notaCredito?.Items) return; // Agregar verificación
+    if (!notaCredito?.Items) return;
 
-    let importeBruto = 0;
-    let baseImponible1 = 0;
-    let baseImponible2 = 0;
-    let importeIva1 = 0;
-    let importeIva2 = 0;
-    
-    notaCredito.Items.forEach(item => {
-      if (!item) return; // Verificar que el item existe
-      
-      importeBruto += item.Cantidad * item.PrecioUnitario;
-      
-      if (item.PorcentajeIva === 21) {
-        baseImponible1 += item.Cantidad * item.PrecioUnitario;
-        importeIva1 += item.Cantidad * item.PrecioUnitario * 0.21;
-      } else if (item.PorcentajeIva === 10.5) {
-        baseImponible2 += item.Cantidad * item.PrecioUnitario;
-        importeIva2 += item.Cantidad * item.PrecioUnitario * 0.105;
-      }
-    });
-    
-    notaCredito.ImporteBruto = importeBruto;
-    notaCredito.BaseImponible1 = baseImponible1;
-    notaCredito.BaseImponible2 = baseImponible2;
-    notaCredito.ImporteIva1 = importeIva1;
-    notaCredito.ImporteIva2 = importeIva2;
-    notaCredito.ImporteNeto = importeBruto;
-    notaCredito.ImporteTotal = importeBruto + importeIva1 + importeIva2;
+    const totales = calcularTotalesNotaCredito(
+      notaCredito.Items,
+      notaCredito.PorcentajeBonificacion || 0
+    );
+    notaCredito = { ...notaCredito, ...totales };
+  }
+
+  function actualizarBonificacionGeneral() {
+    calcularTotales();
   }
 
   // Eliminar item
@@ -1100,19 +1091,38 @@
     <!-- Totales -->
     <div class="bg-white rounded-lg shadow-sm p-6">
       <div class="flex flex-col gap-2 items-end">
-        <div class="w-64 flex justify-between">
-          <span class="text-gray-600">Total sin IVA:</span>
+        <div class="w-80 flex justify-between">
+          <span class="text-gray-600">Importe bruto:</span>
           <span class="font-medium">${notaCredito.ImporteBruto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
         </div>
-        <div class="w-64 flex justify-between">
+        <div class="w-80 flex justify-between items-center">
+          <span class="text-gray-600">Bonificación (%):</span>
+          <div class="flex items-center">
+            <input
+              type="number"
+              bind:value={notaCredito.PorcentajeBonificacion}
+              on:change={actualizarBonificacionGeneral}
+              min="0"
+              max="100"
+              step="0.1"
+              class="w-16 px-2 py-1 text-right border border-gray-300 rounded mr-2"
+            />
+            <span class="font-medium">${(notaCredito.ImporteBonificado || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+          </div>
+        </div>
+        <div class="w-80 flex justify-between">
+          <span class="text-gray-600">Importe neto:</span>
+          <span class="font-medium">${notaCredito.ImporteNeto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+        </div>
+        <div class="w-80 flex justify-between">
           <span class="text-gray-600">IVA 21%:</span>
           <span class="font-medium">${notaCredito.ImporteIva1.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
         </div>
-        <div class="w-64 flex justify-between">
+        <div class="w-80 flex justify-between">
           <span class="text-gray-600">IVA 10.5%:</span>
           <span class="font-medium">${notaCredito.ImporteIva2.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
         </div>
-        <div class="w-64 flex justify-between border-t pt-2">
+        <div class="w-80 flex justify-between border-t pt-2">
           <span class="text-gray-800 font-semibold">Total:</span>
           <span class="font-bold text-lg">${notaCredito.ImporteTotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
         </div>

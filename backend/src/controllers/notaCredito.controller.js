@@ -6,6 +6,10 @@ const sequelize = require("../config/database");
 const { Op } = require("sequelize");
 const numerosControlController = require("./numerosControl.controller");
 const NotaCreditoService = require("../services/notaCredito.service");
+const {
+  porcentajeBonificacionDesdeFactura,
+  aplicarBonificacionATotales,
+} = require("../utils/bonificacionGeneral");
 
 function normalizarTipoFactura(tipo) {
   if (!tipo) return null;
@@ -473,9 +477,12 @@ exports.crearNotaCreditoRapidaDesdePreventa = async (req, res) => {
       };
     });
 
-    const importeIva1 = baseImponible1 * 0.21;
-    const importeIva2 = baseImponible2 * 0.105;
-    const importeTotal = importeBruto + importeIva1 + importeIva2;
+    const facturaPlain = facturaAsociada.get ? facturaAsociada.get({ plain: true }) : facturaAsociada;
+    const porcentajeBonificacion = porcentajeBonificacionDesdeFactura(facturaPlain);
+    const totalesConBonificacion = aplicarBonificacionATotales(
+      { importeBruto, baseImponible1, baseImponible2 },
+      porcentajeBonificacion
+    );
     const hoy = new Date().toISOString().slice(0, 10);
 
     const notaCreditoData = {
@@ -486,16 +493,16 @@ exports.crearNotaCreditoRapidaDesdePreventa = async (req, res) => {
       CodigoCliente: cabeza.ClienteCodigo,
       Cliente: { Codigo: cliente.Codigo, Descripcion: cliente.Descripcion, CategoriaIva: cliente.CategoriaIva },
       ListaNumero: String(cabeza.ListaNumero || "1"),
-      ImporteBruto: importeBruto,
-      ImporteBonificado: 0,
-      ImporteNeto: importeBruto,
-      ImporteIva1: importeIva1,
-      ImporteIva2: importeIva2,
-      BaseImponible1: baseImponible1,
-      BaseImponible2: baseImponible2,
+      ImporteBruto: totalesConBonificacion.ImporteBruto,
+      ImporteBonificado: totalesConBonificacion.ImporteBonificado,
+      ImporteNeto: totalesConBonificacion.ImporteNeto,
+      ImporteIva1: totalesConBonificacion.ImporteIva1,
+      ImporteIva2: totalesConBonificacion.ImporteIva2,
+      BaseImponible1: totalesConBonificacion.BaseImponible1,
+      BaseImponible2: totalesConBonificacion.BaseImponible2,
       PorcentajeIva1: 21,
       PorcentajeIva2: 10.5,
-      ImporteTotal: importeTotal,
+      ImporteTotal: totalesConBonificacion.ImporteTotal,
       Observacion: (cabeza.Observacion || "") + (cabeza.Observacion ? " " : "") + `[NC rápida desde ${preventaTipo}-${preventaSucursal}-${preventaNumero}]`,
       PorStock: true,
       Items,

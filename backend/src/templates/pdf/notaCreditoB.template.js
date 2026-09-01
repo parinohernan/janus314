@@ -2,6 +2,7 @@ const renderHeader = require("./common/header");
 const renderClienteInfo = require("./common/clienteInfo.js");
 const renderItemsListConIva = require("./common/itemsListConIva.js");
 const renderElectronicInfo = require("./common/electronicInfo.js");
+const { textoImporteBonificado } = require("./common/formatBonificacion");
 const path = require("path");
 
 /**
@@ -71,6 +72,26 @@ async function renderNotaCreditoB(doc, data) {
 
     // Totales (NO se discrimina IVA en NCB)
     doc.font("Helvetica-Bold");
+
+    if (notaCredito.ImporteBonificado && notaCredito.ImporteBonificado > 0) {
+      doc.text("Subtotal:", xTotales, y, { width: 90, align: "right" });
+      doc.text(
+        notaCredito.ImporteBruto ? Number(notaCredito.ImporteBruto).toFixed(2) : "0.00",
+        xTotales + 90,
+        y,
+        { width: 70, align: "right" }
+      );
+      y += 20;
+
+      doc.text("Bonificación:", xTotales, y, { width: 90, align: "right" });
+      doc.text(
+        textoImporteBonificado(notaCredito.ImporteBonificado, notaCredito.PorcentajeBonificacion),
+        xTotales + 70,
+        y,
+        { width: 90, align: "right" }
+      );
+      y += 20;
+    }
 
     // Línea antes del total
     doc.strokeColor("#000000").moveTo(20, 650).lineTo(580, 650).stroke();
