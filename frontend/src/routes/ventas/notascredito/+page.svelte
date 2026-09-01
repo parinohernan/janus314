@@ -79,7 +79,8 @@
     { value: '', label: 'Todos' },
     { value: 'NCA', label: 'Nota de Crédito A' },
     { value: 'NCB', label: 'Nota de Crédito B' },
-    { value: 'NCC', label: 'Nota de Crédito C' }
+    { value: 'NCC', label: 'Nota de Crédito C' },
+    { value: 'NCF', label: 'Nota de Crédito F' }
   ];
   
   // Estado para el selector de clientes
@@ -689,7 +690,8 @@
                 >
                   {nc.DocumentoTipo === 'NCA' ? 'NC A' : 
                    nc.DocumentoTipo === 'NCB' ? 'NC B' :
-                   nc.DocumentoTipo === 'NCC' ? 'NC C' : nc.DocumentoTipo}
+                   nc.DocumentoTipo === 'NCC' ? 'NC C' :
+                   nc.DocumentoTipo === 'NCF' ? 'NC F' : nc.DocumentoTipo}
                 </span>
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
