@@ -1071,6 +1071,7 @@ exports.descargarPreventas = async (req, res) => {
       message: `Proceso de descarga completado. ${preventasProcesadas} preventas procesadas`,
       data: {
         preventasProcesadas,
+        cantidad: preventasProcesadas,
         maxPreventas
       }
     });

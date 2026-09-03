@@ -4,6 +4,7 @@
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { auth } from '$lib/stores/authStore';
   import { get } from 'svelte/store';
+  import { cantidadPreventasDesdeRespuesta, mensajeDescargaPreventas } from '$lib/utils/sincronizacionDescarga';
 
   let descargaEstado = 'idle'; // 'idle', 'procesando', 'completado', 'error'
   let descargaMensaje = '';
@@ -72,15 +73,9 @@
 
       // Éxito
       descargaEstado = 'completado';
-      descargaCantidad = data.data?.cantidad || 0;
+      descargaCantidad = cantidadPreventasDesdeRespuesta(data);
       ultimaDescargaFecha = data.data?.ultimaDescarga;
-
-      // Mensaje específico si no se procesaron preventas
-      if (descargaCantidad === 0) {
-        descargaMensaje = `Descarga completada en ${duration}s. No había preventas pendientes para procesar.`;
-      } else {
-        descargaMensaje = `Descarga completada en ${duration}s. Se procesaron ${descargaCantidad} preventas.`; 
-      }
+      descargaMensaje = mensajeDescargaPreventas(descargaCantidad, duration);
       console.log('[Descarga] Éxito - Estado:', descargaEstado, 'Mensaje:', descargaMensaje);
 
     } catch (err) {
@@ -138,9 +133,8 @@
         <!-- Mostrar estado/resultado de la descarga -->
         {#if descargaEstado !== 'idle'}
           {@const bgColor = descargaEstado === 'error' ? 'bg-red-100 text-red-700' :
-                           (descargaEstado === 'completado' && descargaCantidad === 0 ? 'bg-yellow-100 text-yellow-800' : 
                            (descargaEstado === 'completado' ? 'bg-green-100 text-green-700' :
-                           'bg-blue-100 text-blue-700'))}
+                           'bg-blue-100 text-blue-700')}
           <div class="p-4 rounded-lg {bgColor}">
             <p class="font-medium">Estado: {descargaEstado === 'completado' ? 'Completado' : (descargaEstado === 'error' ? 'Error' : 'Procesando')}</p>
             <!-- Log para depurar si el bloque se renderiza -->
