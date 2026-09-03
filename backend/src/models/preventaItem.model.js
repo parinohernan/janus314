@@ -39,7 +39,6 @@ const PreventaItem = sequelize.define(
     CodigoArticulo: {
       type: DataTypes.STRING(13),
       allowNull: false,
-      primaryKey: true,
       defaultValue: "",
       references: {
         model: Articulo,

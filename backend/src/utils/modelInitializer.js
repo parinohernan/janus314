@@ -1332,7 +1332,6 @@ const initializeModels = (sequelize) => {
       },
       CodigoArticulo: {
         type: DataTypes.STRING(20),
-        primaryKey: true,
         allowNull: false,
       },
       Cantidad: {

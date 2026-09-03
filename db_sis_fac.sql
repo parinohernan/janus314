@@ -890,6 +890,7 @@ CREATE TABLE `preventa_cabeza` (
 -- ----------------------------
 DROP TABLE IF EXISTS `preventa_items`;
 CREATE TABLE `preventa_items` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `DocumentoTipo` char(3) NOT NULL DEFAULT '',
   `DocumentoSucursal` varchar(4) NOT NULL DEFAULT '',
   `DocumentoNumero` varchar(8) NOT NULL DEFAULT '',
@@ -902,7 +903,7 @@ CREATE TABLE `preventa_items` (
   `LiqFecha` date DEFAULT NULL,
   `PrecioLista` double(15,3) DEFAULT '0.000',
   `PorcentajeBonificacion` double(15,3) DEFAULT '0.000',
-  PRIMARY KEY (`DocumentoTipo`,`DocumentoSucursal`,`DocumentoNumero`,`CodigoArticulo`),
+  PRIMARY KEY (`id`),
   KEY `CodigoArticulo` (`CodigoArticulo`),
   KEY `DocumentoTipo` (`DocumentoTipo`,`DocumentoSucursal`,`DocumentoNumero`),
   CONSTRAINT `preventa_items_fk` FOREIGN KEY (`DocumentoTipo`, `DocumentoSucursal`, `DocumentoNumero`) REFERENCES `preventa_cabeza` (`DocumentoTipo`, `DocumentoSucursal`, `DocumentoNumero`),
