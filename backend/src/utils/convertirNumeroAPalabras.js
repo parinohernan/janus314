@@ -111,19 +111,33 @@ function convertirNumeroAPalabras(numero) {
     return resultado.trim();
   }
 
-  // Función para convertir la parte entera
+  // Función para convertir la parte entera (hasta 999.999.999.999)
   function convertirEntero(n) {
     if (n === 0) return "Cero";
 
-    const miles = Math.floor(n / 1000);
+    const milMillones = Math.floor(n / 1000000000);
+    const millones = Math.floor((n % 1000000000) / 1000000);
+    const miles = Math.floor((n % 1000000) / 1000);
     const resto = n % 1000;
 
     let resultado = "";
 
+    if (milMillones === 1) {
+      resultado += "Mil Millones ";
+    } else if (milMillones > 1) {
+      resultado += convertirMenorMil(milMillones) + " Mil Millones ";
+    }
+
+    if (millones === 1) {
+      resultado += "Un Millón ";
+    } else if (millones > 1) {
+      resultado += convertirMenorMil(millones) + " Millones ";
+    }
+
     if (miles === 1) {
-      resultado = "Mil ";
+      resultado += "Mil ";
     } else if (miles > 1) {
-      resultado = convertirMenorMil(miles) + " Mil ";
+      resultado += convertirMenorMil(miles) + " Mil ";
     }
 
     if (resto > 0) {
