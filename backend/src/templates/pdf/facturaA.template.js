@@ -2,7 +2,7 @@ const renderHeader = require("./common/header");
 const renderClienteInfo = require("./common/clienteInfo.js");
 const renderItemsList = require("./common/itemsList.js");
 const renderElectronicInfo = require("./common/electronicInfo.js");
-const { textoImporteBonificado } = require("./common/formatBonificacion");
+const { textoImporteBonificado, lineasIvaDiscriminado } = require("./common/formatBonificacion");
 const path = require("path");
 
 /**
@@ -98,25 +98,22 @@ doc.fontSize(26).text(title, doc.page.width / 2 - 14, 26, {
         { width: 90, align: "right" }
       );
       y += 20;
-    }
 
-    doc.text("IVA 21%:", xTotales, y, { width: 90, align: "right" });
-    doc.text(
-      factura.ImporteIva1 ? factura.ImporteIva1.toFixed(2) : "0.00",
-      xTotales + 90,
-      y,
-      { width: 70, align: "right" }
-    );
-    y += 20;
-
-    if (factura.ImporteIva2 && factura.ImporteIva2 > 0) {
-      doc.text("IVA 10.5%:", xTotales, y, { width: 90, align: "right" });
-      doc.text(factura.ImporteIva2.toFixed(2), xTotales + 90, y, {
-        width: 70,
-        align: "right",
-      });
+      doc.text("Importe neto:", xTotales, y, { width: 90, align: "right" });
+      doc.text(
+        factura.ImporteNeto ? Number(factura.ImporteNeto).toFixed(2) : "0.00",
+        xTotales + 90,
+        y,
+        { width: 70, align: "right" }
+      );
       y += 20;
     }
+
+    lineasIvaDiscriminado(factura).forEach((iva) => {
+      doc.text(`IVA ${iva.porcentaje}%:`, xTotales, y, { width: 90, align: "right" });
+      doc.text(iva.importe.toFixed(2), xTotales + 90, y, { width: 70, align: "right" });
+      y += 20;
+    });
 
     if (factura.ImportePercepcionIIBB && factura.ImportePercepcionIIBB > 0) {
       doc.text("Perc. IIBB:", xTotales, y, { width: 90, align: "right" });

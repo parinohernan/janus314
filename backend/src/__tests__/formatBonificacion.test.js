@@ -1,6 +1,7 @@
 const {
   textoImporteBonificado,
   subtotalConIvaDesdeItems,
+  lineasIvaDiscriminado,
 } = require('../templates/pdf/common/formatBonificacion');
 
 describe('textoImporteBonificado', () => {
@@ -30,5 +31,22 @@ describe('subtotalConIvaDesdeItems', () => {
 
   it('usa Subtotal si no hay TotalConIva', () => {
     expect(subtotalConIvaDesdeItems([{ Subtotal: 5401.69 }])).toBe(5401.69);
+  });
+});
+
+describe('lineasIvaDiscriminado', () => {
+  it('incluye 21% y 10.5% cuando ambos tienen importe', () => {
+    expect(
+      lineasIvaDiscriminado({ ImporteIva1: 1512, ImporteIva2: 189 })
+    ).toEqual([
+      { porcentaje: 21, importe: 1512 },
+      { porcentaje: 10.5, importe: 189 },
+    ]);
+  });
+
+  it('omite la alícuota en cero', () => {
+    expect(lineasIvaDiscriminado({ ImporteIva1: 0, ImporteIva2: 189 })).toEqual([
+      { porcentaje: 10.5, importe: 189 },
+    ]);
   });
 });

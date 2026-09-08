@@ -20,4 +20,18 @@ function subtotalConIvaDesdeItems(items) {
   }, 0);
 }
 
-module.exports = { textoImporteBonificado, subtotalConIvaDesdeItems };
+/** Alícuotas a mostrar en Factura/NCA: solo las que tienen importe. */
+function lineasIvaDiscriminado(doc) {
+  const lineas = [];
+  const iva21 = Number(doc?.ImporteIva1);
+  const iva105 = Number(doc?.ImporteIva2);
+  if (Number.isFinite(iva21) && iva21 > 0) {
+    lineas.push({ porcentaje: 21, importe: iva21 });
+  }
+  if (Number.isFinite(iva105) && iva105 > 0) {
+    lineas.push({ porcentaje: 10.5, importe: iva105 });
+  }
+  return lineas;
+}
+
+module.exports = { textoImporteBonificado, subtotalConIvaDesdeItems, lineasIvaDiscriminado };
