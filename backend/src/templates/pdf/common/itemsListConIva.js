@@ -1,4 +1,4 @@
-const { resolverPrecioLista } = require("./precioItem");
+const { renglonPdfConIva } = require("./precioItem");
 
 /**
  * Renderiza la lista de ítems con IVA individual para facturas B y PRF
@@ -24,30 +24,15 @@ function renderItemsListConIva(doc, items, startY, interlineado = 10) {
   };
 
   const itemsConSubtotal = items.map((item) => {
-    const cantidad = item.Cantidad || 0;
-    const precioLista = resolverPrecioLista(item);
-    const descuento = item.PorcentajeBonificado || 0;
-    const porcentajeIva = item.PorcentajeIVA1 || item.PorcentajeIVA2 || 0;
-
-    // Lista mostrada en PDF (B / PRF): precio de lista con IVA incluido
-    const precioListaConIva = precioLista * (1 + porcentajeIva / 100);
-
-    // Precio unitario sin IVA (lista con descuento aplicado)
-    const precioUnitarioSinIva = precioLista * (1 - descuento / 100);
-    // Precio unitario con IVA
-    const precioUnitarioConIva = precioUnitarioSinIva * (1 + porcentajeIva / 100);
-    // Total línea = cantidad × precio unitario con IVA
-    const totalConIva = cantidad * precioUnitarioConIva;
-
+    const renglon = renglonPdfConIva(item);
     return {
       ...item,
-      Cantidad: cantidad,
-      PrecioLista: precioLista,
-      PrecioListaConIva: precioListaConIva,
-      Descuento: descuento,
-      PorcentajeIva: porcentajeIva,
-      PrecioUnitarioConIva: precioUnitarioConIva,
-      TotalConIva: totalConIva
+      Cantidad: renglon.cantidad,
+      PrecioListaConIva: renglon.precioListaConIva,
+      Descuento: renglon.descuento,
+      PorcentajeIva: renglon.porcentajeIva,
+      PrecioUnitarioConIva: renglon.precioUnitarioConIva,
+      TotalConIva: renglon.totalConIva,
     };
   });
 

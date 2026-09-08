@@ -2,6 +2,7 @@ const renderHeader = require("./common/header");
 const renderClienteInfo = require("./common/clienteInfo.js");
 const renderItemsListConIva = require("./common/itemsListConIva.js");
 const { textoImporteBonificado } = require("./common/formatBonificacion");
+const { totalesPieConIva } = require("./common/precioItem");
 const path = require("path");
 
 /**
@@ -57,16 +58,16 @@ async function renderPrefacturaConEmpresa(doc, data) {
   doc.x = xTotales;
   doc.font("Helvetica");
 
-  const subtotal = items.reduce((sum, item) => sum + (item.TotalConIva || 0), 0);
+  const pie = totalesPieConIva(items, prefactura.PorcentajeBonificacion);
 
-  if (true || (prefactura.ImporteBonificado && prefactura.ImporteBonificado > 0)) {
+  if (pie.bonificacion > 0) {
     doc.text("Subtotal:", xTotales, y, { width: 90, align: "right" });
-    doc.text(subtotal.toFixed(2), xTotales + 90, y, { width: 70, align: "right" });
+    doc.text(pie.subtotal.toFixed(2), xTotales + 90, y, { width: 70, align: "right" });
     y += interlineado;
 
     doc.text("Bonificación:", xTotales, y, { width: 90, align: "right" });
     doc.text(
-      textoImporteBonificado(prefactura.ImporteBonificado, prefactura.PorcentajeBonificacion),
+      textoImporteBonificado(pie.bonificacion, prefactura.PorcentajeBonificacion),
       xTotales + 90,
       y,
       {
@@ -88,9 +89,11 @@ async function renderPrefacturaConEmpresa(doc, data) {
 
   y += interlineado;
 
+  const percepcion = Number(prefactura.ImportePercepcionIIBB) > 0 ? Number(prefactura.ImportePercepcionIIBB) : 0;
+  const totalImpreso = Math.round(((pie.bonificacion > 0 ? pie.total : pie.subtotal) + percepcion) * 100) / 100;
   doc.fontSize(12).text("TOTAL:", xTotales, y, { width: 90, align: "right" });
   doc.text(
-    prefactura.ImporteTotal ? prefactura.ImporteTotal.toFixed(2) : "0.00",
+    totalImpreso.toFixed(2),
     xTotales + 90,
     y,
     { width: 70, align: "right" }
@@ -98,7 +101,7 @@ async function renderPrefacturaConEmpresa(doc, data) {
 
   doc.fontSize(10).font("Helvetica");
   const convertirNumeroAPalabras = require("../../utils/convertirNumeroAPalabras");
-  const TotalEnPalabras = convertirNumeroAPalabras(prefactura.ImporteTotal);
+  const TotalEnPalabras = convertirNumeroAPalabras(totalImpreso);
   doc.text("Son: " + TotalEnPalabras, 20, y - 22, { align: "left" });
   doc.text("Este documento es una prefactura y no tiene validez fiscal", 20, y - 10, {
     align: "left",
