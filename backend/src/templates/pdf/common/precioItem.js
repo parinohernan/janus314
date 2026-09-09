@@ -49,7 +49,7 @@ function totalesPieConIva(items, porcentajeBonificacion = 0) {
   const pct = Number(porcentajeBonificacion) || 0;
   const bonificacion = redondear2(subtotal * (pct / 100));
   const total = redondear2(subtotal - bonificacion);
-  return { subtotal, bonificacion, total, renglones };
+  return { subtotal, bonificacion, porcentajeMostrar: pct > 0 ? pct : 0, total, renglones };
 }
 
 module.exports = {

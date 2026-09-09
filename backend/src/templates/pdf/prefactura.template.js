@@ -1,7 +1,6 @@
 const renderClienteInfo = require("./common/clienteInfo.js");
 const renderItemsListConIva = require("./common/itemsListConIva.js");
-const { textoImporteBonificado } = require("./common/formatBonificacion");
-const { totalesPieConIva } = require("./common/precioItem");
+const { renderPiePrefactura } = require("./common/piePrefactura");
 const path = require("path");
 
 /**
@@ -52,71 +51,13 @@ async function renderPrefactura(doc, data) {
         // Tabla de ítems con IVA (igual que Factura B)
         y = 110;
         y = renderItemsListConIva(doc, items, y, interlineado);
-    // me posiciono en la parte de los totales
-    //y = 660;
-    let yTotales = y;
-    let xTotales = 370;
-
-    doc.x = xTotales;
-
-    // Totales
-    doc.font("Helvetica");
-
-    const pie = totalesPieConIva(items, prefactura.PorcentajeBonificacion);
-    
-    if (pie.bonificacion > 0) {
-      doc.text("Subtotal:", xTotales, y, { width: 90, align: "right" });
-      doc.text(
-        pie.subtotal.toFixed(2),
-        xTotales + 90,
-        y,
-        { width: 70, align: "right" }
-      );
-      y += interlineado;
-
-      doc.text("Bonificación:", xTotales, y, { width: 90, align: "right" });
-      doc.text(
-        textoImporteBonificado(pie.bonificacion, prefactura.PorcentajeBonificacion),
-        xTotales + 90,
-        y,
-        {
-          width: 90,
-          align: "right",
-        }
-      );
-      y += interlineado;
-    }
-
-    if (prefactura.ImportePercepcionIIBB && prefactura.ImportePercepcionIIBB > 0) {
-      doc.text("Perc. IIBB:", xTotales, y, { width: 90, align: "right" });
-      doc.text(prefactura.ImportePercepcionIIBB.toFixed(2), xTotales + 90, y, {
-        width: 70,
-        align: "right",
-      });
-      y += interlineado;
-    }
-
-    // Línea antes del total
-    //doc.strokeColor("#000000").moveTo(20, 650).lineTo(580, 650).stroke();
-    y += interlineado;
-
-    const percepcion = Number(prefactura.ImportePercepcionIIBB) > 0 ? Number(prefactura.ImportePercepcionIIBB) : 0;
-    const totalImpreso = Math.round(((pie.bonificacion > 0 ? pie.total : pie.subtotal) + percepcion) * 100) / 100;
-    doc.fontSize(12).text("TOTAL:", xTotales, y, { width: 90, align: "right" });
-    doc.text(
-      totalImpreso.toFixed(2),
-      xTotales + 90,
+    renderPiePrefactura(doc, {
+      items,
+      prefactura,
       y,
-      { width: 70, align: "right" }
-    );
-    
-    // Agregar leyenda de prefactura
-    doc.fontSize(10).font("Helvetica");
-    const convertirNumeroAPalabras = require("../../utils/convertirNumeroAPalabras");
-
-    const TotalEnPalabras = convertirNumeroAPalabras(totalImpreso);
-    doc.text("Son: "+ TotalEnPalabras, 20, y-22, { align: "left" });
-    doc.text("Este documento es una prefactura y no tiene validez fiscal", 20, y-10, { align: "left" });
+      xTotales: 370,
+      interlineado,
+    });
   };
 
   // Renderizar solo una página (sin duplicado)

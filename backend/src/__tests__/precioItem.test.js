@@ -80,4 +80,25 @@ describe('totalesPieConIva', () => {
     expect(pie.bonificacion).toBe(Number((pie.subtotal * 0.1).toFixed(2)));
     expect(pie.total).toBe(Number((pie.subtotal - pie.bonificacion).toFixed(2)));
   });
+
+  it('el descuento de renglón no se copia al pie: la bonificación es solo la general', () => {
+    const items = [
+      {
+        Cantidad: 10,
+        PrecioLista: 1798.99 / 1.21,
+        PrecioUnitario: 1655.07 / 1.21,
+        PorcentajeBonificado: 8,
+        PorcentajeIVA1: 21,
+      },
+    ];
+    const sinGeneral = totalesPieConIva(items, 0);
+    expect(sinGeneral.bonificacion).toBe(0);
+    expect(sinGeneral.subtotal).toBe(16550.7);
+    expect(sinGeneral.total).toBe(16550.7);
+
+    const conGeneral = totalesPieConIva(items, 10);
+    expect(conGeneral.subtotal).toBe(16550.7);
+    expect(conGeneral.bonificacion).toBe(1655.07);
+    expect(conGeneral.total).toBe(14895.63);
+  });
 });
