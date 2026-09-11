@@ -7,5 +7,6 @@ router.post("/grabar-cae", arcaController.obtenerCae);
 router.get("/estado-completo", arcaController.obtenerEstadoCompleto);
 router.post("/ultimo-comprobante", arcaController.obtenerUltimoComprobante);
 router.post("/colocar-cae-manualmente", arcaController.colocarCaeManualmente);
+router.get("/facturas-sin-cae", arcaController.listarFacturasSinCae);
 
 module.exports = router;

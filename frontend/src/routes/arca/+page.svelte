@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { AfipService, type EstadoArca } from '$lib/services/AfipService';
 	import Button from '$lib/components/ui/Button.svelte';
 	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
@@ -65,12 +66,17 @@
 <div class="container mx-auto px-4 py-8">
 	<div class="flex justify-between items-center mb-8">
 		<h1 class="text-2xl font-bold">Estado del Servidor ARCA</h1>
-		<Button variant="secondary" on:click={cargarEstadoArca} disabled={loading}>
-			{#if loading}
-				<span class="animate-spin mr-2">⟳</span>
-			{/if}
-			Actualizar
-		</Button>
+		<div class="flex gap-2">
+			<Button variant="primary" on:click={() => goto('/arca/facturas-sin-cae')}>
+				Facturas sin CAE
+			</Button>
+			<Button variant="secondary" on:click={cargarEstadoArca} disabled={loading}>
+				{#if loading}
+					<span class="animate-spin mr-2">⟳</span>
+				{/if}
+				Actualizar
+			</Button>
+		</div>
 	</div>
 
 	{#if loading}

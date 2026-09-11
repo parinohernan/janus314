@@ -14,6 +14,16 @@ export interface EstadoArca {
 	ultimosComprobantes: UltimoComprobante[];
 }
 
+export interface FacturaSinCae {
+	DocumentoTipo: string;
+	DocumentoSucursal: string;
+	DocumentoNumero: string;
+	Fecha: string;
+	ImporteTotal: number;
+	afip_cae?: string | null;
+	Cliente?: { Codigo: string; Descripcion: string };
+}
+
 export class AfipService {
 	/**
 	 * Obtiene el CAE para una factura
@@ -137,16 +147,39 @@ export class AfipService {
 		}
 	}
 
-	/**
-	 * Coloca CAE manualmente
-	 * Permite al usuario ingresar el CAE y vencimiento manualmente
-	 * @param tipo Tipo de documento (FCA, FCB, NCA, NCB)
-	 * @param puntoVenta Punto de venta (sucursal)
-	 * @param numero Número de comprobante
-	 * @param cae Número de CAE
-	 * @param fechaVencimiento Fecha de vencimiento del CAE (YYYY-MM-DD)
-	 * @returns Resultado de la operación
-	 */
+	public static async listarFacturasSinCae(): Promise<{
+		success: boolean;
+		cantidad: number;
+		facturas: FacturaSinCae[];
+		error?: string;
+	}> {
+		try {
+			const response = await fetchWithAuth('/afip/facturas-sin-cae');
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				return {
+					success: false,
+					cantidad: 0,
+					facturas: [],
+					error: errorData.message || 'Error al listar facturas sin CAE'
+				};
+			}
+			const data = await response.json();
+			return {
+				success: true,
+				cantidad: data.cantidad || 0,
+				facturas: data.facturas || []
+			};
+		} catch (error) {
+			return {
+				success: false,
+				cantidad: 0,
+				facturas: [],
+				error: error instanceof Error ? error.message : 'Error al listar facturas sin CAE'
+			};
+		}
+	}
+
 	public static async colocarCaeManualmente(
 		tipo: string, 
 		puntoVenta: string, 

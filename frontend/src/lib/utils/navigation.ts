@@ -119,6 +119,7 @@ export function getLabelFromUrl(url: string): string {
     'marcas': 'Marcas',
     'fechas': 'Fechas',
     'arca': 'Estado ARCA',
+    'facturas-sin-cae': 'Facturas sin CAE',
     'presupuestos': 'Presupuestos',
     'arqueo': 'Arqueo',
     'cerradas': 'Cerradas',

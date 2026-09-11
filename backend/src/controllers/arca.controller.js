@@ -326,3 +326,44 @@ exports.colocarCaeManualmente = async (req, res) => {
     });
   }
 };
+
+exports.listarFacturasSinCae = async (req, res) => {
+  try {
+    const { FacturaCabeza, Cliente } = req.models;
+    const { whereFacturasSinCae } = require("../utils/facturasSinCae");
+    const limit = Math.min(parseInt(req.query.limit, 10) || 200, 500);
+
+    const { rows, count } = await FacturaCabeza.findAndCountAll({
+      where: whereFacturasSinCae(),
+      attributes: [
+        "DocumentoTipo",
+        "DocumentoSucursal",
+        "DocumentoNumero",
+        "Fecha",
+        "ImporteTotal",
+        "afip_cae",
+      ],
+      include: [{ model: Cliente, attributes: ["Codigo", "Descripcion"] }],
+      order: [
+        ["Fecha", "ASC"],
+        ["DocumentoSucursal", "ASC"],
+        ["DocumentoTipo", "ASC"],
+        ["DocumentoNumero", "ASC"],
+      ],
+      limit,
+    });
+
+    return res.json({
+      success: true,
+      cantidad: count,
+      facturas: rows,
+    });
+  } catch (error) {
+    console.error("Error al listar facturas sin CAE:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error al listar facturas sin CAE",
+      error: error.message,
+    });
+  }
+};
