@@ -10,6 +10,8 @@ const {
   porcentajeBonificacionDesdeFactura,
   aplicarBonificacionATotales,
 } = require("../utils/bonificacionGeneral");
+const { calcularTotalesComprobante } = require("../templates/pdf/common/precioItem");
+const { usaMatematicaExacta } = require("../utils/matematicaExacta");
 
 function normalizarTipoFactura(tipo) {
   if (!tipo) return null;
@@ -479,11 +481,17 @@ exports.crearNotaCreditoRapidaDesdePreventa = async (req, res) => {
 
     const facturaPlain = facturaAsociada.get ? facturaAsociada.get({ plain: true }) : facturaAsociada;
     const porcentajeBonificacion = porcentajeBonificacionDesdeFactura(facturaPlain);
-    const totalesConBonificacion = aplicarBonificacionATotales(
-      { importeBruto, baseImponible1, baseImponible2 },
-      porcentajeBonificacion
-    );
     const hoy = new Date().toISOString().slice(0, 10);
+    const totalesConBonificacion = usaMatematicaExacta(hoy)
+      ? calcularTotalesComprobante({
+          items: Items,
+          tipo: tipoNC,
+          porcentajeBonificacion,
+        })
+      : aplicarBonificacionATotales(
+          { importeBruto, baseImponible1, baseImponible2 },
+          porcentajeBonificacion
+        );
 
     const notaCreditoData = {
       DocumentoTipo: tipoNC,

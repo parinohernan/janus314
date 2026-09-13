@@ -74,6 +74,8 @@ async function obtenerNotasCreditoDeFacturas(NotaCredito, Cliente, facturas, tip
       'Fecha',
       'CodigoCliente',
       'ImporteTotal',
+      'ImporteIva1',
+      'ImporteIva2',
       'factura_tipo',
       'factura_sucursal',
       'factura_numero'

@@ -3,6 +3,8 @@ const renderClienteInfo = require("./common/clienteInfo.js");
 const renderItemsList = require("./common/itemsList.js");
 const renderElectronicInfo = require("./common/electronicInfo.js");
 const { textoImporteBonificado, lineasIvaDiscriminado } = require("./common/formatBonificacion");
+const { renderPieExactoDiscriminado } = require("./common/pieDiscriminado");
+const { usaMatematicaExacta } = require("../../utils/matematicaExacta");
 const path = require("path");
 
 /**
@@ -63,87 +65,94 @@ doc.fontSize(26).text(title, doc.page.width / 2 - 14, 26, {
     y += 8;
     y = renderClienteInfo(doc, factura, y);
 
+    const exacto = usaMatematicaExacta(factura.Fecha);
+
     // Tabla de items
     y = renderItemsList(doc, items, y, {
-      showIva: true, // Mostrar columna de IVA en facturas A
+      showIva: true,
+      exacto,
     });
 
-    // me posiciono en la parte de los totales
-    //   y += 10;
     y = 660;
     let yTotales = y;
     let xTotales = 420;
 
     doc.x = xTotales;
 
-    // Totales
-    doc.font("Helvetica-Bold");
-    const hayBonificacion = Number(factura.ImporteBonificado) > 0;
-    const subtotalA = hayBonificacion ? factura.ImporteBruto : factura.ImporteNeto;
-    doc.text("Subtotal:", xTotales, y, { width: 90, align: "right" });
-    doc.text(
-      subtotalA ? Number(subtotalA).toFixed(2) : "0.00",
-      xTotales + 90,
-      y,
-      { width: 70, align: "right" }
-    );
-    y += 20;
-
-    if (hayBonificacion) {
-      doc.text("Bonificación:", xTotales, y, { width: 90, align: "right" });
+    if (exacto) {
+      renderPieExactoDiscriminado(doc, { items, documento: factura, y, xTotales });
+      doc.fontSize(10);
+      const convertirNumeroAPalabras = require("../../utils/convertirNumeroAPalabras");
+      const TotalEnPalabras = convertirNumeroAPalabras(factura.ImporteTotal);
+      doc.text(`Son ${TotalEnPalabras}`, 20, yTotales);
+      doc.text("No se aceptan devoluciones después de las 48hs", 20, yTotales + 12);
+    } else {
+      doc.font("Helvetica-Bold");
+      const hayBonificacion = Number(factura.ImporteBonificado) > 0;
+      const subtotalA = hayBonificacion ? factura.ImporteBruto : factura.ImporteNeto;
+      doc.text("Subtotal:", xTotales, y, { width: 90, align: "right" });
       doc.text(
-        textoImporteBonificado(factura.ImporteBonificado, factura.PorcentajeBonificacion),
-        xTotales + 70,
-        y,
-        { width: 90, align: "right" }
-      );
-      y += 20;
-
-      doc.text("Importe neto:", xTotales, y, { width: 90, align: "right" });
-      doc.text(
-        factura.ImporteNeto ? Number(factura.ImporteNeto).toFixed(2) : "0.00",
+        subtotalA ? Number(subtotalA).toFixed(2) : "0.00",
         xTotales + 90,
         y,
         { width: 70, align: "right" }
       );
       y += 20;
-    }
 
-    lineasIvaDiscriminado(factura).forEach((iva) => {
-      doc.text(`IVA ${iva.porcentaje}%:`, xTotales, y, { width: 90, align: "right" });
-      doc.text(iva.importe.toFixed(2), xTotales + 90, y, { width: 70, align: "right" });
-      y += 20;
-    });
+      if (hayBonificacion) {
+        doc.text("Bonificación:", xTotales, y, { width: 90, align: "right" });
+        doc.text(
+          textoImporteBonificado(factura.ImporteBonificado, factura.PorcentajeBonificacion),
+          xTotales + 70,
+          y,
+          { width: 90, align: "right" }
+        );
+        y += 20;
 
-    if (factura.ImportePercepcionIIBB && factura.ImportePercepcionIIBB > 0) {
-      doc.text("Perc. IIBB:", xTotales, y, { width: 90, align: "right" });
-      doc.text(factura.ImportePercepcionIIBB.toFixed(2), xTotales + 90, y, {
-        width: 70,
-        align: "right",
+        doc.text("Importe neto:", xTotales, y, { width: 90, align: "right" });
+        doc.text(
+          factura.ImporteNeto ? Number(factura.ImporteNeto).toFixed(2) : "0.00",
+          xTotales + 90,
+          y,
+          { width: 70, align: "right" }
+        );
+        y += 20;
+      }
+
+      lineasIvaDiscriminado(factura).forEach((iva) => {
+        doc.text(`IVA ${iva.porcentaje}%:`, xTotales, y, { width: 90, align: "right" });
+        doc.text(iva.importe.toFixed(2), xTotales + 90, y, { width: 70, align: "right" });
+        y += 20;
       });
-      y += 20;
+
+      if (factura.ImportePercepcionIIBB && factura.ImportePercepcionIIBB > 0) {
+        doc.text("Perc. IIBB:", xTotales, y, { width: 90, align: "right" });
+        doc.text(factura.ImportePercepcionIIBB.toFixed(2), xTotales + 90, y, {
+          width: 70,
+          align: "right",
+        });
+        y += 20;
+      }
+
+      doc.strokeColor("#000000").moveTo(20, 650).lineTo(580, 650).stroke();
+      y += 10;
+
+      doc.fontSize(10);
+      const convertirNumeroAPalabras = require("../../utils/convertirNumeroAPalabras");
+
+      const TotalEnPalabras = convertirNumeroAPalabras(factura.ImporteTotal);
+      console.log("Total", factura.ImporteTotal);
+      doc.text(`Son ${TotalEnPalabras}`, 20, yTotales);
+      doc.text("No se aceptan devoluciones después de las 48hs", 20, yTotales + 12);
+
+      doc.fontSize(12).text("TOTAL:", xTotales, y, { width: 90, align: "right" });
+      doc.text(
+        factura.ImporteTotal ? factura.ImporteTotal.toFixed(2) : "0.00",
+        xTotales + 90,
+        y,
+        { width: 70, align: "right" }
+      );
     }
-
-    //   // Línea antes de los TOTALES
-    doc.strokeColor("#000000").moveTo(20, 650).lineTo(580, 650).stroke();
-    y += 10;
-    // texto no se aceptan deboluciones despues le las 48hs
-
-    doc.fontSize(10);
-    const convertirNumeroAPalabras = require("../../utils/convertirNumeroAPalabras");
-
-    const TotalEnPalabras = convertirNumeroAPalabras(factura.ImporteTotal);
-    console.log("Total", factura.ImporteTotal);
-    doc.text(`Son ${TotalEnPalabras}`, 20, yTotales);
-    doc.text("No se aceptan devoluciones después de las 48hs", 20, yTotales + 12);
-
-    doc.fontSize(12).text("TOTAL:", xTotales, y, { width: 90, align: "right" });
-    doc.text(
-      factura.ImporteTotal ? factura.ImporteTotal.toFixed(2) : "0.00",
-      xTotales + 90,
-      y,
-      { width: 70, align: "right" }
-    );
 
     // Renderizar información electrónica (QR, CAE, logo ARCA, etc.)
     await renderElectronicInfo(doc, factura, yTotales);

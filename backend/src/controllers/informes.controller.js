@@ -14,6 +14,7 @@ const {
   parseTipos,
   obtenerNotasCreditoDeFacturas
 } = require('../services/informeVentasPreventista.service');
+const { procesarFacturacionNeta } = require('../services/informeFacturacionNeta.service');
 
 // Informe de ventas por productos
 exports.ventasPorProductos = async (req, res) => {
@@ -530,6 +531,133 @@ exports.informeFacturacion = async (req, res) => {
   } catch (error) {
     console.error("Error al generar informe de facturación:", error);
     console.error("Stack trace:", error.stack);
+    res.status(500).json({
+      success: false,
+      message: "Error al generar el informe",
+      error: error.message
+    });
+  }
+};
+
+exports.informeFacturacionNeta = async (req, res) => {
+  try {
+    const { fechaDesde, fechaHasta, agruparPor = 'dia' } = req.query;
+
+    if (!fechaDesde || !fechaHasta) {
+      return res.status(400).json({
+        success: false,
+        message: "Se requieren fechaDesde y fechaHasta"
+      });
+    }
+
+    const { FacturaCabeza, Cliente, Vendedor, NotaCredito } = req.models;
+    if (!FacturaCabeza || !NotaCredito) {
+      return res.status(500).json({
+        success: false,
+        message: "Error: Modelo no disponible"
+      });
+    }
+
+    const facturas = await FacturaCabeza.findAll({
+      where: {
+        Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
+        FechaAnulacion: null
+      },
+      attributes: [
+        'DocumentoTipo',
+        'DocumentoSucursal',
+        'DocumentoNumero',
+        'Fecha',
+        'ClienteCodigo',
+        'VendedorCodigo',
+        'ImporteBruto',
+        'ImporteBonificado',
+        'ImporteNeto',
+        'ImporteIva1',
+        'ImporteIva2',
+        'ImporteTotal',
+        'PagoTipo',
+        'afip_cae'
+      ],
+      order: [['Fecha', 'ASC']],
+      raw: true
+    });
+
+    const clienteCodigos = [...new Set(facturas.map((f) => f.ClienteCodigo).filter(Boolean))];
+    const vendedorCodigos = [...new Set(facturas.map((f) => f.VendedorCodigo).filter(Boolean))];
+
+    const clientes = clienteCodigos.length
+      ? await Cliente.findAll({
+          where: { Codigo: { [Op.in]: clienteCodigos } },
+          attributes: ['Codigo', 'Descripcion'],
+          raw: true
+        })
+      : [];
+    const vendedores = vendedorCodigos.length
+      ? await Vendedor.findAll({
+          where: { Codigo: { [Op.in]: vendedorCodigos } },
+          attributes: ['Codigo', 'Descripcion'],
+          raw: true
+        })
+      : [];
+
+    const clientesMap = clientes.reduce((acc, cliente) => {
+      acc[cliente.Codigo] = cliente.Descripcion;
+      return acc;
+    }, {});
+    const vendedoresMap = vendedores.reduce((acc, vendedor) => {
+      acc[vendedor.Codigo] = vendedor.Descripcion;
+      return acc;
+    }, {});
+
+    const facturasConInfo = facturas.map((factura) => ({
+      ...factura,
+      Cliente: { Descripcion: clientesMap[factura.ClienteCodigo] || 'Sin cliente' },
+      Vendedor: { Descripcion: vendedoresMap[factura.VendedorCodigo] || 'Sin vendedor' }
+    }));
+
+    const notasCredito = await obtenerNotasCreditoDeFacturas(
+      NotaCredito,
+      Cliente,
+      facturasConInfo,
+      TIPOS_NC_DEFAULT
+    );
+
+    const notasDelPeriodo = await NotaCredito.findAll({
+      where: {
+        Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
+        FechaAnulacion: null,
+        DocumentoTipo: TIPOS_NC_DEFAULT
+      },
+      attributes: [
+        'DocumentoTipo',
+        'DocumentoSucursal',
+        'DocumentoNumero',
+        'Fecha',
+        'CodigoCliente',
+        'ImporteTotal',
+        'ImporteIva1',
+        'ImporteIva2',
+        'factura_tipo',
+        'factura_sucursal',
+        'factura_numero'
+      ],
+      include: [
+        {
+          model: Cliente,
+          attributes: ['Codigo', 'Descripcion'],
+          required: false
+        }
+      ],
+      raw: true
+    });
+
+    res.json({
+      success: true,
+      data: procesarFacturacionNeta(facturasConInfo, notasCredito, agruparPor, notasDelPeriodo)
+    });
+  } catch (error) {
+    console.error("Error al generar informe de facturación neta:", error);
     res.status(500).json({
       success: false,
       message: "Error al generar el informe",

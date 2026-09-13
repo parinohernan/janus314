@@ -75,6 +75,7 @@
         { label: 'Recibos', url: '/ventas/recibos' },
         { label: 'Informes', url: '/ventas/informes' ,submenus: [
         { label: 'Facturación', url: '/ventas/informes/facturacion' },
+        { label: 'Facturación neta', url: '/ventas/informes/facturacion-neta' },
         { label: 'Productos', url: '/ventas/informes/productos' },
         { label: 'Clientes', url: '/ventas/informes/clientes' },
         { label: 'Vendedores', url: '/ventas/informes/vendedores' },

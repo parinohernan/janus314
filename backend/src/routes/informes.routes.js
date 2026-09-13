@@ -4,6 +4,7 @@ const informesController = require('../controllers/informes.controller');
 
 // Ruta para el informe de facturación
 router.get('/facturacion', informesController.informeFacturacion);
+router.get('/facturacion-neta', informesController.informeFacturacionNeta);
 
 // Ruta para el informe de ventas por productos
 router.get('/ventas-por-productos', informesController.ventasPorProductos);

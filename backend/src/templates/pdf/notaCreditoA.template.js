@@ -3,6 +3,8 @@ const renderClienteInfo = require("./common/clienteInfo.js");
 const renderItemsList = require("./common/itemsList.js");
 const renderElectronicInfo = require("./common/electronicInfo.js");
 const { textoImporteBonificado, lineasIvaDiscriminado } = require("./common/formatBonificacion");
+const { renderPieExactoDiscriminado } = require("./common/pieDiscriminado");
+const { usaMatematicaExacta } = require("../../utils/matematicaExacta");
 const path = require("path");
 
 /**
@@ -60,9 +62,12 @@ async function renderNotaCreditoA(doc, data) {
       y += 25;
     }
 
+    const exacto = usaMatematicaExacta(notaCredito.Fecha);
+
     // Tabla de items
     y = renderItemsList(doc, items, y, {
-      showIva: true, // Mostrar columna de IVA en notas de crédito A
+      showIva: true,
+      exacto,
     });
 
     // me posiciono en la parte de los totales
@@ -71,6 +76,19 @@ async function renderNotaCreditoA(doc, data) {
     let xTotales = 420;
 
     doc.x = xTotales;
+
+    if (exacto) {
+      renderPieExactoDiscriminado(doc, { items, documento: notaCredito, y, xTotales });
+      doc.fontSize(10);
+      const convertirNumeroAPalabras = require("../../utils/convertirNumeroAPalabras");
+      const TotalEnPalabras = convertirNumeroAPalabras(notaCredito.ImporteTotal);
+      doc.text(`Son ${TotalEnPalabras}`, 20, yTotales);
+      if (notaCredito.Observacion) {
+        doc.text(`Observación: ${notaCredito.Observacion}`, 20, yTotales + 12);
+      }
+      await renderElectronicInfo(doc, notaCredito, yTotales);
+      return;
+    }
 
     // Totales
     doc.font("Helvetica-Bold");

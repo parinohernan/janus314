@@ -7,16 +7,40 @@
  * @returns {number} - Posición Y final
  */
 const renderTable = require("./table");
-const { resolverPrecioLista } = require("./precioItem");
+const { resolverPrecioLista, renglonPdfSinIva } = require("./precioItem");
+
+function formatearPorcentaje(value) {
+  const n = Number(value) || 0;
+  if (Number.isInteger(n)) return `${n}%`;
+  return `${parseFloat(n.toFixed(2))}%`;
+}
+
+function formatearCantidad(value) {
+  const n = Number(value) || 0;
+  if (Number.isInteger(n)) return String(n);
+  return String(parseFloat(n.toFixed(2)));
+}
 
 function renderItemsList(doc, items, y, options = {}) {
-  // Preparar los items con la información necesaria
-  
+  const exacto = Boolean(options.exacto);
+
   const itemsConSubtotal = items.map((item) => {
+    if (exacto) {
+      const renglon = renglonPdfSinIva(item);
+      return {
+        ...item,
+        Cantidad: renglon.cantidad,
+        PrecioLista: renglon.precioLista,
+        PrecioUnitario: renglon.precioUnitario,
+        Descuento: renglon.descuento,
+        Subtotal: renglon.subtotal,
+        PorcentajeIvaPrincipal: renglon.porcentajeIva,
+      };
+    }
+
     const cantidad = item.Cantidad || 0;
     const precioLista = resolverPrecioLista(item);
     const descuento = item.PorcentajeBonificado || 0;
-    // Subtotal = cantidad × precioLista menos el descuento (%)
     const subtotal = cantidad * precioLista * (1 - descuento / 100);
 
     const porcentajeIva1 = item.PorcentajeIVA1 || 0;
@@ -33,59 +57,89 @@ function renderItemsList(doc, items, y, options = {}) {
       PorcentajeIvaPrincipal: porcentajeIvaPrincipal
     };
   });
-  // Configurar columnas según si se muestra IVA o no
-  let columns = [
-    {
-      header: "Código",
-      property: "CodigoArticulo",
-      width: 40,
-      align: "left",
-    },
-    { header: "Cant.", property: "Cantidad", width: 30, align: "left" },
-    {
-      header: "Descripción",
-      property: "Descripcion",
-      width: options.showIva ? 280 : 280, // Ajustar ancho si mostramos IVA
-      align: "left",
-    },
-  ];
 
-  // Si mostramos IVA, agregar columna de % IVA
-  // if (options.showIva) {
-  //   columns.push({
-  //     header: "% IVA",
-  //     property: "PorcentajeIvaPrincipal",
-  //     width: 45,
-  //     align: "right",
-  //     format: (value) => value > 0 ? `${value}%` : "0%",
-  //   });
-  // }
-
-  // Agregar columnas comunes
-  columns.push(
-    {
-      header: "Precio U.",
-      property: "PrecioLista",
-      width: 70,
-      align: "right",
-      format: (value) => value.toFixed(2),
-      offset: 6,
-    },
-    {
-      header: "Desc.",
-      property: "Descuento",
-      width: 70,
-      align: "right",
-      format: (value) => value.toFixed(2),
-    },
-    {
-      header: "Subtotal",
-      property: "Subtotal",
-      width: 70,
-      align: "right",
-      format: (value) => value.toFixed(2),
-    }
-  );
+  // Ancho útil ~555. La descripción se lleva el resto para no recortar nombres.
+  const columns = exacto
+    ? [
+        { header: "Código", property: "CodigoArticulo", width: 38, align: "left" },
+        {
+          header: "Cant.",
+          property: "Cantidad",
+          width: 34,
+          align: "right",
+          format: formatearCantidad,
+        },
+        {
+          header: "Descripción",
+          property: "Descripcion",
+          width: 254,
+          align: "left",
+          extraWidth: 0,
+          offset: 8,
+        },
+        {
+          header: "P. Lista",
+          property: "PrecioLista",
+          width: 48,
+          align: "right",
+          format: (value) => Number(value || 0).toFixed(2),
+        },
+        {
+          header: "Desc.",
+          property: "Descuento",
+          width: 28,
+          align: "right",
+          format: formatearPorcentaje,
+        },
+        {
+          header: "Precio U.",
+          property: "PrecioUnitario",
+          width: 48,
+          align: "right",
+          format: (value) => Number(value || 0).toFixed(2),
+        },
+        {
+          header: "% IVA",
+          property: "PorcentajeIvaPrincipal",
+          width: 30,
+          align: "right",
+          format: formatearPorcentaje,
+        },
+        {
+          header: "Subt. s/IVA",
+          property: "Subtotal",
+          width: 54,
+          align: "right",
+          format: (value) => Number(value || 0).toFixed(2),
+        },
+      ]
+    : [
+        { header: "Código", property: "CodigoArticulo", width: 40, align: "left" },
+        { header: "Cant.", property: "Cantidad", width: 30, align: "left" },
+        { header: "Descripción", property: "Descripcion", width: 280, align: "left" },
+        {
+          header: "Precio U.",
+          property: "PrecioLista",
+          width: 70,
+          align: "right",
+          format: (value) => value.toFixed(2),
+          offset: 6,
+        },
+        {
+          header: "Desc.",
+          property: "Descuento",
+          width: 70,
+          align: "right",
+          format: (value) => value.toFixed(2),
+        },
+        {
+          header: "Subtotal",
+          property: "Subtotal",
+          width: 70,
+          align: "right",
+          format: (value) => value.toFixed(2),
+        },
+      ];
 
   // Posicionar el cursor
   doc.y = y;
@@ -93,7 +147,9 @@ function renderItemsList(doc, items, y, options = {}) {
 
   // Renderizar tabla de ítems con columnas personalizadas
   y = renderTable(doc, itemsConSubtotal, {
-    columns: columns,
+    columns,
+    headerFontSize: exacto ? 8 : 10,
+    fontSize: exacto ? 8 : 10,
   });
 
   return y;

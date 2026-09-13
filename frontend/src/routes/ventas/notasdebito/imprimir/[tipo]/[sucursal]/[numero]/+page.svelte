@@ -7,6 +7,8 @@
   import DocumentToolbar from '$lib/components/documentos/DocumentToolbar.svelte';
   import { DocumentService } from '$lib/services/DocumentService';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import AdvertenciaComprobanteAnterior from '$lib/components/documentos/AdvertenciaComprobanteAnterior.svelte';
+  import { esComprobanteAnteriorAlCorte, fechaDesdeComprobante } from '$lib/utils/matematicaExacta';
   
   // Obtener parámetros de la URL
   const tipo = $page.params.tipo;
@@ -18,6 +20,7 @@
   let error: string | null = null;
   let notaDebito: any = null;
   let pdfUrl: string | null = null;
+  let esAnteriorAlCorte = false;
   
   // Cargar datos de la nota de débito
   async function cargarNotaDebito() {
@@ -32,6 +35,7 @@
       }
       
       notaDebito = await response.json();
+      esAnteriorAlCorte = esComprobanteAnteriorAlCorte(fechaDesdeComprobante(notaDebito));
       
       // Generar PDF
       pdfUrl = await DocumentService.generarPDF(tipo, sucursal, numero);
@@ -83,12 +87,15 @@
       <p>{error}</p>
     </div>
   {:else}
-    <!-- Barra de herramientas -->
+    {#if esAnteriorAlCorte}
+      <AdvertenciaComprobanteAnterior />
+    {/if}
     <DocumentToolbar 
       {pdfUrl}
       documentoTipo={tipo}
       documentoSucursal={sucursal}
       documentoNumero={numero}
+      {esAnteriorAlCorte}
     />
     
     <!-- Vista previa del PDF -->

@@ -5,6 +5,8 @@ const StockService = require("./stock.service");
 const NumeroControlService = require("./numeroControl.service");
 const TransactionService = require("./transaction.service");
 const Cliente = require("../models/cliente.model");
+const { usaMatematicaExacta } = require("../utils/matematicaExacta");
+const { aplicarTotalesAFactura } = require("../templates/pdf/common/precioItem");
 
 /**
  * Servicio para gestionar las operaciones de notas de crédito
@@ -71,6 +73,10 @@ const NotaCreditoService = {
         } else {
           notaCreditoData.CodigoVendedor =
             notaCreditoData.VendedorCodigo || "1";
+        }
+
+        if (usaMatematicaExacta(notaCreditoData.Fecha)) {
+          aplicarTotalesAFactura(notaCreditoData);
         }
 
         // Si el tipo de pago es CC, actualizar el saldo del cliente

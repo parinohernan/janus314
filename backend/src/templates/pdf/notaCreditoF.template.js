@@ -3,6 +3,8 @@ const renderClienteInfo = require("./common/clienteInfo.js");
 const renderElectronicInfo = require("./common/electronicInfo.js");
 const { textoImporteBonificado, subtotalConIvaDesdeItems } = require("./common/formatBonificacion");
 const { formatearNumero, formatearFecha } = require("../../utils/formatters");
+const { renderPieExactoConIva } = require("./common/pieConIva");
+const { usaMatematicaExacta } = require("../../utils/matematicaExacta");
 const path = require("path");
 
 async function renderNotaCreditoF(doc, { factura: notaCredito, items, logoPath }) {
@@ -109,55 +111,62 @@ async function renderNotaCreditoF(doc, { factura: notaCredito, items, logoPath }
 
     doc.x = xTotales;
 
-    // Totales
-    doc.font("Helvetica-Bold").fontSize(10);
+    if (usaMatematicaExacta(notaCredito.Fecha)) {
+      renderPieExactoConIva(doc, { items, documento: notaCredito, y, xTotales });
+      doc.fontSize(10).font("Helvetica");
+      const convertirNumeroAPalabras = require("../../utils/convertirNumeroAPalabras");
+      const TotalEnPalabras = convertirNumeroAPalabras(notaCredito.ImporteTotal);
+      doc.text(`Son ${TotalEnPalabras}`, 20, yTotales);
+      if (notaCredito.Observacion) {
+        doc.text(`Observación: ${notaCredito.Observacion}`, 20, yTotales + 12);
+      }
+    } else {
+      doc.font("Helvetica-Bold").fontSize(10);
 
-    if (notaCredito.ImporteBonificado && notaCredito.ImporteBonificado > 0) {
-      const subtotalConIva = subtotalConIvaDesdeItems(items);
-      doc.text("Subtotal:", xTotales, y, { width: 90, align: "right" });
+      if (notaCredito.ImporteBonificado && notaCredito.ImporteBonificado > 0) {
+        const subtotalConIva = subtotalConIvaDesdeItems(items);
+        doc.text("Subtotal:", xTotales, y, { width: 90, align: "right" });
+        doc.text(
+          formatearNumero(subtotalConIva),
+          xTotales + 90,
+          y,
+          { width: 70, align: "right" }
+        );
+        y += 20;
+
+        const pct = Number(notaCredito.PorcentajeBonificacion) || 0;
+        const bonificacionConIva =
+          pct > 0 ? subtotalConIva * (pct / 100) : Number(notaCredito.ImporteBonificado) || 0;
+        doc.text("Bonificación:", xTotales, y, { width: 90, align: "right" });
+        doc.text(
+          textoImporteBonificado(bonificacionConIva, notaCredito.PorcentajeBonificacion),
+          xTotales + 70,
+          y,
+          { width: 90, align: "right" }
+        );
+        y += 20;
+      }
+
+      doc.strokeColor("#000000").moveTo(20, 650).lineTo(580, 650).stroke();
+      y += 10;
+
+      doc.fontSize(10);
+      const convertirNumeroAPalabras = require("../../utils/convertirNumeroAPalabras");
+      const TotalEnPalabras = convertirNumeroAPalabras(notaCredito.ImporteTotal);
+      doc.text(`Son ${TotalEnPalabras}`, 20, yTotales);
+
+      if (notaCredito.Observacion) {
+        doc.text(`Observación: ${notaCredito.Observacion}`, 20, yTotales + 12);
+      }
+
+      doc.fontSize(12).text("TOTAL:", xTotales, y, { width: 90, align: "right" });
       doc.text(
-        formatearNumero(subtotalConIva),
+        formatearNumero(notaCredito.ImporteTotal),
         xTotales + 90,
         y,
         { width: 70, align: "right" }
       );
-      y += 20;
-
-      const pct = Number(notaCredito.PorcentajeBonificacion) || 0;
-      const bonificacionConIva =
-        pct > 0 ? subtotalConIva * (pct / 100) : Number(notaCredito.ImporteBonificado) || 0;
-      doc.text("Bonificación:", xTotales, y, { width: 90, align: "right" });
-      doc.text(
-        textoImporteBonificado(bonificacionConIva, notaCredito.PorcentajeBonificacion),
-        xTotales + 70,
-        y,
-        { width: 90, align: "right" }
-      );
-      y += 20;
     }
-
-    // Línea antes del total
-    doc.strokeColor("#000000").moveTo(20, 650).lineTo(580, 650).stroke();
-    y += 10;
-
-    // Total en palabras
-    doc.fontSize(10);
-    const convertirNumeroAPalabras = require("../../utils/convertirNumeroAPalabras");
-    const TotalEnPalabras = convertirNumeroAPalabras(notaCredito.ImporteTotal);
-    doc.text(`Son ${TotalEnPalabras}`, 20, yTotales);
-    
-    // Observaciones específicas para notas de crédito
-    if (notaCredito.Observacion) {
-      doc.text(`Observación: ${notaCredito.Observacion}`, 20, yTotales + 12);
-    }
-
-    doc.fontSize(12).text("TOTAL:", xTotales, y, { width: 90, align: "right" });
-    doc.text(
-      formatearNumero(notaCredito.ImporteTotal),
-      xTotales + 90,
-      y,
-      { width: 70, align: "right" }
-    );
 
     // Renderizar información electrónica (QR, CAE, logo ARCA, etc.) si corresponde
     // NCF típicamente no es electrónica, pero por si acaso

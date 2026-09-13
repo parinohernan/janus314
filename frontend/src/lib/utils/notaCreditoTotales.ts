@@ -1,3 +1,6 @@
+import { calcularTotalesComprobante } from './comprobanteTotales';
+import { usaMatematicaExacta } from './matematicaExacta';
+
 export function porcentajeBonificacionDesdeFactura(encabezado?: {
 	PorcentajeBonificacion?: number | string | null;
 	ImporteBonificado?: number | string | null;
@@ -25,8 +28,18 @@ type ItemTotales = {
 
 export function calcularTotalesNotaCredito(
 	items: ItemTotales[],
-	porcentajeBonificacion: number = 0
+	porcentajeBonificacion: number = 0,
+	tipo?: string,
+	fecha?: string | Date | null
 ) {
+	if (usaMatematicaExacta(fecha)) {
+		return calcularTotalesComprobante({
+			items,
+			tipo,
+			porcentajeBonificacion
+		});
+	}
+
 	const pct = Number(porcentajeBonificacion) || 0;
 	let importeBruto = 0;
 	let baseImponible1 = 0;

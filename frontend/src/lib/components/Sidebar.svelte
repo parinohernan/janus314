@@ -259,6 +259,7 @@
           icon: 'informes-ventas',
           submenus: [
             { label: 'Facturación', url: '/ventas/informes/facturacion', icon: 'facturacion' },
+            { label: 'Facturación neta', url: '/ventas/informes/facturacion-neta', icon: 'facturacion' },
             { label: 'Vendedores', url: '/ventas/informes/vendedores', icon: 'vendedores' },
             { label: 'Preventistas', url: '/ventas/informes/vendedores-preventa', icon: 'preventistas' }
           ]

@@ -105,11 +105,21 @@ async function renderNotaDebitoA(doc, data) {
     );
     yTotales += 20;
 
-    // IVA 21%
     if (notaDebito.ImporteIva1 && notaDebito.ImporteIva1 > 0) {
       doc.text("IVA 21%:", xTotales, yTotales, { width: 90, align: "right" });
       doc.text(
         notaDebito.ImporteIva1.toFixed(2),
+        xTotales + 90,
+        yTotales,
+        { width: 70, align: "right" }
+      );
+      yTotales += 20;
+    }
+
+    if (notaDebito.ImporteIva2 && notaDebito.ImporteIva2 > 0) {
+      doc.text("IVA 10.5%:", xTotales, yTotales, { width: 90, align: "right" });
+      doc.text(
+        notaDebito.ImporteIva2.toFixed(2),
         xTotales + 90,
         yTotales,
         { width: 70, align: "right" }

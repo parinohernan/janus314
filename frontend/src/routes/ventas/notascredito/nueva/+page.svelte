@@ -429,7 +429,9 @@
 
     const totales = calcularTotalesNotaCredito(
       notaCredito.Items,
-      notaCredito.PorcentajeBonificacion || 0
+      notaCredito.PorcentajeBonificacion || 0,
+      notaCredito.DocumentoTipo,
+      notaCredito.Fecha
     );
     notaCredito = { ...notaCredito, ...totales };
   }

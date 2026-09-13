@@ -17,6 +17,12 @@
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { toast, confirm } from '$lib/utils/toast';
   import { datosComercialesDesdeCliente } from '$lib/utils/facturaClienteDefaults';
+  import {
+    mapearItemFacturaClonada,
+    porcentajeBonificacionEncabezado
+  } from '$lib/utils/facturaClonada';
+  import { usaMatematicaExacta } from '$lib/utils/matematicaExacta';
+  import { calcularTotalesComprobante, redondear2 } from '$lib/utils/comprobanteTotales';
   // import { formatDateOnly } from '$lib/utils/dateUtils';
 
   const FACTURA_NUEVA_PATH = '/ventas/facturas/nueva';
@@ -408,6 +414,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
       factura.DocumentoNumero = ''; // Se asignará automáticamente
       factura.Fecha = fechaFormateada; // Fecha actual
       factura.ListaPrecio = encabezado.ListaNumero?.toString() || '1';
+      factura.PorcentajeBonificacion = porcentajeBonificacionEncabezado(encabezado);
       factura.Observacion = encabezado.Observacion || '';
       factura.FormaPagoCodigo = encabezado.PagoTipo || '';
       factura.VendedorCodigo = encabezado.VendedorCodigo || '';
@@ -444,20 +451,14 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
 
       // Cargar items
       if (facturaData.items && Array.isArray(facturaData.items)) {
-        factura.Items = facturaData.items.map((item: any) => ({
-          ArticuloCodigo: item.CodigoArticulo,
-          Descripcion: item.Descripcion,
-          Cantidad: item.Cantidad,
-          PrecioLista: item.PrecioUnitario,
-          PorcentajeBonificado: 0,
-          ImporteBonificado: 0,
-          PrecioUnitario: item.PrecioUnitario,
-          PorcentajeIva: item.PorcentajeIva || 21,
-          PrecioUnitarioConIva: item.PrecioUnitarioConIva || 0,
-          Total: item.Total || 0,
-          enEdicion: false
-        }));
+        factura.Items = facturaData.items.map((item: any) => {
+          const mapeado = mapearItemFacturaClonada(item);
+          recalcularItem(mapeado);
+          return mapeado;
+        });
       }
+
+      recalcularTotales();
 
       // Obtener próximo número de comprobante
       await obtenerProximoNumero();
@@ -661,6 +662,9 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     item.PrecioUnitarioConIva = parseFloat(item.PrecioUnitarioConIva.toFixed(2));
     item.Total = parseFloat(item.Total.toFixed(2));
   };
+
+  const totalSinIvaItem = (item: ItemFactura) =>
+    redondear2((Number(item.PrecioUnitario) || 0) * (Number(item.Cantidad) || 0));
   
   // Activar/desactivar modo edición para un ítem
   const toggleEdicion = (index: number) => {
@@ -703,12 +707,39 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     recalcularTotales();
   };
   
-  /** Factura B y PRF (IVA en precio): el total del comprobante puede alinearse a la suma de ítems. */
   const esFacturaTotalPorSumaItems = () =>
     factura.DocumentoTipo === 'FCB' || factura.DocumentoTipo === 'PRF';
 
-  // Recalcular totales (actualizado)
   const recalcularTotales = () => {
+    if (usaMatematicaExacta(factura.Fecha)) {
+      const preliminar = calcularTotalesComprobante({
+        items: factura.Items,
+        tipo: factura.DocumentoTipo,
+        porcentajeBonificacion: factura.PorcentajeBonificacion,
+        percepcion: 0
+      });
+      const iibb = redondear2(
+        preliminar.ImporteNeto * ((factura.PorcentajeIngresosBrutos || 0) / 100)
+      );
+      const totales = calcularTotalesComprobante({
+        items: factura.Items,
+        tipo: factura.DocumentoTipo,
+        porcentajeBonificacion: factura.PorcentajeBonificacion,
+        percepcion: iibb
+      });
+      factura.ImporteBruto = totales.ImporteBruto;
+      factura.ImporteBonificado = totales.ImporteBonificado;
+      factura.ImporteNeto = totales.ImporteNeto;
+      factura.ImporteIva1 = totales.ImporteIva1;
+      factura.ImporteIva2 = totales.ImporteIva2;
+      factura.ImporteIva = totales.ImporteIva;
+      factura.BaseImponible1 = totales.BaseImponible1;
+      factura.BaseImponible2 = totales.BaseImponible2;
+      factura.ImporteIngresosBrutos = iibb;
+      factura.ImporteTotal = totales.ImporteTotal;
+      return;
+    }
+
     let importeBruto = 0;
     let importeIva1 = 0;
     let importeIva2 = 0;
@@ -1695,6 +1726,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Unit.</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">% IVA</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio C/IVA</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total s/IVA</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
               <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
             </tr>
@@ -1755,6 +1787,10 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
                   ${item.PrecioUnitarioConIva.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
+
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
+                  ${totalSinIvaItem(item).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
                 
                 <!-- Total -->
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
@@ -1809,7 +1845,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
       
       <!-- Totales -->
       <div class="mt-6 flex justify-end">
-        <div class="w-80 space-y-2">
+        <div class="w-96 space-y-2">
           <div class="flex justify-between">
             <span class="font-medium">Importe Bruto:</span>
             <span>${factura.ImporteBruto.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -1836,13 +1872,21 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
             <span>${factura.ImporteNeto.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
           
+          <div class="flex justify-between text-sm text-gray-600">
+            <span>Base imponible 21%:</span>
+            <span>${factura.BaseImponible1.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          </div>
           <div class="flex justify-between">
             <span class="font-medium">IVA 21%:</span>
             <span>${factura.ImporteIva1.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
           
+          <div class="flex justify-between text-sm text-gray-600">
+            <span>Base imponible 10,5%:</span>
+            <span>${factura.BaseImponible2.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          </div>
           <div class="flex justify-between">
-            <span class="font-medium">IVA 10.5%:</span>
+            <span class="font-medium">IVA 10,5%:</span>
             <span>${factura.ImporteIva2.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
           

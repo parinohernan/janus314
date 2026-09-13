@@ -1,7 +1,8 @@
 <script lang="ts">
   import Button from '$lib/components/ui/Button.svelte';
   import { DocumentService } from '$lib/services/DocumentService';
-  import { toast } from '$lib/utils/toast';
+  import { toast, confirm } from '$lib/utils/toast';
+  import { TEXTO_ADVERTENCIA_COMPROBANTE_ANTERIOR } from '$lib/utils/matematicaExacta';
   
   export let pdfUrl: string | null = null;
   export let documentoTipo: string = '';
@@ -9,26 +10,35 @@
   export let documentoNumero: string = '';
   /** Si se informa, se usa para descargar/compartir (ej. OC con sufijo -proveedor) */
   export let nombreArchivoPdf: string | null = null;
+  export let esAnteriorAlCorte: boolean = false;
+
+  async function confirmarSiAnterior(): Promise<boolean> {
+    if (!esAnteriorAlCorte) return true;
+    return confirm(TEXTO_ADVERTENCIA_COMPROBANTE_ANTERIOR, {
+      confirmLabel: 'Continuar',
+      cancelLabel: 'Cancelar'
+    });
+  }
   
-  // Funciones para manejar acciones
-  function imprimir() {
-    if (pdfUrl) {
-      DocumentService.imprimirPDF(pdfUrl);
-    }
+  async function imprimir() {
+    if (!pdfUrl) return;
+    if (!(await confirmarSiAnterior())) return;
+    DocumentService.imprimirPDF(pdfUrl);
   }
   
   function nombrePdf(): string {
     return nombreArchivoPdf || `${documentoTipo}-${documentoSucursal}-${documentoNumero}.pdf`;
   }
 
-  function descargar() {
-    if (pdfUrl) {
-      DocumentService.descargarPDF(pdfUrl, nombrePdf());
-    }
+  async function descargar() {
+    if (!pdfUrl) return;
+    if (!(await confirmarSiAnterior())) return;
+    DocumentService.descargarPDF(pdfUrl, nombrePdf());
   }
   
   async function compartir() {
     if (!pdfUrl) return;
+    if (!(await confirmarSiAnterior())) return;
     
     const resultado = await DocumentService.compartirPDF(
       pdfUrl,

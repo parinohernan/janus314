@@ -22,6 +22,7 @@ export interface FavoriteItem {
     { id: 'descargar-preventas', label: 'Descargar Preventas', url: '/sincronizacion/preventas', icon: '⬇️', category: 'Ventas' },
     { id: 'presupuestos', label: 'Presupuestos', url: '/ventas/presupuestos', icon: '📋', category: 'Ventas' },
     { id: 'informes-facturacion', label: 'Informes - Facturación', url: '/ventas/informes/facturacion', icon: '📊', category: 'Ventas' },
+    { id: 'informes-facturacion-neta', label: 'Informes - Facturación neta', url: '/ventas/informes/facturacion-neta', icon: '📊', category: 'Ventas' },
     { id: 'informes-productos', label: 'Informes - Productos', url: '/ventas/informes/productos', icon: '📦', category: 'Ventas' },
     { id: 'informes-clientes', label: 'Informes - Clientes', url: '/ventas/informes/clientes', icon: '👥', category: 'Ventas' },
     { id: 'informes-vendedores', label: 'Informes - Vendedores', url: '/ventas/informes/vendedores', icon: '👨‍💼', category: 'Ventas' },

@@ -2,6 +2,8 @@ const FacturaValidator = require("./facturaValidator.service");
 const StockService = require("./stock.service");
 const NumeroControlService = require("./numeroControl.service");
 const TransactionService = require("./transaction.service");
+const { usaMatematicaExacta } = require("../utils/matematicaExacta");
+const { aplicarTotalesAFactura } = require("../templates/pdf/common/precioItem");
 
 /**
  * Servicio para gestionar las operaciones de facturas
@@ -56,6 +58,10 @@ const FacturaService = {
             facturaData.PagoTipo = '';
           }
         }
+      }
+
+      if (usaMatematicaExacta(facturaData.Fecha)) {
+        aplicarTotalesAFactura(facturaData);
       }
 
       // Configurar PagoTipo e ImportePagado según la forma de pago

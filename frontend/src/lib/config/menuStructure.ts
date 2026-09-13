@@ -59,6 +59,7 @@ export const MENU_ENTRIES: MenuEntry[] = [
 	// Informes
 	{ id: 'informes', url: '', label: 'Informes', parentId: '', parentLabel: '' },
 	{ id: '/ventas/informes/facturacion', url: '/ventas/informes/facturacion', label: 'Facturación', parentId: 'informes', parentLabel: 'Informes' },
+	{ id: '/ventas/informes/facturacion-neta', url: '/ventas/informes/facturacion-neta', label: 'Facturación neta', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/vendedores', url: '/ventas/informes/vendedores', label: 'Vendedores', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/vendedores-preventa', url: '/ventas/informes/vendedores-preventa', label: 'Preventistas', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/productos', url: '/ventas/informes/productos', label: 'Productos', parentId: 'informes', parentLabel: 'Informes' },

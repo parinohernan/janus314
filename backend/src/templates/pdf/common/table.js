@@ -174,8 +174,14 @@ function renderTable(doc, items, options = {}) {
         value = column.defaultValue || "";
       }
 
+      const extraWidth =
+        column.extraWidth !== undefined
+          ? column.extraWidth
+          : column.property === "Descripcion"
+            ? 20
+            : 0;
       doc.text(value.toString(), x + (column.offset || 0), y + padding / 2, {
-        width: column.width + (column.property === "Descripcion" ? 20 : 0),
+        width: column.width + extraWidth,
         align: column.align || "left",
       });
       x += column.width + (column.offset || 0);

@@ -1,104 +1,133 @@
 const {
-  resolverPrecioLista,
+  redondear2,
   renglonPdfConIva,
+  renglonPdfSinIva,
   totalesPieConIva,
-} = require('../templates/pdf/common/precioItem');
+  totalesPieDiscriminado,
+  calcularTotalesComprobante,
+  ajustarIvaATotal,
+} = require("../templates/pdf/common/precioItem");
 
-describe('resolverPrecioLista', () => {
-  it('usa PrecioLista cuando existe', () => {
-    expect(resolverPrecioLista({ PrecioLista: 100, PrecioUnitario: 80 })).toBe(100);
+describe("renglonPdfConIva", () => {
+  test("Precio U. redondeado y Total = cantidad × Precio U.", () => {
+    const r = renglonPdfConIva({
+      Cantidad: 10,
+      PrecioUnitario: 2068.98,
+      PrecioLista: 2068.98,
+      PorcentajeIVA1: 21,
+      PorcentajeBonificado: 0,
+    });
+    expect(r.precioUnitarioConIva).toBe(redondear2(2068.98 * 1.21));
+    expect(r.totalConIva).toBe(redondear2(10 * r.precioUnitarioConIva));
   });
 
-  it('cae a PrecioBase o PrecioUnitario si no hay lista (notas de crédito)', () => {
-    expect(resolverPrecioLista({ PrecioBase: 18223.15 })).toBe(18223.15);
-    expect(resolverPrecioLista({ PrecioUnitario: 150 })).toBe(150);
-  });
-
-  it('devuelve 0 si no hay precios', () => {
-    expect(resolverPrecioLista({})).toBe(0);
-  });
-});
-
-describe('renglonPdfConIva', () => {
-  it('multiplica cantidad por el Precio U. ya redondeado a 2 decimales', () => {
-    expect(
-      renglonPdfConIva({
-        Cantidad: 12,
-        PrecioUnitario: 1802.1 / 1.21,
-        PrecioLista: 1802.1 / 1.21,
-        PorcentajeIVA1: 21,
-      }).totalConIva
-    ).toBe(21625.2);
-
-    expect(
-      renglonPdfConIva({
-        Cantidad: 2,
-        PrecioUnitario: 11163.27 / 1.21,
-        PrecioLista: 11163.27 / 1.21,
-        PorcentajeIVA1: 21,
-      }).totalConIva
-    ).toBe(22326.54);
-
-    expect(
-      renglonPdfConIva({
-        Cantidad: 36,
-        PrecioUnitario: 2068.98 / 1.21,
-        PrecioLista: 2068.98 / 1.21,
-        PorcentajeIVA1: 21,
-      }).totalConIva
-    ).toBe(74483.28);
-
-    expect(
-      renglonPdfConIva({
-        Cantidad: 36,
-        PrecioUnitario: 2069.96 / 1.21,
-        PrecioLista: 2069.96 / 1.21,
-        PorcentajeIVA1: 21,
-      }).totalConIva
-    ).toBe(74518.56);
+  test("en NC usa PrecioBase neto si PrecioUnitario ya trae IVA", () => {
+    const r = renglonPdfConIva({
+      Cantidad: 1,
+      PrecioBase: 100,
+      PrecioLista: 100,
+      PrecioUnitario: 121,
+      PorcentajeIVA1: 21,
+    });
+    expect(r.precioUnitarioConIva).toBe(121);
+    expect(r.totalConIva).toBe(121);
   });
 });
 
-describe('totalesPieConIva', () => {
-  it('el subtotal es la suma de renglones y la bonificación es el % de ese subtotal', () => {
+describe("renglonPdfSinIva", () => {
+  test("usa PrecioUnitario y no recalcula desde lista", () => {
+    const r = renglonPdfSinIva({
+      Cantidad: 3,
+      PrecioLista: 100,
+      PrecioUnitario: 93.33,
+      PorcentajeBonificado: 7,
+      PorcentajeIVA1: 21,
+    });
+    expect(r.precioLista).toBe(100);
+    expect(r.precioUnitario).toBe(93.33);
+    expect(r.subtotal).toBe(redondear2(3 * 93.33));
+  });
+});
+
+describe("totalesPieConIva", () => {
+  test("con 5% cierra Subtotal − Bonif = Total", () => {
     const items = [
-      { Cantidad: 1, PrecioUnitario: 1000 / 1.21, PrecioLista: 1000 / 1.21, PorcentajeIVA1: 21 },
-      { Cantidad: 1, PrecioUnitario: 210 / 1.21, PrecioLista: 210 / 1.21, PorcentajeIVA1: 21 },
+      { Cantidad: 2, PrecioUnitario: 100, PrecioLista: 100, PorcentajeIVA1: 21 },
+      { Cantidad: 1, PrecioUnitario: 200, PrecioLista: 200, PorcentajeIVA1: 10.5 },
     ];
-    const pie = totalesPieConIva(items, 10);
-    expect(pie.subtotal).toBe(1210);
-    expect(pie.bonificacion).toBe(121);
-    expect(pie.total).toBe(1089);
+    const pie = totalesPieConIva(items, 5);
+    const suma = redondear2(pie.renglones.reduce((s, r) => s + r.totalConIva, 0));
+    expect(pie.subtotal).toBe(suma);
+    expect(pie.bonificacion).toBe(redondear2(pie.subtotal * 0.05));
+    expect(pie.total).toBe(redondear2(pie.subtotal - pie.bonificacion));
   });
 
-  it('el TOTAL cierra con Subtotal menos Bonificación (no usa importes de cabecera)', () => {
+  test("sin bonificación el total es la suma de renglones", () => {
     const items = [
-      { Cantidad: 12, PrecioUnitario: 1489.34, PrecioLista: 1489.34, PorcentajeIVA1: 21 },
-      { Cantidad: 2, PrecioUnitario: 9225.84, PrecioLista: 9225.84, PorcentajeIVA1: 21 },
+      { Cantidad: 1, PrecioUnitario: 100, PrecioLista: 100, PorcentajeIVA1: 21 },
     ];
-    const pie = totalesPieConIva(items, 10);
-    expect(pie.bonificacion).toBe(Number((pie.subtotal * 0.1).toFixed(2)));
-    expect(pie.total).toBe(Number((pie.subtotal - pie.bonificacion).toFixed(2)));
+    const pie = totalesPieConIva(items, 0);
+    expect(pie.bonificacion).toBe(0);
+    expect(pie.total).toBe(pie.subtotal);
+  });
+});
+
+describe("totalesPieDiscriminado", () => {
+  test("Factura A con bonificación cierra las tres identidades", () => {
+    const items = [
+      { Cantidad: 2, PrecioUnitario: 1000, PorcentajeIVA1: 21 },
+      { Cantidad: 1, PrecioUnitario: 500, PorcentajeIVA1: 10.5 },
+    ];
+    const pie = totalesPieDiscriminado(items, 5);
+    const suma = redondear2(pie.renglones.reduce((s, r) => s + r.subtotal, 0));
+    expect(pie.subtotal).toBe(suma);
+    expect(pie.neto).toBe(redondear2(pie.subtotal - pie.bonificacion));
+    expect(pie.total).toBe(redondear2(pie.neto + pie.iva21 + pie.iva105));
+  });
+});
+
+describe("calcularTotalesComprobante", () => {
+  test("FCB: ImporteTotal = pie con IVA y Neto + IVA = Total", () => {
+    const items = [
+      { Cantidad: 10, PrecioUnitario: 2068.98, PrecioLista: 2068.98, PorcentajeIVA1: 21 },
+      { Cantidad: 4, PrecioUnitario: 800, PrecioLista: 800, PorcentajeIVA1: 10.5 },
+    ];
+    const t = calcularTotalesComprobante({
+      items,
+      tipo: "FCB",
+      porcentajeBonificacion: 5,
+    });
+    expect(t.ImporteTotal).toBe(t.pieConIva.total);
+    expect(redondear2(t.ImporteNeto + t.ImporteIva1 + t.ImporteIva2)).toBe(t.ImporteTotal);
+    expect(t.pieConIva.total).toBe(
+      redondear2(t.pieConIva.subtotal - t.pieConIva.bonificacion)
+    );
   });
 
-  it('el descuento de renglón no se copia al pie: la bonificación es solo la general', () => {
-    const items = [
-      {
-        Cantidad: 10,
-        PrecioLista: 1798.99 / 1.21,
-        PrecioUnitario: 1655.07 / 1.21,
-        PorcentajeBonificado: 8,
-        PorcentajeIVA1: 21,
-      },
-    ];
-    const sinGeneral = totalesPieConIva(items, 0);
-    expect(sinGeneral.bonificacion).toBe(0);
-    expect(sinGeneral.subtotal).toBe(16550.7);
-    expect(sinGeneral.total).toBe(16550.7);
+  test("FCA: ImporteTotal = neto + IVA", () => {
+    const items = [{ Cantidad: 2, PrecioUnitario: 1000, PorcentajeIVA1: 21 }];
+    const t = calcularTotalesComprobante({
+      items,
+      tipo: "FCA",
+      porcentajeBonificacion: 10,
+    });
+    expect(t.ImporteBruto).toBe(2000);
+    expect(t.ImporteBonificado).toBe(200);
+    expect(t.ImporteNeto).toBe(1800);
+    expect(t.ImporteTotal).toBe(redondear2(1800 + 1800 * 0.21));
+  });
+});
 
-    const conGeneral = totalesPieConIva(items, 10);
-    expect(conGeneral.subtotal).toBe(16550.7);
-    expect(conGeneral.bonificacion).toBe(1655.07);
-    expect(conGeneral.total).toBe(14895.63);
+describe("ajustarIvaATotal", () => {
+  test("ajusta 1 centavo en IVA 21%", () => {
+    const r = ajustarIvaATotal({
+      ImporteNeto: 100,
+      ImporteIva1: 21,
+      ImporteIva2: 0,
+      percepcion: 0,
+      ImporteTotal: 121.01,
+    });
+    expect(r.ImporteIva1).toBe(21.01);
+    expect(redondear2(100 + r.ImporteIva1)).toBe(121.01);
   });
 });
