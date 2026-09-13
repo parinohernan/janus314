@@ -19,6 +19,23 @@
   let fechaDesde = new Date();
   let fechaHasta = new Date();
   let agruparPor: 'dia' | 'semana' | 'mes' = 'dia';
+  let filtroPagoTipo = '';
+  let formasPago: { value: string; label: string }[] = [];
+
+  async function cargarFormasPago() {
+    try {
+      const response = await fetchWithAuth('/tipos-pago');
+      if (!response.ok) return;
+      const result = await response.json();
+      formasPago = (result.items || []).map((item: { Codigo: string; Descripcion: string }) => ({
+        value: item.Codigo,
+        label: item.Descripcion
+      }));
+    } catch (err) {
+      console.error('Error cargando formas de pago:', err);
+      formasPago = [];
+    }
+  }
 
   onMount(async () => {
     let savedScroll: number | undefined;
@@ -29,7 +46,9 @@
         fechaDesde?: string;
         fechaHasta?: string;
         agruparPor?: 'dia' | 'semana' | 'mes';
+        pagoTipo?: string;
       } | undefined;
+      if (filters?.pagoTipo) filtroPagoTipo = filters.pagoTipo;
       if (filters?.fechaDesde) fechaDesde = new Date(filters.fechaDesde);
       else {
         const hoy = new Date();
@@ -46,6 +65,7 @@
       fechaDesde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
       fechaHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
     }
+    await cargarFormasPago();
     await cargarDatos();
     if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
       requestAnimationFrame(() => window.scrollTo(0, savedScroll));
@@ -61,7 +81,8 @@
         filters: {
           fechaDesde: fechaDesde.toISOString().split('T')[0],
           fechaHasta: fechaHasta.toISOString().split('T')[0],
-          agruparPor
+          agruparPor,
+          pagoTipo: filtroPagoTipo
         }
       });
     }
@@ -77,6 +98,7 @@
         fechaHasta: fechaHasta.toISOString().split('T')[0],
         agruparPor: agruparPor
       });
+      if (filtroPagoTipo) params.append('pagoTipo', filtroPagoTipo);
 
       const response = await fetchWithAuth(`/informes/facturacion-neta?${params}`);
 
@@ -118,7 +140,7 @@
     return colores[tipo] || '#6B7280';
   }
 
-  $: if (fechaDesde && fechaHasta) {
+  $: if (fechaDesde && fechaHasta && filtroPagoTipo !== undefined) {
     cargarDatos();
   }
 </script>
@@ -156,8 +178,8 @@
   </div>
 
   <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-    <h2 class="text-lg font-semibold mb-4">Filtros de Fecha</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <h2 class="text-lg font-semibold mb-4">Filtros</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div>
         <label for="fechaDesde" class="block text-sm font-medium text-gray-700 mb-2">Fecha Desde</label>
         <DatePicker id="fechaDesde" bind:value={fechaDesde} />
@@ -165,6 +187,19 @@
       <div>
         <label for="fechaHasta" class="block text-sm font-medium text-gray-700 mb-2">Fecha Hasta</label>
         <DatePicker id="fechaHasta" bind:value={fechaHasta} />
+      </div>
+      <div>
+        <label for="filtroPagoTipo" class="block text-sm font-medium text-gray-700 mb-2">Forma de pago</label>
+        <select
+          id="filtroPagoTipo"
+          bind:value={filtroPagoTipo}
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="">Todas</option>
+          {#each formasPago as fp}
+            <option value={fp.value}>{fp.label}</option>
+          {/each}
+        </select>
       </div>
     </div>
   </div>

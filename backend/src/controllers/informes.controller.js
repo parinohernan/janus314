@@ -419,9 +419,9 @@ exports.detalleVentasPorVendedor = async (req, res) => {
 // Informe completo de facturación
 exports.informeFacturacion = async (req, res) => {
   try {
-    const { fechaDesde, fechaHasta, agruparPor = 'dia' } = req.query;
+    const { fechaDesde, fechaHasta, agruparPor = 'dia', pagoTipo } = req.query;
     
-    console.log("Parámetros recibidos:", { fechaDesde, fechaHasta, agruparPor });
+    console.log("Parámetros recibidos:", { fechaDesde, fechaHasta, agruparPor, pagoTipo });
     
     if (!fechaDesde || !fechaHasta) {
       return res.status(400).json({
@@ -446,11 +446,13 @@ exports.informeFacturacion = async (req, res) => {
       });
     }
 
-    // Construir consulta base
     const whereClause = {
       Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
-      FechaAnulacion: null // Excluir facturas anuladas
+      FechaAnulacion: null
     };
+    if (pagoTipo) {
+      whereClause.PagoTipo = pagoTipo;
+    }
 
     console.log("Consultando facturas con whereClause:", whereClause);
 
@@ -486,19 +488,21 @@ exports.informeFacturacion = async (req, res) => {
     console.log("Códigos de clientes únicos:", clienteCodigos.length);
     console.log("Códigos de vendedores únicos:", vendedorCodigos.length);
 
-    // Obtener clientes
-    const clientes = await Cliente.findAll({
-      where: { Codigo: { [Op.in]: clienteCodigos } },
-      attributes: ['Codigo', 'Descripcion'],
-      raw: true
-    });
+    const clientes = clienteCodigos.length
+      ? await Cliente.findAll({
+          where: { Codigo: { [Op.in]: clienteCodigos } },
+          attributes: ['Codigo', 'Descripcion'],
+          raw: true
+        })
+      : [];
 
-    // Obtener vendedores
-    const vendedores = await Vendedor.findAll({
-      where: { Codigo: { [Op.in]: vendedorCodigos } },
-      attributes: ['Codigo', 'Descripcion'],
-      raw: true
-    });
+    const vendedores = vendedorCodigos.length
+      ? await Vendedor.findAll({
+          where: { Codigo: { [Op.in]: vendedorCodigos } },
+          attributes: ['Codigo', 'Descripcion'],
+          raw: true
+        })
+      : [];
 
     // Crear mapas para acceso rápido
     const clientesMap = clientes.reduce((acc, cliente) => {
@@ -541,7 +545,7 @@ exports.informeFacturacion = async (req, res) => {
 
 exports.informeFacturacionNeta = async (req, res) => {
   try {
-    const { fechaDesde, fechaHasta, agruparPor = 'dia' } = req.query;
+    const { fechaDesde, fechaHasta, agruparPor = 'dia', pagoTipo } = req.query;
 
     if (!fechaDesde || !fechaHasta) {
       return res.status(400).json({
@@ -558,11 +562,16 @@ exports.informeFacturacionNeta = async (req, res) => {
       });
     }
 
+    const whereFacturas = {
+      Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
+      FechaAnulacion: null
+    };
+    if (pagoTipo) {
+      whereFacturas.PagoTipo = pagoTipo;
+    }
+
     const facturas = await FacturaCabeza.findAll({
-      where: {
-        Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
-        FechaAnulacion: null
-      },
+      where: whereFacturas,
       attributes: [
         'DocumentoTipo',
         'DocumentoSucursal',
