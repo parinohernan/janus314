@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
-  import { ShoppingCart, TrendingUp, Package, Users } from 'lucide-svelte';
+  import { ShoppingCart, TrendingUp, Package, Users, FileWarning } from 'lucide-svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { auth } from '$lib/stores/authStore';
   
@@ -9,6 +9,7 @@
   import DashboardCard from '$lib/components/dashboard/DashboardCard.svelte';
   import VendedoresWidget from '$lib/components/dashboard/VendedoresWidget.svelte';
   import StockCriticoWidget from '$lib/components/dashboard/StockCriticoWidget.svelte';
+  import ComprobantesSinCaeWidget from '$lib/components/dashboard/ComprobantesSinCaeWidget.svelte';
   import AccesosRapidosWidget from '$lib/components/dashboard/AccesosRapidosWidget.svelte';
   
   // Estados
@@ -20,6 +21,12 @@
   let vendedores = $state<any[]>([]);
   let stockCritico = $state<any>({ sinStock: [], bajoMinimo: [], pagination: null });
   let stockPage = $state(1);
+  let comprobantesSinCae = $state<any>({
+    comprobantes: [],
+    cantidad: 0,
+    cantidadFacturas: 0,
+    cantidadNotas: 0
+  });
   let serverTime = $state<string>('');
   
   // Información del usuario
@@ -64,11 +71,12 @@
       error = null;
       
       // Cargar todos los datos en paralelo
-      const [resumenData, vendedoresData, stockData, serverTimeData] = await Promise.all([
+      const [resumenData, vendedoresData, stockData, serverTimeData, sinCaeData] = await Promise.all([
         fetchWithAuth('/dashboard/resumen-dia').then(r => r.json()),
         fetchWithAuth('/dashboard/vendedores-estado').then(r => r.json()),
         fetchWithAuth(`/dashboard/stock-critico?page=${stockPage}&limit=10`).then(r => r.json()),
-        fetchWithAuth('/dashboard/server-time').then(r => r.json())
+        fetchWithAuth('/dashboard/server-time').then(r => r.json()),
+        fetchWithAuth('/dashboard/comprobantes-sin-cae?limit=12').then(r => r.json()).catch(() => ({ success: false }))
       ]);
       
       if (resumenData.success) {
@@ -84,6 +92,15 @@
           sinStock: stockData.sinStock || [],
           bajoMinimo: stockData.bajoMinimo || [],
           pagination: stockData.pagination || null
+        };
+      }
+
+      if (sinCaeData.success) {
+        comprobantesSinCae = {
+          comprobantes: sinCaeData.comprobantes || [],
+          cantidad: sinCaeData.cantidad || 0,
+          cantidadFacturas: sinCaeData.cantidadFacturas || 0,
+          cantidadNotas: sinCaeData.cantidadNotas || 0
         };
       }
 
@@ -166,7 +183,7 @@
   
   <!-- Tarjetas de resumen -->
   {#if !loading && resumenDia}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
       <DashboardCard
         title="Ventas del Día"
         value={new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(resumenDia.ventasHoy?.monto || 0)}
@@ -199,6 +216,14 @@
         icon={Users}
         color="purple"
       />
+
+      <DashboardCard
+        title="Sin autorizar"
+        value={comprobantesSinCae.cantidad.toString()}
+        subtitle="Facturas A/B/C y NC A/B sin CAE"
+        icon={FileWarning}
+        color={comprobantesSinCae.cantidad > 0 ? 'orange' : 'green'}
+      />
     </div>
   {/if}
   
@@ -217,6 +242,14 @@
       pagination={stockCritico.pagination}
       {loading}
       onPageChange={handleStockPageChange}
+    />
+
+    <ComprobantesSinCaeWidget
+      comprobantes={comprobantesSinCae.comprobantes}
+      cantidad={comprobantesSinCae.cantidad}
+      cantidadFacturas={comprobantesSinCae.cantidadFacturas}
+      cantidadNotas={comprobantesSinCae.cantidadNotas}
+      {loading}
     />
   </div>
   

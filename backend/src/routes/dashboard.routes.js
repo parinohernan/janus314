@@ -11,6 +11,8 @@ router.get("/resumen-dia", dashboardController.getResumenDia);
 // Obtener stock crítico
 router.get("/stock-critico", dashboardController.getStockCritico);
 
+router.get("/comprobantes-sin-cae", dashboardController.getComprobantesSinCae);
+
 // Obtener actividad reciente
 router.get("/actividad-reciente", dashboardController.getActividadReciente);
 

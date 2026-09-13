@@ -1,5 +1,10 @@
 const { Op } = require('sequelize');
 const moment = require('moment-timezone');
+const {
+  whereFacturasSinCae,
+  whereNotasCreditoSinCae,
+  mapearComprobanteSinCae,
+} = require('../utils/facturasSinCae');
 
 /**
  * Obtener estado de vendedores para el dashboard
@@ -446,6 +451,75 @@ exports.getGraficos = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error al obtener gráficos',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Facturas A/B/C y notas de crédito A/B vigentes sin CAE
+ */
+exports.getComprobantesSinCae = async (req, res) => {
+  try {
+    const { FacturaCabeza, NotaCredito, Cliente } = req.models;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 12, 50);
+
+    const includeCliente = Cliente
+      ? [{ model: Cliente, attributes: ['Codigo', 'Descripcion'], required: false }]
+      : [];
+    const order = [
+      ['Fecha', 'DESC'],
+      ['DocumentoTipo', 'ASC'],
+      ['DocumentoNumero', 'DESC']
+    ];
+    const attributes = [
+      'DocumentoTipo',
+      'DocumentoSucursal',
+      'DocumentoNumero',
+      'Fecha',
+      'ImporteTotal'
+    ];
+
+    const [facturas, notas, cantidadFacturas, cantidadNotas] = await Promise.all([
+      FacturaCabeza.findAll({
+        where: whereFacturasSinCae(),
+        attributes,
+        include: includeCliente,
+        order,
+        limit
+      }),
+      NotaCredito
+        ? NotaCredito.findAll({
+            where: whereNotasCreditoSinCae(),
+            attributes,
+            include: includeCliente,
+            order,
+            limit
+          })
+        : [],
+      FacturaCabeza.count({ where: whereFacturasSinCae() }),
+      NotaCredito ? NotaCredito.count({ where: whereNotasCreditoSinCae() }) : 0
+    ]);
+
+    const comprobantes = [
+      ...facturas.map((row) => mapearComprobanteSinCae(row, 'factura')),
+      ...notas.map((row) => mapearComprobanteSinCae(row, 'notaCredito'))
+    ]
+      .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)))
+      .slice(0, limit);
+
+    res.json({
+      success: true,
+      cantidad: cantidadFacturas + cantidadNotas,
+      cantidadFacturas,
+      cantidadNotas,
+      comprobantes
+    });
+  } catch (error) {
+    console.error('Error al listar comprobantes sin CAE:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al listar comprobantes sin autorizar',
       error: error.message
     });
   }
