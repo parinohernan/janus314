@@ -7,6 +7,7 @@
 	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { navigationState } from '$lib/stores/navigationState';
 	import { auth } from '$lib/stores/authStore';
+	import { esContador, RUTA_INICIO_CONTADOR } from '$lib/utils/permisos';
 	import { sidebarCollapsed } from '$lib/stores/sidebarStore';
 	import { tabsStore } from '$lib/stores/tabsStore';
 	import { getLabelFromUrl, getIconFromUrl } from '$lib/utils/navigation';
@@ -32,6 +33,16 @@
 	
 	// Detectar si estamos en la miniweb de Telegram
 	let esMiniWebTelegram = $derived($page.url.pathname.includes('/ventas/bot/'));
+
+	function redirigirContadorSiHaceFalta() {
+		if (!browser || esMiniWebTelegram || esRutaAdmin) return;
+		if (!esContador($auth.user)) return;
+		const path = $page.url.pathname;
+		if (path === '/login') return;
+		if (!path.startsWith('/ventas/informes')) {
+			goto(RUTA_INICIO_CONTADOR);
+		}
+	}
 	
 	onMount(async () => {
 		// Solo verificar autenticación si no estamos en una ruta del bot ni del admin Janus
@@ -39,6 +50,8 @@
 			const isAuthenticated = await auth.verifySession();
 			if (!isAuthenticated && $page.url.pathname !== '/login') {
 				goto('/login');
+			} else if (isAuthenticated) {
+				redirigirContadorSiHaceFalta();
 			}
 		} else if (esMiniWebTelegram) {
 			// Si es una ruta del bot y no hay token, configurar uno temporal
@@ -59,11 +72,25 @@
 			} else if (!$auth.isAuthenticated && !token && $page.url.pathname !== '/login') {
 				// Si no hay token y no está autenticado, redirigir a login
 				goto('/login');
+			} else if ($auth.isAuthenticated) {
+				redirigirContadorSiHaceFalta();
 			}
 		}
 	});
 	
-	beforeNavigate(({ from, to, cancel }) => {
+  beforeNavigate(({ from, to, cancel }) => {
+    if (
+      esContador($auth.user) &&
+      to &&
+      to.url.pathname !== '/login' &&
+      !to.url.pathname.startsWith('/ventas/informes') &&
+      !to.url.pathname.startsWith('/admin') &&
+      !to.url.pathname.includes('/ventas/bot/')
+    ) {
+      cancel();
+      goto(RUTA_INICIO_CONTADOR);
+      return;
+    }
 		if (from) {
 			// Fusionar con estado existente para no sobrescribir filtros/datos de páginas hijas
 			const currentState = navigationState.getState(from.url.pathname) || {};

@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const Empresa = require('../models/Empresa');
 const DBManager = require('../utils/DBManager');
 const initializeModels = require('../utils/modelInitializer');
+const restrictContador = require('./restrictContador');
 
 const getEmpresaConnection = async (req, res, next) => {
   try {
@@ -94,7 +95,7 @@ const getEmpresaConnection = async (req, res, next) => {
     req.empresaData = empresaData;
     req.userData = decoded;
 
-    next();
+    return restrictContador(req, res, next);
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({
@@ -164,7 +165,8 @@ async function requireAuthEmpresaOnly(req, res, next) {
 
     req.empresaData = empresaData;
     req.userData = decoded;
-    next();
+
+    return restrictContador(req, res, next);
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({

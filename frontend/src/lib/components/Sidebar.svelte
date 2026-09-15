@@ -4,6 +4,7 @@
   import { browser } from '$app/environment';
   import { smartNavigate } from '$lib/utils/navigation';
   import { auth } from '$lib/stores/authStore';
+  import { esContador } from '$lib/utils/permisos';
   import { sidebarCollapsed } from '$lib/stores/sidebarStore';
   import { menuVisibilityStore } from '$lib/stores/menuVisibilityStore';
   import { 
@@ -50,7 +51,8 @@
     Pencil,
     FolderSync,
     CircleHelp,
-    BookOpen
+    BookOpen,
+    Percent
   } from 'lucide-svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
 
@@ -76,6 +78,7 @@
   let expandedSubmenu = $state<string | null>(null);
 
   const esAdmin = $derived($auth?.user?.usuario === VENDEDOR_ADMIN);
+  const soloInformes = $derived(esContador($auth?.user));
   const configuracionItems: SubmenuItem[] = $derived(
     esAdmin
       ? [
@@ -130,6 +133,7 @@
     'informes-clientes': Users,
     'informes-proveedores': Factory,
     'informes-fechas': Calendar,
+    'informes-iva': Percent,
     
     // Submenús - Informes (nivel 2 - detalles)
     'facturacion': PieChart,
@@ -139,6 +143,8 @@
     'rubros': Tag,
     'rubros-provincia': Map,
     'marcas': Tag,
+    'iva-facturas': FileText,
+    'iva-notascredito': Receipt,
     
     // Submenús - Compras
     'proveedores': Factory,
@@ -265,6 +271,15 @@
           ]
         },
         { 
+          label: 'IVA', 
+          url: '/ventas/informes/iva',
+          icon: 'informes-iva',
+          submenus: [
+            { label: 'Facturas', url: '/ventas/informes/iva/facturas', icon: 'iva-facturas' },
+            { label: 'Notas de crédito', url: '/ventas/informes/iva/notas-credito', icon: 'iva-notascredito' }
+          ]
+        },
+        { 
           label: 'Productos', 
           url: '/ventas/informes/productos',
           icon: 'informes-productos',
@@ -324,7 +339,7 @@
   // Menú items derivados con configuración dinámica y filtrados por visibilidad
   const menuItems = $derived.by(() => {
     const vis = $menuVisibilityStore;
-    return baseMenuItems
+    const filtrados = baseMenuItems
       .filter((item) => (vis[item.id] ?? true))
       .map((item) => {
         if (item.id === 'configuracion') {
@@ -342,6 +357,17 @@
         return item;
       })
       .filter((e): e is (typeof baseMenuItems)[0] => e !== null);
+
+    if (soloInformes) {
+      return filtrados.filter((item) => item.id === 'informes');
+    }
+    return filtrados;
+  });
+
+  $effect(() => {
+    if (soloInformes && !isCollapsed) {
+      expandedMenu = 'informes';
+    }
   });
 
   function toggleCollapsed() {

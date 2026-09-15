@@ -114,7 +114,8 @@ describe('POST /api/auth/login', () => {
     expect(res.body.user.id).toBe('001');
     expect(res.body.empresa.id).toBe('1');
     const decoded = jwt.verify(res.body.token, process.env.JWT_SECRET);
-    expect(decoded).toMatchObject({ userId: '001', empresaId: '1' });
+    expect(decoded).toMatchObject({ userId: '001', empresaId: '1', permisos: 'admin' });
+    expect(res.body.user.permisos).toBe('admin');
     expect(CuentaAcceso.findOne).toHaveBeenCalledWith({
       where: { usuario: 'hernan', activo: true }
     });
@@ -146,6 +147,26 @@ describe('POST /api/auth/login', () => {
 
     expect(res.status).toBe(401);
     expect(res.body.error).toBe('Credenciales inválidas');
+  });
+
+  test('acepta vendedor con permisos de contador', async () => {
+    const passwordHash = await bcrypt.hash('secret1234', 4);
+    CuentaAcceso.findOne.mockResolvedValue({
+      password_hash: passwordHash,
+      empresa_id: '1',
+      vendedor_codigo: '003',
+      update: jest.fn().mockResolvedValue(true)
+    });
+    mockTenantQuery([{ Codigo: '003', Descripcion: 'Contador', Activo: 1, Permisos: 'contador' }]);
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ usuario: 'conta', password: 'secret1234' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.permisos).toBe('contador');
+    const decoded = jwt.verify(res.body.token, process.env.JWT_SECRET);
+    expect(decoded.permisos).toBe('contador');
   });
 
   test('rechaza vendedor que no es admin', async () => {

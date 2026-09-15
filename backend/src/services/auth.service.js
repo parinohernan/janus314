@@ -5,6 +5,7 @@ const Empresa = require('../models/Empresa');
 const CuentaAcceso = require('../models/cuentaAcceso.model');
 const DBManager = require('../utils/DBManager');
 const { logAuthEvent } = require('../utils/logger');
+const { normalizarPermiso, puedeAccederErp } = require('../utils/permisos');
 const BCRYPT_ROUNDS = CuentaAcceso.BCRYPT_ROUNDS || 12;
 
 const INVALID_CREDENTIALS = 'Credenciales inválidas';
@@ -39,11 +40,13 @@ function normalizeVendedor(row) {
 }
 
 function buildSessionPayload(vendedor, empresaData) {
+  const permisos = normalizarPermiso(vendedor.Permisos);
   const token = jwt.sign(
     {
       userId: vendedor.Codigo,
       empresaId: empresaData.id,
-      nombre: vendedor.Descripcion
+      nombre: vendedor.Descripcion,
+      permisos
     },
     requireJwtSecret(),
     { expiresIn: '24h' }
@@ -56,7 +59,7 @@ function buildSessionPayload(vendedor, empresaData) {
       nombre: vendedor.Descripcion,
       usuario: vendedor.Codigo,
       activo: Number(vendedor.Activo) === 1,
-      permisos: vendedor.Permisos
+      permisos
     },
     empresa: {
       id: empresaData.id,
@@ -90,14 +93,14 @@ async function loadVendedor(empresaData, codigo) {
   return { vendedor: normalizeVendedor(row), empresaDB };
 }
 
-function assertVendedorAdminActivo(vendedor, { notFoundMessage } = {}) {
+function assertVendedorPuedeAcceder(vendedor, { notFoundMessage } = {}) {
   if (!vendedor) {
     throw httpError(401, notFoundMessage || INVALID_CREDENTIALS);
   }
   if (Number(vendedor.Activo) !== 1) {
     throw httpError(401, 'Usuario inactivo');
   }
-  if (!vendedor.Permisos || vendedor.Permisos !== 'admin') {
+  if (!puedeAccederErp(vendedor.Permisos)) {
     throw httpError(403, 'Acceso denegado - Solo los administradores pueden acceder al sistema');
   }
 }
@@ -116,7 +119,7 @@ async function loginWithPassword(usuario, password) {
 
   const empresaData = await loadEmpresa(cuenta.empresa_id);
   const { vendedor } = await loadVendedor(empresaData, cuenta.vendedor_codigo);
-  assertVendedorAdminActivo(vendedor);
+  assertVendedorPuedeAcceder(vendedor);
 
   await cuenta.update({ ultimo_acceso: new Date() });
   logAuthEvent(usuarioNorm, 'login', true, { empresaId: empresaData.id, via: 'cuenta' });
@@ -138,7 +141,7 @@ async function loginLegacy(usuario, password, empresaId) {
   if (!vendedor) {
     throw httpError(401, INVALID_CREDENTIALS);
   }
-  if (!vendedor.Permisos || vendedor.Permisos !== 'admin') {
+  if (!puedeAccederErp(vendedor.Permisos)) {
     throw httpError(403, 'Acceso denegado - Solo los administradores pueden acceder al sistema');
   }
 
@@ -159,7 +162,7 @@ async function verifySession(token) {
 
   const empresaData = await loadEmpresa(decoded.empresaId);
   const { vendedor } = await loadVendedor(empresaData, decoded.userId);
-  assertVendedorAdminActivo(vendedor, { notFoundMessage: 'Usuario no encontrado' });
+  assertVendedorPuedeAcceder(vendedor, { notFoundMessage: 'Usuario no encontrado' });
   return buildSessionPayload(vendedor, empresaData);
 }
 

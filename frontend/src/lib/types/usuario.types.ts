@@ -7,6 +7,7 @@ export interface Usuario {
 	apellido: string;
 	usuario: string;
 	rol: string;
+	permisos?: string;
 	activo: boolean;
 	fechaCreacion: string;
 	ultimoAcceso?: string | null;

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { auth } from '$lib/stores/authStore';
+	import { esContador, RUTA_INICIO_CONTADOR } from '$lib/utils/permisos';
 	import { goto } from '$app/navigation';
 	import { authConfig } from '$lib/config/auth.config';
 	import { PUBLIC_API_URL } from '$env/static/public';
@@ -74,8 +75,12 @@
 					: { usuario, password })
 				: { usuario, password };
 				
-			await auth.login(credentials);
-			goto('/');
+			const data = await auth.login(credentials);
+			if (esContador(data?.user)) {
+				goto(RUTA_INICIO_CONTADOR);
+			} else {
+				goto('/');
+			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Credenciales inválidas';
 			console.error('Error de login:', e);
