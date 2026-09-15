@@ -62,6 +62,8 @@ export const MENU_ENTRIES: MenuEntry[] = [
 	{ id: '/ventas/informes/facturacion-neta', url: '/ventas/informes/facturacion-neta', label: 'Facturación neta', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/vendedores', url: '/ventas/informes/vendedores', label: 'Vendedores', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/vendedores-preventa', url: '/ventas/informes/vendedores-preventa', label: 'Preventistas', parentId: 'informes', parentLabel: 'Informes' },
+	{ id: '/ventas/informes/iva/facturas', url: '/ventas/informes/iva/facturas', label: 'IVA Facturas', parentId: 'informes', parentLabel: 'Informes' },
+	{ id: '/ventas/informes/iva/notas-credito', url: '/ventas/informes/iva/notas-credito', label: 'IVA Notas de crédito', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/productos', url: '/ventas/informes/productos', label: 'Productos', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/rubros', url: '/ventas/informes/rubros', label: 'Rubros', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/rubros-provincia', url: '/ventas/informes/rubros-provincia', label: 'Rubros por Provincia', parentId: 'informes', parentLabel: 'Informes' },

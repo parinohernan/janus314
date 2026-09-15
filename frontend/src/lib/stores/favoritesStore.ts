@@ -26,6 +26,8 @@ export interface FavoriteItem {
     { id: 'informes-productos', label: 'Informes - Productos', url: '/ventas/informes/productos', icon: '📦', category: 'Ventas' },
     { id: 'informes-clientes', label: 'Informes - Clientes', url: '/ventas/informes/clientes', icon: '👥', category: 'Ventas' },
     { id: 'informes-vendedores', label: 'Informes - Vendedores', url: '/ventas/informes/vendedores', icon: '👨‍💼', category: 'Ventas' },
+    { id: 'informes-iva-facturas', label: 'Informes - IVA Facturas', url: '/ventas/informes/iva/facturas', icon: '📊', category: 'Ventas' },
+    { id: 'informes-iva-nc', label: 'Informes - IVA Notas de crédito', url: '/ventas/informes/iva/notas-credito', icon: '📊', category: 'Ventas' },
   
       // Productos
     { id: 'productos', label: 'Productos', url: '/productos', icon: '📦', category: 'Productos' },

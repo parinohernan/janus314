@@ -115,6 +115,8 @@ export function getLabelFromUrl(url: string): string {
     'listado': 'Listado',
     'actualizacion': 'Actualización',
     'facturacion': 'Facturación',
+    'iva': 'IVA',
+    'notas-credito': 'Notas de crédito',
     'vendedores': 'Vendedores',
     'marcas': 'Marcas',
     'fechas': 'Fechas',

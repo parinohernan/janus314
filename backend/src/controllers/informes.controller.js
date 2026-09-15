@@ -15,6 +15,7 @@ const {
   obtenerNotasCreditoDeFacturas
 } = require('../services/informeVentasPreventista.service');
 const { procesarFacturacionNeta } = require('../services/informeFacturacionNeta.service');
+const { obtenerInformeIvaComprobantes } = require('../services/informeIvaComprobantes.service');
 
 // Informe de ventas por productos
 exports.ventasPorProductos = async (req, res) => {
@@ -673,6 +674,46 @@ exports.informeFacturacionNeta = async (req, res) => {
       error: error.message
     });
   }
+};
+
+async function responderInformeIva(req, res, clase) {
+  try {
+    const { fechaDesde, fechaHasta } = req.query;
+    if (!fechaDesde || !fechaHasta) {
+      return res.status(400).json({
+        success: false,
+        message: "Se requieren fechaDesde y fechaHasta"
+      });
+    }
+
+    const resultado = await obtenerInformeIvaComprobantes({
+      models: req.models,
+      clase,
+      fechaDesde,
+      fechaHasta
+    });
+
+    res.json({
+      success: true,
+      comprobantes: resultado.comprobantes,
+      totales: resultado.totales
+    });
+  } catch (error) {
+    console.error("Error al generar informe IVA:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al generar el informe de IVA",
+      error: error.message
+    });
+  }
+}
+
+exports.informeIvaFacturas = async (req, res) => {
+  return responderInformeIva(req, res, "factura");
+};
+
+exports.informeIvaNotasCredito = async (req, res) => {
+  return responderInformeIva(req, res, "notaCredito");
 };
 
 // Función para procesar los datos de facturación
