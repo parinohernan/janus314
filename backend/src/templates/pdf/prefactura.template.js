@@ -9,17 +9,18 @@ const path = require("path");
  * @param {Object} data - Datos de la prefactura
  */
 async function renderPrefactura(doc, data) {
-  const { prefactura, items, logoPath } = data;
-  // Si no se proporciona logoPath, usar el por defecto
+  const { prefactura, items, logoPath, imprimirDuplicado = false } = data;
   const finalLogoPath = logoPath || path.join(__dirname, "./common/logos/logoempresa.png");
-  //prefactura.DocumentoNumero = "1234567890";
-  // Establecer la fuente Helvetica para todo el documento
   doc.font("Helvetica");
-  const interlineado = 10; //10 media pagina y 20 A4
+  const interlineado = 10;
 
-  // Función para renderizar una página
-  const renderPage = async () => {
-    // Agregar logo de la empresa si está disponible
+  const renderPage = async (isOriginal) => {
+    if (imprimirDuplicado) {
+      doc.fontSize(12).font("Helvetica-Bold");
+      doc.text(isOriginal ? "ORIGINAL" : "DUPLICADO", 40, 2, { align: "center" });
+      doc.font("Helvetica");
+    }
+
     if (finalLogoPath) {
       try {
         doc.image(finalLogoPath, 20, 20, {
@@ -31,26 +32,21 @@ async function renderPrefactura(doc, data) {
         console.error("Error al cargar el logo en prefactura:", error);
       }
     }
-    
-    // Encabezado simple con solo la leyenda "Prefactura Nº:" y el número
+
     doc.fontSize(14).font("Helvetica-Bold");
     doc.text(`Remito Nº: ${prefactura.DocumentoSucursal} - ${prefactura.DocumentoNumero}`, 40, 40, { align: "center" });
-    
-    // Agregar fecha en la parte superior derecha
+
     const fecha = new Date(prefactura.Fecha).toLocaleDateString('es-AR');
     doc.fontSize(12).font("Helvetica");
     doc.text(`Fecha: ${fecha}`, 450, 40, { align: "right" });
-    
-    // Restaurar fuente normal
+
     doc.font("Helvetica");
-    
-    // Información del cliente
+
     let y = 80;
     y = renderClienteInfo(doc, prefactura, y);
-    
-        // Tabla de ítems con IVA (igual que Factura B)
-        y = 110;
-        y = renderItemsListConIva(doc, items, y, interlineado);
+
+    y = 110;
+    y = renderItemsListConIva(doc, items, y, interlineado);
     renderPiePrefactura(doc, {
       items,
       prefactura,
@@ -60,8 +56,11 @@ async function renderPrefactura(doc, data) {
     });
   };
 
-  // Renderizar solo una página (sin duplicado)
-  await renderPage();
+  await renderPage(true);
+  if (imprimirDuplicado) {
+    doc.addPage();
+    await renderPage(false);
+  }
 }
 
-module.exports = renderPrefactura; 
+module.exports = renderPrefactura;

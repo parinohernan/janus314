@@ -29,6 +29,21 @@ const renderOrdenCompra = require("../templates/pdf/ordenCompra.template.js");
 const logoManager = require("../utils/logoManager");
 const docFacturaA4 = { margin: 42.5, size: "A4" }; // 1.5cm = 42.5 puntos (1cm = 28.35 puntos)
 
+/** Flag 0/1 en t_configuracion. Si no hay fila o falla la lectura, se usa 0. */
+async function leerFlagConfig(Configuracion, codigo) {
+  if (!Configuracion) return false;
+  try {
+    const cfg = await Configuracion.findOne({
+      where: { Codigo: codigo },
+      attributes: ["ValorConfig"],
+    });
+    return String(cfg?.ValorConfig || "").trim() === "1";
+  } catch (e) {
+    console.warn(`[PDF] No se pudo leer ${codigo}, se usa 0:`, e.message);
+    return false;
+  }
+}
+
 // Función para generar PDF de factura
 exports.generarFacturaPDF = async (req, res) => {
   try {
@@ -183,32 +198,25 @@ exports.generarFacturaPDF = async (req, res) => {
         logoPath,
       });
     } else if (tipo === "PRF") {
-      let mostrarInfoEmpresaRemito = false;
-      try {
-        if (Configuracion) {
-          const cfg = await Configuracion.findOne({
-            where: { Codigo: "mostrar_info_en_remitos" },
-            attributes: ["ValorConfig"],
-          });
-          mostrarInfoEmpresaRemito =
-            cfg && String(cfg.ValorConfig || "").trim() === "1";
-        }
-      } catch (e) {
-        console.warn("[PDF PRF] No se pudo leer mostrar_info_en_remitos:", e.message);
-      }
+      const mostrarInfoEmpresaRemito = await leerFlagConfig(
+        Configuracion,
+        "mostrar_info_en_remitos"
+      );
+      const imprimirDuplicado = await leerFlagConfig(
+        Configuracion,
+        "imprimir_duplicado_en_remitos"
+      );
+      const datosPrf = {
+        prefactura: factura,
+        items: itemsConArticulos,
+        logoPath,
+        imprimirDuplicado,
+      };
 
       if (mostrarInfoEmpresaRemito) {
-        await renderPrefacturaConEmpresa(doc, {
-          prefactura: factura,
-          items: itemsConArticulos,
-          logoPath,
-        });
+        await renderPrefacturaConEmpresa(doc, datosPrf);
       } else {
-        await renderPrefactura(doc, {
-          prefactura: factura,
-          items: itemsConArticulos,
-          logoPath,
-        });
+        await renderPrefactura(doc, datosPrf);
       }
     } else {
       doc.fontSize(20).text("Tipo de factura no soportado", 100, 100);

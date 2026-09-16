@@ -90,6 +90,7 @@ exports.actualizarConfiguracion = async (req, res) => {
       reportes_auto_rclone: 'Remoto rclone (ej. gdrive:Contabilidad/RubrosProvincia)',
       CANT_ITEMS: 'Cantidad de Items por Página',
       mostrar_info_en_remitos: 'Mostrar información en remitos',
+      imprimir_duplicado_en_remitos: 'Imprimir duplicado en remitos (PRF)',
     };
 
     let config = await Configuracion.findOne({

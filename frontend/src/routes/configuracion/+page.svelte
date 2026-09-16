@@ -15,8 +15,16 @@
   type FilaParametro = { codigo: string; config: Configuracion | null };
   let filasParametros = $state<FilaParametro[]>([]);
   
-  // Códigos en t_configuracion (misma tabla que CANT_ITEMS)
-  const configuracionesVisibles = ['CANT_ITEMS', 'mostrar_info_en_remitos'] as const;
+  const FLAGS_01 = ['mostrar_info_en_remitos', 'imprimir_duplicado_en_remitos'] as const;
+  const configuracionesVisibles = ['CANT_ITEMS', ...FLAGS_01] as const;
+
+  function esFlag01(codigo: string): boolean {
+    return (FLAGS_01 as readonly string[]).includes(codigo);
+  }
+
+  function valorFlag01(valor: string | null | undefined): '0' | '1' {
+    return String(valor ?? '').trim() === '1' ? '1' : '0';
+  }
   
   onMount(async () => {
     await cargarConfiguraciones();
@@ -33,11 +41,9 @@
       }));
 
       for (const fila of filasParametros) {
-        if (!fila.config) continue;
-        if (fila.codigo === 'mostrar_info_en_remitos') {
-          const v = String(fila.config.ValorConfig ?? '').trim();
-          valores[fila.codigo] = v === '1' ? '1' : '0';
-        } else {
+        if (esFlag01(fila.codigo)) {
+          valores[fila.codigo] = valorFlag01(fila.config?.ValorConfig);
+        } else if (fila.config) {
           valores[fila.codigo] = fila.config.ValorConfig ?? '';
         }
       }
@@ -54,8 +60,8 @@
     try {
       guardando = true;
       let valorAGuardar = valores[codigo];
-      if (codigo === 'mostrar_info_en_remitos') {
-        valorAGuardar = valorAGuardar === '1' ? '1' : '0';
+      if (esFlag01(codigo)) {
+        valorAGuardar = valorFlag01(valorAGuardar);
       }
       const exito = await ConfiguracionService.actualizarConfiguracion(
         codigo,
@@ -87,7 +93,8 @@
   function obtenerDescripcionAmigable(codigo: string): string {
     const descripciones: Record<string, string> = {
       CANT_ITEMS: 'Cantidad de Items por Página',
-      mostrar_info_en_remitos: 'Mostrar información en remitos'
+      mostrar_info_en_remitos: 'Mostrar información en remitos',
+      imprimir_duplicado_en_remitos: 'Imprimir duplicado en remitos (PRF)'
     };
     return descripciones[codigo] || codigo;
   }
@@ -96,13 +103,19 @@
   function obtenerTipoInput(codigo: string): string {
     const tipos: Record<string, string> = {
       CANT_ITEMS: 'number',
-      mostrar_info_en_remitos: 'flag01'
+      mostrar_info_en_remitos: 'flag01',
+      imprimir_duplicado_en_remitos: 'flag01'
     };
     return tipos[codigo] || 'text';
   }
 
   function parametroDisponible(fila: FilaParametro): boolean {
-    return fila.config !== null;
+    return esFlag01(fila.codigo) || fila.config !== null;
+  }
+
+  function valorGuardado(fila: FilaParametro): string {
+    if (esFlag01(fila.codigo)) return valorFlag01(fila.config?.ValorConfig);
+    return fila.config?.ValorConfig ?? '';
   }
 </script>
 
@@ -212,8 +225,10 @@
                   >
                     {obtenerDescripcionAmigable(fila.codigo)}
                   </span>
-                  {#if disponible && config?.Descripcion}
+                  {#if config?.Descripcion}
                     <p class="text-sm text-gray-500">{config.Descripcion}</p>
+                  {:else if esFlag01(fila.codigo) && !config}
+                    <p class="text-sm text-gray-500">Si no hay valor en la base se usa No (0).</p>
                   {:else if !disponible}
                     <p class="text-sm text-gray-500">
                       No hay fila para este código en la tabla de configuración; no se puede editar hasta que exista en la base.
@@ -249,7 +264,7 @@
                     <button
                       type="button"
                       onclick={() => guardarConfiguracion(fila.codigo)}
-                      disabled={guardando || valores[fila.codigo] === config!.ValorConfig}
+                      disabled={guardando || valores[fila.codigo] === valorGuardado(fila)}
                       class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                     >
                       {#if guardando}

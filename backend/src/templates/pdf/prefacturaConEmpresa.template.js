@@ -7,10 +7,10 @@ const path = require("path");
 /**
  * PRF (remito interno) con encabezado completo de empresa, mismo criterio que Factura A.
  * @param {PDFDocument} doc
- * @param {{ prefactura: object, items: object[], logoPath?: string }} data
+ * @param {{ prefactura: object, items: object[], logoPath?: string, imprimirDuplicado?: boolean }} data
  */
 async function renderPrefacturaConEmpresa(doc, data) {
-  const { prefactura, items, logoPath } = data;
+  const { prefactura, items, logoPath, imprimirDuplicado = false } = data;
   const finalLogoPath = logoPath || path.join(__dirname, "./common/logos/logoempresa.png");
   const Empresa = prefactura.Empresa || {};
 
@@ -30,35 +30,49 @@ async function renderPrefacturaConEmpresa(doc, data) {
     }
   }
 
-  let y = renderHeader(doc, {
-    fecha: fechaStr,
-    companyName: Empresa.RazonSocial || "",
-    companyName2: Empresa.PieCero || "",
-    companyTaxId: Empresa.Cuit || "",
-    companyAddress: Empresa.DomicilioComercial || "",
-    companyPhone: Empresa.Telefono || "",
-    companyEmail: Empresa.Email || "",
-    companyLocalidad: Empresa.Localidad || "",
-    companyIngresosBrutos: Empresa.IngresosBrutos || "",
-    companyInicioActividades: inicioActividadesStr,
-    title: "R",
-    documentType: "R",
-    documentNumber: `${prefactura.DocumentoSucursal}-${prefactura.DocumentoNumero}`,
-    logoPath: finalLogoPath,
-    isNotaCredito: false,
-    isRemito: true,
-  });
+  const renderPage = async (isOriginal) => {
+    if (imprimirDuplicado) {
+      doc.fontSize(12).font("Helvetica-Bold");
+      doc.text(isOriginal ? "ORIGINAL" : "DUPLICADO", 40, 2, { align: "center" });
+      doc.font("Helvetica");
+    }
 
-  y += 8;
-  y = renderClienteInfo(doc, prefactura, y);
-  y = renderItemsListConIva(doc, items, y, interlineado);
-  renderPiePrefactura(doc, {
-    items,
-    prefactura,
-    y,
-    xTotales: 370,
-    interlineado,
-  });
+    let y = renderHeader(doc, {
+      fecha: fechaStr,
+      companyName: Empresa.RazonSocial || "",
+      companyName2: Empresa.PieCero || "",
+      companyTaxId: Empresa.Cuit || "",
+      companyAddress: Empresa.DomicilioComercial || "",
+      companyPhone: Empresa.Telefono || "",
+      companyEmail: Empresa.Email || "",
+      companyLocalidad: Empresa.Localidad || "",
+      companyIngresosBrutos: Empresa.IngresosBrutos || "",
+      companyInicioActividades: inicioActividadesStr,
+      title: "R",
+      documentType: "R",
+      documentNumber: `${prefactura.DocumentoSucursal}-${prefactura.DocumentoNumero}`,
+      logoPath: finalLogoPath,
+      isNotaCredito: false,
+      isRemito: true,
+    });
+
+    y += 8;
+    y = renderClienteInfo(doc, prefactura, y);
+    y = renderItemsListConIva(doc, items, y, interlineado);
+    renderPiePrefactura(doc, {
+      items,
+      prefactura,
+      y,
+      xTotales: 370,
+      interlineado,
+    });
+  };
+
+  await renderPage(true);
+  if (imprimirDuplicado) {
+    doc.addPage();
+    await renderPage(false);
+  }
 }
 
 module.exports = renderPrefacturaConEmpresa;
