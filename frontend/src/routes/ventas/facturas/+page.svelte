@@ -17,6 +17,7 @@
   import { smartNavigate } from '$lib/utils/navigation';
   import { toast, confirm } from '$lib/utils/toast';
   import { syncStackedTableRowHeights } from '$lib/utils/syncTableRowHeights';
+  import { abrirVentanaImpresionLote, imprimirLoteFacturas } from '$lib/utils/imprimirLoteFacturas';
 
   // Definición de interfaces
   interface Factura {
@@ -119,6 +120,68 @@
   // Estado para el selector de vendedores
   let vendedoresOptions: VendedorOptionType[] = [];
   let vendedoresLoading = false;
+
+  let selectedFacturas: string[] = [];
+  let selectedAll = false;
+  let menuLoteAbierto = false;
+  let imprimiendoLote = false;
+  let loteMenuEl: HTMLDivElement | undefined;
+
+  const idFactura = (factura: Factura) =>
+    `${factura.DocumentoTipo}-${factura.DocumentoSucursal}-${factura.DocumentoNumero}`;
+
+  const actualizarSelectedAll = () => {
+    selectedAll = facturas.length > 0 && selectedFacturas.length === facturas.length;
+  };
+
+  const marcarTodasPagina = () => {
+    selectedFacturas = facturas.map(idFactura);
+    selectedAll = facturas.length > 0;
+  };
+
+  const quitarSeleccion = () => {
+    selectedFacturas = [];
+    selectedAll = false;
+  };
+
+  const toggleSelectFactura = (factura: Factura) => {
+    const id = idFactura(factura);
+    if (selectedFacturas.includes(id)) {
+      selectedFacturas = selectedFacturas.filter((item) => item !== id);
+    } else {
+      selectedFacturas = [...selectedFacturas, id];
+    }
+    actualizarSelectedAll();
+  };
+
+  const handleSelectAll = () => {
+    if (selectedAll) {
+      quitarSeleccion();
+    } else {
+      marcarTodasPagina();
+    }
+  };
+
+  const parseIdFactura = (id: string) => {
+    const [tipo, sucursal, ...resto] = id.split('-');
+    return { tipo, sucursal, numero: resto.join('-') };
+  };
+
+  const imprimirSeleccionadas = async () => {
+    if (selectedFacturas.length === 0 || imprimiendoLote) return;
+    const printWindow = abrirVentanaImpresionLote();
+    imprimiendoLote = true;
+    menuLoteAbierto = false;
+    try {
+      await imprimirLoteFacturas(selectedFacturas.map(parseIdFactura), printWindow);
+    } catch (err) {
+      printWindow?.close();
+      console.error('Error imprimiendo lote:', err);
+      toast.error(err instanceof Error ? err.message : 'No se pudo armar el lote para imprimir');
+    } finally {
+      imprimiendoLote = false;
+    }
+  };
   
   // Cargar facturas
   const cargarFacturas = async () => {
@@ -156,6 +219,8 @@
       totalItems = data.meta.totalItems;
       currentPage = data.meta.currentPage;
       totalPages = data.meta.totalPages;
+      selectedFacturas = [];
+      selectedAll = false;
       
       // Guardar estado en el store de navegación
       (navigationState as any).saveState('/ventas/facturas', {
@@ -479,8 +544,18 @@
   onMount(() => {
     if (!browser) return;
     const onResize = () => runSyncStackedTables();
+    const onDocClick = (event: MouseEvent) => {
+      if (!loteMenuEl) return;
+      if (!loteMenuEl.contains(event.target as Node)) {
+        menuLoteAbierto = false;
+      }
+    };
     window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    document.addEventListener('click', onDocClick);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      document.removeEventListener('click', onDocClick);
+    };
   });
   
   // Estados visuales
@@ -761,6 +836,47 @@
       </div>
       
       <div class="md:col-span-6 flex justify-end space-x-2">
+        <div class="relative" bind:this={loteMenuEl}>
+          <Button
+            variant="secondary"
+            disabled={imprimiendoLote}
+            on:click={() => (menuLoteAbierto = !menuLoteAbierto)}
+          >
+            {imprimiendoLote ? 'Preparando…' : 'Imprimir lote'}
+          </Button>
+          {#if menuLoteAbierto}
+            <div class="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+              <button
+                type="button"
+                class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                on:click={() => {
+                  marcarTodasPagina();
+                  menuLoteAbierto = false;
+                }}
+              >
+                Seleccionar todas
+              </button>
+              <button
+                type="button"
+                class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                on:click={() => {
+                  quitarSeleccion();
+                  menuLoteAbierto = false;
+                }}
+              >
+                Quitar selección
+              </button>
+              <button
+                type="button"
+                class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-400"
+                disabled={selectedFacturas.length === 0 || imprimiendoLote}
+                on:click={imprimirSeleccionadas}
+              >
+                Imprimir seleccionadas ({selectedFacturas.length})
+              </button>
+            </div>
+          {/if}
+        </div>
         <Button variant="secondary" on:click={resetearFiltros}>Limpiar Filtros</Button>
         <Button variant="primary" on:click={aplicarFiltros}>Aplicar Filtros</Button>
       </div>
@@ -794,6 +910,16 @@
           <table bind:this={leftTableEl} class="min-w-max w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
+            <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <input
+                type="checkbox"
+                class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                checked={selectedAll}
+                disabled={facturas.length === 0}
+                on:change={handleSelectAll}
+                aria-label="Seleccionar todas las facturas de esta página"
+              />
+            </th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Número</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
@@ -809,6 +935,16 @@
         <tbody class="bg-white divide-y divide-gray-200">
           {#each facturas as factura, i}
             <tr class={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+              <td class="px-3 py-3 whitespace-nowrap text-center">
+                <input
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  checked={selectedFacturas.includes(idFactura(factura))}
+                  on:click|stopPropagation
+                  on:change={() => toggleSelectFactura(factura)}
+                  aria-label="Seleccionar factura {factura.DocumentoTipo} {factura.DocumentoSucursal}-{factura.DocumentoNumero}"
+                />
+              </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 <span class={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
                   ${factura.DocumentoTipo === 'FCA' ? 'bg-blue-100 text-blue-800' : 

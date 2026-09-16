@@ -5,6 +5,42 @@ export class DocumentService {
 	/**
 	 * Genera un PDF para un documento específico (factura, nota de crédito o nota de débito)
 	 */
+	static async generarPDFBytes(
+		tipo: string,
+		sucursal: string,
+		numero: string,
+		options?: { vista?: 'empresa' | 'proveedor' }
+	): Promise<ArrayBuffer> {
+		let endpoint = '/facturas/pdf';
+
+		if (tipo.startsWith('NC')) {
+			endpoint = '/notascredito/pdf';
+		} else if (tipo.startsWith('ND')) {
+			endpoint = '/notasdebito/pdf';
+		} else if (tipo === 'OC') {
+			endpoint = '/ordenes-compra/pdf';
+		}
+
+		const qs = tipo === 'OC' && options?.vista === 'proveedor' ? '?vista=proveedor' : '';
+		const url = `${endpoint}/${tipo}/${sucursal}/${numero}${qs}`;
+
+		const response = await fetchWithAuth(url, {
+			method: 'GET',
+			headers: {
+				Accept: 'application/pdf'
+			}
+		});
+
+		if (!response.ok) {
+			throw new Error(`Error al generar el PDF ${tipo} ${sucursal}-${numero}`);
+		}
+
+		return response.arrayBuffer();
+	}
+
+	/**
+	 * Genera un PDF para un documento específico (factura, nota de crédito o nota de débito)
+	 */
 	static async generarPDF(
 		tipo: string,
 		sucursal: string,
@@ -12,43 +48,8 @@ export class DocumentService {
 		options?: { vista?: 'empresa' | 'proveedor' }
 	): Promise<string> {
 		try {
-			// Determinar el endpoint según el tipo de documento
-			let endpoint = '/facturas/pdf';
-			
-			// Si es nota de crédito (tipos que empiezan con NC)
-			if (tipo.startsWith('NC')) {
-				endpoint = '/notascredito/pdf';
-			}
-			// Si es nota de débito (tipos que empiezan con ND)
-			else if (tipo.startsWith('ND')) {
-				endpoint = '/notasdebito/pdf';
-			}
-			// Si es orden de compra (OC)
-			else if (tipo === 'OC') {
-				endpoint = '/ordenes-compra/pdf';
-			}
-
-			const qs =
-				tipo === 'OC' && options?.vista === 'proveedor' ? '?vista=proveedor' : '';
-			const url = `${endpoint}/${tipo}/${sucursal}/${numero}${qs}`;
-			console.log('URL PDF:', url);
-			
-			const response = await fetchWithAuth(
-				url,
-				{
-					method: 'GET',
-					headers: {
-						Accept: 'application/pdf'
-					}
-				}
-			);
-
-			if (!response.ok) {
-				throw new Error('Error al generar el PDF', { cause: response.statusText });
-			}
-
-			// Crear URL del blob para mostrar el PDF
-			const blob = await response.blob();
+			const bytes = await DocumentService.generarPDFBytes(tipo, sucursal, numero, options);
+			const blob = new Blob([bytes], { type: 'application/pdf' });
 			return URL.createObjectURL(blob);
 		} catch (error) {
 			console.error('Error generando PDF:', error);
