@@ -1,5 +1,5 @@
 const { QueryTypes } = require("sequelize");
-const fetch = require("node-fetch");
+const NumeroControlService = require("../services/numeroControl.service");
 
 // Obtener todos los encabezados de movimientos (agrupados)
 exports.getMovimientos = async (req, res) => {
@@ -23,8 +23,8 @@ exports.getMovimientos = async (req, res) => {
         DocumentoTipo, 
         DocumentoSucursal, 
         DocumentoNumero, 
-        Fecha, 
-        MovimientoTipo, 
+        MAX(Fecha) as Fecha, 
+        MAX(MovimientoTipo) as MovimientoTipo, 
         COUNT(CodigoArticulo) as Items,
         SUM(CASE WHEN MovimientoTipo = 'ING' THEN Cantidad ELSE -Cantidad END) as TotalItems,
         MAX(Observacion) as Observacion
@@ -140,66 +140,60 @@ exports.getMovimientoDetalle = async (req, res) => {
 // Crear un nuevo movimiento con sus items
 exports.crearMovimiento = async (req, res) => {
   const sequelize = req.db;
-  const { MovimientoStock } = req.models;
+  const { MovimientoStock, NumerosControl } = req.models;
   const t = await sequelize.transaction();
 
   try {
     const { encabezado, items } = req.body;
 
-    // Si no se proporcionó un número de documento, obtener uno nuevo
     if (
-      !encabezado.DocumentoNumero ||
-      encabezado.DocumentoNumero.trim() === ""
+      !encabezado?.DocumentoSucursal ||
+      !encabezado?.Fecha ||
+      !encabezado?.MovimientoTipo
     ) {
-      try {
-        // Obtener el token de autorización del request original
-        const authHeader = req.headers.authorization;
-        
-        // Llamar internamente a nuestro propio servicio para obtener el número
-        const response = await fetch(
-          `${req.protocol}://${req.get("host")}/api/numeros-control/STK/${
-            encabezado.DocumentoSucursal
-          }`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": authHeader // Pasar el token de autorización
-            },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error("Error al obtener número de comprobante");
-        }
-
-        const numeroData = await response.json();
-        encabezado.DocumentoNumero = numeroData.data.numeroFormateado;
-        encabezado.DocumentoTipo = "STK"; // Asegurar que sea STK para movimientos de stock
-      } catch (error) {
-        console.error("Error obteniendo número de comprobante:", error);
-        throw new Error("No se pudo obtener el número de comprobante");
-      }
-    }
-
-    // Validar datos del encabezado
-    if (
-      !encabezado.DocumentoTipo ||
-      !encabezado.DocumentoSucursal ||
-      !encabezado.DocumentoNumero ||
-      !encabezado.Fecha ||
-      !encabezado.MovimientoTipo
-    ) {
+      await t.rollback();
       return res
         .status(400)
         .json({ message: "Datos de encabezado incompletos" });
     }
 
-    // Validar que existan items
     if (!items || items.length === 0) {
+      await t.rollback();
       return res
         .status(400)
         .json({ message: "El movimiento debe tener al menos un item" });
+    }
+
+    encabezado.DocumentoTipo = "STK";
+    encabezado.DocumentoSucursal = String(encabezado.DocumentoSucursal)
+      .trim()
+      .padStart(4, "0");
+
+    if (!encabezado.DocumentoNumero || encabezado.DocumentoNumero.trim() === "") {
+      const sucursal = encabezado.DocumentoSucursal;
+      const numeroControl = await NumerosControl.findOne({
+        where: { Codigo: "STK", Sucursal: sucursal },
+        transaction: t,
+      });
+      if (!numeroControl) {
+        await NumerosControl.create(
+          {
+            Codigo: "STK",
+            Descripcion: "Movimientos de stock",
+            NumeroProximo: 1,
+            Copias: 1,
+            Sucursal: sucursal,
+          },
+          { transaction: t }
+        );
+      }
+      encabezado.DocumentoNumero =
+        await NumeroControlService.obtenerYActualizarNumero(
+          "STK",
+          sucursal,
+          t,
+          NumerosControl
+        );
     }
 
     // Verificar si ya existe un movimiento con esa clave primaria
