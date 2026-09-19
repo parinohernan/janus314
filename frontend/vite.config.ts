@@ -2,8 +2,33 @@ import tailwindcss from '@tailwindcss/vite';
 import { svelteTesting } from '@testing-library/svelte/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
-import { loadEnv } from 'vite';
+import { loadEnv, type Plugin } from 'vite';
 import { resolve } from 'path';
+
+/**
+ * SvelteKit's Vite plugin calls decodeURI(pathname) without a try/catch.
+ * A request like /% (bots, extensions, a truncated URL after idle) throws
+ * URIError, and Vite broadcasts the overlay to every open HMR tab.
+ */
+function malformedUriGuard(): Plugin {
+    return {
+        name: 'malformed-uri-guard',
+        configureServer(server) {
+            server.middlewares.use((req, res, next) => {
+                try {
+                    const host = String(req.headers[':authority'] || req.headers.host || 'localhost');
+                    const protocol = server.config.server.https ? 'https' : 'http';
+                    decodeURI(new URL(`${protocol}://${host}${req.url ?? '/'}`).pathname);
+                } catch {
+                    res.statusCode = 400;
+                    res.end('Bad Request');
+                    return;
+                }
+                next();
+            });
+        }
+    };
+}
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '');
@@ -20,7 +45,7 @@ export default defineConfig(({ mode }) => {
 
     return {
         root: process.cwd(),
-        plugins: [tailwindcss(), sveltekit()],
+        plugins: [tailwindcss(), malformedUriGuard(), sveltekit()],
         optimizeDeps: {
             include: ['svelte-sonner']
         },
