@@ -1,5 +1,20 @@
-const { esContador } = require("../utils/permisos");
+const { esContador, puedeAccederErp } = require("../utils/permisos");
 const { rutaPermitidaContador } = require("../middleware/restrictContador");
+
+describe("puedeAccederErp", () => {
+  it("deja entrar a admin, contador y superadm por permiso", () => {
+    expect(puedeAccederErp("admin")).toBe(true);
+    expect(puedeAccederErp("contador")).toBe(true);
+    expect(puedeAccederErp("superadm")).toBe(true);
+    expect(puedeAccederErp("SUPERADM")).toBe(true);
+  });
+
+  it("deja entrar al vendedor con codigo superadm aunque Permisos esté vacío", () => {
+    expect(puedeAccederErp("", "superadm")).toBe(true);
+    expect(puedeAccederErp(null, "admin")).toBe(true);
+    expect(puedeAccederErp("", "juan")).toBe(false);
+  });
+});
 
 describe("esContador / rutaPermitidaContador", () => {
   it("reconoce contador ignorando mayúsculas y espacios", () => {

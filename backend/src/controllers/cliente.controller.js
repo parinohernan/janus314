@@ -11,6 +11,7 @@ const {
   prepararDatosCliente,
   describirErrorCliente,
 } = require("../utils/clientePersistencia.util");
+const { ensureClienteConsumidorFinal } = require("../utils/posVarios");
 
 // Obtener todos los clientes (con filtros y paginación)
 const getAllClientes = async (req, res) => {
@@ -604,6 +605,24 @@ const actualizarSaldoCliente = async (req, res) => {
   }
 };
 
+const ensurePosCf = async (req, res) => {
+  try {
+    const { Cliente, CategoriaIva } = req.models;
+    const cliente = await ensureClienteConsumidorFinal(Cliente, CategoriaIva);
+    return res.status(200).json({
+      success: true,
+      data: cliente,
+    });
+  } catch (error) {
+    console.error("Error al asegurar Consumidor Final:", error);
+    return res.status(500).json({
+      success: false,
+      message: "No se pudo preparar el cliente Consumidor Final",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getAllClientes,
   getLocalidadesDistinct,
@@ -614,5 +633,6 @@ module.exports = {
   getCuentasCorrientes,
   getComprobantesCliente,
   obtenerSaldoCliente,
-  actualizarSaldoCliente
+  actualizarSaldoCliente,
+  ensurePosCf,
 };

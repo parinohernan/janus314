@@ -858,6 +858,10 @@ const initializeModels = (sequelize) => {
     ImporteCosto: {
       type: DataTypes.DOUBLE(15, 3),
       allowNull: true,
+    },
+    DescripcionLibre: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
     }
   }, {
     tableName: 'facturaitems',

@@ -4,6 +4,7 @@ const fetch = require("node-fetch");
 const numerosControlController = require("./numerosControl.controller");
 const FacturaService = require("../services/factura.service");
 const { adjuntarPreventistasAFacturas } = require("../services/preventaFacturaLink.service");
+const { ensureDescripcionLibreColumn, ensureClienteConsumidorFinal } = require("../utils/posVarios");
 
 // Obtener listado de facturas (con paginación y filtros)
 exports.listarFacturas = async (req, res) => {
@@ -124,6 +125,7 @@ exports.obtenerFactura = async (req, res) => {
   try {
     const { FacturaCabeza, Cliente, FacturaItem, Articulo } = req.models;
     const { tipo, sucursal, numero } = req.params;
+    await ensureDescripcionLibreColumn(req.db);
 
     console.log("Parámetros de búsqueda:", {
       tipo,
@@ -187,7 +189,8 @@ exports.obtenerFactura = async (req, res) => {
         'PorcentajeBonificado',
         'ImporteBonificado',
         'PrecioUnitario',
-        'ImporteCosto'
+        'ImporteCosto',
+        'DescripcionLibre'
       ],
       include: [{
         model: Articulo,
@@ -203,7 +206,7 @@ exports.obtenerFactura = async (req, res) => {
       const itemData = item.toJSON();
       return {
         CodigoArticulo: itemData.CodigoArticulo || '',
-        Descripcion: itemData.Articulo?.Descripcion || 'Artículo no encontrado',
+        Descripcion: itemData.DescripcionLibre || itemData.Articulo?.Descripcion || 'Artículo no encontrado',
         Cantidad: itemData.Cantidad || 0,
         PrecioLista: itemData.PrecioLista || 0,
         PrecioUnitario: itemData.PrecioUnitario || 0,
@@ -266,6 +269,13 @@ exports.crearFactura = async (req, res) => {
     facturaData.ListaNumero = facturaData.ListaPrecio;
     delete facturaData.ListaPrecio;
     facturaData.CodigoUsuario = "admin";
+
+    const codigoCliente = String(facturaData.ClienteCodigo || "").trim().toUpperCase();
+    if (codigoCliente === "CF" || !codigoCliente) {
+      const { CategoriaIva } = req.models;
+      const clienteCf = await ensureClienteConsumidorFinal(Cliente, CategoriaIva, t);
+      facturaData.ClienteCodigo = clienteCf.Codigo;
+    }
 
     // Verificar si el tipo de pago aplica saldo
     const { TipoDePago } = req.models;

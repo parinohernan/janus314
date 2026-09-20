@@ -100,7 +100,7 @@ function assertVendedorPuedeAcceder(vendedor, { notFoundMessage } = {}) {
   if (Number(vendedor.Activo) !== 1) {
     throw httpError(401, 'Usuario inactivo');
   }
-  if (!puedeAccederErp(vendedor.Permisos)) {
+  if (!puedeAccederErp(vendedor.Permisos, vendedor.Codigo)) {
     throw httpError(403, 'Acceso denegado - Solo los administradores pueden acceder al sistema');
   }
 }
@@ -141,7 +141,7 @@ async function loginLegacy(usuario, password, empresaId) {
   if (!vendedor) {
     throw httpError(401, INVALID_CREDENTIALS);
   }
-  if (!puedeAccederErp(vendedor.Permisos)) {
+  if (!puedeAccederErp(vendedor.Permisos, vendedor.Codigo)) {
     throw httpError(403, 'Acceso denegado - Solo los administradores pueden acceder al sistema');
   }
 

@@ -3,6 +3,7 @@ const Empresa = require('../models/Empresa');
 const DBManager = require('../utils/DBManager');
 const initializeModels = require('../utils/modelInitializer');
 const restrictContador = require('./restrictContador');
+const backupMaintenance = require('../utils/backupMaintenance');
 
 const getEmpresaConnection = async (req, res, next) => {
   try {
@@ -46,7 +47,16 @@ const getEmpresaConnection = async (req, res, next) => {
       });
     }
 
-    
+    if (
+      backupMaintenance.isRestoring(empresaData.id) &&
+      !backupMaintenance.isBackupApiPath(req.originalUrl || req.url)
+    ) {
+      return res.status(503).json({
+        success: false,
+        error: 'La empresa está en mantenimiento por restauración de backup. Probá de nuevo en unos minutos.'
+      });
+    }
+
     // ✅ Agregar timeout para operaciones de base de datos
     const empresaDB = await Promise.race([
       DBManager.getConnectionWithConfig(empresaData),

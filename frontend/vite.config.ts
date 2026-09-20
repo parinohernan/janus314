@@ -47,7 +47,7 @@ export default defineConfig(({ mode }) => {
         root: process.cwd(),
         plugins: [tailwindcss(), malformedUriGuard(), sveltekit()],
         optimizeDeps: {
-            include: ['svelte-sonner']
+            include: ['svelte-sonner', 'qz-tray']
         },
         resolve: {
             alias: {

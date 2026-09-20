@@ -34,3 +34,4 @@ node_modules/
 /backend/logs/error.log
 /backend/logs/combined1.log
 /backend/logs/combined2.log
+/backend/backups/

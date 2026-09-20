@@ -8,6 +8,7 @@ const getEmpresaConnection = require("../middleware/dbConnection");
 router.get("/", clienteController.getAllClientes);
 router.get("/localidades", clienteController.getLocalidadesDistinct);
 router.get("/cuentascorrientes", clienteController.getCuentasCorrientes);
+router.post("/pos/ensure-cf", clienteController.ensurePosCf);
 router.get("/:id/comprobantes", clienteController.getComprobantesCliente);
 router.get("/:id", clienteController.getClienteById);
 router.post("/", clienteController.createCliente);

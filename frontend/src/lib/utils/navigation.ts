@@ -102,6 +102,7 @@ export function getLabelFromUrl(url: string): string {
     'notascredito': 'Notas de Crédito',
     'notasdebito': 'Notas de Débito',
     'recibos': 'Recibos',
+    'pos': 'Punto de venta',
     'preventas': 'Preventas',
     'pedidos': 'Pedidos',
     'sincronizacion': 'Sincronización',
@@ -129,6 +130,7 @@ export function getLabelFromUrl(url: string): string {
     'egreso': 'Egreso',
     'cierre': 'Cierre',
     'optimizacion': 'Optimización',
+    'backups': 'Backups',
     'ayuda': 'Ayuda',
     'wiki': 'Wiki'
   };
@@ -190,6 +192,7 @@ export function getIconFromUrl(url: string): string {
     'notascredito': '📝',
     'notasdebito': '📝',
     'recibos': '🧾',
+    'pos': '🛒',
     'preventas': '💰',
     'pedidos': '📋',
     'sincronizacion': '🔄',

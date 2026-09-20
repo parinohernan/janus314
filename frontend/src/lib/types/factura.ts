@@ -3,6 +3,7 @@ import type { Cliente } from './cliente';
 export interface ItemFactura {
 	ArticuloCodigo: string;
 	Descripcion: string;
+	DescripcionLibre?: string;
 	Cantidad: number;
 	PrecioLista: number;
 	PorcentajeBonificado: number;

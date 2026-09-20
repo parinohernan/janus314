@@ -1279,3 +1279,100 @@ exports.generarResumenExistenciaPDF = async (req, res) => {
     });
   }
 };
+
+const {
+  POS_VARIOS_ARTICULOS,
+  ensureDescripcionLibreColumn,
+} = require("../utils/posVarios");
+
+function articuloActivo(articulo) {
+  if (!articulo) return false;
+  const activo = articulo.Activo;
+  if (activo === 0 || activo === "0" || activo === false) return false;
+  return true;
+}
+
+// Match exacto para caja POS: código de barras, luego código interno.
+exports.lookupArticulo = async (req, res) => {
+  try {
+    const { Articulo } = req.models;
+    const code = String(req.query.code || "").trim();
+    if (!code) {
+      return res.status(400).json({ message: "Debe indicar un código" });
+    }
+
+    let articulo = await Articulo.findOne({
+      where: { CodigoBarras: code },
+    });
+
+    if (!articulo) {
+      articulo = await Articulo.findOne({
+        where: { Codigo: code },
+      });
+    }
+
+    if (!articulo || !articuloActivo(articulo)) {
+      return res.status(404).json({
+        success: false,
+        message: "Producto no encontrado",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: articulo,
+    });
+  } catch (error) {
+    console.error("Error en lookup de artículo:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error al buscar el artículo",
+    });
+  }
+};
+
+// Crea los 6 artículos dummy de rubro si faltan, y asegura DescripcionLibre.
+exports.ensurePosVarios = async (req, res) => {
+  try {
+    const { Articulo } = req.models;
+    await ensureDescripcionLibreColumn(req.db);
+
+    const creados = [];
+    const existentes = [];
+
+    for (const item of POS_VARIOS_ARTICULOS) {
+      const actual = await Articulo.findByPk(item.Codigo);
+      if (actual) {
+        existentes.push(item.Codigo);
+        continue;
+      }
+
+      await Articulo.create({
+        ...ARTICULO_CREATE_DEFAULTS,
+        Codigo: item.Codigo,
+        Descripcion: item.Descripcion,
+        PorcentajeIVA1: item.PorcentajeIVA1,
+        PorcentajeIVA2: 0,
+        PrecioCosto: 0,
+        Lista1: 0,
+        Activo: 1,
+        SeVende: 1,
+        Existencia: 0,
+      });
+      creados.push(item.Codigo);
+    }
+
+    return res.status(200).json({
+      success: true,
+      creados,
+      existentes,
+    });
+  } catch (error) {
+    console.error("Error al asegurar artículos Varios del POS:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error al preparar artículos de rubro",
+      error: error.message,
+    });
+  }
+};

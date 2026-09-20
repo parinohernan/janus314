@@ -27,6 +27,7 @@ const renderOrdenCompra = require("../templates/pdf/ordenCompra.template.js");
 // const NotaCreditoItem = require("../models/notaCreditoItem.model");
 // const datosEmpresaController = require("../controllers/datosEmpresa.controller");
 const logoManager = require("../utils/logoManager");
+const { ensureDescripcionLibreColumn } = require("../utils/posVarios");
 const docFacturaA4 = { margin: 42.5, size: "A4" }; // 1.5cm = 42.5 puntos (1cm = 28.35 puntos)
 
 /** Flag 0/1 en t_configuracion. Si no hay fila o falla la lectura, se usa 0. */
@@ -53,6 +54,7 @@ exports.generarFacturaPDF = async (req, res) => {
     
     // Obtener los modelos dinámicos de la empresa actual
     const { FacturaCabeza, FacturaItem, Cliente, Articulo, DatosEmpresa, Configuracion } = req.models;
+    await ensureDescripcionLibreColumn(req.db);
 
     // Obtener datos de la factura con el cliente
     const factura = await FacturaCabeza.findOne({
@@ -105,7 +107,7 @@ exports.generarFacturaPDF = async (req, res) => {
         'CodigoArticulo', 'Cantidad', 'ImporteCosto', 'PrecioLista', 
         'PorcentajeBonificado', 'ImporteBonificado', 'PrecioUnitario', 
         'DocumentoLiqTipo', 'DocumentoSucursal', 'DocumentoLiqNumero', 
-        'LiqFecha', 'es_merma'
+        'LiqFecha', 'es_merma', 'DescripcionLibre'
       ],
       raw: true,
     });
@@ -138,7 +140,7 @@ exports.generarFacturaPDF = async (req, res) => {
       
       return {
         ...item,
-        Descripcion: articulo.Descripcion || '',
+        Descripcion: item.DescripcionLibre || articulo.Descripcion || '',
         UnidadVenta: articulo.UnidadVenta || '',
         PrecioUnitario: item.PrecioUnitario || articulo.Lista1 || 0,
         PorcentajeBonificacion: item.PorcentajeBonificacion || 0,

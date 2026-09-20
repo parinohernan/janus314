@@ -71,38 +71,6 @@ exports.eliminarPreventasAntiguas = async (req, res) => {
 };
 
 /**
- * Generar backup de la base de datos de la empresa.
- * Por ahora devuelve un mensaje; se puede integrar mysqldump o export a archivo.
- */
-exports.generarBackup = async (req, res) => {
-  try {
-    const connection = req.db;
-    const empresaData = req.empresaData;
-
-    const [result] = await connection.query('SELECT 1 + 1 AS test');
-    if (!result) {
-      return res.status(500).json({ success: false, message: 'Error al verificar conexión' });
-    }
-
-    return res.json({
-      success: true,
-      message: 'Backup solicitado. Funcionalidad de exportación completa pendiente de configurar en el servidor.',
-      data: {
-        empresa: empresaData?.nombre,
-        baseDatos: empresaData?.db_name
-      }
-    });
-  } catch (error) {
-    console.error('Error en generarBackup:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error al generar backup',
-      error: error.message
-    });
-  }
-};
-
-/**
  * Exportar tablas principales a JSON (estructura simplificada).
  * Útil para respaldo o migración. Solo admin.
  */

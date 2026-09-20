@@ -20,9 +20,14 @@
 	let esSubirImagenMovil = $derived($page.url.pathname === '/compras/subir-imagen');
 	let esRutaAdmin = $derived($page.url.pathname.startsWith('/admin'));
 
+	let esPosSupermercado = $derived($page.url.pathname.startsWith('/ventas/pos'));
+
 	// MainBar, TabBar, Sidebar y footer solo en el ERP “completo”
 	let usarChromePrincipal = $derived(
-		!$page.url.pathname.includes('/ventas/bot/') && !esSubirImagenMovil && !esRutaAdmin
+		!$page.url.pathname.includes('/ventas/bot/') &&
+			!esSubirImagenMovil &&
+			!esRutaAdmin &&
+			!esPosSupermercado
 	);
 
 	// Margen fijo del rail (16); el panel expandido del sidebar flota encima sin empujar el layout
@@ -120,6 +125,7 @@
 			if (
 				browser &&
 				!to.url.pathname.includes('/ventas/bot/') &&
+				!to.url.pathname.startsWith('/ventas/pos') &&
 				to.url.pathname !== '/compras/subir-imagen' &&
 				to.url.pathname !== '/login' &&
 				!to.url.pathname.startsWith('/admin') &&
@@ -162,7 +168,9 @@
 		<main
 			class="flex-grow min-w-0 transition-all duration-300 {leftMargin} {usarChromePrincipal
 				? 'w-full max-w-none px-4 sm:px-5 lg:px-10 py-6'
-				: 'w-full min-h-0'}"
+				: esPosSupermercado
+					? 'w-full h-screen min-h-0 overflow-hidden p-0'
+					: 'w-full min-h-0'}"
 		>
 			{@render children()}
 		</main>

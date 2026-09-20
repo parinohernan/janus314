@@ -43,20 +43,6 @@
     }
   }
 
-  async function generarBackup() {
-    try {
-      ejecutando = 'backup';
-      const res = await fetchWithAuth('/optimizacion/backup', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || data.message || 'Error');
-      mostrarMensaje(data.message || 'Backup solicitado correctamente', 'success');
-    } catch (e) {
-      mostrarMensaje(e instanceof Error ? e.message : 'Error al generar backup', 'error');
-    } finally {
-      ejecutando = null;
-    }
-  }
-
   async function exportarTablas() {
     try {
       ejecutando = 'exportar';
@@ -112,17 +98,11 @@
       </div>
 
       <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-        <h2 class="text-lg font-semibold text-gray-800 mb-2">Backup</h2>
+        <h2 class="text-lg font-semibold text-gray-800 mb-2">Backups</h2>
         <p class="text-sm text-gray-600 mb-4">
-          Solicita un respaldo de la base de datos. La exportación completa se configura en el servidor.
+          Generar, descargar y restaurar la base de esta empresa está en Configuración → Backups.
         </p>
-        <Button
-          variant="secondary"
-          on:click={generarBackup}
-          disabled={ejecutando !== null}
-        >
-          {ejecutando === 'backup' ? 'Ejecutando...' : 'Generar backup'}
-        </Button>
+        <Button variant="secondary" on:click={() => goto('/configuracion/backups')}>Ir a backups</Button>
       </div>
 
       <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">

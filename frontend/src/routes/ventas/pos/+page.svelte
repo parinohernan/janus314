@@ -1,0 +1,590 @@
+<script lang="ts">
+	import { onMount, onDestroy } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { LogOut } from 'lucide-svelte';
+	import { auth } from '$lib/stores/authStore';
+	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+	import { toast } from '$lib/utils/toast';
+	import { EmpresaService } from '$lib/services/EmpresaService';
+	import CaeModal from '$lib/components/facturas/CaeModal.svelte';
+	import { esCodigoBalanza, type PosRubro } from '$lib/constants/posVarios';
+	import {
+		agregarOIncrementar,
+		cambiarCantidad,
+		completarImportes,
+		labelTicketFiscal,
+		lineaDesdeRubro,
+		mergeLineasParaPersistir,
+		quitarLinea,
+		tipoTicketFiscal,
+		totalTicket,
+		type PosLinea
+	} from '$lib/utils/posTicket';
+	import { calcularTotalesComprobante } from '$lib/utils/comprobanteTotales';
+	import { datosComercialesDesdeCliente } from '$lib/utils/facturaClienteDefaults';
+	import { armarPosTicketDto, extraerCae, type PosTicketDto } from '$lib/utils/posTicketHtml';
+	import { loadPosPrinterConfig, type PosPrinterConfig } from '$lib/utils/posPrinterConfig';
+	import {
+		connectQz,
+		disconnectQz,
+		mensajeErrorImpresion,
+		printTicket
+	} from '$lib/services/QzTrayService';
+	import type { Articulo } from '$lib/types/articulo';
+	import type { Cliente } from '$lib/types/cliente';
+	import type { DatosEmpresa } from '$lib/services/EmpresaService';
+	import PosSearch from '$lib/components/pos/PosSearch.svelte';
+	import PosCart from '$lib/components/pos/PosCart.svelte';
+	import PosActions from '$lib/components/pos/PosActions.svelte';
+	import PosVariosModal from '$lib/components/pos/PosVariosModal.svelte';
+	import PosClienteChip from '$lib/components/pos/PosClienteChip.svelte';
+	import PosPrinterChip from '$lib/components/pos/PosPrinterChip.svelte';
+	import PosPrinterModal from '$lib/components/pos/PosPrinterModal.svelte';
+	import PosArticuloBuscarModal from '$lib/components/pos/PosArticuloBuscarModal.svelte';
+
+	const CLIENTE_CF: Cliente = {
+		Codigo: 'CF',
+		Descripcion: 'Consumidor Final',
+		NombreFantasia: '',
+		CategoriaIva: 'F',
+		ImporteDeuda: 0,
+		Calle: '',
+		Numero: '',
+		Piso: '',
+		Departamento: '',
+		ProvinciaCodigo: '',
+		CodigoPostal: '',
+		Localidad: '',
+		ContactoNombre: '',
+		Mail: '',
+		TelefonoMovil: '',
+		ContactoComercial: '',
+		CodigoVendedor: '',
+		Actualizado: 0,
+		SaldoNTCNoAplicado: 0,
+		LimiteCredito: 0,
+		CanalCodigo: '',
+		FechaDeAlta: null,
+		FechaDeBaja: null,
+		TransporteCodigo: '',
+		DirEntregaCalle: '',
+		DirEntregaNumero: '',
+		DirEntregaPiso: '',
+		DirEntregaDpto: '',
+		DirEntregaProvinciaCodigo: '',
+		DirEntregaLocalidadCodigo: '',
+		CondicionVentaCodigo: '',
+		PorcentajeBonificacionGeneral: 0,
+		GrupoPercepcionIIBBCodigo: '',
+		PorcentajePercepcionIIBB: 0,
+		GrupoCodigo: '',
+		cant_facturas_impagas_max: 0,
+		ZonaCodigo: '',
+		InvCuentaVentas: null,
+		CliCuentaCredito: null,
+		TipoDocumento: '',
+		CodigoLocalidad: ''
+	};
+
+	let search: PosSearch;
+	let lineas: PosLinea[] = [];
+	let seleccionId: string | null = null;
+	let cliente: Cliente = CLIENTE_CF;
+	let listaPrecio = '1';
+	let sucursal = '0001';
+	let cajaAbierta: { Codigo: number } | null = null;
+	let loadingInit = true;
+	let cobrando = false;
+	let flashOk = false;
+	let rubroActivo: PosRubro | null = null;
+	let showVarios = false;
+	let showCae = false;
+	let showPrinter = false;
+	let showBuscar = false;
+	let printerConfig: PosPrinterConfig = loadPosPrinterConfig();
+	let datosEmpresa: DatosEmpresa | null = null;
+	let ultimoTicket: PosTicketDto | null = null;
+	let facturaCreada: { DocumentoTipo: string; DocumentoSucursal: string; DocumentoNumero: string } | null =
+		null;
+
+	$: total = totalTicket(lineas);
+	$: ticketLabel = labelTicketFiscal(cliente?.CategoriaIva);
+	$: vendedorCodigo = String($auth.user?.usuario || '1');
+	$: sinCaja = !loadingInit && !cajaAbierta;
+
+	function fechaHoy(): string {
+		const hoy = new Date();
+		hoy.setHours(hoy.getHours() - 3);
+		return hoy.toISOString().substring(0, 10);
+	}
+
+	async function cargarClienteCf() {
+		try {
+			const ensure = await fetchWithAuth('/clientes/pos/ensure-cf', { method: 'POST' });
+			if (ensure.ok) {
+				const payload = await ensure.json();
+				const data = payload.data || payload;
+				if (data?.Codigo) {
+					cliente = { ...CLIENTE_CF, ...data, CategoriaIva: data.CategoriaIva || 'F' };
+					const comercial = datosComercialesDesdeCliente(cliente);
+					listaPrecio = comercial.listaPrecio;
+					return;
+				}
+			}
+			const response = await fetchWithAuth('/clientes/CF');
+			if (!response.ok) return;
+			const data = await response.json();
+			cliente = { ...CLIENTE_CF, ...data, CategoriaIva: data.CategoriaIva || 'F' };
+			const comercial = datosComercialesDesdeCliente(cliente);
+			listaPrecio = comercial.listaPrecio;
+		} catch {
+			cliente = CLIENTE_CF;
+		}
+	}
+
+	async function verificarCaja() {
+		const response = await fetchWithAuth(`/cajas/vendedor/${vendedorCodigo}`);
+		const data = await response.json();
+		if (data.success && data.data?.length) {
+			cajaAbierta = data.data[0];
+			return true;
+		}
+		cajaAbierta = null;
+		return false;
+	}
+
+	onMount(async () => {
+		window.addEventListener('keydown', onGlobalKey);
+		try {
+			const empresa = await EmpresaService.obtenerDatos();
+			datosEmpresa = empresa;
+			if (empresa?.Sucursal) sucursal = String(empresa.Sucursal).padStart(4, '0');
+			await Promise.all([
+				cargarClienteCf(),
+				verificarCaja(),
+				fetchWithAuth('/articulos/pos/ensure-varios', { method: 'POST' }).catch(() => null)
+			]);
+			connectQz().catch(() => null);
+		} catch (error) {
+			console.error(error);
+			toast.error('No se pudo inicializar la caja');
+		} finally {
+			loadingInit = false;
+			search?.focusInput();
+		}
+	});
+
+	onDestroy(() => {
+		window.removeEventListener('keydown', onGlobalKey);
+		disconnectQz().catch(() => null);
+	});
+
+	function onGlobalKey(event: KeyboardEvent) {
+		if (showVarios || showCae || showPrinter || showBuscar || cobrando) {
+			if (event.key === 'Escape' && showVarios) {
+				showVarios = false;
+			}
+			if (event.key === 'Escape' && showPrinter) {
+				showPrinter = false;
+			}
+			if (event.key === 'Escape' && showBuscar) {
+				showBuscar = false;
+			}
+			return;
+		}
+
+		if (event.key === 'F2') {
+			event.preventDefault();
+			if (!sinCaja) showBuscar = true;
+			return;
+		}
+
+		if (event.key === 'F9') {
+			event.preventDefault();
+			cobrar('PRF');
+			return;
+		}
+		if (event.key === 'F10') {
+			event.preventDefault();
+			cobrar(tipoTicketFiscal(cliente.CategoriaIva));
+			return;
+		}
+		if (event.key === 'F8') {
+			event.preventDefault();
+			nuevaVenta();
+			return;
+		}
+		if (event.key === 'Delete' && seleccionId) {
+			event.preventDefault();
+			quitar(seleccionId);
+			return;
+		}
+
+		const target = event.target as HTMLElement | null;
+		const enCampo = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA';
+		if (!enCampo && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+			search?.focusInput();
+		}
+	}
+
+	function agregarArticulo(articulo: Articulo) {
+		lineas = agregarOIncrementar(lineas, articulo, listaPrecio);
+		seleccionId = lineas[lineas.length - 1]?.lineId ?? null;
+		flashOk = true;
+		setTimeout(() => (flashOk = false), 250);
+		search?.focusInput();
+	}
+
+	async function lookup(codigo: string) {
+		const code = codigo.trim();
+		if (!code) return;
+		if (esCodigoBalanza(code)) {
+			toast.info('Código de balanza: se implementará en la siguiente etapa');
+			search?.focusInput();
+			return;
+		}
+
+		try {
+			const response = await fetchWithAuth('/articulos/lookup', {
+				params: { code }
+			});
+			if (!response.ok) {
+				toast.error('Producto no encontrado');
+				search?.focusInput();
+				return;
+			}
+			const payload = await response.json();
+			const articulo = (payload.data || payload) as Articulo;
+			agregarArticulo(articulo);
+		} catch {
+			toast.error('No se pudo buscar el producto');
+		} finally {
+			search?.focusInput();
+		}
+	}
+
+	function onQty(event: CustomEvent<{ lineId: string; delta: number }>) {
+		const linea = lineas.find((l) => l.lineId === event.detail.lineId);
+		if (!linea) return;
+		const siguiente = linea.Cantidad + event.detail.delta;
+		if (siguiente <= 0) {
+			quitar(linea.lineId);
+			return;
+		}
+		lineas = cambiarCantidad(lineas, linea.lineId, siguiente);
+	}
+
+	function quitar(lineId: string) {
+		lineas = quitarLinea(lineas, lineId);
+		if (seleccionId === lineId) seleccionId = lineas[lineas.length - 1]?.lineId ?? null;
+		search?.focusInput();
+	}
+
+	function onSelectCliente(event: CustomEvent<Cliente>) {
+		cliente = event.detail;
+		const comercial = datosComercialesDesdeCliente(cliente);
+		listaPrecio = comercial.listaPrecio;
+		search?.focusInput();
+	}
+
+	function abrirRubro(event: CustomEvent<PosRubro>) {
+		rubroActivo = event.detail;
+		showVarios = true;
+	}
+
+	function confirmarVarios(event: CustomEvent<{ descripcion: string; precioConIva: number }>) {
+		if (!rubroActivo) return;
+		const linea = lineaDesdeRubro(rubroActivo, event.detail.descripcion, event.detail.precioConIva);
+		lineas = [...lineas, completarImportes(linea)];
+		seleccionId = linea.lineId;
+		showVarios = false;
+		rubroActivo = null;
+		search?.focusInput();
+	}
+
+	function nuevaVenta() {
+		lineas = [];
+		seleccionId = null;
+		facturaCreada = null;
+		showCae = false;
+		search?.focusInput();
+	}
+
+	async function registrarCaja(tipo: string, numero: string, importe: number) {
+		if (!cajaAbierta) return;
+		const response = await fetchWithAuth('/cajas/movimiento', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				cajaCabezaId: cajaAbierta.Codigo,
+				tipo: 'ingreso',
+				importe,
+				concepto: `POS ${tipo} ${sucursal}-${numero}`,
+				metodoPago: 'CO',
+				documentoAsociado: numero,
+				tipoDocumento: tipo,
+				usuarioId: String(vendedorCodigo).replace(/^0+/, '') || vendedorCodigo
+			})
+		});
+		if (!response.ok) {
+			throw new Error('La venta se guardó pero no se registró el movimiento de caja');
+		}
+	}
+
+	async function imprimirTicket(dto: PosTicketDto) {
+		try {
+			await printTicket(dto, printerConfig);
+		} catch (error) {
+			toast.error(mensajeErrorImpresion(error));
+		}
+	}
+
+	async function cobrar(tipo: 'PRF' | 'FCA' | 'FCB') {
+		if (cobrando || lineas.length === 0) return;
+		if (!cajaAbierta) {
+			toast.error('Abrí la caja antes de cobrar');
+			return;
+		}
+
+		cobrando = true;
+		try {
+			const items = mergeLineasParaPersistir(lineas);
+			const totales = calcularTotalesComprobante({
+				items: items.map((item) => ({
+					Cantidad: item.Cantidad,
+					PrecioUnitario: item.PrecioUnitario,
+					PrecioLista: item.PrecioLista,
+					PorcentajeIva: item.PorcentajeIva
+				})),
+				tipo
+			});
+
+			const factura = {
+				DocumentoTipo: tipo,
+				DocumentoSucursal: sucursal,
+				DocumentoNumero: '',
+				Fecha: fechaHoy(),
+				ClienteCodigo: cliente.Codigo || 'CF',
+				Cliente: cliente,
+				ListaPrecio: listaPrecio,
+				ImporteBruto: totales.ImporteBruto,
+				PorcentajeBonificacion: 0,
+				ImporteBonificado: totales.ImporteBonificado,
+				ImporteNeto: totales.ImporteNeto,
+				ImporteIva1: totales.ImporteIva1,
+				ImporteIva2: totales.ImporteIva2,
+				BaseImponible1: totales.BaseImponible1,
+				BaseImponible2: totales.BaseImponible2,
+				PorcentajeIngresosBrutos: 0,
+				ImporteIngresosBrutos: 0,
+				ImporteIva: totales.ImporteIva,
+				ImporteTotal: totales.ImporteTotal,
+				Observacion: 'POS supermercado',
+				FormaPagoCodigo: 'CO',
+				FormaPago: 'Contado',
+				Vendedor: vendedorCodigo,
+				Items: items.map((item) => ({
+					ArticuloCodigo: item.ArticuloCodigo,
+					Descripcion: item.Descripcion,
+					DescripcionLibre: item.DescripcionLibre || item.Descripcion,
+					Cantidad: item.Cantidad,
+					PrecioLista: item.PrecioLista,
+					PorcentajeBonificado: 0,
+					ImporteBonificado: 0,
+					PrecioUnitario: item.PrecioUnitario,
+					PorcentajeIva: item.PorcentajeIva,
+					PrecioUnitarioConIva: item.PrecioUnitarioConIva,
+					Total: item.Total
+				}))
+			};
+
+			const response = await fetchWithAuth('/facturas', {
+				method: 'POST',
+				body: JSON.stringify(factura)
+			});
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(errorData.message || errorData.error || 'Error al crear la venta');
+			}
+
+			const responseData = await response.json();
+			const creada = responseData.data?.factura || responseData.factura || responseData.data || responseData;
+			facturaCreada = {
+				DocumentoTipo: creada.DocumentoTipo || tipo,
+				DocumentoSucursal: creada.DocumentoSucursal || sucursal,
+				DocumentoNumero: creada.DocumentoNumero
+			};
+
+			if (!facturaCreada.DocumentoNumero) {
+				throw new Error('La venta se creó sin número de comprobante');
+			}
+
+			await registrarCaja(facturaCreada.DocumentoTipo, facturaCreada.DocumentoNumero, totales.ImporteTotal);
+
+			ultimoTicket = armarPosTicketDto({
+				tipo,
+				sucursal: facturaCreada.DocumentoSucursal,
+				numero: facturaCreada.DocumentoNumero,
+				fecha: fechaHoy(),
+				empresa: datosEmpresa,
+				cliente,
+				items,
+				totales
+			});
+
+			if (tipo === 'PRF') {
+				await imprimirTicket(ultimoTicket);
+				toast.success('PRF emitida');
+				nuevaVenta();
+			} else {
+				showCae = true;
+			}
+		} catch (error) {
+			console.error(error);
+			toast.error(error instanceof Error ? error.message : 'No se pudo cobrar');
+		} finally {
+			cobrando = false;
+			search?.focusInput();
+		}
+	}
+
+	async function onCaeObtenido(event: CustomEvent) {
+		if (!facturaCreada) return;
+		const cae = extraerCae(event.detail);
+		if (ultimoTicket) {
+			ultimoTicket = { ...ultimoTicket, cae };
+		}
+		if (ultimoTicket) {
+			await imprimirTicket(ultimoTicket);
+		}
+		toast.success(`${labelTicketFiscal(cliente.CategoriaIva)} emitida`);
+		showCae = false;
+		nuevaVenta();
+	}
+
+	function onCaeClose() {
+		showCae = false;
+		nuevaVenta();
+	}
+
+	function onCaeImprimir() {
+		if (ultimoTicket) {
+			imprimirTicket(ultimoTicket);
+			return;
+		}
+		toast.error('Elegí la impresora de esta caja');
+	}
+</script>
+
+<svelte:head>
+	<title>Punto de venta</title>
+</svelte:head>
+
+<div class="flex h-screen min-h-0 flex-col bg-slate-100">
+	<header class="flex items-center gap-3 bg-blue-700 px-4 py-3 text-white shadow">
+		<div class="hidden shrink-0 sm:block">
+			<p class="text-xs uppercase tracking-widest text-blue-100">Janus314</p>
+			<p class="text-sm font-semibold">Punto de venta</p>
+		</div>
+		<PosSearch
+			bind:this={search}
+			disabled={sinCaja || cobrando}
+			{flashOk}
+			on:submit={(e) => lookup(e.detail)}
+			on:buscar={() => (showBuscar = true)}
+		/>
+		<PosClienteChip {cliente} disabled={sinCaja || cobrando} on:select={onSelectCliente} />
+		<PosPrinterChip
+			printerName={printerConfig.printerName}
+			disabled={cobrando}
+			on:open={() => (showPrinter = true)}
+		/>
+		<button
+			type="button"
+			class="flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-sm hover:bg-white/20"
+			on:click={() => goto('/ventas/facturas')}
+		>
+			<LogOut class="h-4 w-4" />
+			<span class="hidden sm:inline">Salir</span>
+		</button>
+	</header>
+
+	{#if loadingInit}
+		<div class="flex flex-1 items-center justify-center text-slate-500">Abriendo caja...</div>
+	{:else if sinCaja}
+		<div class="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+			<p class="text-xl font-semibold text-slate-800">No hay una caja abierta</p>
+			<p class="max-w-md text-slate-500">Abrí la caja del vendedor para cobrar en el punto de venta.</p>
+			<button
+				type="button"
+				class="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700"
+				on:click={() => goto('/caja')}
+			>
+				Ir a caja
+			</button>
+		</div>
+	{:else}
+		<div class="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_22rem]">
+			<PosCart
+				{lineas}
+				{seleccionId}
+				disabled={cobrando}
+				on:select={(e) => (seleccionId = e.detail)}
+				on:qty={onQty}
+				on:remove={(e) => quitar(e.detail)}
+			/>
+			<div class="border-t border-slate-200 bg-slate-50 lg:border-l lg:border-t-0">
+				<PosActions
+					{total}
+					{ticketLabel}
+					disabled={sinCaja}
+					{cobrando}
+					hayItems={lineas.length > 0}
+					on:prf={() => cobrar('PRF')}
+					on:ticket={() => cobrar(tipoTicketFiscal(cliente.CategoriaIva))}
+					on:nueva={nuevaVenta}
+					on:rubro={abrirRubro}
+				/>
+			</div>
+		</div>
+	{/if}
+</div>
+
+{#if rubroActivo}
+	<PosVariosModal
+		rubro={rubroActivo}
+		show={showVarios}
+		on:close={() => (showVarios = false)}
+		on:confirm={confirmarVarios}
+	/>
+{/if}
+
+{#if showPrinter}
+	<PosPrinterModal
+		show={showPrinter}
+		on:close={() => (showPrinter = false)}
+		on:saved={(e) => (printerConfig = e.detail)}
+	/>
+{/if}
+
+{#if showBuscar}
+	<PosArticuloBuscarModal
+		show={showBuscar}
+		{listaPrecio}
+		on:close={() => {
+			showBuscar = false;
+			search?.focusInput();
+		}}
+		on:select={(e) => agregarArticulo(e.detail)}
+	/>
+{/if}
+
+{#if facturaCreada}
+	<CaeModal
+		show={showCae}
+		factura={facturaCreada}
+		on:close={onCaeClose}
+		on:caeObtenido={onCaeObtenido}
+		on:imprimir={onCaeImprimir}
+	/>
+{/if}

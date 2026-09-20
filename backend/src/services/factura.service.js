@@ -4,6 +4,7 @@ const NumeroControlService = require("./numeroControl.service");
 const TransactionService = require("./transaction.service");
 const { usaMatematicaExacta } = require("../utils/matematicaExacta");
 const { aplicarTotalesAFactura } = require("../templates/pdf/common/precioItem");
+const { ensureDescripcionLibreColumn } = require("../utils/posVarios");
 
 /**
  * Servicio para gestionar las operaciones de facturas
@@ -151,10 +152,18 @@ const FacturaService = {
   ) {
     try {
       // Preparar items con sus claves primarias y asegurar que ArticuloCodigo no sea nulo
+      if (FacturaItem?.sequelize) {
+        await ensureDescripcionLibreColumn(FacturaItem.sequelize);
+      }
+
       const itemsConPK = items.map((item) => {
         if (!item.ArticuloCodigo) {
           throw new Error(`El artículo ${item.Descripcion || 'sin descripción'} no tiene código asignado`);
         }
+
+        const descripcionLibre = String(
+          item.DescripcionLibre || item.Descripcion || ""
+        ).trim().slice(0, 100);
         
         return {
           DocumentoTipo: documentoTipo,
@@ -166,7 +175,8 @@ const FacturaService = {
           PorcentajeBonificado: item.PorcentajeBonificado || 0,
           ImporteBonificado: item.ImporteBonificado || 0,
           PrecioUnitario: item.PrecioUnitario || 0,
-          ImporteCosto: item.ImporteCosto || 0
+          ImporteCosto: item.ImporteCosto || 0,
+          DescripcionLibre: descripcionLibre || null,
         };
       });
 

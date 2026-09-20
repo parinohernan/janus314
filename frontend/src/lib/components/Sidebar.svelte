@@ -4,7 +4,7 @@
   import { browser } from '$app/environment';
   import { smartNavigate } from '$lib/utils/navigation';
   import { auth } from '$lib/stores/authStore';
-  import { esContador } from '$lib/utils/permisos';
+  import { esContador, esVendedorAdmin } from '$lib/utils/permisos';
   import { sidebarCollapsed } from '$lib/stores/sidebarStore';
   import { menuVisibilityStore } from '$lib/stores/menuVisibilityStore';
   import { 
@@ -52,7 +52,9 @@
     FolderSync,
     CircleHelp,
     BookOpen,
-    Percent
+    Percent,
+    HardDrive,
+    Store
   } from 'lucide-svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
 
@@ -71,26 +73,23 @@
     items?: SubmenuItem[];
   }
 
-  const VENDEDOR_ADMIN = 'admin';
-
   let isCollapsed = $derived($sidebarCollapsed);
   let expandedMenu = $state<string | null>(null);
   let expandedSubmenu = $state<string | null>(null);
 
-  const esAdmin = $derived($auth?.user?.usuario === VENDEDOR_ADMIN);
+  const esAdmin = $derived(esVendedorAdmin($auth?.user));
   const soloInformes = $derived(esContador($auth?.user));
-  const configuracionItems: SubmenuItem[] = $derived(
-    esAdmin
-      ? [
-          { label: 'General', url: '/configuracion', icon: 'general-config' },
-          { label: 'Reportes automáticos', url: '/configuracion/reportes', icon: 'reportes-auto' },
-          { label: 'Optimización', url: '/configuracion/optimizacion', icon: 'optimizacion' }
-        ]
-      : [
-          { label: 'General', url: '/configuracion', icon: 'general-config' },
-          { label: 'Reportes automáticos', url: '/configuracion/reportes', icon: 'reportes-auto' }
-        ]
-  );
+  const configuracionItems: SubmenuItem[] = $derived.by(() => {
+    const items: SubmenuItem[] = [
+      { label: 'General', url: '/configuracion', icon: 'general-config' },
+      { label: 'Reportes automáticos', url: '/configuracion/reportes', icon: 'reportes-auto' },
+      { label: 'Backups', url: '/configuracion/backups', icon: 'backups' }
+    ];
+    if (esAdmin) {
+      items.push({ label: 'Optimización', url: '/configuracion/optimizacion', icon: 'optimizacion' });
+    }
+    return items;
+  });
 
   // Mapeo de iconos de Lucide (menú principal y submenús)
   const iconMap: Record<string, any> = {
@@ -119,6 +118,7 @@
     'egreso': Minus,
     
     // Submenús - Ventas
+    'pos': Store,
     'preventas': ClipboardList,
     'facturas': FileText,
     'ordenes': ClipboardList,
@@ -171,6 +171,7 @@
     // Submenús - Configuración
     'general-config': Settings,
     'reportes-auto': FolderSync,
+    'backups': HardDrive,
     'optimizacion': Zap,
 
     // Ayuda
@@ -208,6 +209,7 @@
       label: 'Ventas',
       icon: 'ventas',
       items: [
+        { label: 'Punto de venta', url: '/ventas/pos', icon: 'pos' },
         { label: 'Preventas', url: '/ventas/preventas', icon: 'preventas' },
         { label: 'Facturas', url: '/ventas/facturas', icon: 'facturas' },
         { label: 'Notas de Crédito', url: '/ventas/notascredito', icon: 'notascredito' },

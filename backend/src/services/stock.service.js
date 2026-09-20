@@ -1,5 +1,6 @@
 const sequelize = require("../config/database");
 const { Op } = require("sequelize");
+const { esArticuloPosVarios } = require("../utils/posVarios");
 
 /**
  * Servicio para manejar las operaciones de stock
@@ -107,6 +108,11 @@ const StockService = {
         console.log(" Procesando item:", item);
         console.log("🔍 item.ArticuloCodigo:", item.ArticuloCodigo);
         console.log("🔍 item.Cantidad:", item.Cantidad);
+
+        if (esArticuloPosVarios(item.ArticuloCodigo)) {
+          console.log("🔍 Skip stock de artículo Varios POS:", item.ArticuloCodigo);
+          continue;
+        }
         
         // Actualizar stock (solo descuento, sin crear movimiento)
         await this.actualizarStock(

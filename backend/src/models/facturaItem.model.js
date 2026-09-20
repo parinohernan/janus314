@@ -80,6 +80,10 @@ const FacturaItem = sequelize.define(
       allowNull: true,
       defaultValue: 0,
     },
+    DescripcionLibre: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
   },
   {
     tableName: "facturaitems",
