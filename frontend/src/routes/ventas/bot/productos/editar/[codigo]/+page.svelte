@@ -6,6 +6,7 @@
   import { ProveedorService, type Proveedor } from '$lib/services/ProveedorService';
   import { RubroService, type Rubro } from '$lib/services/RubroService';
   import type { Articulo } from '$lib/types';
+  import { alicuotaIvaValor } from '$lib/utils/ivaArticulo';
   
   // Exportar las propiedades del componente
   export let data;
@@ -60,7 +61,7 @@
   let success = false;
 
   // Asegurarse de que los campos necesarios para cálculos existen
-  $: producto.PrecioCostoConIva = producto.PrecioCostoConIva || (producto.PrecioCosto ? producto.PrecioCosto * (1 + (producto.PorcentajeIVA1 || 21) / 100) : 0);
+  $: producto.PrecioCostoConIva = producto.PrecioCostoConIva || (producto.PrecioCosto ? producto.PrecioCosto * (1 + alicuotaIvaValor(producto.PorcentajeIVA1) / 100) : 0);
   $: producto.PrecioCostoSinIva = producto.PrecioCostoSinIva || producto.PrecioCosto || 0;
 
   // Calcular precio de costo sin IVA cuando cambia el precio con IVA

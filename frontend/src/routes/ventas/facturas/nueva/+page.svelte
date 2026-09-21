@@ -14,9 +14,10 @@
   import { ConfiguracionService } from '$lib/services/ConfiguracionService';
   import type { Preventa } from '$lib/types';
   import { EmpresaService } from '$lib/services/EmpresaService';
-  import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
-  import { toast, confirm } from '$lib/utils/toast';
-  import { datosComercialesDesdeCliente } from '$lib/utils/facturaClienteDefaults';
+	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+	import { toast, confirm } from '$lib/utils/toast';
+	import { datosComercialesDesdeCliente } from '$lib/utils/facturaClienteDefaults';
+	import { alicuotaIvaArticulo } from '$lib/utils/ivaArticulo';
   import {
     mapearItemFacturaClonada,
     porcentajeBonificacionEncabezado
@@ -533,7 +534,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     // Obtener precio según la lista seleccionada
     const precioLista = obtenerPrecioSegunLista(articuloSeleccionado, factura.ListaPrecio);
     // Usar el PorcentajeIVA1 del artículo o 21 como valor predeterminado
-    const porcentajeIva = articuloSeleccionado.PorcentajeIVA1 || 21;
+    const porcentajeIva = alicuotaIvaArticulo(articuloSeleccionado);
     
     const porcentajeDescuento = Math.min(100, Math.max(0, Number(descuentoArticulo) || 0));
 
@@ -1159,7 +1160,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   } {
     // El precio de la preventa viene con IVA incluido, lo quitamos para comparar
     const precioPreventaConIva = item.PrecioLista || 0;
-    const porcentajeIva = item.Articulo.PorcentajeIVA1 || 21;
+    const porcentajeIva = alicuotaIvaArticulo(item.Articulo);
     const precioPreventa = precioPreventaConIva / (1 + porcentajeIva / 100);
     
     // El precio actual viene sin IVA
@@ -1240,7 +1241,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                 // Crear nuevo item para la factura con la existencia actualizada
                 // El precio de la preventa viene con IVA incluido, lo quitamos
                 const precioPreventaConIva = item.PrecioLista || 0;
-                const porcentajeIva = articuloActualizado.PorcentajeIVA1 || 21; // Usar el porcentaje del artículo actualizado
+                const porcentajeIva = alicuotaIvaArticulo(articuloActualizado);
                 const precioPreventaSinIva = precioPreventaConIva / (1 + porcentajeIva / 100);
                 
                 const facturaItem: ItemFactura = {
@@ -1251,7 +1252,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                   PorcentajeBonificado: item.PorcentajeBonificacion || 0,
                   ImporteBonificado: 0, // Se calculará en recalcularItem
                   PrecioUnitario: precioPreventaSinIva * (1 - (item.PorcentajeBonificacion || 0) / 100),
-                  PorcentajeIva: articuloActualizado.PorcentajeIVA1 || 21, // Usar el porcentaje del artículo actualizado
+                  PorcentajeIva: porcentajeIva,
                   PrecioUnitarioConIva: 0,
                   Total: 0,
                   enEdicion: false,
@@ -1283,7 +1284,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                 // Si falla la obtención del artículo actualizado, usar los datos de la preventa
                 // El precio de la preventa viene con IVA incluido, lo quitamos
                 const precioPreventaConIva = item.PrecioLista || 0;
-                const porcentajeIva = item.Articulo.PorcentajeIVA1 || 21; // En este caso usar el valor por defecto
+                const porcentajeIva = alicuotaIvaArticulo(item.Articulo);
                 const precioPreventaSinIva = precioPreventaConIva / (1 + porcentajeIva / 100);
                 
                 const facturaItem: ItemFactura = {
@@ -1294,7 +1295,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                   PorcentajeBonificado: item.PorcentajeBonificacion || 0,
                   ImporteBonificado: 0, // Se calculará en recalcularItem
                   PrecioUnitario: precioPreventaSinIva * (1 - (item.PorcentajeBonificacion || 0) / 100),
-                  PorcentajeIva: item.Articulo.PorcentajeIVA1 || 21, // En este caso usar el valor por defecto
+                  PorcentajeIva: porcentajeIva,
                   PrecioUnitarioConIva: 0,
                   Total: 0,
                   enEdicion: false,

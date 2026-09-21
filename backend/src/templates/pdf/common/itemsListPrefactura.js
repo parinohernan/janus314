@@ -1,3 +1,5 @@
+const { alicuotaIvaValor } = require('../../../utils/ivaArticulo');
+
 /**
  * Renderiza la lista de ítems para prefacturas con descuentos
  * @param {PDFDocument} doc - Documento PDF
@@ -26,7 +28,9 @@ function renderItemsListPrefactura(doc, items, startY, interlineado=20) {
     const precioListaSinIva = item.PrecioLista || 0; // Viene sin IVA de la BD
     const porcentajeBonificado = item.PorcentajeBonificado || 0; // Viene de la BD
     const precioUnitarioSinIva = item.PrecioUnitario || 0; // Viene sin IVA de la BD
-    const porcentajeIva = item.PorcentajeIVA1 || 21;
+    const porcentajeIva = alicuotaIvaValor(
+      item.PorcentajeIVA1 ?? item.PorcentajeIva ?? item.PorcentajeIva1
+    );
     
     // Calcular precio de lista CON IVA incluido
     const precioListaConIva = precioListaSinIva * (1 + porcentajeIva / 100);

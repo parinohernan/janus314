@@ -12,6 +12,7 @@
 	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 	import { auth } from '$lib/stores/authStore';
 	import { navigationState } from '$lib/stores/navigationState';
+	import { alicuotaIvaArticulo } from '$lib/utils/ivaArticulo';
 
 	const PAGE_PATH = '/productos/precios/listado';
 
@@ -124,7 +125,7 @@
 	// Obtener precio con IVA
 	function getPrecioConIva(articulo: Articulo): number {
 		const precioLista = getPrecioLista(articulo);
-		const porcentajeIva = articulo.PorcentajeIVA1 || 21;
+		const porcentajeIva = alicuotaIvaArticulo(articulo);
 		return precioLista * (1 + porcentajeIva / 100);
 	}
 

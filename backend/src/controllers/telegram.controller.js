@@ -8,6 +8,7 @@ const Cliente = require("../models/cliente.model");
 const Vendedor = require("../models/vendedor.model");
 const numerosControlController = require("./numerosControl.controller");
 const { Op } = require("sequelize");
+const { alicuotaIvaValor } = require("../utils/ivaArticulo");
 
 // Crear instancia del bot de Telegram
 const bot = new Telegraf(config.botToken);
@@ -508,7 +509,7 @@ exports.crearProducto = async (req, res) => {
         UnidadVenta: productoData.UnidadVenta || 'u',
         PrecioCosto: Number(productoData.PrecioCostoSinIva || productoData.PrecioCosto || 0),
         PrecioCostoMasImp: Number(productoData.PrecioCostoMasImp || productoData.PrecioCostoConIva || 0),
-        PorcentajeIVA1: Number(productoData.PorcentajeIVA1 || productoData.PorcentajeIva1 || 21),
+        PorcentajeIVA1: alicuotaIvaValor(productoData.PorcentajeIVA1 ?? productoData.PorcentajeIva1),
         PorcentajeIVA2: Number(productoData.PorcentajeIVA2 || productoData.PorcentajeIva2 || 0),
         Lista1: Number(productoData.PrecioLista1 || 0),
         Lista2: Number(productoData.PrecioLista2 || 0),

@@ -6,7 +6,8 @@ import {
 	lineaDesdeRubro,
 	mergeLineasParaPersistir,
 	tipoTicketFiscal,
-	totalTicket
+	totalTicket,
+	ivaDeArticulo
 } from '../src/lib/utils/posTicket';
 import type { Articulo } from '../src/lib/types/articulo';
 
@@ -39,7 +40,20 @@ describe('POS ticket', () => {
 		expect(linea.ArticuloCodigo).toBe('VAR-VER');
 		expect(linea.DescripcionLibre).toBe('Tomate x kg');
 		expect(linea.PorcentajeIva).toBe(10.5);
-		expect(linea.PrecioUnitarioConIva).toBeCloseTo(110.5, 1);
+		expect(linea.PrecioUnitarioConIva).toBe(110.5);
+	});
+
+	it('conserva el precio con IVA que cargó el cajero en Varios', () => {
+		const almacen = POS_RUBROS.find((r) => r.id === 'almacen')!;
+		const panaderia = POS_RUBROS.find((r) => r.id === 'panaderia')!;
+		const cuatro = lineaDesdeRubro(almacen, 'VARIOS ALMACEN', 4);
+		const cinco = lineaDesdeRubro(panaderia, 'VARIOS PANADERIA', 5);
+		expect(cuatro.PorcentajeIva).toBe(21);
+		expect(cuatro.PrecioUnitarioConIva).toBe(4);
+		expect(cuatro.Total).toBe(4);
+		expect(cinco.PorcentajeIva).toBe(10.5);
+		expect(cinco.PrecioUnitarioConIva).toBe(5);
+		expect(cinco.Total).toBe(5);
 	});
 
 	it('elige FCA para RI y FCB para consumidor final', () => {
@@ -58,5 +72,13 @@ describe('POS ticket', () => {
 		expect(merged[0].Descripcion).toContain('Tomate');
 		expect(merged[0].Descripcion).toContain('Papa');
 		expect(totalTicket(merged)).toBeCloseTo(150, 1);
+	});
+
+	it('conserva IVA 0% al armar una línea', () => {
+		const exento: Articulo = { ...articulo, PorcentajeIVA1: 0 };
+		expect(ivaDeArticulo(exento)).toBe(0);
+		const linea = agregarOIncrementar([], exento)[0];
+		expect(linea.PorcentajeIva).toBe(0);
+		expect(linea.PrecioUnitarioConIva).toBeCloseTo(linea.PrecioUnitario, 2);
 	});
 });

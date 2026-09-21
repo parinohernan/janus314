@@ -1,5 +1,6 @@
 import type { Articulo } from './types';
 import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+import { alicuotaIvaArticulo } from '$lib/utils/ivaArticulo';
 
 export function obtenerPrecioSegunLista(articulo: Articulo, listaId: string): number {
   const precioCosto = articulo.PrecioCosto || 0;
@@ -8,7 +9,7 @@ export function obtenerPrecioSegunLista(articulo: Articulo, listaId: string): nu
   const lista3 = articulo.Lista3 || 50;
   const lista4 = articulo.Lista4 || 60;
   const lista5 = articulo.Lista5 || 70;
-  const porcentajeIva = articulo.PorcentajeIVA1 || 21;
+  const porcentajeIva = alicuotaIvaArticulo(articulo);
   let precioSinIva;
   switch(listaId) {
     case '1': precioSinIva = precioCosto * (1 + lista1/100); break;

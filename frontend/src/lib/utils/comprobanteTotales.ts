@@ -13,6 +13,7 @@ type ItemCalculo = {
 	PorcentajeIVA1?: number;
 	PorcentajeIVA2?: number;
 	PorcentajeBonificado?: number;
+	PrecioUnitarioConIva?: number;
 	Total?: number;
 } | null;
 
@@ -69,7 +70,11 @@ export function calcularTotalesComprobante({
 		if (es21(iva)) base21 += netoBonif;
 		else if (es105(iva)) base105 += netoBonif;
 
-		const precioConIva = redondear2(neto * (1 + iva / 100));
+		const precioConIvaInformado = Number(item.PrecioUnitarioConIva);
+		const precioConIva =
+			Number.isFinite(precioConIvaInformado) && precioConIvaInformado > 0
+				? redondear2(precioConIvaInformado)
+				: redondear2(neto * (1 + iva / 100));
 		subtotalConIva = redondear2(subtotalConIva + redondear2(cantidad * precioConIva));
 	}
 

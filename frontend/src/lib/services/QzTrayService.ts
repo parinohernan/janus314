@@ -53,8 +53,22 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, onTimeout: () => 
 	}
 }
 
+function ensureLnaStub() {
+	if (typeof window === 'undefined') return;
+	const w = window as Window & {
+		lna?: {
+			detectLna: (address: string, connectFn: (address: string) => Promise<unknown>) => Promise<unknown>;
+		};
+	};
+	if (w.lna?.detectLna) return;
+	w.lna = {
+		detectLna: (address, connectFn) => connectFn(address)
+	};
+}
+
 async function loadQz(): Promise<QzClient> {
 	if (qzRef) return qzRef;
+	ensureLnaStub();
 	const mod = await import('qz-tray');
 	qzRef = (mod.default || mod) as QzClient;
 	return qzRef;
@@ -62,20 +76,23 @@ async function loadQz(): Promise<QzClient> {
 
 async function configureSecurity(qz: QzClient): Promise<void> {
 	if (securityReady) return;
+
+	let certificado = '';
 	try {
 		const response = await fetchWithAuth('/pos/qz-cert');
-		if (!response.ok) {
-			securityReady = true;
-			return;
+		if (response.ok) {
+			const payload = await response.json();
+			if (payload.configurado && payload.certificado) {
+				certificado = String(payload.certificado);
+			}
 		}
-		const payload = await response.json();
-		const certificado = payload.configurado && payload.certificado;
-		if (!certificado) {
-			securityReady = true;
-			return;
-		}
+	} catch {
+		certificado = '';
+	}
 
-		qz.security.setCertificatePromise((resolve) => resolve(certificado));
+	qz.security.setCertificatePromise((resolve) => resolve(certificado));
+
+	if (certificado) {
 		qz.security.setSignatureAlgorithm('SHA512');
 		qz.security.setSignaturePromise((toSign) => (resolve, reject) => {
 			fetchWithAuth('/pos/qz-sign', {
@@ -89,10 +106,9 @@ async function configureSecurity(qz: QzClient): Promise<void> {
 				})
 				.catch(reject);
 		});
-		securityReady = true;
-	} catch {
-		securityReady = true;
 	}
+
+	securityReady = true;
 }
 
 export async function connectQz(): Promise<QzClient> {

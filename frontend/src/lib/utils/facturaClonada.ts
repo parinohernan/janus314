@@ -1,3 +1,5 @@
+import { alicuotaIvaValor } from './ivaArticulo';
+
 export function precioListaItemClonado(item: {
 	PrecioLista?: number | string | null;
 	PrecioUnitario?: number | string | null;
@@ -34,7 +36,7 @@ export function mapearItemFacturaClonada(item: {
 		PorcentajeBonificado: Number(item.PorcentajeBonificado) || 0,
 		ImporteBonificado: Number(item.ImporteBonificado) || 0,
 		PrecioUnitario: Number(item.PrecioUnitario) || 0,
-		PorcentajeIva: Number(item.PorcentajeIva) || 21,
+		PorcentajeIva: alicuotaIvaValor(item.PorcentajeIva),
 		PrecioUnitarioConIva: Number(item.PrecioUnitarioConIva) || 0,
 		Total: Number(item.Total) || 0,
 		enEdicion: false

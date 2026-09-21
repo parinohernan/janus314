@@ -5,6 +5,7 @@
   import { ProveedorService, type Proveedor } from '$lib/services/ProveedorService';
   import { RubroService, type Rubro } from '$lib/services/RubroService';
   import Breadcrumbs from '../../../components/Breadcrumbs/index.svelte';
+  import { alicuotaIvaArticulo } from '$lib/utils/ivaArticulo';
   
   // Exportar las propiedades del componente
   export let data: { articulo: any };
@@ -198,7 +199,7 @@
         
         <div class="detail-item">
           <div class="detail-label">IVA Principal</div>
-          <div class="detail-value">{producto.PorcentajeIVA1 || producto.PorcentajeIva1 || 21}%</div>
+          <div class="detail-value">{alicuotaIvaArticulo(producto)}%</div>
         </div>
         
         <div class="detail-item">

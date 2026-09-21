@@ -47,11 +47,17 @@ export default defineConfig(({ mode }) => {
         root: process.cwd(),
         plugins: [tailwindcss(), malformedUriGuard(), sveltekit()],
         optimizeDeps: {
-            include: ['svelte-sonner', 'qz-tray']
+            include: ['svelte-sonner', 'qz-tray'],
+            esbuildOptions: {
+                alias: {
+                    lna: resolve(process.cwd(), 'src/lib/shims/lna.ts')
+                }
+            }
         },
         resolve: {
             alias: {
-                '@src': resolve(process.cwd(), 'src')
+                '@src': resolve(process.cwd(), 'src'),
+                lna: resolve(process.cwd(), 'src/lib/shims/lna.ts')
             }
         },
         server: {

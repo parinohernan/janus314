@@ -9,7 +9,8 @@
   import { RubroService } from '$lib/services/RubroService';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { smartNavigate } from '$lib/utils/navigation';
-  import { toast, confirm } from '$lib/utils/toast';
+	import { toast, confirm } from '$lib/utils/toast';
+	import { alicuotaIvaArticulo } from '$lib/utils/ivaArticulo';
 
   const PAGE_PATH = '/productos';
 
@@ -273,7 +274,7 @@
   const calcularPrecioFinal = (articulo: Articulo): number => {
     const precioCosto = articulo.PrecioCosto || 0;
     const lista1 = articulo.Lista1 || 0;
-    const porcentajeIva = articulo.PorcentajeIVA1 || 21;
+    const porcentajeIva = alicuotaIvaArticulo(articulo);
     
     // Calcular: PrecioCosto * (1 + Lista1/100) * (1 + IVA/100)
     const precioConLista = precioCosto * (1 + lista1 / 100);

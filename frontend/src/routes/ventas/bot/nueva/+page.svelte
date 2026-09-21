@@ -12,6 +12,7 @@
   import type { FormaPago } from '$lib/constants/formasPago';
   import '../components/bot.css';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+  import { alicuotaIvaArticulo } from '$lib/utils/ivaArticulo';
   import { auth } from '$lib/stores/authStore';
   import { get } from 'svelte/store';
   import ClienteNuevoModal from '../components/ClienteNuevoModal.svelte';
@@ -553,7 +554,7 @@
             PrecioLista: Number((articulo.PrecioVenta || 0).toFixed(2)),
             PorcentajeBonificado: 0,
             ImporteBonificado: 0,
-            PorcentajeIva: articulo.PorcentajeIVA1 || 21
+            PorcentajeIva: alicuotaIvaArticulo(articulo)
           }))
         })
       });

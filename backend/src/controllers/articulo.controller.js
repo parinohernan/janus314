@@ -3,6 +3,7 @@ const { Op } = require("sequelize");
 const XLSX = require("xlsx");
 const multer = require('multer');
 const path = require('path');
+const { alicuotaIvaArticulo } = require('../utils/ivaArticulo');
 
 // Configurar multer
 const storage = multer.diskStorage({
@@ -970,7 +971,7 @@ exports.generarListadoPreciosPDF = async (req, res) => {
     // Función para obtener precio con IVA
     const getPrecioConIva = (articulo) => {
       const precioLista = getPrecioLista(articulo);
-      const porcentajeIva = articulo.PorcentajeIVA1 || 21;
+      const porcentajeIva = alicuotaIvaArticulo(articulo);
       return precioLista * (1 + porcentajeIva / 100);
     };
 

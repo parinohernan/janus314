@@ -19,6 +19,7 @@
     calcularTotalesNotaCredito,
     porcentajeBonificacionDesdeFactura
   } from '$lib/utils/notaCreditoTotales';
+  import { alicuotaIvaArticulo, alicuotaIvaValor } from '$lib/utils/ivaArticulo';
 
   const NOTA_CREDITO_NUEVA_PATH = '/ventas/notascredito/nueva';
   let skipPersist = false;
@@ -306,18 +307,25 @@
         };
         
         // Copiar items de la factura con la estructura correcta
-        notaCredito.Items = data.items.map((item: any) => ({
-          CodigoArticulo: item.CodigoArticulo || item.codigoArticulo,
-          Descripcion: item.Descripcion || item.descripcion || item.Articulo?.Descripcion,
-          Cantidad: item.Cantidad || item.cantidad,
-          PrecioUnitario: item.PrecioUnitario || item.precioUnitario,
-          PorcentajeBonificacion: item.PorcentajeBonificado || item.porcentajeBonificado || 0,
-          PorcentajeIva: item.PorcentajeIva || item.PorcentajeIVA1 || item.porcentajeIva1 || 21,
-          PrecioUnitarioConIva: (item.PrecioUnitario || item.precioUnitario) * (1 + (item.PorcentajeIva || item.PorcentajeIVA1 || item.porcentajeIva1 || 21) / 100),
-          Total: (item.Cantidad || item.cantidad) * (item.PrecioUnitario || item.precioUnitario),
-          TotalConIva: (item.Cantidad || item.cantidad) * (item.PrecioUnitario || item.precioUnitario) * (1 + (item.PorcentajeIva || item.PorcentajeIVA1 || item.porcentajeIva1 || 21) / 100),
-          enEdicion: false
-        }));
+        notaCredito.Items = data.items.map((item: any) => {
+          const porcentajeIva = alicuotaIvaValor(
+            item.PorcentajeIva ?? item.PorcentajeIVA1 ?? item.porcentajeIva1
+          );
+          const cantidad = item.Cantidad || item.cantidad;
+          const precioUnitario = item.PrecioUnitario || item.precioUnitario;
+          return {
+            CodigoArticulo: item.CodigoArticulo || item.codigoArticulo,
+            Descripcion: item.Descripcion || item.descripcion || item.Articulo?.Descripcion,
+            Cantidad: cantidad,
+            PrecioUnitario: precioUnitario,
+            PorcentajeBonificacion: item.PorcentajeBonificado || item.porcentajeBonificado || 0,
+            PorcentajeIva: porcentajeIva,
+            PrecioUnitarioConIva: precioUnitario * (1 + porcentajeIva / 100),
+            Total: cantidad * precioUnitario,
+            TotalConIva: cantidad * precioUnitario * (1 + porcentajeIva / 100),
+            enEdicion: false
+          };
+        });
 
         notaCredito.PorcentajeBonificacion = porcentajeBonificacionDesdeFactura(
           data.encabezado || data
@@ -392,7 +400,7 @@
           codigo: articulo.Codigo,
           descripcion: articulo.Descripcion,
           precio: articulo.PrecioVenta1 || articulo.Lista1 || 0,
-          iva: articulo.PorcentajeIva || 21,
+          iva: alicuotaIvaArticulo(articulo),
           label: `${articulo.Codigo} - ${articulo.Descripcion}`
         }));
       } catch (error) {

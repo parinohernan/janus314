@@ -40,4 +40,9 @@ describe('clonar factura: descuentos y bonificaciones', () => {
 		expect(porcentajeBonificacionEncabezado({ PorcentajeBonificacion: 8 })).toBe(8);
 		expect(porcentajeBonificacionEncabezado({})).toBe(0);
 	});
+
+	it('conserva IVA 0% al clonar el renglón', () => {
+		expect(mapearItemFacturaClonada({ PorcentajeIva: 0 }).PorcentajeIva).toBe(0);
+		expect(mapearItemFacturaClonada({ PorcentajeIva: '0' }).PorcentajeIva).toBe(0);
+	});
 });

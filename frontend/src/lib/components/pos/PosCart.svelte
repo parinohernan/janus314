@@ -9,15 +9,31 @@
 
 	const dispatch = createEventDispatcher<{
 		select: string;
+		deselect: void;
 		qty: { lineId: string; delta: number };
 		remove: string;
 	}>();
+
+	const cols = 'grid-cols-[2.5rem_1fr_3.75rem_6rem_7.5rem_2.5rem]';
+
+	function enEdicion(lineId: string) {
+		return seleccionId === lineId;
+	}
+
+	function toggleEdicion(lineId: string) {
+		if (disabled) return;
+		if (enEdicion(lineId)) dispatch('deselect');
+		else dispatch('select', lineId);
+	}
 </script>
 
 <div class="flex h-full min-h-0 flex-col bg-white">
-	<div class="grid grid-cols-[2.5rem_1fr_6rem_7.5rem_2.5rem] gap-2 border-b border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+	<div
+		class="grid {cols} gap-2 border-b border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500"
+	>
 		<span>Cant.</span>
 		<span>Descripción</span>
+		<span class="text-right">IVA</span>
 		<span class="text-right">P. unit.</span>
 		<span class="text-right">Total</span>
 		<span></span>
@@ -32,13 +48,14 @@
 		{:else}
 			{#each lineas as linea (linea.lineId)}
 				<div
-					class="grid w-full grid-cols-[2.5rem_1fr_6rem_7.5rem_2.5rem] items-center gap-2 border-b border-slate-100 px-4 py-3 {seleccionId === linea.lineId
-						? 'bg-blue-50'
-						: 'hover:bg-slate-50'}"
-					role="button"
-					tabindex="0"
-					on:click={() => dispatch('select', linea.lineId)}
-					on:keydown={(e) => e.key === 'Enter' && dispatch('select', linea.lineId)}
+					class="grid w-full select-none {cols} items-center gap-2 border-b px-4 py-3 {enEdicion(linea.lineId)
+						? 'border-amber-200 bg-amber-50 ring-2 ring-inset ring-amber-400'
+						: 'border-slate-100 hover:bg-slate-50'}"
+					role="row"
+					aria-selected={enEdicion(linea.lineId)}
+					tabindex="-1"
+					title="Doble clic para editar cantidad con + y −"
+					on:dblclick={() => toggleEdicion(linea.lineId)}
 				>
 					<div class="flex flex-col items-center gap-1">
 						<button
@@ -63,13 +80,9 @@
 					</div>
 					<div class="min-w-0">
 						<p class="truncate font-medium text-slate-900">{linea.Descripcion}</p>
-						<p class="truncate text-xs text-slate-400">
-							{linea.ArticuloCodigo}
-							{#if linea.esVarios}
-								· IVA {linea.PorcentajeIva}%
-							{/if}
-						</p>
+						<p class="truncate text-xs text-slate-400">{linea.ArticuloCodigo}</p>
 					</div>
+					<span class="text-right text-sm tabular-nums text-slate-600">{linea.PorcentajeIva}%</span>
 					<span class="text-right text-sm text-slate-600">{formatMoneyAR(linea.PrecioUnitarioConIva)}</span>
 					<span class="text-right text-base font-semibold text-slate-900">{formatMoneyAR(linea.Total)}</span>
 					<button

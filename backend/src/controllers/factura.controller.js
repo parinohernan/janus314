@@ -5,6 +5,7 @@ const numerosControlController = require("./numerosControl.controller");
 const FacturaService = require("../services/factura.service");
 const { adjuntarPreventistasAFacturas } = require("../services/preventaFacturaLink.service");
 const { ensureDescripcionLibreColumn, ensureClienteConsumidorFinal } = require("../utils/posVarios");
+const { alicuotaIvaArticulo } = require("../utils/ivaArticulo");
 
 // Obtener listado de facturas (con paginación y filtros)
 exports.listarFacturas = async (req, res) => {
@@ -204,6 +205,7 @@ exports.obtenerFactura = async (req, res) => {
     // Mapear los items para incluir la información necesaria
     const itemsMapeados = items.map(item => {
       const itemData = item.toJSON();
+      const porcentajeIva = alicuotaIvaArticulo(itemData.Articulo);
       return {
         CodigoArticulo: itemData.CodigoArticulo || '',
         Descripcion: itemData.DescripcionLibre || itemData.Articulo?.Descripcion || 'Artículo no encontrado',
@@ -212,10 +214,10 @@ exports.obtenerFactura = async (req, res) => {
         PrecioUnitario: itemData.PrecioUnitario || 0,
         PorcentajeBonificado: itemData.PorcentajeBonificado || 0,
         ImporteBonificado: itemData.ImporteBonificado || 0,
-        PorcentajeIva: itemData.Articulo?.PorcentajeIVA1 || 21,
-        PrecioUnitarioConIva: (itemData.PrecioUnitario || 0) * (1 + (itemData.Articulo?.PorcentajeIVA1 || 21) / 100),
+        PorcentajeIva: porcentajeIva,
+        PrecioUnitarioConIva: (itemData.PrecioUnitario || 0) * (1 + porcentajeIva / 100),
         Total: (itemData.Cantidad || 0) * (itemData.PrecioUnitario || 0),
-        TotalConIva: (itemData.Cantidad || 0) * (itemData.PrecioUnitario || 0) * (1 + (itemData.Articulo?.PorcentajeIVA1 || 21) / 100)
+        TotalConIva: (itemData.Cantidad || 0) * (itemData.PrecioUnitario || 0) * (1 + porcentajeIva / 100)
       };
     });
 

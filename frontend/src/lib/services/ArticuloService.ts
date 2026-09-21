@@ -2,6 +2,7 @@ import type { Articulo, ItemFactura } from '$lib/types';
 import { PUBLIC_API_URL } from '$env/static/public';
 import { FacturaCalculator } from './FacturaCalculator';
 import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+import { alicuotaIvaArticulo } from '$lib/utils/ivaArticulo';
 
 export interface ArticulosResponse {
 	items: Articulo[];
@@ -109,7 +110,7 @@ export class ArticuloService {
 			PorcentajeBonificado: 0,
 			ImporteBonificado: 0,
 			PrecioUnitario: precioLista,
-			PorcentajeIva: articulo.PorcentajeIVA1 || 21, // Valor por defecto 21% si no hay
+			PorcentajeIva: alicuotaIvaArticulo(articulo),
 			PrecioUnitarioConIva: 0,
 			Total: 0,
 			enEdicion: false

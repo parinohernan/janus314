@@ -1,6 +1,7 @@
 import { redondear2 } from './comprobanteTotales';
 import { esArticuloPosVarios, type PosRubro } from '$lib/constants/posVarios';
 import type { Articulo } from '$lib/types/articulo';
+import { alicuotaIvaArticulo } from './ivaArticulo';
 
 export type PosLinea = {
 	lineId: string;
@@ -30,8 +31,22 @@ export function nuevaLineaId(): string {
 export function completarImportes(linea: PosLinea): PosLinea {
 	const iva = Number(linea.PorcentajeIva) || 0;
 	const cantidad = Number(linea.Cantidad) || 0;
+	const factor = 1 + iva / 100;
+	const puIvaIngresado = redondear2(Number(linea.PrecioUnitarioConIva) || 0);
+
+	if (linea.esVarios && puIvaIngresado > 0) {
+		const pu = redondear2(puIvaIngresado / factor);
+		return {
+			...linea,
+			PrecioUnitario: pu,
+			PrecioLista: redondear2(Number(linea.PrecioLista) || pu),
+			PrecioUnitarioConIva: puIvaIngresado,
+			Total: redondear2(puIvaIngresado * cantidad)
+		};
+	}
+
 	const pu = redondear2(Number(linea.PrecioUnitario) || 0);
-	const puIva = redondear2(pu * (1 + iva / 100));
+	const puIva = redondear2(pu * factor);
 	return {
 		...linea,
 		PrecioUnitario: pu,
@@ -62,8 +77,7 @@ export function precioListaSinIva(articulo: Articulo, listaId = '1'): number {
 }
 
 export function ivaDeArticulo(articulo: Articulo): number {
-	const iva = Number(articulo.PorcentajeIVA1 ?? articulo.PorcentajeIva1 ?? articulo.PorcentajeIva);
-	return Number.isFinite(iva) && iva > 0 ? iva : 21;
+	return alicuotaIvaArticulo(articulo);
 }
 
 export function lineaDesdeArticulo(articulo: Articulo, listaId = '1'): PosLinea {
@@ -97,7 +111,7 @@ export function lineaDesdeRubro(rubro: PosRubro, descripcion: string, precioConI
 		PrecioLista: sinIva,
 		PrecioUnitario: sinIva,
 		PorcentajeIva: iva,
-		PrecioUnitarioConIva: 0,
+		PrecioUnitarioConIva: conIva,
 		Total: 0,
 		esVarios: true
 	});
@@ -147,6 +161,7 @@ export function mergeLineasParaPersistir(lineas: PosLinea[]): PosLinea[] {
 		const descripcion = [actual.Descripcion, linea.Descripcion].filter(Boolean).join(' / ').slice(0, 100);
 		const totalNeto =
 			actual.PrecioUnitario * actual.Cantidad + linea.PrecioUnitario * linea.Cantidad;
+		const totalConIva = redondear2((Number(actual.Total) || 0) + (Number(linea.Total) || 0));
 		map.set(
 			key,
 			completarImportes({
@@ -155,7 +170,8 @@ export function mergeLineasParaPersistir(lineas: PosLinea[]): PosLinea[] {
 				DescripcionLibre: descripcion,
 				Cantidad: 1,
 				PrecioLista: redondear2(totalNeto),
-				PrecioUnitario: redondear2(totalNeto)
+				PrecioUnitario: redondear2(totalNeto),
+				PrecioUnitarioConIva: totalConIva
 			})
 		);
 	}

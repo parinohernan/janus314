@@ -154,7 +154,7 @@
 	}
 
 	onMount(async () => {
-		window.addEventListener('keydown', onGlobalKey);
+		window.addEventListener('keydown', onGlobalKey, true);
 		try {
 			const empresa = await EmpresaService.obtenerDatos();
 			datosEmpresa = empresa;
@@ -175,9 +175,27 @@
 	});
 
 	onDestroy(() => {
-		window.removeEventListener('keydown', onGlobalKey);
+		window.removeEventListener('keydown', onGlobalKey, true);
 		disconnectQz().catch(() => null);
 	});
+
+	function esTeclaMas(event: KeyboardEvent) {
+		return event.key === '+' || event.code === 'NumpadAdd';
+	}
+
+	function esTeclaMenos(event: KeyboardEvent) {
+		return event.key === '-' || event.code === 'NumpadSubtract';
+	}
+
+	function salirEdicion() {
+		seleccionId = null;
+		search?.focusInput();
+	}
+
+	function entrarEdicion(lineId: string) {
+		seleccionId = lineId;
+		search?.blurInput();
+	}
 
 	function onGlobalKey(event: KeyboardEvent) {
 		if (showVarios || showCae || showPrinter || showBuscar || cobrando) {
@@ -220,6 +238,29 @@
 			return;
 		}
 
+		if (seleccionId) {
+			if (esTeclaMas(event)) {
+				event.preventDefault();
+				ajustarCantidad(seleccionId, 1);
+				return;
+			}
+			if (esTeclaMenos(event)) {
+				event.preventDefault();
+				ajustarCantidad(seleccionId, -1);
+				return;
+			}
+			if (event.key === 'Enter' && !search?.tieneTexto()) {
+				event.preventDefault();
+				salirEdicion();
+				return;
+			}
+			if (event.key === 'Escape') {
+				event.preventDefault();
+				salirEdicion();
+				return;
+			}
+		}
+
 		const target = event.target as HTMLElement | null;
 		const enCampo = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA';
 		if (!enCampo && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
@@ -229,7 +270,6 @@
 
 	function agregarArticulo(articulo: Articulo) {
 		lineas = agregarOIncrementar(lineas, articulo, listaPrecio);
-		seleccionId = lineas[lineas.length - 1]?.lineId ?? null;
 		flashOk = true;
 		setTimeout(() => (flashOk = false), 250);
 		search?.focusInput();
@@ -263,15 +303,19 @@
 		}
 	}
 
-	function onQty(event: CustomEvent<{ lineId: string; delta: number }>) {
-		const linea = lineas.find((l) => l.lineId === event.detail.lineId);
+	function ajustarCantidad(lineId: string, delta: number) {
+		const linea = lineas.find((l) => l.lineId === lineId);
 		if (!linea) return;
-		const siguiente = linea.Cantidad + event.detail.delta;
+		const siguiente = linea.Cantidad + delta;
 		if (siguiente <= 0) {
 			quitar(linea.lineId);
 			return;
 		}
 		lineas = cambiarCantidad(lineas, linea.lineId, siguiente);
+	}
+
+	function onQty(event: CustomEvent<{ lineId: string; delta: number }>) {
+		ajustarCantidad(event.detail.lineId, event.detail.delta);
 	}
 
 	function quitar(lineId: string) {
@@ -296,7 +340,6 @@
 		if (!rubroActivo) return;
 		const linea = lineaDesdeRubro(rubroActivo, event.detail.descripcion, event.detail.precioConIva);
 		lineas = [...lineas, completarImportes(linea)];
-		seleccionId = linea.lineId;
 		showVarios = false;
 		rubroActivo = null;
 		search?.focusInput();
@@ -354,7 +397,9 @@
 					Cantidad: item.Cantidad,
 					PrecioUnitario: item.PrecioUnitario,
 					PrecioLista: item.PrecioLista,
-					PorcentajeIva: item.PorcentajeIva
+					PorcentajeIva: item.PorcentajeIva,
+					PrecioUnitarioConIva: item.PrecioUnitarioConIva,
+					Total: item.Total
 				})),
 				tipo
 			});
@@ -529,7 +574,8 @@
 				{lineas}
 				{seleccionId}
 				disabled={cobrando}
-				on:select={(e) => (seleccionId = e.detail)}
+				on:select={(e) => entrarEdicion(e.detail)}
+				on:deselect={salirEdicion}
 				on:qty={onQty}
 				on:remove={(e) => quitar(e.detail)}
 			/>

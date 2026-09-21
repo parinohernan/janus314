@@ -19,6 +19,14 @@
 		inputEl?.select();
 	}
 
+	export function blurInput() {
+		inputEl?.blur();
+	}
+
+	export function tieneTexto() {
+		return valor.trim().length > 0;
+	}
+
 	export function clear() {
 		valor = '';
 	}
