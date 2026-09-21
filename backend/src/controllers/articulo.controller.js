@@ -1332,6 +1332,45 @@ exports.lookupArticulo = async (req, res) => {
   }
 };
 
+const CAMPOS_CATALOGO_POS = [
+  "Codigo",
+  "CodigoBarras",
+  "Descripcion",
+  "PrecioCosto",
+  "Lista1",
+  "Lista2",
+  "Lista3",
+  "Lista4",
+  "Lista5",
+  "PorcentajeIVA1",
+  "Existencia",
+  "Activo",
+];
+
+exports.catalogoPos = async (req, res) => {
+  try {
+    const { Articulo } = req.models;
+    const articulos = await Articulo.findAll({
+      attributes: CAMPOS_CATALOGO_POS,
+      where: {
+        [Op.or]: [{ Activo: { [Op.is]: null } }, { Activo: { [Op.ne]: 0 } }],
+      },
+      raw: true,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: articulos,
+    });
+  } catch (error) {
+    console.error("Error al armar catálogo POS:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error al cargar el catálogo del punto de venta",
+    });
+  }
+};
+
 // Crea los 6 artículos dummy de rubro si faltan, y asegura DescripcionLibre.
 exports.ensurePosVarios = async (req, res) => {
   try {

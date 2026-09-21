@@ -5,8 +5,6 @@ const CajaArqueoDetalle = require('../models/cajaArqueoDetalle.model');
 const NotaCreditoCabezaModel = require('../models/notaCreditoCabeza.model');
 
 const initializeModels = (sequelize) => {
-  console.log('Iniciando inicialización de modelos...');
-
   // Inicializar modelos de caja
   CajaCabeza.init(CajaCabeza.getAttributes(), {
     sequelize,
@@ -1843,10 +1841,6 @@ const initializeModels = (sequelize) => {
     OrdenCompraItem
   };
 
-  console.log('Modelos inicializados:', Object.keys(modelos));
-  console.log('ReciboItem en modelos:', !!modelos.ReciboItem);
-  console.log('ReciboValor en modelos:', !!modelos.ReciboValor);
-  console.log('CajaCabeza en modelos:', !!modelos.CajaCabeza);
   return modelos;
 };
 

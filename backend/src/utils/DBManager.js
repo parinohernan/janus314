@@ -137,16 +137,7 @@ class DBManager {
   async getConnectionWithConfig(empresaConfig) {
     // Si ya existe una conexión, la retornamos
     if (this.pools.has(empresaConfig.id)) {
-      const existingConnection = this.pools.get(empresaConfig.id);
-      
-      // Verificar que la conexión esté activa
-      try {
-        await existingConnection.authenticate();
-        return existingConnection;
-      } catch (error) {
-        console.log(`⚠️ Conexión existente inactiva para empresa ${empresaConfig.id}, creando nueva...`);
-        this.pools.delete(empresaConfig.id);
-      }
+      return this.pools.get(empresaConfig.id);
     }
 
     try {

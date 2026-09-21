@@ -43,6 +43,7 @@ router.post("/resumen-existencia-pdf", articuloController.generarResumenExistenc
 router.get("/listado-precios", articuloController.getAllArticulosForPricing);
 router.get("/by-proveedor-articulo", articuloController.getArticuloByProveedorYCodigoProveedor);
 router.get("/lookup", articuloController.lookupArticulo);
+router.get("/pos/catalogo", articuloController.catalogoPos);
 router.post("/pos/ensure-varios", articuloController.ensurePosVarios);
 
 // Rutas con parámetros después

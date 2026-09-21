@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { Search } from 'lucide-svelte';
-	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
-	import { esArticuloPosVarios } from '$lib/constants/posVarios';
+	import { filtrarPosCatalogo } from '$lib/utils/posCatalogo';
 	import { formatMoneyAR, ivaDeArticulo, precioListaSinIva } from '$lib/utils/posTicket';
 	import { redondear2 } from '$lib/utils/comprobanteTotales';
 	import type { Articulo } from '$lib/types/articulo';
 
 	export let show = false;
 	export let listaPrecio = '1';
+	export let articulos: Articulo[] = [];
+	export let catalogoListo = false;
 
 	const dispatch = createEventDispatcher<{
 		select: Articulo;
@@ -16,60 +17,24 @@
 	}>();
 
 	let busqueda = '';
-	let resultados: Articulo[] = [];
-	let loading = false;
 	let destacado = 0;
 	let inputEl: HTMLInputElement;
-	let timeoutId: ReturnType<typeof setTimeout> | null = null;
 	let abiertoAntes = false;
 
 	$: if (show && !abiertoAntes) {
 		abiertoAntes = true;
 		busqueda = '';
-		resultados = [];
 		destacado = 0;
 		queueMicrotask(() => inputEl?.focus());
 	}
 	$: if (!show) abiertoAntes = false;
+	$: resultados = filtrarPosCatalogo(articulos, busqueda);
+	$: if (destacado >= resultados.length) destacado = 0;
 
 	function precioConIva(articulo: Articulo): number {
 		const iva = ivaDeArticulo(articulo);
 		const sinIva = precioListaSinIva(articulo, listaPrecio);
 		return redondear2(sinIva * (1 + iva / 100));
-	}
-
-	async function buscar() {
-		const q = busqueda.trim();
-		if (q.length < 2) {
-			resultados = [];
-			return;
-		}
-		loading = true;
-		try {
-			const response = await fetchWithAuth('/articulos', {
-				params: {
-					page: 1,
-					limit: 20,
-					search: q,
-					field: 'Descripcion',
-					order: 'ASC',
-					activo: 1
-				}
-			});
-			const data = await response.json();
-			const items = (data.items || []) as Articulo[];
-			resultados = items.filter((item) => !esArticuloPosVarios(item.Codigo));
-			destacado = 0;
-		} catch {
-			resultados = [];
-		} finally {
-			loading = false;
-		}
-	}
-
-	function onInput() {
-		if (timeoutId) clearTimeout(timeoutId);
-		timeoutId = setTimeout(buscar, 250);
 	}
 
 	function elegir(articulo: Articulo) {
@@ -128,13 +93,12 @@
 					class="w-full border-0 bg-transparent p-1 text-base text-slate-900 outline-none placeholder:text-slate-400"
 					placeholder="Escribí al menos 2 letras..."
 					autocomplete="off"
-					on:input={onInput}
 				/>
 			</label>
 
 			<div class="mt-3 max-h-80 overflow-y-auto">
-				{#if loading}
-					<p class="px-2 py-4 text-sm text-slate-400">Buscando...</p>
+				{#if !catalogoListo}
+					<p class="px-2 py-4 text-sm text-slate-400">Cargando productos...</p>
 				{:else if busqueda.trim().length < 2}
 					<p class="px-2 py-4 text-sm text-slate-400">Escribí para filtrar el listado</p>
 				{:else if resultados.length === 0}

@@ -2,6 +2,13 @@ const jwt = require('jsonwebtoken');
 const Empresa = require('../models/Empresa');
 const DBManager = require('../utils/DBManager');
 const initializeModels = require('../utils/modelInitializer');
+
+function modelosDe(sequelize) {
+  if (!sequelize) return null;
+  if (sequelize.__janusModels) return sequelize.__janusModels;
+  sequelize.__janusModels = initializeModels(sequelize);
+  return sequelize.__janusModels;
+}
 const restrictContador = require('./restrictContador');
 const backupMaintenance = require('../utils/backupMaintenance');
 
@@ -64,12 +71,9 @@ const getEmpresaConnection = async (req, res, next) => {
         setTimeout(() => reject(new Error('Timeout al obtener conexión de empresa')), 30000)
       )
     ]);
-    
-    // Inicializar los modelos con la conexión de la empresa
-    console.log('Inicializando modelos...');
-    const models = initializeModels(empresaDB);
-    
-    // Verificar que los modelos se inicializaron correctamente
+
+    const models = modelosDe(empresaDB);
+
     if (!models) {
       console.error('❌ Error: No se pudieron inicializar los modelos');
       return res.status(500).json({
@@ -77,12 +81,6 @@ const getEmpresaConnection = async (req, res, next) => {
         error: 'Error al inicializar los modelos'
       });
     }
-
-    // Verificar específicamente ReciboItem y ReciboValor
-    console.log('Verificando modelos específicos:');
-    console.log('- ReciboItem:', !!models.ReciboItem);
-    console.log('- ReciboValor:', !!models.ReciboValor);
-    console.log('- Modelos disponibles:', Object.keys(models));
 
     // Verificar que los modelos necesarios estén presentes
     const modelosRequeridos = ['ReciboItem', 'ReciboValor', 'ReciboCabeza', 'Cliente'];
@@ -96,8 +94,6 @@ const getEmpresaConnection = async (req, res, next) => {
       });
     }
 
-    console.log('✅ Modelos inicializados correctamente');
-    
     // Agregar la conexión, modelos y datos al request
     req.db = empresaDB;
     req.dbConnection = empresaDB;

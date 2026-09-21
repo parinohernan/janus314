@@ -23,6 +23,13 @@
 	import { calcularTotalesComprobante } from '$lib/utils/comprobanteTotales';
 	import { datosComercialesDesdeCliente } from '$lib/utils/facturaClienteDefaults';
 	import { armarPosTicketDto, extraerCae, type PosTicketDto } from '$lib/utils/posTicketHtml';
+	import {
+		catalogoVacio,
+		incorporarPosCatalogo,
+		indexarPosCatalogo,
+		resolverPosCatalogo,
+		type PosCatalogo
+	} from '$lib/utils/posCatalogo';
 	import { loadPosPrinterConfig, type PosPrinterConfig } from '$lib/utils/posPrinterConfig';
 	import {
 		connectQz,
@@ -106,6 +113,11 @@
 	let ultimoTicket: PosTicketDto | null = null;
 	let facturaCreada: { DocumentoTipo: string; DocumentoSucursal: string; DocumentoNumero: string } | null =
 		null;
+	let catalogo: PosCatalogo = catalogoVacio();
+	let catalogoListo = false;
+	let catalogoTimer: ReturnType<typeof setInterval> | null = null;
+	let catalogoSeq = 0;
+	const REFRESCO_CATALOGO_MS = 5 * 60 * 1000;
 
 	$: total = totalTicket(lineas);
 	$: ticketLabel = labelTicketFiscal(cliente?.CategoriaIva);
@@ -153,8 +165,30 @@
 		return false;
 	}
 
+	async function cargarCatalogo() {
+		const seq = ++catalogoSeq;
+		try {
+			const response = await fetchWithAuth('/articulos/pos/catalogo');
+			if (!response.ok || seq !== catalogoSeq) return;
+			const payload = await response.json();
+			if (seq !== catalogoSeq) return;
+			catalogo = indexarPosCatalogo((payload.data || []) as Articulo[]);
+			catalogoListo = true;
+		} catch (error) {
+			console.error(error);
+		}
+	}
+
+	function onVisible() {
+		if (document.visibilityState === 'visible') {
+			cargarCatalogo();
+		}
+	}
+
 	onMount(async () => {
 		window.addEventListener('keydown', onGlobalKey, true);
+		document.addEventListener('visibilitychange', onVisible);
+		catalogoTimer = setInterval(cargarCatalogo, REFRESCO_CATALOGO_MS);
 		try {
 			const empresa = await EmpresaService.obtenerDatos();
 			datosEmpresa = empresa;
@@ -164,6 +198,7 @@
 				verificarCaja(),
 				fetchWithAuth('/articulos/pos/ensure-varios', { method: 'POST' }).catch(() => null)
 			]);
+			await cargarCatalogo();
 			connectQz().catch(() => null);
 		} catch (error) {
 			console.error(error);
@@ -176,6 +211,8 @@
 
 	onDestroy(() => {
 		window.removeEventListener('keydown', onGlobalKey, true);
+		document.removeEventListener('visibilitychange', onVisible);
+		if (catalogoTimer) clearInterval(catalogoTimer);
 		disconnectQz().catch(() => null);
 	});
 
@@ -284,6 +321,12 @@
 			return;
 		}
 
+		const local = resolverPosCatalogo(catalogo, code);
+		if (local) {
+			agregarArticulo(local);
+			return;
+		}
+
 		try {
 			const response = await fetchWithAuth('/articulos/lookup', {
 				params: { code }
@@ -295,6 +338,8 @@
 			}
 			const payload = await response.json();
 			const articulo = (payload.data || payload) as Articulo;
+			catalogo = incorporarPosCatalogo(catalogo, articulo);
+			catalogoListo = true;
 			agregarArticulo(articulo);
 		} catch {
 			toast.error('No se pudo buscar el producto');
@@ -465,6 +510,7 @@
 			}
 
 			await registrarCaja(facturaCreada.DocumentoTipo, facturaCreada.DocumentoNumero, totales.ImporteTotal);
+			void cargarCatalogo();
 
 			ultimoTicket = armarPosTicketDto({
 				tipo,
@@ -617,6 +663,8 @@
 	<PosArticuloBuscarModal
 		show={showBuscar}
 		{listaPrecio}
+		articulos={catalogo.items}
+		{catalogoListo}
 		on:close={() => {
 			showBuscar = false;
 			search?.focusInput();
