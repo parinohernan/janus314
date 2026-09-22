@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
-	import { Banknote, FileText, Receipt, RotateCcw } from 'lucide-svelte';
+	import { Banknote, FileText, History, Receipt, RotateCcw } from 'lucide-svelte';
 	import { POS_RUBROS, type PosRubro } from '$lib/constants/posVarios';
 	import { formatMoneyAR } from '$lib/utils/posTicket';
 
@@ -19,6 +19,7 @@
 		ticket: void;
 		nueva: void;
 		rubro: PosRubro;
+		historial: void;
 	}>();
 </script>
 
@@ -36,7 +37,7 @@
 	<button
 		type="button"
 		class="flex min-h-16 items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-4 text-lg font-semibold text-slate-900 shadow hover:bg-amber-400 disabled:opacity-50"
-		disabled={disabled || cobrando || !hayItems}
+		disabled={disabled || cobrando || !hayItems || listoParaEmitir}
 		on:click={() => dispatch('cobrar')}
 	>
 		<Banknote class="h-5 w-5" />
@@ -77,7 +78,7 @@
 		<span class="text-xs text-slate-400">F8</span>
 	</button>
 
-	<div class="min-h-0 flex-1">
+	<div class="min-h-0 flex-1 overflow-y-auto">
 		<p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Rubros</p>
 		<div class="grid grid-cols-2 gap-2">
 			{#each POS_RUBROS as rubro}
@@ -91,5 +92,17 @@
 				</button>
 			{/each}
 		</div>
+	</div>
+
+	<div class="shrink-0">
+		<p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Sesión</p>
+		<button
+			type="button"
+			class="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+			on:click={() => dispatch('historial')}
+		>
+			<History class="h-4 w-4" />
+			Historial
+		</button>
 	</div>
 </div>

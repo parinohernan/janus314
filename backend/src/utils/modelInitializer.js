@@ -1819,6 +1819,11 @@ const initializeModels = (sequelize) => {
     targetKey: 'Codigo',
     as: 'TipoPago'
   });
+  CajaMovimientos.belongsTo(Vendedor, {
+    foreignKey: 'UsuarioId',
+    targetKey: 'Codigo',
+    as: 'Usuario'
+  });
 
   // Crear el objeto de modelos
   const modelos = {

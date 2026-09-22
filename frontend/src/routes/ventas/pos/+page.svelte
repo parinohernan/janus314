@@ -50,6 +50,7 @@
 	import PosArticuloBuscarModal from '$lib/components/pos/PosArticuloBuscarModal.svelte';
 	import PosCobroModal from '$lib/components/pos/PosCobroModal.svelte';
 	import PosCajaModal from '$lib/components/pos/PosCajaModal.svelte';
+	import PosHistorialModal from '$lib/components/pos/PosHistorialModal.svelte';
 	import { precargarTiposPagoPos, type TipoPagoPos } from '$lib/utils/posTiposPago';
 
 	const CLIENTE_CF: Cliente = {
@@ -117,6 +118,7 @@
 	let showBuscar = false;
 	let showCobro = false;
 	let showCaja = false;
+	let showHistorial = false;
 	let pagoConfirmado: { codigo: string; descripcion: string; total: number } | null = null;
 	let tiposPago: TipoPagoPos[] = [];
 	let printerConfig: PosPrinterConfig = loadPosPrinterConfig();
@@ -259,7 +261,7 @@
 	}
 
 	function onGlobalKey(event: KeyboardEvent) {
-		if (showVarios || showCae || showPrinter || showBuscar || showCobro || showCaja || cobrando) {
+		if (showVarios || showCae || showPrinter || showBuscar || showCobro || showCaja || showHistorial || cobrando) {
 			if (event.key === 'Escape' && showVarios) {
 				showVarios = false;
 			}
@@ -274,6 +276,9 @@
 			}
 			if (event.key === 'Escape' && showCaja) {
 				showCaja = false;
+			}
+			if (event.key === 'Escape' && showHistorial) {
+				showHistorial = false;
 			}
 			return;
 		}
@@ -428,6 +433,7 @@
 		facturaCreada = null;
 		pagoConfirmado = null;
 		showCae = false;
+		void cargarClienteCf();
 		search?.focusInput();
 	}
 
@@ -701,6 +707,7 @@
 					on:ticket={() => cobrar(tipoTicketFiscal(cliente.CategoriaIva))}
 					on:nueva={nuevaVenta}
 					on:rubro={abrirRubro}
+					on:historial={() => (showHistorial = true)}
 				/>
 			</div>
 		</div>
@@ -745,6 +752,16 @@
 		tipos={tiposPago}
 		on:close={() => (showCobro = false)}
 		on:confirm={confirmarCobro}
+	/>
+{/if}
+
+{#if showHistorial}
+	<PosHistorialModal
+		show={showHistorial}
+		cajaId={cajaAbierta?.Codigo ?? null}
+		{sucursal}
+		empresa={datosEmpresa}
+		on:close={() => (showHistorial = false)}
 	/>
 {/if}
 
