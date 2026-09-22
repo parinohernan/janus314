@@ -4,7 +4,7 @@
   import { browser } from '$app/environment';
   import { smartNavigate } from '$lib/utils/navigation';
   import { auth } from '$lib/stores/authStore';
-  import { esContador, esVendedorAdmin } from '$lib/utils/permisos';
+  import { esContador, esVendedorAdmin, esAdminOSuperadm } from '$lib/utils/permisos';
   import { sidebarCollapsed } from '$lib/stores/sidebarStore';
   import { menuVisibilityStore } from '$lib/stores/menuVisibilityStore';
   import { 
@@ -78,6 +78,7 @@
   let expandedSubmenu = $state<string | null>(null);
 
   const esAdmin = $derived(esVendedorAdmin($auth?.user));
+  const puedeCajeros = $derived(esAdminOSuperadm($auth?.user));
   const soloInformes = $derived(esContador($auth?.user));
   const configuracionItems: SubmenuItem[] = $derived.by(() => {
     const items: SubmenuItem[] = [
@@ -85,6 +86,9 @@
       { label: 'Reportes automáticos', url: '/configuracion/reportes', icon: 'reportes-auto' },
       { label: 'Backups', url: '/configuracion/backups', icon: 'backups' }
     ];
+    if (puedeCajeros) {
+      items.push({ label: 'Cajeros', url: '/configuracion/cajeros', icon: 'cajeros' });
+    }
     if (esAdmin) {
       items.push({ label: 'Optimización', url: '/configuracion/optimizacion', icon: 'optimizacion' });
     }
@@ -172,6 +176,7 @@
     'general-config': Settings,
     'reportes-auto': FolderSync,
     'backups': HardDrive,
+    'cajeros': Users,
     'optimizacion': Zap,
 
     // Ayuda
@@ -242,6 +247,7 @@
         { label: 'Existencia', url: '/productos/existencia', icon: 'existencia' },
         { label: 'Rubros', url: '/rubros', icon: 'rubros-list' },
         { label: 'Listado de Precios', url: '/productos/precios/listado', icon: 'precios-listado' },
+        { label: 'Costo histórico', url: '/productos/precios/costohistorico', icon: 'precios-listado' },
         { label: 'Actualización de Precios', url: '/productos/precios/actualizacion', icon: 'precios-actualizacion' },
         { label: 'Actualización manual', url: '/productos/precios/actualizacionmanual', icon: 'precios-manual' },
         { label: 'Actualización desde listas', url: '/productos/precios/actualizarconlista', icon: 'precios-listas' }

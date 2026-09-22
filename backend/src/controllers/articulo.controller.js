@@ -4,6 +4,8 @@ const XLSX = require("xlsx");
 const multer = require('multer');
 const path = require('path');
 const { alicuotaIvaArticulo } = require('../utils/ivaArticulo');
+const { registrarCostoSiCambio, ultimosCostos, ultimosCostosPorCodigos } = require('../utils/costoHistorial');
+const { registrarAjusteExistencia } = require('../utils/ajusteExistencia');
 
 // Configurar multer
 const storage = multer.diskStorage({
@@ -325,6 +327,68 @@ exports.getArticuloById = async (req, res) => {
   }
 };
 
+exports.getCostoHistoricoArticulo = async (req, res) => {
+  try {
+    const historial = await ultimosCostos(req.db, req.params.id, 3);
+    return res.status(200).json({ historial });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al obtener el historial de costo" });
+  }
+};
+
+exports.getCostoHistorico = async (req, res) => {
+  try {
+    const { Articulo } = req.models;
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
+    const search = String(req.query.search || '').trim();
+    const offset = (page - 1) * limit;
+
+    const whereClause = {};
+    if (search) {
+      whereClause[Op.or] = [
+        { Codigo: { [Op.like]: `%${search}%` } },
+        { Descripcion: { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    const totalItems = await Articulo.count({ where: whereClause });
+    const articulos = await Articulo.findAll({
+      where: whereClause,
+      attributes: ['Codigo', 'Descripcion', 'FechaActualizacionCosto', 'PrecioCosto'],
+      order: [['Descripcion', 'ASC']],
+      limit,
+      offset,
+    });
+
+    const porCodigo = await ultimosCostosPorCodigos(
+      req.db,
+      articulos.map((articulo) => articulo.Codigo),
+      3
+    );
+
+    return res.status(200).json({
+      items: articulos.map((articulo) => ({
+        Codigo: articulo.Codigo,
+        Descripcion: articulo.Descripcion,
+        FechaActualizacionCosto: articulo.FechaActualizacionCosto,
+        PrecioCosto: articulo.PrecioCosto,
+        historial: porCodigo.get(articulo.Codigo) || [],
+      })),
+      meta: {
+        totalItems,
+        itemsPerPage: limit,
+        currentPage: page,
+        totalPages: Math.ceil(totalItems / limit) || 0,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al obtener el historial de costos" });
+  }
+};
+
 // Crear nuevo artículo
 exports.createArticulo = async (req, res) => {
   try {
@@ -363,10 +427,25 @@ exports.createArticulo = async (req, res) => {
       articuloData.SubFamiliaCodigo = null;
     }
 
-    // Crear el artículo con los datos procesados
-    const nuevoArticulo = await Articulo.create(articuloData);
+    delete articuloData.FechaActualizacionCosto;
 
-    return res.status(201).json(nuevoArticulo);
+    const transaction = await req.db.transaction();
+    try {
+      const nuevoArticulo = await Articulo.create(articuloData, { transaction });
+      await registrarCostoSiCambio({
+        sequelize: req.db,
+        Historial: req.models.ArticuloCostoHistorial,
+        articulo: nuevoArticulo,
+        costoAnterior: null,
+        costoNuevo: articuloData.PrecioCosto,
+        transaction,
+      });
+      await transaction.commit();
+      return res.status(201).json(nuevoArticulo);
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
   } catch (error) {
     console.error(error);
 
@@ -401,6 +480,9 @@ exports.updateArticulo = async (req, res) => {
     }
 
     const articuloData = mergeArticuloUpdateDefaults(req.body);
+    delete articuloData.FechaActualizacionCosto;
+    const costoAnterior = articulo.PrecioCosto;
+    const existenciaAnterior = articulo.Existencia;
 
     // Convertir cadenas vacías a NULL para campos que son claves foráneas
     if (articuloData.ProveedorCodigo === "") {
@@ -419,10 +501,30 @@ exports.updateArticulo = async (req, res) => {
       articuloData.SubFamiliaCodigo = null;
     }
 
-    // Actualizar los campos con los datos procesados
-    await articulo.update(articuloData);
-
-    return res.status(200).json(articulo);
+    const transaction = await req.db.transaction();
+    try {
+      await articulo.update(articuloData, { transaction });
+      await registrarCostoSiCambio({
+        sequelize: req.db,
+        Historial: req.models.ArticuloCostoHistorial,
+        articulo,
+        costoAnterior,
+        costoNuevo: articuloData.PrecioCosto,
+        transaction,
+      });
+      await registrarAjusteExistencia({
+        models: req.models,
+        articulo,
+        existenciaAnterior,
+        existenciaNueva: articuloData.Existencia,
+        transaction,
+      });
+      await transaction.commit();
+      return res.status(200).json(articulo);
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
   } catch (error) {
     console.error(error);
 
@@ -538,13 +640,22 @@ exports.actualizarPrecios = async (req, res) => {
 
     // Actualizar cada artículo
     for (const articulo of articulosToUpdate) {
-      const precioCosto = articulo.PrecioCosto || 0;
+      const costoAnterior = articulo.PrecioCosto;
+      const precioCosto = Number(costoAnterior) || 0;
       const nuevoPrecioCosto = precioCosto * (1 + (porcentaje / 100));
       
       await articulo.update({
         PrecioCosto: nuevoPrecioCosto,
         PrecioCostoMasImp: nuevoPrecioCosto * (1 + (articulo.PorcentajeIVA1 || 0) / 100)
       }, { transaction });
+      await registrarCostoSiCambio({
+        sequelize: req.db,
+        Historial: req.models.ArticuloCostoHistorial,
+        articulo,
+        costoAnterior,
+        costoNuevo: nuevoPrecioCosto,
+        transaction,
+      });
     }
 
     await transaction.commit();
@@ -840,10 +951,19 @@ exports.actualizarPreciosLista = async (req, res) => {
         const articulo = await Articulo.findByPk(articuloData.Codigo, { transaction });
         
         if (articulo) {
+          const costoAnterior = articulo.PrecioCosto;
           await articulo.update({
             PrecioCosto: articuloData.PrecioCostoNuevo,
             PrecioCostoMasImp: articuloData.PrecioCostoNuevo * (1 + (articulo.PorcentajeIVA1 || 0) / 100)
           }, { transaction });
+          await registrarCostoSiCambio({
+            sequelize: connection,
+            Historial: req.models.ArticuloCostoHistorial,
+            articulo,
+            costoAnterior,
+            costoNuevo: articuloData.PrecioCostoNuevo,
+            transaction,
+          });
         }
       }
 
@@ -885,6 +1005,7 @@ exports.actualizarPreciosManual = async (req, res) => {
         const articulo = await Articulo.findByPk(Codigo, { transaction });
         if (!articulo) continue;
 
+        const costoAnterior = articulo.PrecioCosto;
         const updates = {};
         const iva = articulo.PorcentajeIVA1 || 0;
 
@@ -906,6 +1027,16 @@ exports.actualizarPreciosManual = async (req, res) => {
 
         if (Object.keys(updates).length > 0) {
           await articulo.update(updates, { transaction });
+        }
+        if (Object.prototype.hasOwnProperty.call(updates, 'PrecioCosto')) {
+          await registrarCostoSiCambio({
+            sequelize: connection,
+            Historial: req.models.ArticuloCostoHistorial,
+            articulo,
+            costoAnterior,
+            costoNuevo: updates.PrecioCosto,
+            transaction,
+          });
         }
       }
 

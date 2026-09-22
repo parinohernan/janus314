@@ -7,6 +7,29 @@
   import { PUBLIC_API_URL } from '$env/static/public';
   
   let isEditing = $page.params.id !== 'nuevo';
+  let historialCosto: { Fecha: string; PrecioCosto: number }[] = [];
+
+  function formatearFechaCosto(valor: string | null | undefined): string {
+    if (!valor) return '—';
+    const fecha = new Date(valor);
+    if (Number.isNaN(fecha.getTime())) return '—';
+    return fecha.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+  }
+
+  async function cargarHistorialCosto(codigo: string) {
+    try {
+      const response = await fetchWithAuth(`/articulos/${codigo}/costo-historico`);
+      if (!response.ok) {
+        historialCosto = [];
+        return;
+      }
+      const data = await response.json();
+      historialCosto = data.historial || [];
+    } catch (err) {
+      console.error('Error cargando historial de costo:', err);
+      historialCosto = [];
+    }
+  }
   
   // Recargar datos cuando cambia el ID
   $: if ($page.params.id) {
@@ -20,6 +43,7 @@
             throw new Error('Error al cargar el artículo');
           }
           articulo = await response.json();
+          await cargarHistorialCosto($page.params.id);
         } catch (err: unknown) {
           console.error('Error cargando artículo:', err);
           if (err instanceof Error) {
@@ -197,6 +221,7 @@
         }
         
         articulo = await response.json();
+        await cargarHistorialCosto($page.params.id);
         await invalidate(`/articulos/${$page.params.id}`);
       }
     } catch (err: unknown) {
@@ -333,6 +358,9 @@
       
       // Actualizar el artículo con los datos del servidor
       articulo = data;
+      if (isEditing) {
+        await cargarHistorialCosto(articulo.Codigo);
+      }
       
       // Después de guardar exitosamente, mostrar mensaje y restablecer scroll
       successMessage = isEditing 
@@ -654,6 +682,24 @@
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+
+            {#if isEditing}
+              <div class="md:col-span-2">
+                <p class="block text-sm font-medium text-gray-700 mb-1">Últimas actualizaciones de costo</p>
+                {#if historialCosto.length === 0}
+                  <p class="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-md px-3 py-2">Sin actualizaciones de costo</p>
+                {:else}
+                  <ul class="bg-gray-50 border border-gray-200 rounded-md divide-y divide-gray-200">
+                    {#each historialCosto as item}
+                      <li class="px-3 py-2 text-sm text-gray-700 flex justify-between gap-4">
+                        <span>{formatearFechaCosto(item.Fecha)}</span>
+                        <span>${Number(item.PrecioCosto).toFixed(2)}</span>
+                      </li>
+                    {/each}
+                  </ul>
+                {/if}
+              </div>
+            {/if}
             
             <div>
               <label for="porcentajeIVA1" class="block text-sm font-medium text-gray-700 mb-1">

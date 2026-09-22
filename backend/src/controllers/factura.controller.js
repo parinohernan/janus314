@@ -249,7 +249,8 @@ exports.crearFactura = async (req, res) => {
     
     // Obtener la conexión de la empresa
     const connection = req.db;
-    
+    await FacturaService.ensurePagoTipoLargo(connection);
+
     // Crear transacción usando la conexión de la empresa específica
     t = await connection.transaction();
     

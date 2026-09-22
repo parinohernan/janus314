@@ -14,6 +14,13 @@ describe("puedeAccederErp", () => {
     expect(puedeAccederErp(null, "admin")).toBe(true);
     expect(puedeAccederErp("", "juan")).toBe(false);
   });
+
+  it("deja iniciar sesión al cajero y se la niega al vendedor", () => {
+    const { puedeIniciarSesion } = require("../utils/permisos");
+    expect(puedeIniciarSesion("cajero", "caja1")).toBe(true);
+    expect(puedeIniciarSesion("vendor", "vend1")).toBe(false);
+    expect(puedeAccederErp("cajero", "caja1")).toBe(false);
+  });
 });
 
 describe("esContador / rutaPermitidaContador", () => {

@@ -9,6 +9,7 @@ const Vendedor = require("../models/vendedor.model");
 const numerosControlController = require("./numerosControl.controller");
 const { Op } = require("sequelize");
 const { alicuotaIvaValor } = require("../utils/ivaArticulo");
+const { registrarCostoSiCambio } = require("../utils/costoHistorial");
 
 // Crear instancia del bot de Telegram
 const bot = new Telegraf(config.botToken);
@@ -532,9 +533,17 @@ exports.crearProducto = async (req, res) => {
       let nuevoProducto;
       
       if (productoExistente) {
-        // Actualizar producto existente
+        const costoAnterior = productoExistente.PrecioCosto;
         await productoExistente.update(articuloData, { transaction: t });
         nuevoProducto = productoExistente;
+        await registrarCostoSiCambio({
+          sequelize: req.db,
+          Historial: req.models.ArticuloCostoHistorial,
+          articulo: nuevoProducto,
+          costoAnterior,
+          costoNuevo: articuloData.PrecioCosto,
+          transaction: t,
+        });
       } else {
         // Crear nuevo producto utilizando una consulta SQL directa para asegurar que todos los campos se incluyan
         // Esta es una solución alternativa en caso de que el modelo Sequelize no tenga todos los campos
@@ -581,6 +590,14 @@ exports.crearProducto = async (req, res) => {
         nuevoProducto = await Articulo.findOne({
           where: { Codigo: articuloData.Codigo },
           transaction: t
+        });
+        await registrarCostoSiCambio({
+          sequelize: req.db,
+          Historial: req.models.ArticuloCostoHistorial,
+          articulo: nuevoProducto,
+          costoAnterior: null,
+          costoNuevo: articuloData.PrecioCosto,
+          transaction: t,
         });
       }
       

@@ -5,6 +5,7 @@
   import { fade } from 'svelte/transition';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { auth } from '$lib/stores/authStore';
+  import { esAdminOSuperadm } from '$lib/utils/permisos';
   import Button from '$lib/components/ui/Button.svelte';
   import { navigationState } from '$lib/stores/navigationState';
 
@@ -36,12 +37,20 @@
     };
   }
 
+  interface CajaListada extends CajaCabeza {
+    Vendedor?: { Codigo: string; Descripcion: string };
+  }
+
   let cajaAbierta: CajaCabeza | null = null;
+  let cajasAbiertas: CajaListada[] = [];
   let movimientos: Movimiento[] = [];
   let loading = true;
   let error: string | null = null;
   let vendedorId = '';
   let saldoInicial = 0;
+  let cajaVista: number | null = null;
+
+  $: veTodas = esAdminOSuperadm($auth?.user);
 
   $: if (typeof $auth?.user?.usuario === 'string') {
     vendedorId = $auth.user.usuario;
@@ -60,15 +69,36 @@
       const data = await response.json();
       if (data.success && data.data.length > 0) {
         cajaAbierta = data.data[0] as CajaCabeza;
-        if (cajaAbierta) await cargarMovimientos(cajaAbierta.Codigo);
+        if (!veTodas && cajaAbierta) await cargarMovimientos(cajaAbierta.Codigo);
       } else {
         cajaAbierta = null;
       }
+      if (veTodas) await cargarCajasAbiertas();
     } catch (err: unknown) {
       error = err instanceof Error ? err.message : 'Error al cargar el estado de la caja';
     } finally {
       loading = false;
     }
+  }
+
+  async function cargarCajasAbiertas() {
+    const response = await fetchWithAuth('/cajas', { params: { estado: 'abierta', limit: 100 } });
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      throw new Error(data.message || 'No se pudieron cargar las cajas');
+    }
+    cajasAbiertas = data.items || [];
+    if (cajasAbiertas.length > 0) {
+      await verCaja(cajasAbiertas[0]);
+    } else {
+      cajaVista = null;
+      movimientos = [];
+    }
+  }
+
+  async function verCaja(caja: CajaListada) {
+    cajaVista = caja.Codigo;
+    await cargarMovimientos(caja.Codigo);
   }
 
   async function cargarMovimientos(cajaCodigo: number) {
@@ -134,12 +164,65 @@
 </script>
 
 <div>
-  <div class="flex justify-between items-center mb-6">
-    <h1 class="text-2xl font-bold text-gray-800">Caja</h1>
-    <Button variant="secondary" on:click={() => goto('/caja/cerradas')}>
-      Ver listado de cajas
-    </Button>
-  </div>
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold text-gray-800">Caja</h1>
+      <Button variant="secondary" on:click={() => goto('/caja/cerradas')}>
+        Ver listado de cajas
+      </Button>
+    </div>
+
+    {#if veTodas && !loading}
+      <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">Cajas abiertas</h2>
+        {#if cajasAbiertas.length === 0}
+          <p class="text-gray-500">No hay cajas abiertas.</p>
+        {:else}
+          <div class="border rounded-lg overflow-hidden mb-4">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-50 text-left text-gray-600">
+                <tr>
+                  <th class="px-4 py-3">Cajero</th>
+                  <th class="px-4 py-3">Estado</th>
+                  <th class="px-4 py-3">Saldo</th>
+                  <th class="px-4 py-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each cajasAbiertas as caja}
+                  <tr class="border-t border-gray-100 {cajaVista === caja.Codigo ? 'bg-blue-50' : ''}">
+                    <td class="px-4 py-3">{caja.Vendedor?.Descripcion || caja.VendedorId}</td>
+                    <td class="px-4 py-3 capitalize">{caja.Estado}</td>
+                    <td class="px-4 py-3">${(parseFloat(caja.SaldoTeorico?.toString() || '0')).toFixed(2)}</td>
+                    <td class="px-4 py-3 text-right space-x-3">
+                      <button type="button" class="text-blue-600" on:click={() => verCaja(caja)}>Movimientos</button>
+                      <button type="button" class="text-purple-700" on:click={() => goto(`/caja/cierre?caja=${caja.Codigo}`)}>Cierre</button>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+          <h3 class="text-lg font-semibold text-gray-800 mb-3">Movimientos</h3>
+          {#if movimientos.length === 0}
+            <p class="text-gray-500 py-2">No hay movimientos registrados</p>
+          {:else}
+            <div class="border rounded-lg overflow-hidden">
+              {#each movimientos as movimiento}
+                <div class="flex justify-between items-center px-4 py-3 border-b border-gray-100 last:border-0">
+                  <div>
+                    <div class="font-medium text-gray-800">{movimiento.Concepto}</div>
+                    <div class="text-sm text-gray-500">{new Date(movimiento.FechaHora).toLocaleString('es-AR')}</div>
+                  </div>
+                  <div class="font-bold {movimiento.Tipo === 'ingreso' ? 'text-green-600' : 'text-red-600'}">
+                    {movimiento.Tipo === 'ingreso' ? '+' : '−'}${(parseFloat(movimiento.Importe?.toString() || '0')).toFixed(2)}
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        {/if}
+      </div>
+    {/if}
 
   {#if loading}
     <div class="flex justify-center items-center h-32">

@@ -41,12 +41,14 @@ router.post("/actualizar-precios-manual", articuloController.actualizarPreciosMa
 router.post("/listado-precios-pdf", articuloController.generarListadoPreciosPDF);
 router.post("/resumen-existencia-pdf", articuloController.generarResumenExistenciaPDF);
 router.get("/listado-precios", articuloController.getAllArticulosForPricing);
+router.get("/costo-historico", articuloController.getCostoHistorico);
 router.get("/by-proveedor-articulo", articuloController.getArticuloByProveedorYCodigoProveedor);
 router.get("/lookup", articuloController.lookupArticulo);
 router.get("/pos/catalogo", articuloController.catalogoPos);
 router.post("/pos/ensure-varios", articuloController.ensurePosVarios);
 
 // Rutas con parámetros después
+router.get("/:id/costo-historico", articuloController.getCostoHistoricoArticulo);
 router.get("/:id", articuloController.getArticuloById);
 router.put("/:id", articuloController.updateArticulo);
 router.delete("/:id", articuloController.deleteArticulo);

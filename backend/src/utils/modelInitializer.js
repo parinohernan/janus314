@@ -98,6 +98,10 @@ const initializeModels = (sequelize) => {
       allowNull: true,
       defaultValue: 0
     },
+    FechaActualizacionCosto: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
     UnidadVenta: {
       type: DataTypes.CHAR(3),
       allowNull: true
@@ -214,6 +218,29 @@ const initializeModels = (sequelize) => {
     }
   }, {
     tableName: 't_articulos',
+    timestamps: false
+  });
+
+  const ArticuloCostoHistorial = sequelize.define('ArticuloCostoHistorial', {
+    Id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
+    ArticuloCodigo: {
+      type: DataTypes.STRING(20),
+      allowNull: false
+    },
+    Fecha: {
+      type: DataTypes.DATE,
+      allowNull: false
+    },
+    PrecioCosto: {
+      type: DataTypes.DECIMAL(18, 2),
+      allowNull: false
+    }
+  }, {
+    tableName: 't_articulos_costo_historial',
     timestamps: false
   });
 
@@ -686,9 +713,9 @@ const initializeModels = (sequelize) => {
       allowNull: true,
     },
     PagoTipo: {
-      type: DataTypes.CHAR(2),
+      type: DataTypes.CHAR(3),
       allowNull: true,
-      comment: "CT: Contado, CC: Cuenta Corriente",
+      comment: "Código de tipo de pago (hasta 3 caracteres, igual que t_tiposdepago)",
     },
     ImporteBruto: {
       type: DataTypes.DOUBLE(15, 3),
@@ -1803,6 +1830,7 @@ const initializeModels = (sequelize) => {
     ReciboCabeza,
     // Otros modelos necesarios
     Articulo,
+    ArticuloCostoHistorial,
     Proveedor,
     Rubro,
     DatosEmpresa,

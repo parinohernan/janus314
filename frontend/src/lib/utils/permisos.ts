@@ -6,6 +6,12 @@ export function esContador(user: { permisos?: string | null } | null | undefined
   return normalizarPermiso(user?.permisos) === 'contador';
 }
 
+export function esCajero(user: { permisos?: string | null } | null | undefined): boolean {
+  return normalizarPermiso(user?.permisos) === 'cajero';
+}
+
+export const RUTA_INICIO_CAJERO = '/ventas/pos';
+
 export const CODIGO_ADMIN = 'admin';
 export const CODIGO_SUPERADM = 'superadm';
 
@@ -28,6 +34,14 @@ export function esVendedorAdmin(user: UsuarioMenu): boolean {
 
 export function esVendedorSuperadm(user: UsuarioMenu): boolean {
   return codigoDe(user) === CODIGO_SUPERADM || normalizarPermiso(user?.permisos) === CODIGO_SUPERADM;
+}
+
+export function esAdminOSuperadm(user: UsuarioMenu): boolean {
+  return (
+    esVendedorAdmin(user) ||
+    esVendedorSuperadm(user) ||
+    normalizarPermiso(user?.permisos) === CODIGO_ADMIN
+  );
 }
 
 export function puedeGestionarBackups(user: UsuarioMenu): boolean {

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { auth } from '$lib/stores/authStore';
-	import { esContador, RUTA_INICIO_CONTADOR } from '$lib/utils/permisos';
+	import { esCajero, esContador, RUTA_INICIO_CAJERO, RUTA_INICIO_CONTADOR } from '$lib/utils/permisos';
 	import { goto } from '$app/navigation';
 	import { authConfig } from '$lib/config/auth.config';
 	import { PUBLIC_API_URL } from '$env/static/public';
@@ -76,7 +76,9 @@
 				: { usuario, password };
 				
 			const data = await auth.login(credentials);
-			if (esContador(data?.user)) {
+			if (esCajero(data?.user)) {
+				goto(RUTA_INICIO_CAJERO);
+			} else if (esContador(data?.user)) {
 				goto(RUTA_INICIO_CONTADOR);
 			} else {
 				goto('/');

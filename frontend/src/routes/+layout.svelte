@@ -7,7 +7,7 @@
 	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { navigationState } from '$lib/stores/navigationState';
 	import { auth } from '$lib/stores/authStore';
-	import { esContador, RUTA_INICIO_CONTADOR } from '$lib/utils/permisos';
+	import { esCajero, esContador, RUTA_INICIO_CAJERO, RUTA_INICIO_CONTADOR } from '$lib/utils/permisos';
 	import { sidebarCollapsed } from '$lib/stores/sidebarStore';
 	import { tabsStore } from '$lib/stores/tabsStore';
 	import { getLabelFromUrl, getIconFromUrl } from '$lib/utils/navigation';
@@ -48,6 +48,14 @@
 			goto(RUTA_INICIO_CONTADOR);
 		}
 	}
+
+	function redirigirCajeroSiHaceFalta() {
+		if (!browser || esMiniWebTelegram || esRutaAdmin) return;
+		if (!esCajero($auth.user)) return;
+		const path = $page.url.pathname;
+		if (path === '/login' || path.startsWith('/ventas/pos')) return;
+		goto(RUTA_INICIO_CAJERO);
+	}
 	
 	onMount(async () => {
 		// Solo verificar autenticación si no estamos en una ruta del bot ni del admin Janus
@@ -57,6 +65,7 @@
 				goto('/login');
 			} else if (isAuthenticated) {
 				redirigirContadorSiHaceFalta();
+				redirigirCajeroSiHaceFalta();
 			}
 		} else if (esMiniWebTelegram) {
 			// Si es una ruta del bot y no hay token, configurar uno temporal
@@ -79,6 +88,7 @@
 				goto('/login');
 			} else if ($auth.isAuthenticated) {
 				redirigirContadorSiHaceFalta();
+				redirigirCajeroSiHaceFalta();
 			}
 		}
 	});
@@ -94,6 +104,18 @@
     ) {
       cancel();
       goto(RUTA_INICIO_CONTADOR);
+      return;
+    }
+    if (
+      esCajero($auth.user) &&
+      to &&
+      to.url.pathname !== '/login' &&
+      !to.url.pathname.startsWith('/ventas/pos') &&
+      !to.url.pathname.startsWith('/admin') &&
+      !to.url.pathname.includes('/ventas/bot/')
+    ) {
+      cancel();
+      goto(RUTA_INICIO_CAJERO);
       return;
     }
 		if (from) {

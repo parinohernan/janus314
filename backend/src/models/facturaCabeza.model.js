@@ -50,9 +50,9 @@ const FacturaCabeza = sequelize.define(
       allowNull: true,
     },
     PagoTipo: {
-      type: DataTypes.CHAR(2),
+      type: DataTypes.CHAR(3),
       allowNull: true,
-      comment: "CT: Contado, CC: Cuenta Corriente",
+      comment: "Código de tipo de pago (hasta 3 caracteres, igual que t_tiposdepago)",
     },
     ImporteBruto: {
       type: DataTypes.DOUBLE(15, 3),

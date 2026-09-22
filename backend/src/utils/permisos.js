@@ -19,6 +19,11 @@ function puedeAccederErp(permisos, codigo) {
   return esCodigoReservadoErp(codigo);
 }
 
+function puedeIniciarSesion(permisos, codigo) {
+  if (normalizarPermiso(permisos) === "cajero") return true;
+  return puedeAccederErp(permisos, codigo);
+}
+
 function esContador(permisos) {
   return normalizarPermiso(permisos) === "contador";
 }
@@ -28,5 +33,6 @@ module.exports = {
   normalizarCodigo,
   esCodigoReservadoErp,
   puedeAccederErp,
+  puedeIniciarSesion,
   esContador,
 };

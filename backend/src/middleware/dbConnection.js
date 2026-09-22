@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const Empresa = require('../models/Empresa');
 const DBManager = require('../utils/DBManager');
 const initializeModels = require('../utils/modelInitializer');
+const { ensureCostoHistorialSchema } = require('../utils/costoHistorial');
 
 function modelosDe(sequelize) {
   if (!sequelize) return null;
@@ -73,6 +74,7 @@ const getEmpresaConnection = async (req, res, next) => {
     ]);
 
     const models = modelosDe(empresaDB);
+    await ensureCostoHistorialSchema(empresaDB);
 
     if (!models) {
       console.error('❌ Error: No se pudieron inicializar los modelos');

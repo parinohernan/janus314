@@ -51,6 +51,7 @@ export const MENU_ENTRIES: MenuEntry[] = [
 	{ id: '/productos/existencia', url: '/productos/existencia', label: 'Existencia', parentId: 'productos', parentLabel: 'Productos' },
 	{ id: '/rubros', url: '/rubros', label: 'Rubros', parentId: 'productos', parentLabel: 'Productos' },
 	{ id: '/productos/precios/listado', url: '/productos/precios/listado', label: 'Listado de Precios', parentId: 'productos', parentLabel: 'Productos' },
+	{ id: '/productos/precios/costohistorico', url: '/productos/precios/costohistorico', label: 'Costo histórico', parentId: 'productos', parentLabel: 'Productos' },
 	{ id: '/productos/precios/actualizacion', url: '/productos/precios/actualizacion', label: 'Actualización de Precios', parentId: 'productos', parentLabel: 'Productos' },
 	{ id: '/productos/precios/actualizarconlista', url: '/productos/precios/actualizarconlista', label: 'Actualización desde listas', parentId: 'productos', parentLabel: 'Productos' },
 	// Clientes
@@ -82,5 +83,6 @@ export const MENU_ENTRIES: MenuEntry[] = [
 	{ id: '/configuracion', url: '/configuracion', label: 'General', parentId: 'configuracion', parentLabel: 'Configuración' },
 	{ id: '/configuracion/reportes', url: '/configuracion/reportes', label: 'Reportes automáticos', parentId: 'configuracion', parentLabel: 'Configuración' },
 	{ id: '/configuracion/backups', url: '/configuracion/backups', label: 'Backups', parentId: 'configuracion', parentLabel: 'Configuración' },
+	{ id: '/configuracion/cajeros', url: '/configuracion/cajeros', label: 'Cajeros', parentId: 'configuracion', parentLabel: 'Configuración' },
 	{ id: '/configuracion/optimizacion', url: '/configuracion/optimizacion', label: 'Optimización', parentId: 'configuracion', parentLabel: 'Configuración' }
 ];

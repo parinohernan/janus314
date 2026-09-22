@@ -5,7 +5,7 @@ const Empresa = require('../models/Empresa');
 const CuentaAcceso = require('../models/cuentaAcceso.model');
 const DBManager = require('../utils/DBManager');
 const { logAuthEvent } = require('../utils/logger');
-const { normalizarPermiso, puedeAccederErp } = require('../utils/permisos');
+const { normalizarPermiso, puedeIniciarSesion } = require('../utils/permisos');
 const BCRYPT_ROUNDS = CuentaAcceso.BCRYPT_ROUNDS || 12;
 
 const INVALID_CREDENTIALS = 'Credenciales inválidas';
@@ -100,7 +100,7 @@ function assertVendedorPuedeAcceder(vendedor, { notFoundMessage } = {}) {
   if (Number(vendedor.Activo) !== 1) {
     throw httpError(401, 'Usuario inactivo');
   }
-  if (!puedeAccederErp(vendedor.Permisos, vendedor.Codigo)) {
+  if (!puedeIniciarSesion(vendedor.Permisos, vendedor.Codigo)) {
     throw httpError(403, 'Acceso denegado - Solo los administradores pueden acceder al sistema');
   }
 }
@@ -141,7 +141,7 @@ async function loginLegacy(usuario, password, empresaId) {
   if (!vendedor) {
     throw httpError(401, INVALID_CREDENTIALS);
   }
-  if (!puedeAccederErp(vendedor.Permisos, vendedor.Codigo)) {
+  if (!puedeIniciarSesion(vendedor.Permisos, vendedor.Codigo)) {
     throw httpError(403, 'Acceso denegado - Solo los administradores pueden acceder al sistema');
   }
 

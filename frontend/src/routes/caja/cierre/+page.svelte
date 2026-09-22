@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import { fade } from 'svelte/transition';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { onMount } from 'svelte';
@@ -10,7 +11,12 @@
   let error: string | null = null;
   let vendedorId = '';
   let cajaAbierta: { Codigo: number; SaldoInicial?: number } | null = null;
-  let resumenCaja: { totalIngresos?: number; totalEgresos?: number; saldoTeorico?: number } | null = null;
+  let resumenCaja: {
+    totalIngresos?: number;
+    totalEgresos?: number;
+    saldoTeorico?: number;
+    ingresosPorTipo?: { codigo: string; descripcion: string; importe: number }[];
+  } | null = null;
   let efectivoFinal = 0;
   let observaciones = '';
 
@@ -19,6 +25,12 @@
   }
 
   async function cargarEstadoCaja() {
+    const cajaPedida = $page.url.searchParams.get('caja');
+    if (cajaPedida) {
+      cajaAbierta = { Codigo: Number(cajaPedida) };
+      await cargarResumenCaja(Number(cajaPedida));
+      return;
+    }
     if (!vendedorId) {
       error = 'No se encontró el usuario. Debe iniciar sesión.';
       setTimeout(() => goto('/caja'), 2000);
@@ -47,6 +59,9 @@
       if (data.success) {
         resumenCaja = data.data;
         efectivoFinal = parseFloat(String(resumenCaja?.saldoTeorico ?? 0));
+        if (cajaAbierta && data.data?.saldoInicial != null) {
+          cajaAbierta = { ...cajaAbierta, SaldoInicial: data.data.saldoInicial };
+        }
       }
     } catch (err) {
       error = 'Error al cargar el resumen de caja';
@@ -122,6 +137,21 @@
               ${parseFloat(String(resumenCaja.totalEgresos ?? 0)).toFixed(2)}
             </div>
           </div>
+        </div>
+        <div class="p-4 rounded-lg bg-green-50">
+          <div class="text-sm font-medium text-gray-700 mb-2">Ingresos por tipo de pago</div>
+          {#if resumenCaja.ingresosPorTipo && resumenCaja.ingresosPorTipo.length > 0}
+            <ul class="space-y-1">
+              {#each resumenCaja.ingresosPorTipo as tipo}
+                <li class="flex justify-between text-sm text-green-800">
+                  <span>{tipo.descripcion}</span>
+                  <span class="font-semibold">${Number(tipo.importe).toFixed(2)}</span>
+                </li>
+              {/each}
+            </ul>
+          {:else}
+            <p class="text-sm text-green-700">Sin ingresos por tipo de pago</p>
+          {/if}
         </div>
         <div class="p-4 rounded-lg bg-purple-50">
           <div class="text-sm text-gray-600">Saldo final teórico</div>

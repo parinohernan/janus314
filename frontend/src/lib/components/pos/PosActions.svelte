@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
-	import { FileText, Receipt, RotateCcw } from 'lucide-svelte';
+	import { Banknote, FileText, Receipt, RotateCcw } from 'lucide-svelte';
 	import { POS_RUBROS, type PosRubro } from '$lib/constants/posVarios';
 	import { formatMoneyAR } from '$lib/utils/posTicket';
 
@@ -9,8 +9,12 @@
 	export let disabled = false;
 	export let cobrando = false;
 	export let hayItems = false;
+	export let listoParaEmitir = false;
+	export let pagoLabel = '';
+	export let ventaCobrada = false;
 
 	const dispatch = createEventDispatcher<{
+		cobrar: void;
 		prf: void;
 		ticket: void;
 		nueva: void;
@@ -22,13 +26,28 @@
 	<div class="rounded-2xl bg-slate-900 px-5 py-4 text-white shadow-lg">
 		<p class="text-sm font-medium uppercase tracking-widest text-slate-300">Total</p>
 		<p class="mt-1 truncate text-4xl font-bold tabular-nums sm:text-5xl">{formatMoneyAR(total)}</p>
+		{#if pagoLabel}
+			<p class="mt-2 text-sm text-emerald-300">Cobrado · {pagoLabel}</p>
+		{:else if hayItems}
+			<p class="mt-2 text-sm text-amber-200">Falta cobrar</p>
+		{/if}
 	</div>
+
+	<button
+		type="button"
+		class="flex min-h-16 items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-4 text-lg font-semibold text-slate-900 shadow hover:bg-amber-400 disabled:opacity-50"
+		disabled={disabled || cobrando || !hayItems}
+		on:click={() => dispatch('cobrar')}
+	>
+		<Banknote class="h-5 w-5" />
+		Cobrar
+	</button>
 
 	<div class="grid grid-cols-1 gap-3">
 		<button
 			type="button"
 			class="flex min-h-16 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-4 text-lg font-semibold text-white shadow hover:bg-blue-700 disabled:opacity-50"
-			disabled={disabled || cobrando || !hayItems}
+			disabled={disabled || cobrando || !listoParaEmitir}
 			on:click={() => dispatch('prf')}
 		>
 			<FileText class="h-5 w-5" />
@@ -38,7 +57,7 @@
 		<button
 			type="button"
 			class="flex min-h-16 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-4 text-lg font-semibold text-white shadow hover:bg-emerald-700 disabled:opacity-50"
-			disabled={disabled || cobrando || !hayItems}
+			disabled={disabled || cobrando || !listoParaEmitir}
 			on:click={() => dispatch('ticket')}
 		>
 			<Receipt class="h-5 w-5" />
@@ -50,7 +69,7 @@
 	<button
 		type="button"
 		class="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-		disabled={disabled || cobrando}
+		disabled={disabled || cobrando || ventaCobrada}
 		on:click={() => dispatch('nueva')}
 	>
 		<RotateCcw class="h-4 w-4" />
@@ -65,7 +84,7 @@
 				<button
 					type="button"
 					class="min-h-14 rounded-xl border px-3 py-3 text-sm font-semibold shadow-sm disabled:opacity-50 {rubro.clase}"
-					disabled={disabled || cobrando}
+					disabled={disabled || cobrando || ventaCobrada}
 					on:click={() => dispatch('rubro', rubro)}
 				>
 					{rubro.label}

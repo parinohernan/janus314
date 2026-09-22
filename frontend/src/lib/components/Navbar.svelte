@@ -109,6 +109,7 @@
         { label: 'Stock', url: '/productos/stock' },
         { label: 'Rubros', url: '/rubros' },
         { label: 'Listado de Precios', url: '/productos/precios/listado' },
+        { label: 'Costo histórico', url: '/productos/precios/costohistorico' },
         { label: 'Actualización de Precios', url: '/productos/precios/actualizacion' },
         { label: 'Actualización manual', url: '/productos/precios/actualizacionmanual' },
         { label: 'Actualización de Precios desde listas', url: '/productos/precios/actualizarconlista' }

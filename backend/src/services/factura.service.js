@@ -10,6 +10,12 @@ const { ensureDescripcionLibreColumn } = require("../utils/posVarios");
  * Servicio para gestionar las operaciones de facturas
  */
 const FacturaService = {
+  async ensurePagoTipoLargo(sequelize) {
+    if (!sequelize || sequelize.__pagoTipo3Ok) return;
+    await sequelize.query("ALTER TABLE facturacabeza MODIFY COLUMN PagoTipo CHAR(3) NULL");
+    sequelize.__pagoTipo3Ok = true;
+  },
+
   /**
    * Crea una nueva factura completa (cabecera e ítems)
    * @param {Object} facturaData - Datos de la factura

@@ -34,6 +34,7 @@ export interface FavoriteItem {
     { id: 'stock', label: 'Stock', url: '/productos/stock', icon: '📊', category: 'Productos' },
     { id: 'rubros', label: 'Rubros', url: '/rubros', icon: '🏷️', category: 'Productos' },
     { id: 'listado-precios', label: 'Listado de Precios', url: '/productos/precios/listado', icon: '💰', category: 'Productos' },
+    { id: 'costo-historico', label: 'Costo histórico', url: '/productos/precios/costohistorico', icon: '💰', category: 'Productos' },
     { id: 'actualizacion-precios', label: 'Actualización de Precios', url: '/productos/precios/actualizacion', icon: '📈', category: 'Productos' },
     { id: 'actualizacion-precios-listas', label: 'Actualización de Precios desde listas', url: '/productos/precios/actualizarconlista', icon: '📋', category: 'Productos' },
   

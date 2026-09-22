@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { LogOut } from 'lucide-svelte';
+	import { LogOut, Wallet } from 'lucide-svelte';
 	import { auth } from '$lib/stores/authStore';
 	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 	import { toast } from '$lib/utils/toast';
@@ -48,6 +48,9 @@
 	import PosPrinterChip from '$lib/components/pos/PosPrinterChip.svelte';
 	import PosPrinterModal from '$lib/components/pos/PosPrinterModal.svelte';
 	import PosArticuloBuscarModal from '$lib/components/pos/PosArticuloBuscarModal.svelte';
+	import PosCobroModal from '$lib/components/pos/PosCobroModal.svelte';
+	import PosCajaModal from '$lib/components/pos/PosCajaModal.svelte';
+	import { precargarTiposPagoPos, type TipoPagoPos } from '$lib/utils/posTiposPago';
 
 	const CLIENTE_CF: Cliente = {
 		Codigo: 'CF',
@@ -99,7 +102,11 @@
 	let cliente: Cliente = CLIENTE_CF;
 	let listaPrecio = '1';
 	let sucursal = '0001';
-	let cajaAbierta: { Codigo: number } | null = null;
+	let cajaAbierta: {
+		Codigo: number;
+		SaldoTeorico?: string | number;
+		SaldoInicial?: string | number;
+	} | null = null;
 	let loadingInit = true;
 	let cobrando = false;
 	let flashOk = false;
@@ -108,6 +115,10 @@
 	let showCae = false;
 	let showPrinter = false;
 	let showBuscar = false;
+	let showCobro = false;
+	let showCaja = false;
+	let pagoConfirmado: { codigo: string; descripcion: string; total: number } | null = null;
+	let tiposPago: TipoPagoPos[] = [];
 	let printerConfig: PosPrinterConfig = loadPosPrinterConfig();
 	let datosEmpresa: DatosEmpresa | null = null;
 	let ultimoTicket: PosTicketDto | null = null;
@@ -123,6 +134,14 @@
 	$: ticketLabel = labelTicketFiscal(cliente?.CategoriaIva);
 	$: vendedorCodigo = String($auth.user?.usuario || '1');
 	$: sinCaja = !loadingInit && !cajaAbierta;
+	$: if (
+		pagoConfirmado &&
+		Number(pagoConfirmado.total.toFixed(2)) !== Number(total.toFixed(2))
+	) {
+		pagoConfirmado = null;
+	}
+	$: listoParaEmitir = !!pagoConfirmado && lineas.length > 0;
+	$: nombreCajero = [$auth.user?.nombre, $auth.user?.apellido].filter(Boolean).join(' ');
 
 	function fechaHoy(): string {
 		const hoy = new Date();
@@ -196,6 +215,11 @@
 			await Promise.all([
 				cargarClienteCf(),
 				verificarCaja(),
+				precargarTiposPagoPos()
+					.then((tipos) => {
+						tiposPago = tipos;
+					})
+					.catch(() => null),
 				fetchWithAuth('/articulos/pos/ensure-varios', { method: 'POST' }).catch(() => null)
 			]);
 			await cargarCatalogo();
@@ -235,7 +259,7 @@
 	}
 
 	function onGlobalKey(event: KeyboardEvent) {
-		if (showVarios || showCae || showPrinter || showBuscar || cobrando) {
+		if (showVarios || showCae || showPrinter || showBuscar || showCobro || showCaja || cobrando) {
 			if (event.key === 'Escape' && showVarios) {
 				showVarios = false;
 			}
@@ -244,6 +268,12 @@
 			}
 			if (event.key === 'Escape' && showBuscar) {
 				showBuscar = false;
+			}
+			if (event.key === 'Escape' && showCobro) {
+				showCobro = false;
+			}
+			if (event.key === 'Escape' && showCaja) {
+				showCaja = false;
 			}
 			return;
 		}
@@ -256,26 +286,26 @@
 
 		if (event.key === 'F9') {
 			event.preventDefault();
-			cobrar('PRF');
+			if (listoParaEmitir) cobrar('PRF');
 			return;
 		}
 		if (event.key === 'F10') {
 			event.preventDefault();
-			cobrar(tipoTicketFiscal(cliente.CategoriaIva));
+			if (listoParaEmitir) cobrar(tipoTicketFiscal(cliente.CategoriaIva));
 			return;
 		}
 		if (event.key === 'F8') {
 			event.preventDefault();
-			nuevaVenta();
+			if (!pagoConfirmado) nuevaVenta();
 			return;
 		}
-		if (event.key === 'Delete' && seleccionId) {
+		if (event.key === 'Delete' && seleccionId && !pagoConfirmado) {
 			event.preventDefault();
 			quitar(seleccionId);
 			return;
 		}
 
-		if (seleccionId) {
+		if (seleccionId && !pagoConfirmado) {
 			if (esTeclaMas(event)) {
 				event.preventDefault();
 				ajustarCantidad(seleccionId, 1);
@@ -286,6 +316,8 @@
 				ajustarCantidad(seleccionId, -1);
 				return;
 			}
+		}
+		if (seleccionId) {
 			if (event.key === 'Enter' && !search?.tieneTexto()) {
 				event.preventDefault();
 				salirEdicion();
@@ -394,11 +426,17 @@
 		lineas = [];
 		seleccionId = null;
 		facturaCreada = null;
+		pagoConfirmado = null;
 		showCae = false;
 		search?.focusInput();
 	}
 
-	async function registrarCaja(tipo: string, numero: string, importe: number) {
+	function confirmarCobro(event: CustomEvent<{ codigo: string; descripcion: string }>) {
+		pagoConfirmado = { ...event.detail, total };
+		showCobro = false;
+	}
+
+	async function registrarCaja(tipo: string, numero: string, importe: number, metodoPago: string) {
 		if (!cajaAbierta) return;
 		const response = await fetchWithAuth('/cajas/movimiento', {
 			method: 'POST',
@@ -408,7 +446,7 @@
 				tipo: 'ingreso',
 				importe,
 				concepto: `POS ${tipo} ${sucursal}-${numero}`,
-				metodoPago: 'CO',
+				metodoPago,
 				documentoAsociado: numero,
 				tipoDocumento: tipo,
 				usuarioId: String(vendedorCodigo).replace(/^0+/, '') || vendedorCodigo
@@ -433,6 +471,11 @@
 			toast.error('Abrí la caja antes de cobrar');
 			return;
 		}
+		if (!pagoConfirmado) {
+			toast.error('Cobrá el total antes de emitir');
+			return;
+		}
+		const pago = pagoConfirmado;
 
 		cobrando = true;
 		try {
@@ -470,8 +513,8 @@
 				ImporteIva: totales.ImporteIva,
 				ImporteTotal: totales.ImporteTotal,
 				Observacion: 'POS supermercado',
-				FormaPagoCodigo: 'CO',
-				FormaPago: 'Contado',
+				FormaPagoCodigo: pago.codigo,
+				FormaPago: pago.descripcion,
 				Vendedor: vendedorCodigo,
 				Items: items.map((item) => ({
 					ArticuloCodigo: item.ArticuloCodigo,
@@ -509,7 +552,13 @@
 				throw new Error('La venta se creó sin número de comprobante');
 			}
 
-			await registrarCaja(facturaCreada.DocumentoTipo, facturaCreada.DocumentoNumero, totales.ImporteTotal);
+			await registrarCaja(
+				facturaCreada.DocumentoTipo,
+				facturaCreada.DocumentoNumero,
+				totales.ImporteTotal,
+				pago.codigo
+			);
+			void verificarCaja();
 			void cargarCatalogo();
 
 			ultimoTicket = armarPosTicketDto({
@@ -579,7 +628,7 @@
 		</div>
 		<PosSearch
 			bind:this={search}
-			disabled={sinCaja || cobrando}
+			disabled={sinCaja || cobrando || !!pagoConfirmado}
 			{flashOk}
 			on:submit={(e) => lookup(e.detail)}
 			on:buscar={() => (showBuscar = true)}
@@ -590,6 +639,18 @@
 			disabled={cobrando}
 			on:open={() => (showPrinter = true)}
 		/>
+		<button
+			type="button"
+			class="flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold {cajaAbierta
+				? 'bg-emerald-500 text-white hover:bg-emerald-400'
+				: 'bg-white/15 hover:bg-white/25'}"
+			on:click={() => (showCaja = true)}
+		>
+			<Wallet class="h-4 w-4" />
+			<span class="max-w-[10rem] truncate">
+				{nombreCajero || 'Caja'} · {cajaAbierta ? 'Abierta' : 'Cerrada'}
+			</span>
+		</button>
 		<button
 			type="button"
 			class="flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-sm hover:bg-white/20"
@@ -609,9 +670,9 @@
 			<button
 				type="button"
 				class="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700"
-				on:click={() => goto('/caja')}
+				on:click={() => (showCaja = true)}
 			>
-				Ir a caja
+				Abrir caja
 			</button>
 		</div>
 	{:else}
@@ -619,7 +680,7 @@
 			<PosCart
 				{lineas}
 				{seleccionId}
-				disabled={cobrando}
+				disabled={cobrando || !!pagoConfirmado}
 				on:select={(e) => entrarEdicion(e.detail)}
 				on:deselect={salirEdicion}
 				on:qty={onQty}
@@ -632,6 +693,10 @@
 					disabled={sinCaja}
 					{cobrando}
 					hayItems={lineas.length > 0}
+					{listoParaEmitir}
+					ventaCobrada={!!pagoConfirmado}
+					pagoLabel={pagoConfirmado?.descripcion || ''}
+					on:cobrar={() => (showCobro = true)}
 					on:prf={() => cobrar('PRF')}
 					on:ticket={() => cobrar(tipoTicketFiscal(cliente.CategoriaIva))}
 					on:nueva={nuevaVenta}
@@ -670,6 +735,26 @@
 			search?.focusInput();
 		}}
 		on:select={(e) => agregarArticulo(e.detail)}
+	/>
+{/if}
+
+{#if showCobro}
+	<PosCobroModal
+		show={showCobro}
+		{total}
+		tipos={tiposPago}
+		on:close={() => (showCobro = false)}
+		on:confirm={confirmarCobro}
+	/>
+{/if}
+
+{#if showCaja}
+	<PosCajaModal
+		show={showCaja}
+		cajaId={cajaAbierta?.Codigo ?? null}
+		vendedorId={vendedorCodigo}
+		on:close={() => (showCaja = false)}
+		on:cambio={verificarCaja}
 	/>
 {/if}
 

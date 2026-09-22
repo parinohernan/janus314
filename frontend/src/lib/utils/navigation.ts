@@ -99,6 +99,7 @@ export function getLabelFromUrl(url: string): string {
     'compras': 'Compras',
     'informes': 'Informes',
     'configuracion': 'Configuración',
+    'cajeros': 'Cajeros',
     'notascredito': 'Notas de Crédito',
     'notasdebito': 'Notas de Débito',
     'recibos': 'Recibos',
