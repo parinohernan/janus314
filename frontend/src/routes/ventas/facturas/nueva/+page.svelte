@@ -25,6 +25,11 @@
   import { usaMatematicaExacta } from '$lib/utils/matematicaExacta';
   import { calcularTotalesComprobante, redondear2 } from '$lib/utils/comprobanteTotales';
   import { precioListaSinIva } from '$lib/utils/posTicket';
+  import {
+    aplicarImportesDesdeDescuento,
+    aplicarImportesDesdePrecio,
+    aplicarImportesDesdePrecioConIva
+  } from '$lib/utils/facturaRenglon';
   // import { formatDateOnly } from '$lib/utils/dateUtils';
 
   const FACTURA_NUEVA_PATH = '/ventas/facturas/nueva';
@@ -538,7 +543,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     // Usar el PorcentajeIVA1 del artículo o 21 como valor predeterminado
     const porcentajeIva = alicuotaIvaArticulo(articuloSeleccionado);
     
-    const porcentajeDescuento = Math.min(100, Math.max(0, Number(descuentoArticulo) || 0));
+    const porcentajeDescuento = Number(descuentoArticulo) || 0;
 
     const nuevoItem: ItemFactura = {
       ArticuloCodigo: articuloSeleccionado.Codigo,
@@ -574,25 +579,31 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     descuentoArticulo = 0;
   };
   
-  // Función para recalcular un ítem individual (actualizada)
+  let origenEdicionRenglon: 'descuento' | 'precio' | 'precioIva' = 'descuento';
+
   const recalcularItem = (item: ItemFactura) => {
-    // 1. Calcular importe bonificado (descuento en pesos)
-    item.ImporteBonificado = item.PrecioLista * (item.PorcentajeBonificado / 100);
-    
-    // 2. Calcular precio unitario con descuento aplicado (sin IVA)
-    item.PrecioUnitario = item.PrecioLista * (1 - (item.PorcentajeBonificado / 100));
-    
-    // 3. Calcular precio unitario con IVA
-    item.PrecioUnitarioConIva = item.PrecioUnitario * (1 + (item.PorcentajeIva / 100));
-    
-    // 4. Calcular total del ítem (precio unitario con IVA * cantidad)
-    item.Total = item.PrecioUnitarioConIva * item.Cantidad;
-    
-    // Redondear valores para evitar problemas de precisión
-    item.ImporteBonificado = parseFloat(item.ImporteBonificado.toFixed(2));
-    item.PrecioUnitario = parseFloat(item.PrecioUnitario.toFixed(2));
-    item.PrecioUnitarioConIva = parseFloat(item.PrecioUnitarioConIva.toFixed(2));
-    item.Total = parseFloat(item.Total.toFixed(2));
+    aplicarImportesDesdeDescuento(item);
+  };
+
+  const onCambioDescuentoRenglon = (index: number) => {
+    origenEdicionRenglon = 'descuento';
+    const items = [...factura.Items];
+    aplicarImportesDesdeDescuento(items[index]);
+    factura.Items = items;
+  };
+
+  const onCambioPrecioRenglon = (index: number) => {
+    origenEdicionRenglon = 'precio';
+    const items = [...factura.Items];
+    aplicarImportesDesdePrecio(items[index]);
+    factura.Items = items;
+  };
+
+  const onCambioPrecioIvaRenglon = (index: number) => {
+    origenEdicionRenglon = 'precioIva';
+    const items = [...factura.Items];
+    aplicarImportesDesdePrecioConIva(items[index]);
+    factura.Items = items;
   };
 
   const totalSinIvaItem = (item: ItemFactura) =>
@@ -600,6 +611,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   
   // Activar/desactivar modo edición para un ítem
   const toggleEdicion = (index: number) => {
+    origenEdicionRenglon = 'descuento';
     factura.Items = factura.Items.map((item, i) => {
       if (i === index) {
         return { ...item, enEdicion: !item.enEdicion };
@@ -620,8 +632,13 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
       // No retornamos aquí, permitimos continuar
     }
     
-    // Recalcular el ítem editado
-    recalcularItem(items[index]);
+    if (origenEdicionRenglon === 'precio') {
+      aplicarImportesDesdePrecio(items[index]);
+    } else if (origenEdicionRenglon === 'precioIva') {
+      aplicarImportesDesdePrecioConIva(items[index]);
+    } else {
+      aplicarImportesDesdeDescuento(items[index]);
+    }
     
     // Desactivar modo edición
     items[index].enEdicion = false;
@@ -1618,8 +1635,6 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
         <input
           id="descuento"
           type="number"
-          min="0"
-          max="100"
           step="0.1"
           bind:value={descuentoArticulo}
           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1692,10 +1707,9 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                     <input 
                       type="number" 
                       bind:value={item.PorcentajeBonificado} 
-                      min="0" 
-                      max="100" 
                       step="0.1"
                       class="w-16 px-2 py-1 text-right border border-gray-300 rounded"
+                      on:input={() => onCambioDescuentoRenglon(i)}
                     />
                   {:else}
                     {item.PorcentajeBonificado}%
@@ -1704,7 +1718,17 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                 
                 <!-- Precio Unitario (con descuento, sin IVA) -->
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
-                  ${item.PrecioUnitario.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {#if item.enEdicion}
+                    <input
+                      type="number"
+                      bind:value={item.PrecioUnitario}
+                      step="0.01"
+                      class="w-24 px-2 py-1 text-right border border-gray-300 rounded"
+                      on:input={() => onCambioPrecioRenglon(i)}
+                    />
+                  {:else}
+                    ${item.PrecioUnitario.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {/if}
                 </td>
                 
                 <!-- % IVA (no editable) -->
@@ -1714,7 +1738,17 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
                 
                 <!-- Precio con IVA -->
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
-                  ${item.PrecioUnitarioConIva.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {#if item.enEdicion}
+                    <input
+                      type="number"
+                      bind:value={item.PrecioUnitarioConIva}
+                      step="0.01"
+                      class="w-24 px-2 py-1 text-right border border-gray-300 rounded"
+                      on:input={() => onCambioPrecioIvaRenglon(i)}
+                    />
+                  {:else}
+                    ${item.PrecioUnitarioConIva.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {/if}
                 </td>
 
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
