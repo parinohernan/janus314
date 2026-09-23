@@ -24,6 +24,7 @@
   } from '$lib/utils/facturaClonada';
   import { usaMatematicaExacta } from '$lib/utils/matematicaExacta';
   import { calcularTotalesComprobante, redondear2 } from '$lib/utils/comprobanteTotales';
+  import { precioListaSinIva } from '$lib/utils/posTicket';
   // import { formatDateOnly } from '$lib/utils/dateUtils';
 
   const FACTURA_NUEVA_PATH = '/ventas/facturas/nueva';
@@ -474,12 +475,13 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     }
   };
   
-  const aplicarDatosComercialesCliente = (cliente: Cliente) => {
+  const aplicarDatosComercialesCliente = async (cliente: Cliente) => {
     const { listaPrecio, porcentajeBonificacion } = datosComercialesDesdeCliente(cliente);
     factura.ListaPrecio = listaPrecio;
     factura.PorcentajeBonificacion = porcentajeBonificacion;
     if (factura.Items.length > 0) {
-      cambiarListaPrecio();
+      await cambiarListaPrecio();
+      return;
     }
     recalcularTotales();
   };
@@ -532,7 +534,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     }
     
     // Obtener precio según la lista seleccionada
-    const precioLista = obtenerPrecioSegunLista(articuloSeleccionado, factura.ListaPrecio);
+    const precioLista = precioListaSinIva(articuloSeleccionado, factura.ListaPrecio);
     // Usar el PorcentajeIVA1 del artículo o 21 como valor predeterminado
     const porcentajeIva = alicuotaIvaArticulo(articuloSeleccionado);
     
@@ -570,77 +572,6 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     articuloBusqueda = '';
     cantidadArticulo = 1;
     descuentoArticulo = 0;
-  };
-  
-  // Obtener precio según la lista seleccionada
-  const obtenerPrecioSegunLista = (articulo: Articulo, listaId: string): number => {
-    const precioCosto = articulo.PrecioCosto || 0;
-    console.log("articulo", articulo);
-    
-    let valorLista = 0;
-    
-    // Obtener el valor de la lista seleccionada
-    switch(listaId) {
-      case '1': 
-        valorLista = articulo.Lista1 || 0;
-        break;
-      case '2': 
-        valorLista = articulo.Lista2 || 0;
-        break;
-      case '3': 
-        valorLista = articulo.Lista3 || 0;
-        break;
-      case '4': 
-        valorLista = articulo.Lista4 || 0;
-        break;
-      case '5': 
-        valorLista = articulo.Lista5 || 0;
-        break;
-      default: 
-        valorLista = articulo.Lista1 || 0;
-        break;
-    }
-    
-    // Si el valor de lista es 0, usar el precio de costo
-    if (valorLista === 0) {
-      console.log(`Lista ${listaId} está en 0, usando precio de costo: ${precioCosto}`);
-      return precioCosto;
-    }
-    
-    // Detectar automáticamente si es precio directo o porcentaje
-    // Si el valor es mayor que el precio de costo (o mayor que un umbral razonable),
-    // entonces es un precio directo. Si es menor, es un porcentaje.
-    // Umbral: si el valor es mayor que precioCosto * 1.05 (5% más), es precio directo
-    // Si el valor es menor o igual a 1000 y menor que precioCosto, es porcentaje
-    
-    let precioLista = 0;
-    
-    if (precioCosto > 0) {
-      // Si el valor es significativamente mayor que el costo, es precio directo
-      if (valorLista > precioCosto * 1.05) {
-        precioLista = valorLista;
-        console.log(`Lista ${listaId}: Detectado precio directo (${valorLista})`);
-      } 
-      // Si el valor es menor o igual al costo pero mayor que 0, podría ser porcentaje
-      // También verificamos si el valor es razonable como porcentaje (típicamente 0-1000)
-      else if (valorLista <= 1000 && valorLista > 0) {
-        // Es porcentaje: calcular precio = costo * (1 + porcentaje/100)
-        precioLista = precioCosto * (1 + valorLista / 100);
-        console.log(`Lista ${listaId}: Detectado porcentaje (${valorLista}%), precio calculado: ${precioLista}`);
-      }
-      // Si el valor es muy grande pero menor que costo*1.05, podría ser un caso especial
-      // En este caso, asumimos que es precio directo
-      else {
-        precioLista = valorLista;
-        console.log(`Lista ${listaId}: Usando valor como precio directo (${valorLista})`);
-      }
-    } else {
-      // Si no hay precio de costo, usar el valor directamente
-      precioLista = valorLista;
-      console.log(`Lista ${listaId}: Sin precio de costo, usando valor directo: ${precioLista}`);
-    }
-    
-    return precioLista;
   };
   
   // Función para recalcular un ítem individual (actualizada)
@@ -814,37 +745,27 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   };
   
   // Cambiar lista de precios (actualizado)
-  const cambiarListaPrecio = () => {
-    // Actualizar precios de todos los ítems según la nueva lista
-    if (factura.Items.length > 0) {
-      // Crear una copia del array para mantener reactividad
-      const items = [...factura.Items];
-      
-      // Para cada ítem, buscar el artículo y actualizar su precio
-      items.forEach(async (item) => {
+  const cambiarListaPrecio = async () => {
+    if (factura.Items.length === 0) return;
+
+    const items = [...factura.Items];
+    await Promise.all(
+      items.map(async (item) => {
         try {
-          // Obtener datos actualizados del artículo
           const response = await fetchWithAuth(`/articulos/${item.ArticuloCodigo}`);
           if (response.ok) {
             const articulo = await response.json();
-            
-            // Actualizar precio de lista según la nueva lista
-            item.PrecioLista = obtenerPrecioSegunLista(articulo, factura.ListaPrecio);
-            
-            // Recalcular valores derivados
+            item.PrecioLista = precioListaSinIva(articulo, factura.ListaPrecio);
             recalcularItem(item);
           }
         } catch (error) {
           console.error('Error actualizando precio del artículo:', error);
         }
-      });
-      
-      // Actualizar el array de ítems
-      factura.Items = items;
-      
-      // Recalcular totales de la factura
-      recalcularTotales();
-    }
+      })
+    );
+
+    factura.Items = items;
+    recalcularTotales();
   };
   
   // Funciones de validación modularizadas
@@ -858,6 +779,13 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
   const validarItems = () => {
     if (factura.Items.length === 0) {
       return "Debe agregar al menos un artículo a la factura";
+    }
+    const indiceInvalido = factura.Items.findIndex((item) => {
+      const precio = Number(item.PrecioUnitario);
+      return !Number.isFinite(precio) || precio <= 0;
+    });
+    if (indiceInvalido >= 0) {
+      return `El precio del ítem ${indiceInvalido + 1} debe ser mayor a cero`;
     }
     return null;
   };
@@ -1164,7 +1092,7 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     const precioPreventa = precioPreventaConIva / (1 + porcentajeIva / 100);
     
     // El precio actual viene sin IVA
-    const precioActual = obtenerPrecioSegunLista(articuloActualizado, factura.ListaPrecio);
+    const precioActual = precioListaSinIva(articuloActualizado, factura.ListaPrecio);
     
     const diferencia = precioActual - precioPreventa;
     const porcentajeDiferencia = precioPreventa > 0 ? (diferencia / precioPreventa) * 100 : 0;

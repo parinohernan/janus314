@@ -56,8 +56,7 @@ export function completarImportes(linea: PosLinea): PosLinea {
 	};
 }
 
-export function precioListaSinIva(articulo: Articulo, listaId = '1'): number {
-	const precioCosto = Number(articulo.PrecioCosto) || 0;
+function valorListaDeArticulo(articulo: Articulo, listaId: string): number {
 	const listas: Record<string, number | undefined> = {
 		'1': articulo.Lista1,
 		'2': articulo.Lista2,
@@ -65,15 +64,32 @@ export function precioListaSinIva(articulo: Articulo, listaId = '1'): number {
 		'4': articulo.Lista4,
 		'5': articulo.Lista5
 	};
-	const valorLista = Number(listas[listaId] ?? articulo.Lista1) || 0;
+	const crudo = listas[listaId] ?? articulo.Lista1;
+	const valor = Number(crudo);
+	return Number.isFinite(valor) ? valor : 0;
+}
 
+function resolverValorLista(precioCosto: number, valorLista: number): number {
 	if (valorLista === 0) return redondear2(precioCosto);
 	if (precioCosto > 0) {
 		if (valorLista > precioCosto * 1.05) return redondear2(valorLista);
-		if (valorLista <= 1000) return redondear2(precioCosto * (1 + valorLista / 100));
+		if (Math.abs(valorLista) <= 1000) return redondear2(precioCosto * (1 + valorLista / 100));
 		return redondear2(valorLista);
 	}
 	return redondear2(valorLista);
+}
+
+export function precioListaSinIva(articulo: Articulo, listaId = '1'): number {
+	const precioCosto = Math.max(Number(articulo.PrecioCosto) || 0, 0);
+	let precio = resolverValorLista(precioCosto, valorListaDeArticulo(articulo, listaId));
+	if (precio > 0) return precio;
+
+	if (listaId !== '1') {
+		precio = resolverValorLista(precioCosto, valorListaDeArticulo(articulo, '1'));
+		if (precio > 0) return precio;
+	}
+
+	return redondear2(precioCosto);
 }
 
 export function ivaDeArticulo(articulo: Articulo): number {

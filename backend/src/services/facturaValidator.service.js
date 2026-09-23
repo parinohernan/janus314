@@ -30,7 +30,7 @@ const FacturaValidator = {
       errors.push("La factura debe tener al menos un ítem");
     } else {
       factura.Items.forEach((item, index) => {
-        if (!item.ArticuloCodigo) {
+        if (!item.ArticuloCodigo && !item.CodigoArticulo) {
           errors.push(`El artículo del ítem ${index + 1} es obligatorio`);
         }
         if (!item.Cantidad || item.Cantidad <= 0) {
@@ -38,7 +38,8 @@ const FacturaValidator = {
             `La cantidad del ítem ${index + 1} debe ser mayor a cero`
           );
         }
-        if (!item.PrecioUnitario || item.PrecioUnitario <= 0) {
+        const precio = Number(item.PrecioUnitario);
+        if (!Number.isFinite(precio) || precio <= 0) {
           errors.push(`El precio del ítem ${index + 1} debe ser mayor a cero`);
         }
       });

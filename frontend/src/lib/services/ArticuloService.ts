@@ -3,6 +3,7 @@ import { PUBLIC_API_URL } from '$env/static/public';
 import { FacturaCalculator } from './FacturaCalculator';
 import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 import { alicuotaIvaArticulo } from '$lib/utils/ivaArticulo';
+import { precioListaSinIva } from '$lib/utils/posTicket';
 
 export interface ArticulosResponse {
 	items: Articulo[];
@@ -99,7 +100,7 @@ export class ArticuloService {
 		listaPrecio: string = '1'
 	): ItemFactura {
 		// Obtener el precio según la lista seleccionada
-		const precioLista = this.obtenerPrecioPorLista(articulo, listaPrecio);
+		const precioLista = precioListaSinIva(articulo, listaPrecio);
 
 		// Crear ítem de factura
 		const item: ItemFactura = {
@@ -126,62 +127,6 @@ export class ArticuloService {
 		item.Total = item.PrecioUnitarioConIva * item.Cantidad;
 
 		return item;
-	}
-
-	/**
-	 * Obtiene el precio de un artículo según la lista seleccionada
-	 * Detecta automáticamente si el valor es precio directo o porcentaje
-	 */
-	private static obtenerPrecioPorLista(articulo: Articulo, listaPrecio: string): number {
-		const precioCosto = articulo.PrecioCosto || 0;
-		let valorLista = 0;
-		
-		// Obtener el valor de la lista seleccionada
-		switch (listaPrecio) {
-			case '1':
-				valorLista = articulo.Lista1 || 0;
-				break;
-			case '2':
-				valorLista = articulo.Lista2 || 0;
-				break;
-			case '3':
-				valorLista = articulo.Lista3 || 0;
-				break;
-			case '4':
-				valorLista = articulo.Lista4 || 0;
-				break;
-			case '5':
-				valorLista = articulo.Lista5 || 0;
-				break;
-			default:
-				valorLista = articulo.Lista1 || 0;
-				break;
-		}
-		
-		// Si el valor de lista es 0, usar el precio de costo
-		if (valorLista === 0) {
-			return precioCosto;
-		}
-		
-		// Detectar automáticamente si es precio directo o porcentaje
-		if (precioCosto > 0) {
-			// Si el valor es significativamente mayor que el costo, es precio directo
-			if (valorLista > precioCosto * 1.05) {
-				return valorLista;
-			} 
-			// Si el valor es menor o igual al costo pero razonable como porcentaje (0-1000), es porcentaje
-			else if (valorLista <= 1000 && valorLista > 0) {
-				// Es porcentaje: calcular precio = costo * (1 + porcentaje/100)
-				return precioCosto * (1 + valorLista / 100);
-			}
-			// Caso especial: valor muy grande pero menor que costo*1.05, usar como precio directo
-			else {
-				return valorLista;
-			}
-		} else {
-			// Si no hay precio de costo, usar el valor directamente
-			return valorLista;
-		}
 	}
 
 	/**

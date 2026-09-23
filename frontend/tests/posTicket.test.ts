@@ -7,7 +7,8 @@ import {
 	mergeLineasParaPersistir,
 	tipoTicketFiscal,
 	totalTicket,
-	ivaDeArticulo
+	ivaDeArticulo,
+	precioListaSinIva
 } from '../src/lib/utils/posTicket';
 import type { Articulo } from '../src/lib/types/articulo';
 
@@ -80,5 +81,13 @@ describe('POS ticket', () => {
 		const linea = agregarOIncrementar([], exento)[0];
 		expect(linea.PorcentajeIva).toBe(0);
 		expect(linea.PrecioUnitarioConIva).toBeCloseTo(linea.PrecioUnitario, 2);
+	});
+
+	it('trata ListaN negativa chica como porcentaje sobre costo', () => {
+		expect(precioListaSinIva({ ...articulo, Lista2: -1.51 }, '2')).toBe(98.49);
+	});
+
+	it('si el porcentaje deja el precio en 0 o menos, usa Lista1', () => {
+		expect(precioListaSinIva({ ...articulo, Lista2: -200 }, '2')).toBe(200);
 	});
 });

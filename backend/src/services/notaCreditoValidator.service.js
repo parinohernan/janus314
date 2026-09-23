@@ -43,7 +43,7 @@ const NotaCreditoValidator = {
         if (!item.Cantidad || item.Cantidad <= 0) {
           errors.push(`El ítem ${index + 1} debe tener una cantidad válida`);
         }
-        if (!item.PrecioUnitario || item.PrecioUnitario < 0) {
+        if (!Number.isFinite(Number(item.PrecioUnitario))) {
           errors.push(
             `El ítem ${index + 1} debe tener un precio unitario válido`
           );

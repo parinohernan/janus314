@@ -38,6 +38,13 @@ const FacturaService = {
     });
     
     try {
+      const validacion = FacturaValidator.validarFactura(facturaData);
+      if (!validacion.isValid) {
+        throw new Error(
+          `Datos de factura inválidos: ${validacion.errors.join(", ")}`
+        );
+      }
+
       // ✅ No obtener número aquí, ya viene asignado desde el controlador
       if (!facturaData.DocumentoNumero) {
         throw new Error('DocumentoNumero es requerido');
