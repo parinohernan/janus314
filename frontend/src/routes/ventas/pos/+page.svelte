@@ -3,16 +3,18 @@
 	import { goto } from '$app/navigation';
 	import { LogOut, Wallet } from 'lucide-svelte';
 	import { auth } from '$lib/stores/authStore';
+	import { esCajero } from '$lib/utils/permisos';
 	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 	import { toast } from '$lib/utils/toast';
 	import { EmpresaService } from '$lib/services/EmpresaService';
 	import CaeModal from '$lib/components/facturas/CaeModal.svelte';
-	import { esCodigoBalanza, type PosRubro } from '$lib/constants/posVarios';
+	import { decodificarCodigoBalanza, type PosRubro } from '$lib/constants/posVarios';
 	import {
 		agregarOIncrementar,
 		cambiarCantidad,
 		completarImportes,
 		labelTicketFiscal,
+		lineaDesdeBalanza,
 		lineaDesdeRubro,
 		mergeLineasParaPersistir,
 		quitarLinea,
@@ -51,6 +53,7 @@
 	import PosCobroModal from '$lib/components/pos/PosCobroModal.svelte';
 	import PosCajaModal from '$lib/components/pos/PosCajaModal.svelte';
 	import PosHistorialModal from '$lib/components/pos/PosHistorialModal.svelte';
+	import PosCajaMovimientoModal from '$lib/components/pos/PosCajaMovimientoModal.svelte';
 	import { precargarTiposPagoPos, type TipoPagoPos } from '$lib/utils/posTiposPago';
 
 	const CLIENTE_CF: Cliente = {
@@ -119,6 +122,7 @@
 	let showCobro = false;
 	let showCaja = false;
 	let showHistorial = false;
+	let movimientoCaja: 'ingreso' | 'egreso' | null = null;
 	let pagoConfirmado: { codigo: string; descripcion: string; total: number } | null = null;
 	let tiposPago: TipoPagoPos[] = [];
 	let printerConfig: PosPrinterConfig = loadPosPrinterConfig();
@@ -261,7 +265,7 @@
 	}
 
 	function onGlobalKey(event: KeyboardEvent) {
-		if (showVarios || showCae || showPrinter || showBuscar || showCobro || showCaja || showHistorial || cobrando) {
+		if (showVarios || showCae || showPrinter || showBuscar || showCobro || showCaja || showHistorial || movimientoCaja || cobrando) {
 			if (event.key === 'Escape' && showVarios) {
 				showVarios = false;
 			}
@@ -279,6 +283,9 @@
 			}
 			if (event.key === 'Escape' && showHistorial) {
 				showHistorial = false;
+			}
+			if (event.key === 'Escape' && movimientoCaja) {
+				movimientoCaja = null;
 			}
 			return;
 		}
@@ -349,14 +356,51 @@
 		search?.focusInput();
 	}
 
+	async function agregarDesdeBalanza(code: string): Promise<boolean> {
+		const leido = decodificarCodigoBalanza(code);
+		if (!leido) return false;
+		if (!leido.ok) {
+			toast.error(leido.mensaje);
+			search?.focusInput();
+			return true;
+		}
+		const clave = leido.datos.codigoBarras;
+		let articulo = resolverPosCatalogo(catalogo, clave);
+		if (!articulo) {
+			try {
+				const response = await fetchWithAuth('/articulos/lookup', { params: { code: clave } });
+				if (response.ok) {
+					const payload = await response.json();
+					articulo = (payload.data || payload) as Articulo;
+					catalogo = incorporarPosCatalogo(catalogo, articulo);
+					catalogoListo = true;
+				}
+			} catch {
+				articulo = null;
+			}
+		}
+		if (!articulo) {
+			toast.error(`Falta el artículo ${clave}`);
+			search?.focusInput();
+			return true;
+		}
+		const linea = lineaDesdeBalanza(articulo, leido.datos.kg, listaPrecio);
+		if (!linea) {
+			toast.error(`El artículo ${clave} no tiene precio por kilo`);
+			search?.focusInput();
+			return true;
+		}
+		lineas = [...lineas, linea];
+		flashOk = true;
+		setTimeout(() => (flashOk = false), 250);
+		search?.focusInput();
+		return true;
+	}
+
 	async function lookup(codigo: string) {
 		const code = codigo.trim();
 		if (!code) return;
-		if (esCodigoBalanza(code)) {
-			toast.info('Código de balanza: se implementará en la siguiente etapa');
-			search?.focusInput();
-			return;
-		}
+		if (await agregarDesdeBalanza(code)) return;
 
 		const local = resolverPosCatalogo(catalogo, code);
 		if (local) {
@@ -425,6 +469,15 @@
 		showVarios = false;
 		rubroActivo = null;
 		search?.focusInput();
+	}
+
+	async function salir() {
+		if (esCajero($auth.user)) {
+			await auth.logout();
+			goto('/login');
+			return;
+		}
+		goto('/ventas/facturas');
 	}
 
 	function nuevaVenta() {
@@ -660,7 +713,7 @@
 		<button
 			type="button"
 			class="flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-sm hover:bg-white/20"
-			on:click={() => goto('/ventas/facturas')}
+			on:click={salir}
 		>
 			<LogOut class="h-4 w-4" />
 			<span class="hidden sm:inline">Salir</span>
@@ -708,6 +761,8 @@
 					on:nueva={nuevaVenta}
 					on:rubro={abrirRubro}
 					on:historial={() => (showHistorial = true)}
+					on:ingreso={() => (movimientoCaja = 'ingreso')}
+					on:egreso={() => (movimientoCaja = 'egreso')}
 				/>
 			</div>
 		</div>
@@ -752,6 +807,17 @@
 		tipos={tiposPago}
 		on:close={() => (showCobro = false)}
 		on:confirm={confirmarCobro}
+	/>
+{/if}
+
+{#if movimientoCaja}
+	<PosCajaMovimientoModal
+		show={!!movimientoCaja}
+		tipo={movimientoCaja}
+		cajaId={cajaAbierta?.Codigo ?? null}
+		vendedorId={vendedorCodigo}
+		on:close={() => (movimientoCaja = null)}
+		on:cambio={verificarCaja}
 	/>
 {/if}
 

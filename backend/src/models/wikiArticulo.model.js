@@ -750,6 +750,79 @@ En el listado de recibos, las fechas suelen quedar en **hoy**. Si no ves un reci
 `,
     publicado: true,
     autor: 'sistema'
+  },
+  {
+    slug: 'codigos-de-articulo',
+    titulo: 'Códigos de balanza: carnicería y verdulería',
+    categoria: 'Productos',
+    resumen:
+      'Cómo leer la etiqueta de la balanza y cómo dar de alta un corte, con la picada como ejemplo.',
+    contenido: `# Códigos de balanza: carnicería y verdulería
+
+La etiqueta de la balanza es un código de 13 dígitos. El peso va adentro. El importe no: el punto de venta lo calcula con el precio por kilo del artículo.
+
+Los 13 dígitos se leen siempre igual, en carnicería y en verdulería:
+
+- 4 dígitos: la sección
+- 2 dígitos: el artículo
+- 6 dígitos: el peso en gramos
+- 1 dígito: verificador. Confirma que la etiqueta se leyó bien. No se carga en el artículo.
+
+En **Código de barras** va solo la parte fija: sección + artículo (6 dígitos). El peso y el verificador quedan en la etiqueta.
+
+## Carnicería
+
+El prefijo de carnicería es \`5000\`.
+
+La etiqueta \`5000010005052\` se lee así:
+
+- \`5000\`: carnicería
+- \`01\`: picada. Asado es \`02\`, vacío es \`03\`
+- \`000505\`: 505 gramos, o sea 0,505 kg
+- \`2\`: verificador
+
+El punto de venta busca el artículo \`500001\` y multiplica 0,505 kg por el precio por kilo.
+
+### Cómo cargar la picada
+
+Entrá a **Productos → Nuevo** y completá:
+
+1. **Código**: un código corto y único, por ejemplo \`PICADA\`. Hasta 13 caracteres, sin espacios.
+2. **Descripción**: \`PICADA\`. Es el nombre que sale en el ticket.
+3. **Código de barras**: \`500001\`. Es \`5000\` más \`01\`, sin el peso y sin el verificador.
+4. **Porcentaje IVA 1**: \`10,5 %\`.
+5. **% Lista 1**: el precio por kilo final, el mismo que imprime la balanza, con IVA incluido. Si la picada sale $599,98 el kilo, cargá \`599.98\`.
+
+Ese número de Lista 1 no es un porcentaje de ganancia. El punto de venta lo toma tal cual como $/kg con IVA. Dejá el precio de costo en 0: en la ficha, Lista 1 se muestra como porcentaje y el precio calculado al lado no es el de la balanza.
+
+Los otros cortes se cargan igual. Cambia el código de barras:
+
+- Asado: \`500002\`
+- Vacío: \`500003\`
+
+Cada etiqueta escaneada agrega una línea con los kilos de esa pieza. Si la picada no está cargada, el punto de venta avisa \`Falta el artículo 500001\`. Si Lista 1 está en 0, avisa que no tiene precio por kilo.
+
+## Verdulería
+
+La etiqueta tiene la misma forma. El prefijo son los primeros 4 dígitos de una etiqueta real de esa balanza. Copialos de ahí.
+
+El alta es la misma que la picada:
+
+1. **Código**: corto y único, por ejemplo \`TOMATE\`.
+2. **Descripción**: el nombre del producto.
+3. **Código de barras**: los 4 dígitos de la sección más los 2 del producto. Sin peso y sin verificador.
+4. **Porcentaje IVA 1**: \`10,5 %\`.
+5. **% Lista 1**: el $/kg final con IVA que imprime la balanza.
+
+Ejemplo: el tomate es el artículo \`07\`. Mirá una etiqueta de esa balanza y tomá los primeros 4 dígitos: esos más \`07\` son el código de barras. Si la etiqueta pesa 320 g, después de esos 6 dígitos viene \`000320\` y al final el verificador. En el artículo se guardan solo los 6 primeros.
+
+## Relacionado
+
+- Alta: \`/productos/nuevo\`
+- Punto de venta: \`/ventas/pos\`
+`,
+    publicado: true,
+    autor: 'sistema'
   }
 ];
 

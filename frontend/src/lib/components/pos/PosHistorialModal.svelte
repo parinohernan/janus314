@@ -2,11 +2,12 @@
 	import { createEventDispatcher } from 'svelte';
 	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 	import { formatMoneyAR } from '$lib/utils/posTicket';
-	import { armarPosTicketDto, type PosTicketTipo } from '$lib/utils/posTicketHtml';
+	import { armarPosTicketDto, renderPosTicketHtml, type PosTicketDto, type PosTicketTipo } from '$lib/utils/posTicketHtml';
 	import { mensajeErrorImpresion, printTicket } from '$lib/services/QzTrayService';
 	import { loadPosPrinterConfig } from '$lib/utils/posPrinterConfig';
+	import { DocumentService } from '$lib/services/DocumentService';
 	import { toast } from '$lib/utils/toast';
-	import { Printer } from 'lucide-svelte';
+	import { Eye, Printer } from 'lucide-svelte';
 
 	export let show = false;
 	export let cajaId: number | null = null;
@@ -31,13 +32,21 @@
 	let comprobantes: Movimiento[] = [];
 	let abiertoAntes = false;
 	let reimprimiendo = '';
+	let viendo = '';
+	let vistaHtml = '';
+	let vistaClave: { tipo: PosTicketTipo; sucursal: string; numero: string } | null = null;
+	let abriendoPdf = false;
 
 	$: total = comprobantes.reduce((suma, item) => suma + Number(item.Importe || 0), 0);
 	$: if (show && !abiertoAntes) {
 		abiertoAntes = true;
 		queueMicrotask(() => cargar());
 	}
-	$: if (!show) abiertoAntes = false;
+	$: if (!show) {
+		abiertoAntes = false;
+		vistaHtml = '';
+		vistaClave = null;
+	}
 
 	function etiqueta(tipo: string) {
 		if (tipo === 'PRF') return 'Remito';
@@ -70,45 +79,85 @@
 		return { tipo, sucursal: sucursalDoc, numero, id: `${tipo}-${sucursalDoc}-${numero}` };
 	}
 
+	async function ticketDe(item: Movimiento): Promise<PosTicketDto> {
+		const clave = claveDe(item);
+		if (!clave.numero) throw new Error('El comprobante no tiene número');
+		const response = await fetchWithAuth(
+			`/facturas/${clave.tipo}/${clave.sucursal}/${encodeURIComponent(clave.numero)}`
+		);
+		const data = await response.json().catch(() => ({}));
+		if (!response.ok || !data.success) {
+			throw new Error(data.message || 'No se encontró el comprobante');
+		}
+		const encabezado = data.data?.encabezado || {};
+		const items = data.data?.items || [];
+		return armarPosTicketDto({
+			tipo: clave.tipo,
+			sucursal: encabezado.DocumentoSucursal || clave.sucursal,
+			numero: encabezado.DocumentoNumero || clave.numero,
+			fecha: encabezado.FechaFormateada || String(encabezado.Fecha || '').slice(0, 10),
+			empresa,
+			cliente: encabezado.Cliente,
+			items: items.map((linea: { Cantidad?: number; Descripcion?: string; TotalConIva?: number }) => ({
+				Cantidad: Number(linea.Cantidad) || 0,
+				Descripcion: linea.Descripcion || '',
+				Total: Number(linea.TotalConIva) || 0
+			})),
+			totales: {
+				ImporteNeto: Number(encabezado.ImporteNeto) || 0,
+				ImporteIva: Number(encabezado.ImporteIva) || Number(encabezado.ImporteIva1 || 0) + Number(encabezado.ImporteIva2 || 0),
+				ImporteTotal: Number(encabezado.ImporteTotal) || 0
+			},
+			cae: encabezado.afip_cae || undefined
+		});
+	}
+
 	async function reimprimir(item: Movimiento) {
 		const clave = claveDe(item);
 		if (!clave.numero || reimprimiendo) return;
 		reimprimiendo = clave.id;
 		try {
-			const response = await fetchWithAuth(
-				`/facturas/${clave.tipo}/${clave.sucursal}/${encodeURIComponent(clave.numero)}`
-			);
-			const data = await response.json().catch(() => ({}));
-			if (!response.ok || !data.success) {
-				throw new Error(data.message || 'No se encontró el comprobante');
-			}
-			const encabezado = data.data?.encabezado || {};
-			const items = data.data?.items || [];
-			const dto = armarPosTicketDto({
-				tipo: clave.tipo,
-				sucursal: encabezado.DocumentoSucursal || clave.sucursal,
-				numero: encabezado.DocumentoNumero || clave.numero,
-				fecha: encabezado.FechaFormateada || String(encabezado.Fecha || '').slice(0, 10),
-				empresa,
-				cliente: encabezado.Cliente,
-				items: items.map((linea: { Cantidad?: number; Descripcion?: string; TotalConIva?: number }) => ({
-					Cantidad: Number(linea.Cantidad) || 0,
-					Descripcion: linea.Descripcion || '',
-					Total: Number(linea.TotalConIva) || 0
-				})),
-				totales: {
-					ImporteNeto: Number(encabezado.ImporteNeto) || 0,
-					ImporteIva: Number(encabezado.ImporteIva) || Number(encabezado.ImporteIva1 || 0) + Number(encabezado.ImporteIva2 || 0),
-					ImporteTotal: Number(encabezado.ImporteTotal) || 0
-				},
-				cae: encabezado.afip_cae || undefined
-			});
-			await printTicket(dto, loadPosPrinterConfig());
+			await printTicket(await ticketDe(item), loadPosPrinterConfig());
 			toast.success('Ticket reimpreso');
 		} catch (err) {
 			toast.error(mensajeErrorImpresion(err));
 		} finally {
 			reimprimiendo = '';
+		}
+	}
+
+	async function ver(item: Movimiento) {
+		const clave = claveDe(item);
+		if (!clave.numero || viendo) return;
+		viendo = clave.id;
+		try {
+			const dto = await ticketDe(item);
+			vistaClave = { tipo: dto.tipo, sucursal: dto.sucursal, numero: dto.numero };
+			vistaHtml = renderPosTicketHtml(dto);
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : 'No se pudo abrir el comprobante');
+		} finally {
+			viendo = '';
+		}
+	}
+
+	function cerrarVista() {
+		vistaHtml = '';
+		vistaClave = null;
+		abriendoPdf = false;
+	}
+
+	async function abrirPdf() {
+		if (!vistaClave || abriendoPdf) return;
+		abriendoPdf = true;
+		try {
+			const url = await DocumentService.generarPDF(vistaClave.tipo, vistaClave.sucursal, vistaClave.numero);
+			window.open(url, '_blank', 'noopener');
+			setTimeout(() => URL.revokeObjectURL(url), 60_000);
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : 'No se pudo abrir el PDF');
+		} finally {
+			abriendoPdf = false;
 		}
 	}
 
@@ -139,13 +188,44 @@
 </script>
 
 {#if show}
-	<div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-4 sm:items-center">
-		<div
-			class="flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-2xl"
-			role="dialog"
-			tabindex="-1"
-			aria-labelledby="pos-historial-title"
-		>
+	<div
+		class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center"
+		role="presentation"
+		on:click|self={() => (vistaHtml ? cerrarVista() : dispatch('close'))}
+	>
+		{#if vistaHtml}
+			<div
+				class="flex h-[min(90vh,760px)] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+				role="dialog"
+				aria-modal="true"
+			>
+				<div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+					<h3 class="font-semibold text-slate-900">
+						{vistaClave ? `${etiqueta(vistaClave.tipo)} ${vistaClave.sucursal}-${vistaClave.numero}` : 'Comprobante'}
+					</h3>
+					<div class="flex gap-2">
+						<button
+							type="button"
+							class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+							disabled={abriendoPdf}
+							on:click={abrirPdf}
+						>
+							{abriendoPdf ? 'Abriendo...' : 'PDF'}
+						</button>
+						<button type="button" class="rounded-lg px-3 py-2 text-sm text-slate-500 hover:bg-slate-100" on:click={cerrarVista}>
+							Cerrar
+						</button>
+					</div>
+				</div>
+				<iframe title="Comprobante" class="min-h-0 w-full flex-1 bg-white" srcdoc={vistaHtml}></iframe>
+			</div>
+		{:else}
+			<div
+				class="flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-2xl"
+				role="dialog"
+				tabindex="-1"
+				aria-labelledby="pos-historial-title"
+			>
 			<div class="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
 				<div>
 					<h2 id="pos-historial-title" class="text-lg font-semibold text-slate-900">Historial de la caja</h2>
@@ -183,6 +263,15 @@
 								<button
 									type="button"
 									class="shrink-0 rounded-lg border border-slate-200 px-2 py-2 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+									title="Ver"
+									disabled={viendo === claveDe(item).id}
+									on:click={() => ver(item)}
+								>
+									<Eye class="h-4 w-4" />
+								</button>
+								<button
+									type="button"
+									class="shrink-0 rounded-lg border border-slate-200 px-2 py-2 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
 									title="Reimprimir"
 									disabled={reimprimiendo === claveDe(item).id}
 									on:click={() => reimprimir(item)}
@@ -202,5 +291,6 @@
 				</div>
 			{/if}
 		</div>
+		{/if}
 	</div>
 {/if}

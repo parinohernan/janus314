@@ -24,7 +24,13 @@
 	let error = '';
 	let resumen: Resumen | null = null;
 	let saldoInicial = 0;
+	let efectivoFinal = 0;
+	let observaciones = '';
 	let abiertoAntes = false;
+
+	$: diferencia = Math.round((Number(efectivoFinal || 0) - Number(resumen?.saldoTeorico || 0)) * 100) / 100;
+	$: diferenciaLabel =
+		diferencia < -0.004 ? 'Faltante' : diferencia > 0.004 ? 'Sobrante' : 'Sin diferencia';
 
 	$: if (show && !abiertoAntes) {
 		abiertoAntes = true;
@@ -48,11 +54,20 @@
 			const data = await response.json();
 			if (!data.success) throw new Error(data.message || 'No se pudo cargar la caja');
 			resumen = data.data;
+			efectivoFinal = Number(data.data?.saldoTeorico) || 0;
+			observaciones = '';
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Error al cargar la caja';
 		} finally {
 			loading = false;
 		}
+	}
+
+	function textoCierre() {
+		const monto = formatMoneyAR(Math.abs(diferencia));
+		const estado = diferenciaLabel === 'Sin diferencia' ? 'Sin diferencia' : `${diferenciaLabel} ${monto}`;
+		const nota = observaciones.trim();
+		return nota ? `Cierre desde punto de venta. ${estado}. ${nota}` : `Cierre desde punto de venta. ${estado}`;
 	}
 
 	async function cerrarCaja() {
@@ -66,8 +81,8 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					efectivoFinal: resumen.saldoTeorico,
-					observaciones: 'Cierre desde punto de venta',
+					efectivoFinal: Number(efectivoFinal) || 0,
+					observaciones: textoCierre(),
 					usuarioId: vendedorId
 				})
 			});
@@ -120,7 +135,8 @@
 		role="presentation"
 		on:click|self={() => dispatch('close')}
 	>
-		<div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true">
+		<div class="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true">
+			<div class="min-h-0 flex-1 overflow-y-auto p-6">
 			<h2 class="text-xl font-semibold text-slate-900">{cajaId ? 'Caja abierta' : 'Caja cerrada'}</h2>
 
 			{#if cajaId}
@@ -142,15 +158,11 @@
 							<p class="text-xs uppercase text-red-700">Egresos</p>
 							<p class="text-lg font-semibold text-red-800">{formatMoneyAR(resumen.totalEgresos)}</p>
 						</div>
-						<div class="rounded-xl bg-blue-50 p-3">
-							<p class="text-xs uppercase text-blue-700">Saldo teórico</p>
-							<p class="text-lg font-semibold text-blue-800">{formatMoneyAR(resumen.saldoTeorico)}</p>
-						</div>
 					</div>
 
 					<div class="mt-5">
-						<p class="text-sm font-semibold text-slate-700">Ingresos por tipo</p>
-						{#if resumen.ingresosPorTipo.length === 0}
+						<p class="text-sm font-semibold text-slate-700">Ingresos por tipo de pago</p>
+						{#if !resumen.ingresosPorTipo?.length}
 							<p class="mt-2 text-sm text-slate-500">Todavía no hay ingresos.</p>
 						{:else}
 							<ul class="mt-2 divide-y divide-slate-100 rounded-xl border border-slate-200">
@@ -163,6 +175,41 @@
 							</ul>
 						{/if}
 					</div>
+
+					<div class="mt-5 rounded-xl bg-purple-50 p-3">
+						<p class="text-xs uppercase text-purple-700">Saldo teórico</p>
+						<p class="text-2xl font-semibold text-purple-800">{formatMoneyAR(resumen.saldoTeorico)}</p>
+					</div>
+
+					<label class="mt-5 block text-sm font-medium text-slate-700" for="pos-efectivo-final">Efectivo contado</label>
+					<input
+						id="pos-efectivo-final"
+						type="number"
+						min="0"
+						step="0.01"
+						bind:value={efectivoFinal}
+						class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+					/>
+					<p
+						class="mt-2 text-sm font-semibold {diferenciaLabel === 'Faltante'
+							? 'text-red-600'
+							: diferenciaLabel === 'Sobrante'
+								? 'text-emerald-700'
+								: 'text-slate-500'}"
+					>
+						{diferenciaLabel}
+						{#if diferenciaLabel !== 'Sin diferencia'}
+							{formatMoneyAR(Math.abs(diferencia))}
+						{/if}
+					</p>
+					<label class="mt-4 block text-sm font-medium text-slate-700" for="pos-obs-cierre">Observaciones</label>
+					<textarea
+						id="pos-obs-cierre"
+						rows="2"
+						bind:value={observaciones}
+						class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+						placeholder="Opcional"
+					></textarea>
 				{/if}
 			{:else}
 				<p class="mt-1 text-sm text-slate-500">Abrí la caja para cobrar en el punto de venta.</p>
@@ -177,11 +224,13 @@
 				/>
 			{/if}
 
+			</div>
+
 			{#if error}
-				<p class="mt-4 text-sm text-red-600">{error}</p>
+				<p class="px-6 text-sm text-red-600">{error}</p>
 			{/if}
 
-			<div class="mt-6 flex gap-3">
+			<div class="flex gap-3 border-t border-slate-100 p-6">
 				<button
 					type="button"
 					class="flex-1 rounded-xl border border-slate-200 px-4 py-3 font-medium text-slate-600 hover:bg-slate-50"

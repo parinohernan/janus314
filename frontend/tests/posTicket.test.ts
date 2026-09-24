@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { POS_RUBROS, esCodigoBalanza } from '../src/lib/constants/posVarios';
+import { POS_RUBROS, decodificarCodigoBalanza, esCodigoBalanza } from '../src/lib/constants/posVarios';
 import {
 	agregarOIncrementar,
 	labelTicketFiscal,
+	lineaDesdeBalanza,
 	lineaDesdeRubro,
 	mergeLineasParaPersistir,
 	tipoTicketFiscal,
@@ -33,6 +34,55 @@ describe('POS ticket', () => {
 	it('detecta prefijo de balanza 5000', () => {
 		expect(esCodigoBalanza('5000123456789')).toBe(true);
 		expect(esCodigoBalanza('7791234567890')).toBe(false);
+	});
+
+	it('lee carnicería, corte y kilos del código de balanza', () => {
+		const leido = decodificarCodigoBalanza('5000010005052');
+		expect(leido).toEqual({
+			ok: true,
+			datos: { prefijo: '5000', plu: '01', codigoBarras: '500001', kg: 0.505 }
+		});
+	});
+
+	it('rechaza un verificador de balanza inválido', () => {
+		expect(decodificarCodigoBalanza('5000010005053')).toEqual({
+			ok: false,
+			mensaje: 'El código de balanza no es válido'
+		});
+	});
+
+	it('arma la línea con los kilos y el precio por kilo con IVA', () => {
+		const picada: Articulo = {
+			Codigo: 'CAR01',
+			Descripcion: 'PICADA',
+			CodigoBarras: '500001',
+			PrecioCosto: 0,
+			Lista1: 599.98,
+			PorcentajeIVA1: 10.5,
+			Existencia: 0,
+			Activo: 1
+		};
+		const linea = lineaDesdeBalanza(picada, 0.505);
+		expect(linea?.Cantidad).toBe(0.505);
+		expect(linea?.PrecioUnitarioConIva).toBe(599.98);
+		expect(linea?.Total).toBe(302.99);
+		expect(linea?.esBalanza).toBe(true);
+	});
+
+	it('toma el precio con IVA del costo cuando la lista está en cero', () => {
+		const articulo: Articulo = {
+			Codigo: 'VER02',
+			Descripcion: 'TOMATE',
+			CodigoBarras: '600002',
+			PrecioCosto: 543,
+			Lista1: 0,
+			PorcentajeIVA1: 10.5,
+			Existencia: 0,
+			Activo: 1
+		};
+		const linea = lineaDesdeBalanza(articulo, 1.2);
+		expect(linea?.PrecioUnitarioConIva).toBe(600.02);
+		expect(linea?.Total).toBe(720.02);
 	});
 
 	it('arma una línea de rubro con IVA y descripción libre', () => {

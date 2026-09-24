@@ -15,6 +15,7 @@ export type PosLinea = {
 	PrecioUnitarioConIva: number;
 	Total: number;
 	esVarios: boolean;
+	esBalanza?: boolean;
 };
 
 export function formatMoneyAR(n: number): string {
@@ -34,7 +35,7 @@ export function completarImportes(linea: PosLinea): PosLinea {
 	const factor = 1 + iva / 100;
 	const puIvaIngresado = redondear2(Number(linea.PrecioUnitarioConIva) || 0);
 
-	if (linea.esVarios && puIvaIngresado > 0) {
+	if ((linea.esVarios || linea.esBalanza) && puIvaIngresado > 0) {
 		const pu = redondear2(puIvaIngresado / factor);
 		return {
 			...linea,
@@ -113,6 +114,48 @@ export function lineaDesdeArticulo(articulo: Articulo, listaId = '1'): PosLinea 
 	});
 }
 
+function precioDeLista(articulo: Articulo, listaId: string): number {
+	const lista = valorListaDeArticulo(articulo, listaId);
+	if (!(lista > 0)) return 0;
+	const costo = Math.max(Number(articulo.PrecioCosto) || 0, 0);
+	const factor = 1 + ivaDeArticulo(articulo) / 100;
+	if (costo === 0 || lista > costo * 1.05) return redondear2(lista);
+	if (Math.abs(lista) <= 1000) return redondear2(costo * (1 + lista / 100) * factor);
+	return redondear2(lista);
+}
+
+function precioKgConIva(articulo: Articulo, listaId: string): number {
+	const deLista = precioDeLista(articulo, listaId);
+	if (deLista > 0) return deLista;
+	if (listaId !== '1') {
+		const principal = precioDeLista(articulo, '1');
+		if (principal > 0) return principal;
+	}
+	const costo = Math.max(Number(articulo.PrecioCosto) || 0, 0);
+	if (costo > 0) return redondear2(costo * (1 + ivaDeArticulo(articulo) / 100));
+	return 0;
+}
+
+export function lineaDesdeBalanza(articulo: Articulo, kg: number, listaId = '1'): PosLinea | null {
+	const precioKg = precioKgConIva(articulo, listaId);
+	if (!(precioKg > 0)) return null;
+	const kilos = Math.round(Number(kg) * 1000) / 1000;
+	if (!(kilos > 0)) return null;
+	return completarImportes({
+		lineId: nuevaLineaId(),
+		ArticuloCodigo: articulo.Codigo,
+		Descripcion: articulo.Descripcion,
+		Cantidad: kilos,
+		PrecioLista: 0,
+		PrecioUnitario: 0,
+		PorcentajeIva: ivaDeArticulo(articulo),
+		PrecioUnitarioConIva: redondear2(precioKg),
+		Total: 0,
+		esVarios: false,
+		esBalanza: true
+	});
+}
+
 export function lineaDesdeRubro(rubro: PosRubro, descripcion: string, precioConIva: number): PosLinea {
 	const iva = rubro.iva;
 	const texto = descripcion.trim().slice(0, 100) || rubro.descripcionDefault;
@@ -144,8 +187,13 @@ export function agregarOIncrementar(lineas: PosLinea[], articulo: Articulo, list
 }
 
 export function cambiarCantidad(lineas: PosLinea[], lineId: string, cantidad: number): PosLinea[] {
-	const qty = Math.max(0.001, redondear2(cantidad));
-	return lineas.map((l) => (l.lineId === lineId ? completarImportes({ ...l, Cantidad: qty }) : l));
+	return lineas.map((l) => {
+		if (l.lineId !== lineId) return l;
+		const qty = l.esBalanza
+			? Math.max(0.001, Math.round(Number(cantidad) * 1000) / 1000)
+			: Math.max(0.001, redondear2(cantidad));
+		return completarImportes({ ...l, Cantidad: qty });
+	});
 }
 
 export function quitarLinea(lineas: PosLinea[], lineId: string): PosLinea[] {
@@ -172,6 +220,18 @@ export function mergeLineasParaPersistir(lineas: PosLinea[]): PosLinea[] {
 		const actual = map.get(key);
 		if (!actual) {
 			map.set(key, { ...linea });
+			continue;
+		}
+		if (actual.esBalanza && linea.esBalanza) {
+			const cantidad = Math.round((Number(actual.Cantidad) + Number(linea.Cantidad)) * 1000) / 1000;
+			map.set(
+				key,
+				completarImportes({
+					...actual,
+					Cantidad: cantidad,
+					PrecioUnitarioConIva: actual.PrecioUnitarioConIva
+				})
+			);
 			continue;
 		}
 		const descripcion = [actual.Descripcion, linea.Descripcion].filter(Boolean).join(' / ').slice(0, 100);

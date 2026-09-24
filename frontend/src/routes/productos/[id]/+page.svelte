@@ -431,9 +431,16 @@
           <h2 class="text-lg font-medium mb-3 text-gray-800 border-b pb-2">Datos principales</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label for="codigo" class="block text-sm font-medium text-gray-700 mb-1">
-                Código *
-              </label>
+              <div class="mb-1 flex items-baseline justify-between gap-3">
+                <label for="codigo" class="block text-sm font-medium text-gray-700">
+                  Código *
+                </label>
+                {#if !isEditing}
+                  <a href="/ayuda/codigos-de-articulo" class="text-xs font-medium text-blue-600 hover:text-blue-800">
+                    Cómo armar el código
+                  </a>
+                {/if}
+              </div>
               <input
                 type="text"
                 id="codigo"
