@@ -252,8 +252,7 @@
         { label: 'Costo histórico', url: '/productos/precios/costohistorico', icon: 'precios-listado' },
         { label: 'Actualización de Precios', url: '/productos/precios/actualizacion', icon: 'precios-actualizacion' },
         { label: 'Actualización manual', url: '/productos/precios/actualizacionmanual', icon: 'precios-manual' },
-        { label: 'Actualización de Precios y Stock', url: '/productos/precios/actualizacion-precios-stock', icon: 'precios-stock' },
-        { label: 'Actualización desde listas', url: '/productos/precios/actualizarconlista', icon: 'precios-listas' }
+        { label: 'Actualización de Precios y Stock', url: '/productos/precios/actualizacion-precios-stock', icon: 'precios-stock' }
       ]
     },
     {
@@ -296,6 +295,7 @@
           icon: 'informes-productos',
           submenus: [
             { label: 'Productos', url: '/ventas/informes/productos', icon: 'productos-informe' },
+            { label: 'Movimiento de stock', url: '/ventas/informes/movimiento-stock', icon: 'existencia' },
             { label: 'Rubros', url: '/ventas/informes/rubros', icon: 'rubros' },
             { label: 'Rubros por Provincia', url: '/ventas/informes/rubros-provincia', icon: 'rubros-provincia' },
             { label: 'Marcas', url: '/ventas/informes/marcas', icon: 'marcas' }

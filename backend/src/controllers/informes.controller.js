@@ -16,6 +16,7 @@ const {
 } = require('../services/informeVentasPreventista.service');
 const { procesarFacturacionNeta } = require('../services/informeFacturacionNeta.service');
 const { obtenerInformeIvaComprobantes } = require('../services/informeIvaComprobantes.service');
+const { armarInformeMovimientoStock } = require('../utils/informeMovimientoStock');
 
 // Informe de ventas por productos
 exports.ventasPorProductos = async (req, res) => {
@@ -2552,5 +2553,80 @@ exports.generarPDFDetalleCliente = async (req, res) => {
         error: error.message
       });
     }
+  }
+};
+
+exports.informeMovimientoStock = async (req, res) => {
+  try {
+    const { codigoArticulo, fechaDesde, fechaHasta } = req.query;
+    if (!codigoArticulo || !fechaDesde || !fechaHasta) {
+      return res.status(400).json({
+        success: false,
+        message: 'Se requieren codigoArticulo, fechaDesde y fechaHasta',
+      });
+    }
+
+    const { Articulo } = req.models;
+    const sequelize = req.db;
+    const articulo = await Articulo.findByPk(codigoArticulo);
+    if (!articulo) {
+      return res.status(404).json({
+        success: false,
+        message: 'Artículo no encontrado',
+      });
+    }
+
+    const replacements = { codigoArticulo, fechaDesde };
+    const [stk, ventas, notas] = await Promise.all([
+      sequelize.query(
+        `SELECT Fecha, DocumentoTipo, DocumentoSucursal, DocumentoNumero, Cantidad, MovimientoTipo, Observacion
+         FROM movimientosstock
+         WHERE CodigoArticulo = :codigoArticulo AND Fecha >= :fechaDesde
+         ORDER BY Fecha ASC`,
+        { replacements, type: QueryTypes.SELECT }
+      ),
+      sequelize.query(
+        `SELECT c.Fecha, c.DocumentoTipo, c.DocumentoSucursal, c.DocumentoNumero, c.FechaAnulacion, i.Cantidad
+         FROM facturaitems i
+         INNER JOIN facturacabeza c
+           ON c.DocumentoTipo = i.DocumentoTipo
+          AND c.DocumentoSucursal = i.DocumentoSucursal
+          AND c.DocumentoNumero = i.DocumentoNumero
+         WHERE i.CodigoArticulo = :codigoArticulo
+           AND c.Fecha >= :fechaDesde
+           AND c.DocumentoTipo IN ('FAA', 'FAB', 'FCA', 'FCB', 'PRF')`,
+        { replacements, type: QueryTypes.SELECT }
+      ),
+      sequelize.query(
+        `SELECT c.Fecha, c.DocumentoTipo, c.DocumentoSucursal, c.DocumentoNumero, c.FechaAnulacion, c.PorStock, i.Cantidad
+         FROM notacreditoitems i
+         INNER JOIN notacreditocabeza c
+           ON c.DocumentoTipo = i.DocumentoTipo
+          AND c.DocumentoSucursal = i.DocumentoSucursal
+          AND c.DocumentoNumero = i.DocumentoNumero
+         WHERE i.CodigoArticulo = :codigoArticulo
+           AND c.Fecha >= :fechaDesde`,
+        { replacements, type: QueryTypes.SELECT }
+      ),
+    ]);
+
+    const informe = armarInformeMovimientoStock({
+      articulo: { Codigo: articulo.Codigo, Descripcion: articulo.Descripcion },
+      existenciaActual: articulo.Existencia,
+      fechaDesde,
+      fechaHasta,
+      stk,
+      ventas,
+      notas,
+    });
+
+    return res.json({ success: true, data: informe });
+  } catch (error) {
+    console.error('Error en informe de movimiento de stock:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al obtener el movimiento de stock',
+      error: error.message,
+    });
   }
 }; 

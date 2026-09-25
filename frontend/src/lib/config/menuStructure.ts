@@ -54,7 +54,6 @@ export const MENU_ENTRIES: MenuEntry[] = [
 	{ id: '/productos/precios/costohistorico', url: '/productos/precios/costohistorico', label: 'Costo histórico', parentId: 'productos', parentLabel: 'Productos' },
 	{ id: '/productos/precios/actualizacion', url: '/productos/precios/actualizacion', label: 'Actualización de Precios', parentId: 'productos', parentLabel: 'Productos' },
 	{ id: '/productos/precios/actualizacion-precios-stock', url: '/productos/precios/actualizacion-precios-stock', label: 'Actualización de Precios y Stock', parentId: 'productos', parentLabel: 'Productos' },
-	{ id: '/productos/precios/actualizarconlista', url: '/productos/precios/actualizarconlista', label: 'Actualización desde listas', parentId: 'productos', parentLabel: 'Productos' },
 	// Clientes
 	{ id: 'clientes', url: '', label: 'Clientes', parentId: '', parentLabel: '' },
 	{ id: '/clientes', url: '/clientes', label: 'Listado', parentId: 'clientes', parentLabel: 'Clientes' },
@@ -68,6 +67,7 @@ export const MENU_ENTRIES: MenuEntry[] = [
 	{ id: '/ventas/informes/iva/facturas', url: '/ventas/informes/iva/facturas', label: 'IVA Facturas', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/iva/notas-credito', url: '/ventas/informes/iva/notas-credito', label: 'IVA Notas de crédito', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/productos', url: '/ventas/informes/productos', label: 'Productos', parentId: 'informes', parentLabel: 'Informes' },
+	{ id: '/ventas/informes/movimiento-stock', url: '/ventas/informes/movimiento-stock', label: 'Movimiento de stock', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/rubros', url: '/ventas/informes/rubros', label: 'Rubros', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/rubros-provincia', url: '/ventas/informes/rubros-provincia', label: 'Rubros por Provincia', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/marcas', url: '/ventas/informes/marcas', label: 'Marcas', parentId: 'informes', parentLabel: 'Informes' },

@@ -1,21 +1,11 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  
-  export let value: Date = new Date();
-  export let id: string = '';
-  const dispatch = createEventDispatcher();
+	import FechaCampos from '$lib/components/ui/FechaCampos.svelte';
 
-  function handleInput(event: Event) {
-    const input = event.target as HTMLInputElement;
-    value = new Date(input.value);
-    dispatch('change', value);
-  }
+	export let value: Date = new Date();
+	export let id: string = '';
+	export let disabled = false;
+	export let min: Date | undefined = undefined;
+	export let max: Date | undefined = undefined;
 </script>
 
-<input
-  {id}
-  type="date"
-  class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-  value={value.toISOString().split('T')[0]}
-  on:input={handleInput}
-/> 
+<FechaCampos bind:value {id} {disabled} {min} {max} className="w-full" on:change />

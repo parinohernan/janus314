@@ -24,6 +24,7 @@ router.get('/vendedores/informe-pdf-preventa', informesController.generarPDFInfo
 router.get('/productos/mas-vendidos', informesController.productosMasVendidos);
 router.get('/productos/menos-vendidos', informesController.productosMenosVendidos);
 router.get('/productos/rotacion-stock', informesController.rotacionStock);
+router.get('/movimiento-stock', informesController.informeMovimientoStock);
 
 // Ruta para el informe de ventas por proveedor
 router.get('/ventas-por-proveedor', informesController.ventasPorProveedor);
