@@ -49,6 +49,7 @@
     TrendingUp as TrendingUpIcon,
     Calendar,
     Pencil,
+    Table,
     FolderSync,
     CircleHelp,
     BookOpen,
@@ -162,6 +163,7 @@
     'precios-actualizacion': TrendingUp,
     'precios-listas': Upload,
     'precios-manual': Pencil,
+    'precios-stock': Table,
     
     // Submenús - Clientes
     'listado': Users,
@@ -250,6 +252,7 @@
         { label: 'Costo histórico', url: '/productos/precios/costohistorico', icon: 'precios-listado' },
         { label: 'Actualización de Precios', url: '/productos/precios/actualizacion', icon: 'precios-actualizacion' },
         { label: 'Actualización manual', url: '/productos/precios/actualizacionmanual', icon: 'precios-manual' },
+        { label: 'Actualización de Precios y Stock', url: '/productos/precios/actualizacion-precios-stock', icon: 'precios-stock' },
         { label: 'Actualización desde listas', url: '/productos/precios/actualizarconlista', icon: 'precios-listas' }
       ]
     },

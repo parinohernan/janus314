@@ -2,6 +2,8 @@ export interface Articulo {
 	Codigo: string;
 	Descripcion: string;
 	PrecioCosto: number;
+	PrecioCostoMasImp?: number;
+	FechaActualizacionCosto?: string | Date | null;
 	PrecioVenta?: number;
 	PorcentajeIva?: number;
 	PorcentajeIva1?: number;
@@ -18,4 +20,6 @@ export interface Articulo {
 	Lista3?: number;
 	Lista4?: number;
 	Lista5?: number;
+	Proveedor?: { Codigo?: string; Descripcion?: string };
+	Rubro?: { Codigo?: string; Descripcion?: string };
 }

@@ -6,6 +6,10 @@ const path = require('path');
 const { alicuotaIvaArticulo } = require('../utils/ivaArticulo');
 const { registrarCostoSiCambio, ultimosCostos, ultimosCostosPorCodigos } = require('../utils/costoHistorial');
 const { registrarAjusteExistencia } = require('../utils/ajusteExistencia');
+const {
+  prepararActualizacionPreciosStock,
+  OBSERVACION_AJUSTE,
+} = require('../utils/actualizarPreciosStock');
 
 // Configurar multer
 const storage = multer.diskStorage({
@@ -1053,6 +1057,92 @@ exports.actualizarPreciosManual = async (req, res) => {
   } catch (error) {
     console.error("Error al actualizar precios manual:", error);
     return res.status(500).json({ message: "Error al actualizar los precios" });
+  }
+};
+
+exports.actualizarPreciosStock = async (req, res) => {
+  try {
+    const { Articulo } = req.models;
+    const { articulos } = req.body;
+
+    if (!articulos || !Array.isArray(articulos) || articulos.length === 0) {
+      return res.status(400).json({ message: "Debe proporcionar una lista de artículos" });
+    }
+
+    let actualizados = 0;
+    let movimientosCreados = 0;
+    const errores = [];
+
+    for (const item of articulos) {
+      const codigo = item?.Codigo;
+      if (!codigo) {
+        errores.push({ codigo: '', mensaje: 'Código de artículo requerido' });
+        continue;
+      }
+
+      const transaction = await req.db.transaction();
+      try {
+        const articulo = await Articulo.findByPk(codigo, { transaction });
+        if (!articulo) {
+          await transaction.rollback();
+          errores.push({ codigo, mensaje: 'Artículo no encontrado' });
+          continue;
+        }
+
+        const prep = prepararActualizacionPreciosStock(articulo, item);
+        if (!prep.ok) {
+          await transaction.rollback();
+          errores.push({ codigo, mensaje: prep.error });
+          continue;
+        }
+        if (prep.noop) {
+          await transaction.rollback();
+          continue;
+        }
+
+        await articulo.update(prep.updates, { transaction });
+        if (prep.registrarCosto) {
+          await registrarCostoSiCambio({
+            sequelize: req.db,
+            Historial: req.models.ArticuloCostoHistorial,
+            articulo,
+            costoAnterior: prep.costoAnterior,
+            costoNuevo: prep.updates.PrecioCosto,
+            transaction,
+          });
+        }
+        if (prep.ajuste) {
+          await registrarAjusteExistencia({
+            models: req.models,
+            articulo,
+            existenciaAnterior: prep.existenciaAnterior,
+            existenciaNueva: prep.updates.Existencia,
+            transaction,
+            observacion: OBSERVACION_AJUSTE,
+          });
+          movimientosCreados += 1;
+        }
+
+        await transaction.commit();
+        actualizados += 1;
+      } catch (error) {
+        await transaction.rollback();
+        errores.push({
+          codigo,
+          mensaje: error.message || 'Error al actualizar el artículo',
+        });
+      }
+    }
+
+    return res.status(200).json({
+      message: 'Actualización de precios y stock aplicada',
+      actualizados,
+      movimientosCreados,
+      errores,
+    });
+  } catch (error) {
+    console.error('Error al actualizar precios y stock:', error);
+    return res.status(500).json({ message: 'Error al actualizar precios y stock' });
   }
 };
 

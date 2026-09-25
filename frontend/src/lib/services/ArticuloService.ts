@@ -160,12 +160,19 @@ export class ArticuloService {
 	/**
 	 * Obtiene todos los artículos para listado de precios (sin paginación)
 	 */
-	public static async obtenerArticulosParaListadoPrecios(activo: boolean = true): Promise<Articulo[]> {
+	public static async obtenerArticulosParaListadoPrecios(
+		activo: boolean = true,
+		filtros: { proveedores?: string; rubros?: string } = {}
+	): Promise<Articulo[]> {
 		try {
+			const params: Record<string, string | number> = {
+				activo: activo ? 1 : 0
+			};
+			if (filtros.proveedores) params.proveedores = filtros.proveedores;
+			if (filtros.rubros) params.rubros = filtros.rubros;
+
 			const response = await fetchWithAuth('/articulos/listado-precios', {
-				params: {
-					activo: activo ? 1 : 0
-				}
+				params
 			});
 			
 			const data = await response.json();
@@ -174,5 +181,28 @@ export class ArticuloService {
 			console.error('Error al obtener artículos para listado de precios:', error);
 			throw new Error('Error al cargar los artículos');
 		}
+	}
+
+	public static async actualizarPreciosStock(
+		articulos: Array<Record<string, string | number>>
+	): Promise<{
+		actualizados: number;
+		movimientosCreados: number;
+		errores: Array<{ codigo: string; mensaje: string }>;
+	}> {
+		const response = await fetchWithAuth('/articulos/actualizar-precios-stock', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ articulos })
+		});
+		const data = await response.json();
+		if (!response.ok) {
+			throw new Error(data.message || 'Error al actualizar precios y stock');
+		}
+		return {
+			actualizados: data.actualizados ?? 0,
+			movimientosCreados: data.movimientosCreados ?? 0,
+			errores: data.errores ?? []
+		};
 	}
 }

@@ -53,6 +53,7 @@ export const MENU_ENTRIES: MenuEntry[] = [
 	{ id: '/productos/precios/listado', url: '/productos/precios/listado', label: 'Listado de Precios', parentId: 'productos', parentLabel: 'Productos' },
 	{ id: '/productos/precios/costohistorico', url: '/productos/precios/costohistorico', label: 'Costo histórico', parentId: 'productos', parentLabel: 'Productos' },
 	{ id: '/productos/precios/actualizacion', url: '/productos/precios/actualizacion', label: 'Actualización de Precios', parentId: 'productos', parentLabel: 'Productos' },
+	{ id: '/productos/precios/actualizacion-precios-stock', url: '/productos/precios/actualizacion-precios-stock', label: 'Actualización de Precios y Stock', parentId: 'productos', parentLabel: 'Productos' },
 	{ id: '/productos/precios/actualizarconlista', url: '/productos/precios/actualizarconlista', label: 'Actualización desde listas', parentId: 'productos', parentLabel: 'Productos' },
 	// Clientes
 	{ id: 'clientes', url: '', label: 'Clientes', parentId: '', parentLabel: '' },

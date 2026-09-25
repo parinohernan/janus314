@@ -32,6 +32,7 @@ async function registrarAjusteExistencia({
   existenciaNueva,
   transaction,
   fecha = fechaLocal(),
+  observacion = 'Ajuste desde edición de producto',
 }) {
   const ajuste = ajusteExistencia(existenciaAnterior, existenciaNueva);
   if (!ajuste) return null;
@@ -77,7 +78,7 @@ async function registrarAjusteExistencia({
       CodigoArticulo: articulo.Codigo,
       Cantidad: ajuste.cantidad,
       MovimientoTipo: ajuste.movimientoTipo,
-      Observacion: 'Ajuste desde edición de producto',
+      Observacion: observacion,
     },
     { transaction }
   );
