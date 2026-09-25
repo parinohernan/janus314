@@ -6,6 +6,7 @@ const FacturaService = require("../services/factura.service");
 const { adjuntarPreventistasAFacturas } = require("../services/preventaFacturaLink.service");
 const { ensureDescripcionLibreColumn, ensureClienteConsumidorFinal } = require("../utils/posVarios");
 const { alicuotaIvaArticulo } = require("../utils/ivaArticulo");
+const { paginacionFacturasCliente } = require('../utils/paginacionFacturasCliente');
 
 // Obtener listado de facturas (con paginación y filtros)
 exports.listarFacturas = async (req, res) => {
@@ -637,25 +638,29 @@ exports.actualizarVendedorFactura = async (req, res) => {
 exports.obtenerUltimasFacturasCliente = async (req, res) => {
   const { FacturaCabeza, Cliente } = req.models;
   const { codigoCliente } = req.params;
-  const { limit = 5 } = req.query;
+  const { limit, page, offset } = paginacionFacturasCliente(req.query);
 
   try {
-    // Obtener las facturas
-    const facturas = await FacturaCabeza.findAll({
-      where: {
-        ClienteCodigo: codigoCliente,
-        FechaAnulacion: null, // Opcional: solo facturas no anuladas
-      },
-      include: [
-        {
-          model: Cliente,
-          attributes: ["Codigo", "Descripcion"],
-        },
-      ],
-      order: [["Fecha", "DESC"]],
-      limit: parseInt(limit),
-    });
-
+    const where = {
+      ClienteCodigo: codigoCliente,
+      FechaAnulacion: null,
+    };
+    const [total, facturas] = await Promise.all([
+      FacturaCabeza.count({ where }),
+      FacturaCabeza.findAll({
+        where,
+        include: [
+          {
+            model: Cliente,
+            attributes: ["Codigo", "Descripcion"],
+            required: false,
+          },
+        ],
+        order: [["Fecha", "DESC"]],
+        limit,
+        offset,
+      }),
+    ]);
     res.json({
       success: true,
       items: facturas.map((factura) => ({
@@ -669,6 +674,10 @@ exports.obtenerUltimasFacturasCliente = async (req, res) => {
           factura.DocumentoNumero
         } (${new Date(factura.Fecha).toLocaleDateString()})`,
       })),
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
     });
   } catch (error) {
     console.error("Error al obtener últimas facturas del cliente:", error);

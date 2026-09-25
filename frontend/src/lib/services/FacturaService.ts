@@ -93,16 +93,23 @@ export class FacturaService {
 	/**
 	 * Obtiene las últimas facturas de un cliente
 	 * @param codigoCliente Código del cliente
-	 * @param limite Cantidad de facturas a obtener (por defecto 5)
+	 * @param limite Cantidad de facturas por página (por defecto 5)
+	 * @param pagina Página 1-based
 	 */
 	public static async obtenerUltimasFacturasCliente(
 		codigoCliente: string,
-		limite: number = 5
-	): Promise<{ success: boolean; data?: any; error?: string }> {
+		limite: number = 5,
+		pagina: number = 1
+	): Promise<{
+		success: boolean;
+		data?: any;
+		total?: number;
+		page?: number;
+		totalPages?: number;
+		error?: string;
+	}> {
 		try {
-			console.log('obtener ultimas facturas codigoCliente', codigoCliente);
-			console.log('obtener ultimas facturas limite', limite);
-			const url = `/facturas/cliente/${codigoCliente}?limit=${limite}&sort=fecha:desc`;
+			const url = `/facturas/cliente/${codigoCliente}?limit=${limite}&page=${pagina}&sort=fecha:desc`;
 
 			const response = await fetchWithAuth(url);
 
@@ -111,17 +118,26 @@ export class FacturaService {
 			}
 
 			const data = await response.json();
-			console.log('data', data);
+			const items = data.items ?? [];
+			const totalRecibido = Number(data.total);
+			const total = Number.isFinite(totalRecibido) && totalRecibido >= items.length
+				? totalRecibido
+				: items.length;
+			const totalPages = Math.max(1, Number(data.totalPages) || Math.ceil(total / limite) || 1);
 			return {
 				success: true,
-				data: data.items.map((factura: any) => ({
+				data: items.map((factura: any) => ({
 					tipo: factura.tipo,
 					sucursal: factura.sucursal,
 					numero: factura.numero,
 					fecha: factura.fecha,
+					cliente: factura.cliente,
 					total: factura.total,
 					label: `${factura.tipo}-${factura.sucursal}-${factura.numero} (${new Date(factura.fecha).toLocaleDateString()})`
-				}))
+				})),
+				total,
+				page: data.page ?? pagina,
+				totalPages
 			};
 		} catch (error) {
 			console.error('Error al obtener facturas del cliente:', error);

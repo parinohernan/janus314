@@ -73,6 +73,11 @@
   let facturaReferenciaBusqueda = '';
   let facturasOptions: any[] = [];
   let facturasLoading = false;
+  const TAMANIO_PAGINA_FACTURAS = 5;
+  let facturasPagina = 1;
+  let facturasTotal = 0;
+  let facturasTotalPaginas = 1;
+  let verTodasFacturas = false;
   let articuloSeleccionado: any = null;
   let cantidadArticulo = 1;
   
@@ -201,19 +206,21 @@
     clienteBusqueda = cliente.label;
     clientesOptions = [];
     
-    // Buscar últimas facturas del cliente inmediatamente
-    await buscarFacturasCliente(cliente.codigo);
+    verTodasFacturas = false;
+    facturasPagina = 1;
+    await buscarFacturasCliente(cliente.codigo, 1);
   }
 
-  // Actualizar buscarFacturasCliente para mostrar las facturas en la lista
-  async function buscarFacturasCliente(codigoCliente: string) {
+  async function buscarFacturasCliente(codigoCliente: string, pagina = 1) {
     try {
       facturasLoading = true;
-      const fechaDesde = new Date();
-      fechaDesde.setMonth(fechaDesde.getMonth() - 3); // Últimos 3 meses
-      
-      const resultado = await FacturaService.obtenerUltimasFacturasCliente(codigoCliente);
-      
+      facturasPagina = pagina;
+      const resultado = await FacturaService.obtenerUltimasFacturasCliente(
+        codigoCliente,
+        TAMANIO_PAGINA_FACTURAS,
+        pagina
+      );
+
       if (resultado.success && resultado.data) {
         facturasOptions = resultado.data.map((factura: any) => ({
           tipo: factura.tipo,
@@ -224,6 +231,8 @@
           total: factura.total,
           label: `${factura.tipo}-${factura.sucursal}-${factura.numero} (${new Date(factura.fecha).toLocaleDateString()})`
         }));
+        facturasTotal = resultado.total ?? resultado.data.length;
+        facturasTotalPaginas = resultado.totalPages ?? 1;
       } else {
         error = resultado.error || 'Error al buscar facturas del cliente';
       }
@@ -233,6 +242,24 @@
     } finally {
       facturasLoading = false;
     }
+  }
+
+  function mostrarTodasFacturas() {
+    if (!notaCredito.CodigoCliente) return;
+    verTodasFacturas = true;
+    buscarFacturasCliente(notaCredito.CodigoCliente, 1);
+  }
+
+  function volverUltimasFacturas() {
+    if (!notaCredito.CodigoCliente) return;
+    verTodasFacturas = false;
+    buscarFacturasCliente(notaCredito.CodigoCliente, 1);
+  }
+
+  function irPaginaFacturas(pagina: number) {
+    if (!notaCredito.CodigoCliente) return;
+    if (pagina < 1 || pagina > facturasTotalPaginas) return;
+    buscarFacturasCliente(notaCredito.CodigoCliente, pagina);
   }
   
   // Nueva función para abrir el modal de detalle de factura
@@ -765,6 +792,18 @@
       <div class="md:col-span-3">
         <label class="block text-sm font-medium text-gray-700 mb-2">
           Facturas de Referencia
+          {#if facturasTotal > 0}
+            <span class="font-normal text-gray-500">
+              {#if verTodasFacturas}
+                · {facturasTotal} factura(s)
+              {:else}
+                · últimas {Math.min(TAMANIO_PAGINA_FACTURAS, facturasTotal)}
+                {#if facturasTotal > TAMANIO_PAGINA_FACTURAS}
+                  de {facturasTotal}
+                {/if}
+              {/if}
+            </span>
+          {/if}
         </label>
         <div class="border border-gray-300 rounded-md bg-gray-50" style="height: 300px; overflow-y: auto;">
           {#if facturasLoading}
@@ -815,6 +854,38 @@
             </div>
           {/if}
         </div>
+        {#if notaCredito.CodigoCliente && (verTodasFacturas || facturasTotal > TAMANIO_PAGINA_FACTURAS || facturasOptions.length >= TAMANIO_PAGINA_FACTURAS)}
+          <div class="mt-2 flex flex-wrap items-center gap-2">
+            {#if !verTodasFacturas}
+              <Button variant="secondary" size="sm" on:click={mostrarTodasFacturas}>
+                Ver todas ({facturasTotal})
+              </Button>
+            {:else}
+              <Button
+                variant="secondary"
+                size="sm"
+                on:click={() => irPaginaFacturas(facturasPagina - 1)}
+                disabled={facturasLoading || facturasPagina <= 1}
+              >
+                Anterior
+              </Button>
+              <span class="text-sm text-gray-600">
+                Página {facturasPagina} de {facturasTotalPaginas}
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                on:click={() => irPaginaFacturas(facturasPagina + 1)}
+                disabled={facturasLoading || (facturasPagina >= facturasTotalPaginas && facturasOptions.length < TAMANIO_PAGINA_FACTURAS)}
+              >
+                Siguiente
+              </Button>
+              <Button variant="secondary" size="sm" on:click={volverUltimasFacturas}>
+                Ver últimas 5
+              </Button>
+            {/if}
+          </div>
+        {/if}
         {#if notaCredito.FacturaReferencia}
           <p class="text-sm text-gray-600 mt-2">
             Factura seleccionada: <span class="font-medium">{notaCredito.FacturaReferencia.tipo}-{notaCredito.FacturaReferencia.sucursal}-{notaCredito.FacturaReferencia.numero}</span>
