@@ -216,7 +216,6 @@
       label: 'Ventas',
       icon: 'ventas',
       items: [
-        { label: 'Punto de venta', url: '/ventas/pos', icon: 'pos' },
         { label: 'Preventas', url: '/ventas/preventas', icon: 'preventas' },
         { label: 'Facturas', url: '/ventas/facturas', icon: 'facturas' },
         { label: 'Notas de Crédito', url: '/ventas/notascredito', icon: 'notascredito' },

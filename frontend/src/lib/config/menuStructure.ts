@@ -27,7 +27,6 @@ export const MENU_ENTRIES: MenuEntry[] = [
 	{ id: '/caja/egreso', url: '/caja/egreso', label: 'Egresos', parentId: 'caja', parentLabel: 'Caja' },
 	// Ventas
 	{ id: 'ventas', url: '', label: 'Ventas', parentId: '', parentLabel: '' },
-	{ id: '/ventas/pos', url: '/ventas/pos', label: 'Punto de venta', parentId: 'ventas', parentLabel: 'Ventas' },
 	{ id: '/ventas/preventas', url: '/ventas/preventas', label: 'Preventas', parentId: 'ventas', parentLabel: 'Ventas' },
 	{ id: '/ventas/facturas', url: '/ventas/facturas', label: 'Facturas', parentId: 'ventas', parentLabel: 'Ventas' },
 	{ id: '/ventas/notascredito', url: '/ventas/notascredito', label: 'Notas de Crédito', parentId: 'ventas', parentLabel: 'Ventas' },
