@@ -60,12 +60,6 @@ exports.getAllRecibos = async (req, res) => {
     const sortField = validFields.includes(field) ? field : 'Fecha';
     const sortOrder = order === 'ASC' ? 'ASC' : 'DESC';
 
-    // Establecer la asociación temporalmente
-    ReciboCabeza.belongsTo(Cliente, {
-      foreignKey: 'ClienteCodigo',
-      as: 'ClienteRelacion'
-    });
-
     // Primero hacemos la consulta sin includes para el conteo
     const count = await ReciboCabeza.count({ where: whereClause });
 

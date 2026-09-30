@@ -1791,6 +1791,12 @@ const initializeModels = (sequelize) => {
     targetKey: "Codigo",
   });
 
+  ReciboCabeza.belongsTo(Cliente, {
+    foreignKey: "ClienteCodigo",
+    targetKey: "Codigo",
+    as: 'ClienteRelacion'
+  });
+
   // Establecer relaciones de NotaDebitoCabeza
   NotaDebitoCabeza.belongsTo(Cliente, {
     foreignKey: "ClienteCodigo",

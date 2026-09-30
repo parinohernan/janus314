@@ -19,11 +19,6 @@ exports.listarRecibos = async (req, res) => {
       if (fechaHasta) whereClause.Fecha[Op.lte] = fechaHasta;
     }
 
-    ProveedoresReciboCabeza.belongsTo(Proveedor, {
-      foreignKey: 'ProveedorCodigo',
-      as: 'ProveedorRelacion'
-    });
-
     const count = await ProveedoresReciboCabeza.count({ where: whereClause });
     const recibos = await ProveedoresReciboCabeza.findAll({
       where: whereClause,
