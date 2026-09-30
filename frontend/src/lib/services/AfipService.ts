@@ -1,5 +1,6 @@
 import { PUBLIC_API_URL } from '$env/static/public';
 import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+import { extraerErrorCae } from '$lib/utils/errorCae';
 
 export interface UltimoComprobante {
 	tipo: string;
@@ -49,11 +50,11 @@ export class AfipService {
 			});
 
 			if (!response.ok) {
-				const errorData = await response.json();
+				const errorData = await response.json().catch(() => ({}));
 				console.log('Error al solicitar CAE:', errorData);
 				return {
 					success: false,
-					error: errorData.message || 'Error al solicitar CAE'
+					...extraerErrorCae(errorData)
 				};
 			}
 

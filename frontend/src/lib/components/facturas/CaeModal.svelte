@@ -14,6 +14,7 @@
   // Estados
   let loading = false;
   let error: string | null = null;
+  let errorDetalle: string | null = null;
   let caeData: any = null;
   
   // Event dispatcher para comunicarse con el componente padre
@@ -34,6 +35,7 @@
     
     loading = true;
     error = null;
+    errorDetalle = null;
     console.log('Solicitando CAE... t', factura);
     try {
       // Obtener CAE del servicio
@@ -50,10 +52,12 @@
         dispatch('caeObtenido', caeData);
       } else {
         error = result.error || 'Error al obtener CAE';
+        errorDetalle = result.detalle || null;
       }
     } catch (err) {
       console.error('Error solicitando CAE:', err);
       error = err instanceof Error ? err.message : 'Error desconocido';
+      errorDetalle = null;
     } finally {
       loading = false;
     }
@@ -80,7 +84,7 @@
       tabindex="-1"
     >
       <div class="modal-header">
-        <h3 id="modal-title">Proceso de autorización AFIP</h3>
+        <h3 id="modal-title">Proceso de autorización ARCA</h3>
         <button 
           class="close-button" 
           on:click={close}
@@ -93,13 +97,19 @@
         {#if loading}
           <div class="loading-state">
             <div class="spinner" aria-hidden="true"></div>
-            <p>Solicitando CAE a AFIP...</p>
+            <p>Solicitando CAE a ARCA...</p>
           </div>
         {:else if error}
           <div class="error-state">
             <div class="error-icon" aria-hidden="true">❌</div>
             <h4>Error en la autorización</h4>
             <p>{error}</p>
+            {#if errorDetalle}
+              <details class="error-detalle">
+                <summary>Ver detalle</summary>
+                <p>{errorDetalle}</p>
+              </details>
+            {/if}
             <Button variant="secondary" on:click={solicitarCae}>Reintentar</Button>
           </div>
         {:else if caeData}
@@ -210,6 +220,35 @@
   .error-icon, .success-icon {
     font-size: 48px;
     margin-bottom: 16px;
+  }
+
+  .error-state p {
+    margin: 0 0 12px;
+  }
+
+  .error-detalle {
+    width: 100%;
+    margin: 0 0 16px;
+    text-align: left;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    background: #fef2f2;
+    padding: 8px 12px;
+  }
+
+  .error-detalle summary {
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #b91c1c;
+  }
+
+  .error-detalle p {
+    margin: 8px 0 0;
+    font-size: 0.875rem;
+    color: #7f1d1d;
+    white-space: pre-wrap;
+    word-break: break-word;
   }
   
   .cae-info {
