@@ -36,6 +36,9 @@
       Codigo: string;
       Descripcion: string;
     };
+    factura_tipo?: string | null;
+    factura_sucursal?: string | null;
+    factura_numero?: string | null;
   }
   
   interface ClienteOption {
@@ -672,6 +675,7 @@
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Número</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comprobante</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendedor</th>
             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
@@ -699,6 +703,11 @@
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 {nc.Fecha ? new Date(nc.Fecha).toLocaleDateString('es-AR') : ''}
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                {#if nc.factura_tipo && nc.factura_numero}
+                  {nc.factura_tipo} {nc.factura_sucursal}-{nc.factura_numero}
+                {/if}
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 {nc.Cliente ? nc.Cliente.Descripcion || 'Cliente no asignado' : 'Cliente no asignado'}

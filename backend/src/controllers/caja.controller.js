@@ -219,6 +219,43 @@ exports.crearCaja = async (req, res) => {
   }
 };
 
+exports.vincularComprobante = async (req, res) => {
+  try {
+    const { CajaMovimientos } = req.models;
+    const { codigo } = req.params;
+    const tipoDocumento = String(req.body?.tipoDocumento || "").trim();
+    const documentoAsociado = String(req.body?.documentoAsociado || "").trim();
+    const concepto = String(req.body?.concepto || "").trim();
+    if (!tipoDocumento || !documentoAsociado || !concepto) {
+      return res.status(400).json({
+        success: false,
+        message: "Faltan los datos del comprobante",
+      });
+    }
+    const movimiento = await CajaMovimientos.findByPk(codigo);
+    if (!movimiento) {
+      return res.status(404).json({
+        success: false,
+        message: "Movimiento no encontrado",
+      });
+    }
+    await movimiento.update({
+      TipoDocumento: tipoDocumento,
+      DocumentoAsociado: documentoAsociado,
+      Concepto: concepto,
+      FechaHora: new Date(),
+    });
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error al vincular comprobante:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al vincular el comprobante",
+      error: error.message,
+    });
+  }
+};
+
 // Registrar movimiento de caja
 exports.registrarMovimiento = async (req, res) => {
   const t = await req.db.transaction();
@@ -758,6 +795,7 @@ module.exports = {
   obtenerCaja: exports.obtenerCaja,
   crearCaja: exports.crearCaja,
   registrarMovimiento: exports.registrarMovimiento,
+  vincularComprobante: exports.vincularComprobante,
   obtenerMovimientos: exports.obtenerMovimientos,
   obtenerCajasVendedor: exports.obtenerCajasVendedor,
   obtenerResumenArqueo: exports.obtenerResumenArqueo,

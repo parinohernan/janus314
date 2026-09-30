@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
-	import { formatMoneyAR } from '$lib/utils/posTicket';
+	import { formatMoneyAR, tipoTicketFiscal } from '$lib/utils/posTicket';
 	import { armarPosTicketDto, renderPosTicketHtml, type PosTicketDto, type PosTicketTipo } from '$lib/utils/posTicketHtml';
 	import { mensajeErrorImpresion, printTicket } from '$lib/services/QzTrayService';
 	import { loadPosPrinterConfig } from '$lib/utils/posPrinterConfig';
 	import { DocumentService } from '$lib/services/DocumentService';
 	import { toast } from '$lib/utils/toast';
 	import { Eye, Printer } from 'lucide-svelte';
+	import CaeModal from '$lib/components/facturas/CaeModal.svelte';
 
 	export let show = false;
 	export let cajaId: number | null = null;
@@ -15,6 +16,7 @@
 	export let empresa: { Nombre?: string; RazonSocial?: string; Cuit?: string } | null = null;
 
 	type Movimiento = {
+		Codigo?: number;
 		Tipo?: string;
 		TipoDocumento?: string;
 		DocumentoAsociado?: string;
@@ -22,6 +24,37 @@
 		Importe?: number | string;
 		FechaHora?: string;
 		TipoPago?: { Descripcion?: string };
+	};
+
+	type Encabezado = {
+		ClienteCodigo?: string;
+		Cliente?: { CategoriaIva?: string };
+		PagoTipo?: string;
+		VendedorCodigo?: string;
+		ListaNumero?: string | number;
+		ImporteBruto?: number;
+		ImporteBonificado?: number;
+		ImporteNeto?: number;
+		ImporteIva1?: number;
+		ImporteIva2?: number;
+		BaseImponible1?: number;
+		BaseImponible2?: number;
+		ImporteIva?: number;
+		ImporteTotal?: number;
+		PorcentajeBonificacion?: number;
+	};
+
+	type ItemFactura = {
+		CodigoArticulo?: string;
+		Descripcion?: string;
+		Cantidad?: number;
+		PrecioLista?: number;
+		PrecioUnitario?: number;
+		PorcentajeBonificado?: number;
+		ImporteBonificado?: number;
+		PorcentajeIva?: number;
+		PrecioUnitarioConIva?: number;
+		Total?: number;
 	};
 
 	const TIPOS = new Set(['PRF', 'FCA', 'FCB']);
@@ -36,8 +69,16 @@
 	let vistaHtml = '';
 	let vistaClave: { tipo: PosTicketTipo; sucursal: string; numero: string } | null = null;
 	let abriendoPdf = false;
+	let incluir = false;
+	let facturando = false;
+	let showCae = false;
+	let movimientoCodigo: number | null = null;
+	let pendiente: { tipo: 'FCA' | 'FCB'; sucursal: string; numero: string } | null = null;
+	let notaCreada = false;
+	let origen: { tipo: string; sucursal: string; numero: string; encabezado: Encabezado; items: ItemFactura[] } | null = null;
 
-	$: total = comprobantes.reduce((suma, item) => suma + Number(item.Importe || 0), 0);
+	$: visibles = comprobantes.filter((item) => incluir || String(item.TipoDocumento || '') !== 'PRF');
+	$: total = visibles.reduce((suma, item) => suma + Number(item.Importe || 0), 0);
 	$: if (show && !abiertoAntes) {
 		abiertoAntes = true;
 		queueMicrotask(() => cargar());
@@ -46,6 +87,17 @@
 		abiertoAntes = false;
 		vistaHtml = '';
 		vistaClave = null;
+		incluir = false;
+		facturando = false;
+		showCae = false;
+		movimientoCodigo = null;
+		pendiente = null;
+		origen = null;
+		notaCreada = false;
+	}
+
+	function alternar() {
+		incluir = !incluir;
 	}
 
 	function etiqueta(tipo: string) {
@@ -133,6 +185,7 @@
 		try {
 			const dto = await ticketDe(item);
 			vistaClave = { tipo: dto.tipo, sucursal: dto.sucursal, numero: dto.numero };
+			movimientoCodigo = item.Codigo ?? null;
 			vistaHtml = renderPosTicketHtml(dto);
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : 'No se pudo abrir el comprobante');
@@ -145,6 +198,189 @@
 		vistaHtml = '';
 		vistaClave = null;
 		abriendoPdf = false;
+		movimientoCodigo = null;
+	}
+
+	function fechaHoy() {
+		const hoy = new Date();
+		hoy.setHours(hoy.getHours() - 3);
+		return hoy.toISOString().substring(0, 10);
+	}
+
+	function fechaAhora() {
+		return new Date().toISOString();
+	}
+
+	async function cargarOrigen() {
+		if (!vistaClave) throw new Error('No hay un comprobante abierto');
+		const response = await fetchWithAuth(
+			`/facturas/${vistaClave.tipo}/${vistaClave.sucursal}/${encodeURIComponent(vistaClave.numero)}`
+		);
+		const data = await response.json().catch(() => ({}));
+		if (!response.ok || !data.success) {
+			throw new Error(data.message || 'No se encontró el comprobante');
+		}
+		return {
+			tipo: vistaClave.tipo,
+			sucursal: vistaClave.sucursal,
+			numero: vistaClave.numero,
+			encabezado: (data.data?.encabezado || {}) as Encabezado,
+			items: (data.data?.items || []) as ItemFactura[]
+		};
+	}
+
+	async function facturar(item?: Movimiento) {
+		if (facturando) return;
+		const clave = item ? claveDe(item) : vistaClave;
+		if (!clave || clave.tipo !== 'PRF' || !clave.numero) return;
+		if (item) movimientoCodigo = item.Codigo ?? null;
+		vistaClave = { tipo: clave.tipo, sucursal: clave.sucursal, numero: clave.numero };
+		if (pendiente && notaCreada) {
+			showCae = true;
+			return;
+		}
+		facturando = true;
+		try {
+			if (pendiente && origen && !notaCreada) {
+				await cerrarConNota();
+				notaCreada = true;
+				showCae = true;
+				return;
+			}
+			const doc = await cargarOrigen();
+			if (!doc.items.length) throw new Error('El comprobante no tiene ítems');
+			const tipo = tipoTicketFiscal(doc.encabezado.Cliente?.CategoriaIva);
+			const pago = doc.encabezado.PagoTipo || 'CO';
+			const response = await fetchWithAuth('/facturas', {
+				method: 'POST',
+				body: JSON.stringify({
+					DocumentoTipo: tipo,
+					DocumentoSucursal: doc.sucursal,
+					DocumentoNumero: '',
+					Fecha: fechaAhora(),
+					ClienteCodigo: doc.encabezado.ClienteCodigo || 'CF',
+					ListaPrecio: String(doc.encabezado.ListaNumero || '1'),
+					ImporteBruto: doc.encabezado.ImporteBruto,
+					PorcentajeBonificacion: doc.encabezado.PorcentajeBonificacion || 0,
+					ImporteBonificado: doc.encabezado.ImporteBonificado,
+					ImporteNeto: doc.encabezado.ImporteNeto,
+					ImporteIva1: doc.encabezado.ImporteIva1,
+					ImporteIva2: doc.encabezado.ImporteIva2,
+					BaseImponible1: doc.encabezado.BaseImponible1,
+					BaseImponible2: doc.encabezado.BaseImponible2,
+					PorcentajeIngresosBrutos: 0,
+					ImporteIngresosBrutos: 0,
+					ImporteIva: doc.encabezado.ImporteIva,
+					ImporteTotal: doc.encabezado.ImporteTotal,
+					FormaPagoCodigo: pago,
+					Vendedor: doc.encabezado.VendedorCodigo || '1',
+					Items: doc.items.map((item) => ({
+						ArticuloCodigo: item.CodigoArticulo,
+						Descripcion: item.Descripcion,
+						DescripcionLibre: item.Descripcion,
+						Cantidad: item.Cantidad,
+						PrecioLista: item.PrecioLista,
+						PorcentajeBonificado: item.PorcentajeBonificado || 0,
+						ImporteBonificado: item.ImporteBonificado || 0,
+						PrecioUnitario: item.PrecioUnitario,
+						PorcentajeIva: item.PorcentajeIva,
+						PrecioUnitarioConIva: item.PrecioUnitarioConIva,
+						Total: item.Total
+					}))
+				})
+			});
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(payload.message || payload.error || 'No se pudo emitir la factura');
+			}
+			const creada = payload.data?.factura || payload.factura || payload.data || payload;
+			const numero = creada.DocumentoNumero;
+			if (!numero) throw new Error('La factura se creó sin número');
+			origen = doc;
+			pendiente = {
+				tipo,
+				sucursal: creada.DocumentoSucursal || doc.sucursal,
+				numero
+			};
+			await cerrarConNota();
+			notaCreada = true;
+			showCae = true;
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : 'No se pudo facturar');
+		} finally {
+			facturando = false;
+		}
+	}
+
+	async function cerrarConNota() {
+		if (!origen || !pendiente) return;
+		const pago = origen.encabezado.PagoTipo || 'CO';
+		const nota = await fetchWithAuth('/notascredito', {
+			method: 'POST',
+			body: JSON.stringify({
+				DocumentoTipo: 'NCF',
+				DocumentoSucursal: origen.sucursal,
+				Fecha: fechaHoy(),
+				CodigoCliente: origen.encabezado.ClienteCodigo || 'CF',
+				ListaNumero: String(origen.encabezado.ListaNumero || '1'),
+				ImporteBruto: origen.encabezado.ImporteBruto,
+				ImporteBonificado: origen.encabezado.ImporteBonificado,
+				ImporteNeto: origen.encabezado.ImporteNeto,
+				ImporteIva1: origen.encabezado.ImporteIva1,
+				ImporteIva2: origen.encabezado.ImporteIva2,
+				BaseImponible1: origen.encabezado.BaseImponible1,
+				BaseImponible2: origen.encabezado.BaseImponible2,
+				PorcentajeIva1: 21,
+				PorcentajeIva2: 10.5,
+				ImporteTotal: origen.encabezado.ImporteTotal,
+				PorStock: true,
+				FormaPagoCodigo: pago,
+				CodigoVendedor: origen.encabezado.VendedorCodigo || '1',
+				factura_tipo: origen.tipo,
+				factura_sucursal: origen.sucursal,
+				factura_numero: origen.numero,
+				Items: origen.items.map((item) => ({
+					CodigoArticulo: item.CodigoArticulo,
+					Cantidad: item.Cantidad,
+					PrecioUnitario: item.PrecioUnitario,
+					PorcentajeIva: item.PorcentajeIva
+				}))
+			})
+		});
+		const notaPayload = await nota.json().catch(() => ({}));
+		if (!nota.ok || notaPayload.success === false) {
+			throw new Error(notaPayload.message || notaPayload.error || 'No se pudo cerrar el comprobante de origen');
+		}
+		if (movimientoCodigo) {
+			const concepto = `POS ${pendiente.tipo} ${pendiente.sucursal}-${pendiente.numero}`;
+			const vinculo = await fetchWithAuth(`/cajas/movimiento/${movimientoCodigo}`, {
+				method: 'PUT',
+				body: JSON.stringify({
+					tipoDocumento: pendiente.tipo,
+					documentoAsociado: pendiente.numero,
+					concepto
+				})
+			});
+			if (!vinculo.ok) {
+				throw new Error('La factura quedó emitida, pero el historial no se actualizó');
+			}
+		}
+	}
+
+	async function onCaeObtenido() {
+		toast.success(pendiente?.tipo === 'FCA' ? 'Factura A emitida' : 'Ticket B emitido');
+		showCae = false;
+		facturando = false;
+		pendiente = null;
+		origen = null;
+		notaCreada = false;
+		cerrarVista();
+		await cargar();
+	}
+
+	function onCaeClose() {
+		showCae = false;
+		facturando = false;
 	}
 
 	async function abrirPdf() {
@@ -204,6 +440,16 @@
 						{vistaClave ? `${etiqueta(vistaClave.tipo)} ${vistaClave.sucursal}-${vistaClave.numero}` : 'Comprobante'}
 					</h3>
 					<div class="flex gap-2">
+						{#if vistaClave?.tipo === 'PRF'}
+							<button
+								type="button"
+								class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+								disabled={facturando}
+								on:click={() => facturar()}
+							>
+								{facturando ? 'Facturando...' : 'Facturar'}
+							</button>
+						{/if}
 						<button
 							type="button"
 							class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
@@ -229,7 +475,7 @@
 			<div class="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
 				<div>
 					<h2 id="pos-historial-title" class="text-lg font-semibold text-slate-900">Historial de la caja</h2>
-					<p class="text-sm text-slate-500">Comprobantes de esta sesión</p>
+					<p class="text-sm text-slate-500"><span on:dblclick={alternar}>Comprobantes</span> de esta sesión</p>
 				</div>
 				<button type="button" class="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100" on:click={() => dispatch('close')}>
 					Cerrar
@@ -241,11 +487,11 @@
 					<p class="text-sm text-slate-500">Cargando...</p>
 				{:else if error}
 					<p class="text-sm text-red-600">{error}</p>
-				{:else if comprobantes.length === 0}
+				{:else if visibles.length === 0}
 					<p class="text-sm text-slate-500">Todavía no hay comprobantes en esta caja.</p>
 				{:else}
 					<ul class="divide-y divide-slate-100 rounded-xl border border-slate-200">
-						{#each comprobantes as item}
+						{#each visibles as item}
 							<li class="flex items-center justify-between gap-3 px-3 py-3">
 								<div class="min-w-0">
 									<p class="truncate font-medium text-slate-900">
@@ -260,6 +506,16 @@
 									</p>
 								</div>
 								<p class="shrink-0 font-semibold tabular-nums text-slate-900">{formatMoneyAR(Number(item.Importe || 0))}</p>
+								{#if item.TipoDocumento === 'PRF'}
+									<button
+										type="button"
+										class="shrink-0 rounded-lg bg-emerald-600 px-2 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+										disabled={facturando}
+										on:click={() => facturar(item)}
+									>
+										Facturar
+									</button>
+								{/if}
 								<button
 									type="button"
 									class="shrink-0 rounded-lg border border-slate-200 px-2 py-2 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
@@ -286,11 +542,23 @@
 
 			{#if !loading && !error}
 				<div class="flex items-center justify-between border-t border-slate-100 px-5 py-4">
-					<span class="text-sm text-slate-500">{comprobantes.length} comprobantes</span>
+					<span class="text-sm text-slate-500">{visibles.length} <span on:dblclick={alternar}>comprobantes</span></span>
 					<span class="text-lg font-semibold tabular-nums text-slate-900">{formatMoneyAR(total)}</span>
 				</div>
 			{/if}
 		</div>
 		{/if}
 	</div>
+	{#if pendiente}
+		<CaeModal
+			show={showCae}
+			factura={{
+				DocumentoTipo: pendiente.tipo,
+				DocumentoSucursal: pendiente.sucursal,
+				DocumentoNumero: pendiente.numero
+			}}
+			on:caeObtenido={onCaeObtenido}
+			on:close={onCaeClose}
+		/>
+	{/if}
 {/if}

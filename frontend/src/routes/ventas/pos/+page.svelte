@@ -756,7 +756,6 @@
 					ventaCobrada={!!pagoConfirmado}
 					pagoLabel={pagoConfirmado?.descripcion || ''}
 					on:cobrar={() => (showCobro = true)}
-					on:prf={() => cobrar('PRF')}
 					on:ticket={() => cobrar(tipoTicketFiscal(cliente.CategoriaIva))}
 					on:nueva={nuevaVenta}
 					on:rubro={abrirRubro}

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
-	import { Banknote, FileText, History, Minus, Plus, Receipt, RotateCcw } from 'lucide-svelte';
+	import { Banknote, History, Minus, Plus, Receipt, RotateCcw } from 'lucide-svelte';
 	import { POS_RUBROS, type PosRubro } from '$lib/constants/posVarios';
 	import { formatMoneyAR } from '$lib/utils/posTicket';
 
@@ -15,7 +15,6 @@
 
 	const dispatch = createEventDispatcher<{
 		cobrar: void;
-		prf: void;
 		ticket: void;
 		nueva: void;
 		rubro: PosRubro;
@@ -47,16 +46,6 @@
 	</button>
 
 	<div class="grid grid-cols-1 gap-3">
-		<button
-			type="button"
-			class="flex min-h-16 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-4 text-lg font-semibold text-white shadow hover:bg-blue-700 disabled:opacity-50"
-			disabled={disabled || cobrando || !listoParaEmitir}
-			on:click={() => dispatch('prf')}
-		>
-			<FileText class="h-5 w-5" />
-			PRF · Remito
-			<span class="ml-1 text-sm font-normal text-blue-100">F9</span>
-		</button>
 		<button
 			type="button"
 			class="flex min-h-16 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-4 text-lg font-semibold text-white shadow hover:bg-emerald-700 disabled:opacity-50"

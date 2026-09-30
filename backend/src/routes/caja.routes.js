@@ -24,6 +24,9 @@ router.post("/", cajaController.crearCaja);
 // Registrar movimiento
 router.post("/movimiento", cajaController.registrarMovimiento);
 
+// Apuntar un movimiento ya cobrado a otro comprobante, sin cambiar el importe
+router.put("/movimiento/:codigo", cajaController.vincularComprobante);
+
 // Obtener resumen de arqueo por forma de pago
 router.get("/:codigo/arqueo/resumen", cajaController.obtenerResumenArqueo);
 
