@@ -10,7 +10,9 @@ import {
 	snapshotDesdeArticulo,
 	aplicarFiltrosYOrden,
 	coincideFiltroNumero,
+	etiquetaColumna,
 	siguienteOrden,
+	COLUMNAS,
 	type SnapshotFila
 } from '../src/lib/utils/preciosStockGrilla';
 
@@ -108,6 +110,76 @@ const catalogo = [
 		Proveedor: { Descripcion: 'Aceitera' }
 	}
 ];
+
+describe('modo de ingreso de listas (ART)', () => {
+	const articulo = {
+		Codigo: 'A1',
+		Descripcion: 'Aceite',
+		PorcentajeIVA1: 21,
+		...snapshot
+	};
+
+	it('etiqueta las columnas de lista según el modo', () => {
+		const lista1 = COLUMNAS.find((c) => c.id === 'Lista1')!;
+		const costo = COLUMNAS.find((c) => c.id === 'PrecioCosto')!;
+		expect(etiquetaColumna(lista1, 'PorcentajeDeGanancia')).toBe('Lista 1 (%)');
+		expect(etiquetaColumna(lista1, 'PrecioSinIva')).toBe('Lista 1 s/IVA');
+		expect(etiquetaColumna(lista1, 'PrecioConIva')).toBe('Lista 1 c/IVA');
+		expect(etiquetaColumna(costo, 'PrecioConIva')).toBe('Precio costo');
+	});
+
+	it('el payload sigue enviando porcentajes y el resumen muestra la unidad del modo', () => {
+		const actual = { ...articulo, Lista1: 50 };
+		for (const modo of ['PorcentajeDeGanancia', 'PrecioSinIva', 'PrecioConIva'] as const) {
+			const resumen = resumenCambios([actual], { A1: snapshot }, modo);
+			expect(payloadDesdeCambios(resumen.filas)).toEqual([{ Codigo: 'A1', Lista1: 50 }]);
+			const [cambio] = resumen.filas[0].cambios;
+			const esperado = {
+				PorcentajeDeGanancia: [20, 50],
+				PrecioSinIva: [12, 15],
+				PrecioConIva: [14.52, 18.15]
+			}[modo];
+			expect([cambio.anteriorVisible, cambio.nuevoVisible]).toEqual(esperado);
+		}
+	});
+
+	it('marca filas con costo cambiado y listas sin actualizar (también si solo cambió Costo + IVA)', () => {
+		const porCosto = resumenCambios([{ ...articulo, PrecioCosto: 20 }], { A1: snapshot }, 'PrecioConIva');
+		expect(porCosto.filas[0].listasDesactualizadas.map((l) => l.numero)).toEqual([1, 2]);
+
+		const porMasImp = resumenCambios(
+			[{ ...articulo, PrecioCostoMasImp: 24.2 }],
+			{ A1: snapshot },
+			'PrecioSinIva'
+		);
+		expect(porMasImp.filas[0].listasDesactualizadas[0]).toMatchObject({ numero: 1, anterior: 12, nuevo: 24 });
+
+		const enPorcentaje = resumenCambios([{ ...articulo, PrecioCosto: 20 }], { A1: snapshot });
+		expect(enPorcentaje.filas[0].listasDesactualizadas).toEqual([]);
+	});
+
+	it('filtra y ordena las listas por el valor visible', () => {
+		const items = [
+			{ ...articulo, Codigo: 'A1', PrecioCosto: 10, Lista1: 50 },
+			{ ...articulo, Codigo: 'B2', PrecioCosto: 100, Lista1: 10 }
+		];
+		const porPct = aplicarFiltrosYOrden(items, {
+			orden: { columna: 'Lista1', direccion: 'asc' },
+			modo: 'PorcentajeDeGanancia'
+		});
+		expect(porPct.map((a) => a.Codigo)).toEqual(['B2', 'A1']);
+		const porPrecio = aplicarFiltrosYOrden(items, {
+			orden: { columna: 'Lista1', direccion: 'asc' },
+			modo: 'PrecioSinIva'
+		});
+		expect(porPrecio.map((a) => a.Codigo)).toEqual(['A1', 'B2']);
+		const filtrados = aplicarFiltrosYOrden(items, {
+			filtros: { Lista1: '>100' },
+			modo: 'PrecioSinIva'
+		});
+		expect(filtrados.map((a) => a.Codigo)).toEqual(['B2']);
+	});
+});
 
 describe('filtros y ordenamiento de grilla', () => {
 	it('filtra números con operadores y texto por contención', () => {

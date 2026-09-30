@@ -115,24 +115,25 @@ const initializeModels = (sequelize) => {
       allowNull: true,
       defaultValue: 0
     },
+    // % de ganancia; la columna real es DOUBLE y se guarda con 6 decimales
     Lista1: {
-      type: DataTypes.DECIMAL(18, 2),
+      type: DataTypes.DOUBLE,
       allowNull: true
     },
     Lista2: {
-      type: DataTypes.DECIMAL(18, 2),
+      type: DataTypes.DOUBLE,
       allowNull: true
     },
     Lista3: {
-      type: DataTypes.DECIMAL(18, 2),
+      type: DataTypes.DOUBLE,
       allowNull: true
     },
     Lista4: {
-      type: DataTypes.DECIMAL(18, 2),
+      type: DataTypes.DOUBLE,
       allowNull: true
     },
     Lista5: {
-      type: DataTypes.DECIMAL(18, 2),
+      type: DataTypes.DOUBLE,
       allowNull: true
     },
     ProveedorCodigo: {

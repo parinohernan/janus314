@@ -24,9 +24,19 @@ function parseNumeroFinito(valor, etiqueta) {
   return { valor: n };
 }
 
-function numerosIguales(a, b) {
-  const na = redondearCantidad(a);
-  const nb = redondearCantidad(b);
+// Las listas guardan % de ganancia con más precisión para reconstruir precios exactos.
+const DECIMALES_PORCENTAJE_LISTA = 6;
+
+function redondearPorcentajeLista(valor) {
+  if (valor === null || valor === undefined || valor === '') return null;
+  const n = Number(valor);
+  if (!Number.isFinite(n)) return null;
+  return Number(n.toFixed(DECIMALES_PORCENTAJE_LISTA));
+}
+
+function numerosIguales(a, b, redondear = redondearCantidad) {
+  const na = redondear(a);
+  const nb = redondear(b);
   if (na === null && nb === null) return true;
   if (na === null || nb === null) return false;
   return na === nb;
@@ -77,8 +87,8 @@ function prepararActualizacionPreciosStock(articulo, item = {}) {
     if (!campoEnviado(item[campo])) continue;
     const parseado = parseNumeroFinito(item[campo], campo);
     if (parseado.error) return { ok: false, error: parseado.error };
-    if (!numerosIguales(articulo[campo], parseado.valor)) {
-      updates[campo] = parseado.valor;
+    if (!numerosIguales(articulo[campo], parseado.valor, redondearPorcentajeLista)) {
+      updates[campo] = redondearPorcentajeLista(parseado.valor);
     }
   }
 

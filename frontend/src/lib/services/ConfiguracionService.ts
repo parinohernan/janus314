@@ -1,6 +1,11 @@
 import type { Configuracion, ApiResponse } from '$lib/types';
 import { PUBLIC_API_URL } from '$env/static/public';
 import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+import {
+	CODIGO_CONFIG_MODO_LISTA,
+	parseModoIngresoLista,
+	type ModoIngresoLista
+} from '$lib/utils/modoListaPrecios';
 /**
  * Servicio para gestionar operaciones con configuraciones del sistema
  */
@@ -41,6 +46,14 @@ export class ConfiguracionService {
 			console.error(`Error en ConfiguracionService.obtenerConfiguracion(${codigo}):`, error);
 			return null;
 		}
+	}
+
+	/**
+	 * Modo de ingreso de las listas de precio (clave ART)
+	 */
+	public static async obtenerModoIngresoLista(): Promise<ModoIngresoLista> {
+		const config = await ConfiguracionService.obtenerConfiguracion(CODIGO_CONFIG_MODO_LISTA);
+		return parseModoIngresoLista(config?.ValorConfig);
 	}
 
 	/**

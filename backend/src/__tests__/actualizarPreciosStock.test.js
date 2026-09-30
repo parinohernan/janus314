@@ -66,6 +66,15 @@ describe('prepararActualizacionPreciosStock', () => {
     expect(prep.ajuste).toEqual({ cantidad: 2, movimientoTipo: 'ING' });
   });
 
+  it('guarda el porcentaje de lista con 6 decimales y detecta cambios menores a 0,01', () => {
+    const prep = prepararActualizacionPreciosStock(
+      { ...articuloBase, Lista1: -73.38 },
+      { Lista1: -73.38355033 }
+    );
+    expect(prep.noop).toBe(false);
+    expect(prep.updates.Lista1).toBe(-73.38355);
+  });
+
   it('guarda ambas columnas de costo si vinieron las dos', () => {
     const prep = prepararActualizacionPreciosStock(articuloBase, {
       PrecioCosto: 20,

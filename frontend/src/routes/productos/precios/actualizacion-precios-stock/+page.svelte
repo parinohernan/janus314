@@ -10,9 +10,22 @@
 	import { auth } from '$lib/stores/authStore';
 	import { toast } from '$lib/utils/toast';
 	import type { Articulo } from '$lib/types';
+	import { ConfiguracionService } from '$lib/services/ConfiguracionService';
+	import {
+		MODO_LISTA_POR_DEFECTO,
+		descripcionModoLista,
+		porcentajeDesdePrecio,
+		porcentajesParaMantenerPrecios,
+		textoListasDesactualizadas,
+		type ModoIngresoLista
+	} from '$lib/utils/modoListaPrecios';
 	import {
 		CACHE_INFORME_ID,
+		CAMPOS_LISTA,
 		COLUMNAS,
+		costoEfectivo,
+		etiquetaColumna,
+		valorListaVisible,
 		columnasPorDefecto,
 		aplicarFiltrosYOrden,
 		formatearFechaCosto,
@@ -21,12 +34,14 @@
 		leerColumnasVisibles,
 		payloadDesdeCambios,
 		redondear2,
+		redondearCampo,
 		resumenCambios,
 		siguienteOrden,
 		snapshotDesdeArticulo,
 		snapshotsDesdeCatalogo,
 		tipoFiltroColumna,
 		type CampoEditable,
+		type CampoLista,
 		type CambioFila,
 		type ColumnaId,
 		type FiltrosColumnas,
@@ -65,6 +80,7 @@
 	let pendientes: CambioFila[] = [];
 	let cantidadPrecios = 0;
 	let cantidadExistencias = 0;
+	let modoLista: ModoIngresoLista = MODO_LISTA_POR_DEFECTO;
 
 	$: empresaId = $auth.empresa?.id ?? 'local';
 	$: cacheParams = {
@@ -72,7 +88,7 @@
 		proveedores: proveedoresSeleccionados.join(','),
 		rubros: rubrosSeleccionados.join(',')
 	};
-	const listas: CampoEditable[] = ['Lista1', 'Lista2', 'Lista3', 'Lista4', 'Lista5'];
+	$: ingresaPrecio = modoLista !== 'PorcentajeDeGanancia';
 
 	$: articulosFiltrados = aplicarFiltrosYOrden(articulos, {
 		busqueda,
@@ -80,13 +96,18 @@
 		rubros: rubrosSeleccionados,
 		filtros: filtrosColumnas,
 		orden,
-		snapshots
+		snapshots,
+		modo: modoLista
 	});
 	$: hayFiltrosGrilla = hayFiltrosActivos(filtrosColumnas, orden);
 
-	$: resumen = resumenCambios(articulos, snapshots);
+	$: resumen = resumenCambios(articulos, snapshots, modoLista);
 	$: hayCambios = resumen.filas.length > 0;
 	$: sucias = new Set(resumen.filas.map((fila) => fila.codigo));
+	$: desactualizadas = new Set(
+		resumen.filas.filter((fila) => fila.listasDesactualizadas.length > 0).map((fila) => fila.codigo)
+	);
+	$: pendientesDesactualizados = pendientes.filter((fila) => fila.listasDesactualizadas.length > 0);
 	$: columnasVisiblesSet = new Set(columnasVisibles);
 
 	function toggleColumna(id: ColumnaId) {
@@ -105,8 +126,31 @@
 
 	function setValor(articulo: Articulo, campo: CampoEditable, valor: number) {
 		if (!Number.isFinite(valor)) return;
-		(articulo as Record<string, unknown>)[campo] = redondear2(valor);
+		(articulo as Record<string, unknown>)[campo] = redondearCampo(campo, valor);
 		articulos = articulos;
+	}
+
+	function sinCosto(articulo: Articulo): boolean {
+		return !(Number(articulo.PrecioCosto) > 0);
+	}
+
+	function valorCeldaLista(articulo: Articulo, lista: CampoLista, modo: ModoIngresoLista): number {
+		return valorListaVisible(articulo, articulo[lista], modo);
+	}
+
+	function setValorLista(articulo: Articulo, lista: CampoLista, input: HTMLInputElement) {
+		const porcentaje = porcentajeDesdePrecio(
+			articulo.PrecioCosto,
+			articulo.PorcentajeIVA1,
+			parseFloat(input.value),
+			modoLista
+		);
+		if (porcentaje === null) {
+			toast.warning(`Cargue el precio de costo de ${articulo.Codigo} antes de ingresar precios de lista`);
+		} else {
+			setValor(articulo, lista, porcentaje);
+		}
+		input.value = String(valorCeldaLista(articulo, lista, modoLista));
 	}
 
 	function estaSucia(articulo: Articulo): boolean {
@@ -164,10 +208,12 @@
 		}
 		try {
 			loading = true;
-			const [proveedoresRes, rubrosRes] = await Promise.all([
+			const [proveedoresRes, rubrosRes, modo] = await Promise.all([
 				fetchWithAuth(`${PUBLIC_API_URL}/proveedores?limit=500`),
-				fetchWithAuth(`${PUBLIC_API_URL}/rubros?limit=500`)
+				fetchWithAuth(`${PUBLIC_API_URL}/rubros?limit=500`),
+				ConfiguracionService.obtenerModoIngresoLista()
 			]);
+			modoLista = modo;
 			if (!proveedoresRes.ok || !rubrosRes.ok) {
 				throw new Error('Error al cargar filtros');
 			}
@@ -182,7 +228,7 @@
 	});
 
 	function abrirConfirmacion() {
-		const actual = resumenCambios(articulos, snapshots);
+		const actual = resumenCambios(articulos, snapshots, modoLista);
 		if (actual.filas.length === 0) {
 			toast.warning('No hay cambios para guardar');
 			return;
@@ -191,6 +237,26 @@
 		cantidadPrecios = actual.precios;
 		cantidadExistencias = actual.existencias;
 		mostrarConfirmacion = true;
+	}
+
+	function mantenerPreciosDeLista() {
+		for (const fila of pendientesDesactualizados) {
+			const articulo = articulos.find((item) => item.Codigo === fila.codigo);
+			if (!articulo) continue;
+			const snapshot = snapshots[articulo.Codigo];
+			if (!snapshot) continue;
+			const costo = costoEfectivo(snapshotDesdeArticulo(articulo), snapshot, articulo.PorcentajeIVA1);
+			const actual = { ...articulo, PrecioCosto: costo };
+			Object.assign(
+				articulo,
+				porcentajesParaMantenerPrecios(actual, fila.listasDesactualizadas, modoLista)
+			);
+		}
+		articulos = articulos;
+		const actualizado = resumenCambios(articulos, snapshots, modoLista);
+		pendientes = actualizado.filas;
+		cantidadPrecios = actualizado.precios;
+		cantidadExistencias = actualizado.existencias;
 	}
 
 	function cerrarConfirmacion() {
@@ -245,7 +311,10 @@
 
 	function textoCambio(fila: CambioFila): string {
 		return fila.cambios
-			.map((cambio) => `${cambio.label}: ${cambio.anterior.toFixed(2)} → ${cambio.nuevo.toFixed(2)}`)
+			.map(
+				(cambio) =>
+					`${cambio.label}: ${cambio.anteriorVisible.toFixed(2)} → ${cambio.nuevoVisible.toFixed(2)}`
+			)
 			.join(' · ');
 	}
 </script>
@@ -261,6 +330,7 @@
 				<h1 class="text-2xl font-bold">Actualización de Precios y Stock</h1>
 				<p class="mt-1 text-sm text-gray-600">
 					Editá varias columnas y la existencia. Los cambios se confirman antes de guardarse.
+					Las listas se ingresan por {descripcionModoLista(modoLista)}.
 					{#if desdeCache}
 						<span class="text-amber-700">Catálogo desde caché local.</span>
 					{/if}
@@ -281,7 +351,7 @@
 									on:change={() => toggleColumna(columna.id)}
 									class="rounded border-gray-300 text-blue-600"
 								/>
-								{columna.label}
+								{etiquetaColumna(columna, modoLista)}
 							</label>
 						{/each}
 					</div>
@@ -340,6 +410,14 @@
 				<span class="self-center text-sm font-medium text-amber-700">
 					{resumen.precios} precio(s) · {resumen.existencias} existencia(s)
 				</span>
+				{#if desactualizadas.size > 0}
+					<span
+						class="self-center text-sm font-medium text-red-700"
+						title="Cambió el costo pero no los precios de lista: los precios finales van a cambiar"
+					>
+						{desactualizadas.size} con precios de lista sin actualizar
+					</span>
+				{/if}
 			{/if}
 		</div>
 
@@ -360,7 +438,7 @@
 											class="inline-flex items-center gap-1 hover:text-gray-800"
 											on:click={() => toggleOrden(columna.id)}
 										>
-											{columna.label}
+											{etiquetaColumna(columna, modoLista)}
 											{#if orden?.columna === columna.id}
 												<span class="text-blue-600">{orden.direccion === 'asc' ? '▲' : '▼'}</span>
 											{/if}
@@ -430,16 +508,19 @@
 										/>
 									</td>
 								{/if}
-								{#each listas as lista}
+								{#each CAMPOS_LISTA as lista}
 									{#if columnasVisiblesSet.has(lista)}
 										<td class="px-3 py-2">
 											<input
 												type="number"
 												step="0.01"
-												value={valorCelda(articulo, lista)}
-												on:change={(e) =>
-													setValor(articulo, lista, parseFloat((e.target as HTMLInputElement).value))}
-												class="w-20 rounded border border-gray-300 px-2 py-1"
+												value={valorCeldaLista(articulo, lista, modoLista)}
+												disabled={ingresaPrecio && sinCosto(articulo)}
+												title={ingresaPrecio && sinCosto(articulo)
+													? 'Cargue el precio de costo para ingresar el precio de lista'
+													: undefined}
+												on:change={(e) => setValorLista(articulo, lista, e.currentTarget)}
+												class="w-24 rounded border border-gray-300 px-2 py-1 disabled:cursor-not-allowed disabled:bg-gray-100"
 											/>
 										</td>
 									{/if}
@@ -493,6 +574,19 @@
 					Vas a actualizar <strong>{cantidadPrecios}</strong> precio(s) y
 					<strong>{cantidadExistencias}</strong> existencia(s).
 				</p>
+				{#if pendientesDesactualizados.length > 0}
+					<div
+						class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+					>
+						<p>
+							En <strong>{pendientesDesactualizados.length}</strong> artículo(s) cambió el costo pero no
+							los precios de lista: los precios finales van a cambiar.
+						</p>
+						<Button variant="secondary" on:click={mantenerPreciosDeLista} disabled={guardando}>
+							Mantener precios de lista
+						</Button>
+					</div>
+				{/if}
 			</div>
 			<div class="max-h-[50vh] overflow-auto px-6 py-4">
 				<table class="min-w-full text-sm">
@@ -508,7 +602,14 @@
 							<tr>
 								<td class="py-2 pr-3 font-medium">{fila.codigo}</td>
 								<td class="max-w-xs truncate py-2 pr-3">{fila.descripcion}</td>
-								<td class="py-2 text-gray-700">{textoCambio(fila)}</td>
+								<td class="py-2 text-gray-700">
+									{textoCambio(fila)}
+									{#if fila.listasDesactualizadas.length > 0}
+										<p class="mt-1 text-xs text-amber-700">
+											Precios finales que cambian: {textoListasDesactualizadas(fila.listasDesactualizadas)}
+										</p>
+									{/if}
+								</td>
 							</tr>
 						{/each}
 					</tbody>

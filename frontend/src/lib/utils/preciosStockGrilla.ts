@@ -1,3 +1,13 @@
+import {
+	MODO_LISTA_POR_DEFECTO,
+	etiquetaLista,
+	listasDesactualizadasPorCosto,
+	redondearPorcentajeLista,
+	valorVisibleLista,
+	type ListaDesactualizada,
+	type ModoIngresoLista
+} from './modoListaPrecios';
+
 export const COLUMNAS_STORAGE_KEY = 'precios-stock-columnas';
 export const CACHE_INFORME_ID = 'actualizacion-precios-stock';
 
@@ -63,6 +73,31 @@ export const CAMPOS_EDITABLES: CampoEditable[] = [
 
 export const CAMPOS_PRECIO: CampoEditable[] = CAMPOS_EDITABLES.filter((c) => c !== 'Existencia');
 
+export type CampoLista = 'Lista1' | 'Lista2' | 'Lista3' | 'Lista4' | 'Lista5';
+
+export const CAMPOS_LISTA: CampoLista[] = ['Lista1', 'Lista2', 'Lista3', 'Lista4', 'Lista5'];
+
+export function esCampoLista(id: string): id is CampoLista {
+	return (CAMPOS_LISTA as string[]).includes(id);
+}
+
+export function etiquetaColumna(
+	columna: Pick<ColumnaGrilla, 'id' | 'label'>,
+	modo: ModoIngresoLista = MODO_LISTA_POR_DEFECTO
+): string {
+	if (!esCampoLista(columna.id)) return columna.label;
+	return etiquetaLista(Number(columna.id.slice(-1)), modo);
+}
+
+/** Las listas se guardan como % de ganancia; esto las expresa en la unidad del modo ART. */
+export function valorListaVisible(
+	articulo: { PrecioCosto?: number | null; PorcentajeIVA1?: number | null },
+	porcentaje: unknown,
+	modo: ModoIngresoLista = MODO_LISTA_POR_DEFECTO
+): number {
+	return valorVisibleLista(articulo.PrecioCosto, articulo.PorcentajeIVA1, porcentaje, modo);
+}
+
 export interface SnapshotFila {
 	PrecioCosto: number;
 	PrecioCostoMasImp: number;
@@ -79,6 +114,9 @@ export interface CambioCampo {
 	label: string;
 	anterior: number;
 	nuevo: number;
+	/** Valores en la unidad que ve el usuario (para listas depende del modo ART). */
+	anteriorVisible: number;
+	nuevoVisible: number;
 }
 
 export interface CambioFila {
@@ -87,6 +125,8 @@ export interface CambioFila {
 	cambios: CambioCampo[];
 	cambiaPrecio: boolean;
 	cambiaExistencia: boolean;
+	/** Listas cuyo precio final cambia solo porque cambió el costo (modos ART por precio). */
+	listasDesactualizadas: ListaDesactualizada[];
 }
 
 function esColumnaId(valor: string): valor is ColumnaId {
@@ -127,6 +167,10 @@ export function redondear2(valor: unknown): number {
 	return Number(n.toFixed(2));
 }
 
+export function redondearCampo(campo: CampoEditable, valor: unknown): number {
+	return esCampoLista(campo) ? redondearPorcentajeLista(valor) : redondear2(valor);
+}
+
 export function snapshotDesdeArticulo(articulo: {
 	PrecioCosto?: number | null;
 	PrecioCostoMasImp?: number | null;
@@ -147,11 +191,11 @@ export function snapshotDesdeArticulo(articulo: {
 	return {
 		PrecioCosto: costo,
 		PrecioCostoMasImp: costoMasImp,
-		Lista1: redondear2(articulo.Lista1),
-		Lista2: redondear2(articulo.Lista2),
-		Lista3: redondear2(articulo.Lista3),
-		Lista4: redondear2(articulo.Lista4),
-		Lista5: redondear2(articulo.Lista5),
+		Lista1: redondearPorcentajeLista(articulo.Lista1),
+		Lista2: redondearPorcentajeLista(articulo.Lista2),
+		Lista3: redondearPorcentajeLista(articulo.Lista3),
+		Lista4: redondearPorcentajeLista(articulo.Lista4),
+		Lista5: redondearPorcentajeLista(articulo.Lista5),
 		Existencia: redondear2(articulo.Existencia)
 	};
 }
@@ -168,20 +212,30 @@ export function snapshotsDesdeCatalogo<T extends { Codigo: string }>(
 
 export function cambiosDeFila(
 	actual: SnapshotFila,
-	snapshot: SnapshotFila | undefined
+	snapshot: SnapshotFila | undefined,
+	opciones: { iva?: number | null; modo?: ModoIngresoLista } = {}
 ): CambioCampo[] {
 	if (!snapshot) return [];
+	const modo = opciones.modo ?? MODO_LISTA_POR_DEFECTO;
+	const iva = opciones.iva ?? 0;
 	const cambios: CambioCampo[] = [];
 	for (const campo of CAMPOS_EDITABLES) {
-		const anterior = redondear2(snapshot[campo]);
-		const nuevo = redondear2(actual[campo]);
+		const anterior = redondearCampo(campo, snapshot[campo]);
+		const nuevo = redondearCampo(campo, actual[campo]);
 		if (anterior !== nuevo) {
 			const columna = COLUMNAS.find((c) => c.id === campo);
+			const esLista = esCampoLista(campo);
 			cambios.push({
 				campo,
-				label: columna?.label ?? campo,
+				label: columna ? etiquetaColumna(columna, modo) : campo,
 				anterior,
-				nuevo
+				nuevo,
+				anteriorVisible: esLista
+					? valorListaVisible({ PrecioCosto: snapshot.PrecioCosto, PorcentajeIVA1: iva }, anterior, modo)
+					: anterior,
+				nuevoVisible: esLista
+					? valorListaVisible({ PrecioCosto: actual.PrecioCosto, PorcentajeIVA1: iva }, nuevo, modo)
+					: nuevo
 			});
 		}
 	}
@@ -192,23 +246,53 @@ export function filaEstaSucia(actual: SnapshotFila, snapshot: SnapshotFila | und
 	return cambiosDeFila(actual, snapshot).length > 0;
 }
 
-export function resumenCambios<T extends { Codigo: string; Descripcion: string }>(
+/** Si solo se editó "Costo + IVA", el backend deriva el costo neto; acá se anticipa ese valor. */
+export function costoEfectivo(
+	actual: SnapshotFila,
+	snapshot: SnapshotFila,
+	iva: number | null | undefined
+): number {
+	const cambioCosto = redondear2(actual.PrecioCosto) !== redondear2(snapshot.PrecioCosto);
+	const cambioMasImp = redondear2(actual.PrecioCostoMasImp) !== redondear2(snapshot.PrecioCostoMasImp);
+	if (!cambioCosto && cambioMasImp) {
+		return redondear2(actual.PrecioCostoMasImp / (1 + (Number(iva) || 0) / 100));
+	}
+	return actual.PrecioCosto;
+}
+
+export function resumenCambios<
+	T extends { Codigo: string; Descripcion: string; PorcentajeIVA1?: number | null }
+>(
 	articulos: T[],
-	snapshots: Record<string, SnapshotFila>
+	snapshots: Record<string, SnapshotFila>,
+	modo: ModoIngresoLista = MODO_LISTA_POR_DEFECTO
 ): { filas: CambioFila[]; precios: number; existencias: number } {
 	const filas: CambioFila[] = [];
 	for (const articulo of articulos) {
 		const actual = snapshotDesdeArticulo(articulo);
-		const cambios = cambiosDeFila(actual, snapshots[articulo.Codigo]);
+		const cambios = cambiosDeFila(actual, snapshots[articulo.Codigo], {
+			iva: articulo.PorcentajeIVA1,
+			modo
+		});
 		if (cambios.length === 0) continue;
 		const cambiaPrecio = cambios.some((c) => c.campo !== 'Existencia');
 		const cambiaExistencia = cambios.some((c) => c.campo === 'Existencia');
+		const snapshot = snapshots[articulo.Codigo];
 		filas.push({
 			codigo: articulo.Codigo,
 			descripcion: articulo.Descripcion,
 			cambios,
 			cambiaPrecio,
-			cambiaExistencia
+			cambiaExistencia,
+			listasDesactualizadas: listasDesactualizadasPorCosto(
+				{ ...snapshot, PorcentajeIVA1: articulo.PorcentajeIVA1 },
+				{
+					...actual,
+					PrecioCosto: costoEfectivo(actual, snapshot, articulo.PorcentajeIVA1),
+					PorcentajeIVA1: articulo.PorcentajeIVA1
+				},
+				modo
+			)
 		});
 	}
 	return {
@@ -269,6 +353,7 @@ export interface ArticuloGrilla {
 	Lista4?: number | null;
 	Lista5?: number | null;
 	Existencia?: number | null;
+	PorcentajeIVA1?: number | null;
 	ProveedorCodigo?: string | null;
 	RubroCodigo?: string | null;
 	FechaActualizacionCosto?: string | Date | null;
@@ -304,8 +389,12 @@ export function siguienteOrden(
 export function valorCeldaFiltro(
 	articulo: ArticuloGrilla,
 	columna: ColumnaId,
-	snapshots: Record<string, SnapshotFila> = {}
+	snapshots: Record<string, SnapshotFila> = {},
+	modo: ModoIngresoLista = MODO_LISTA_POR_DEFECTO
 ): string | number {
+	if (esCampoLista(columna)) {
+		return valorListaVisible(articulo, articulo[columna], modo);
+	}
 	switch (columna) {
 		case 'Codigo':
 			return articulo.Codigo ?? '';
@@ -359,10 +448,11 @@ export function coincideFiltroColumna(
 	articulo: ArticuloGrilla,
 	columna: ColumnaId,
 	filtro: string,
-	snapshots: Record<string, SnapshotFila> = {}
+	snapshots: Record<string, SnapshotFila> = {},
+	modo: ModoIngresoLista = MODO_LISTA_POR_DEFECTO
 ): boolean {
 	if (!filtro.trim()) return true;
-	const valor = valorCeldaFiltro(articulo, columna, snapshots);
+	const valor = valorCeldaFiltro(articulo, columna, snapshots, modo);
 	if (tipoFiltroColumna(columna) === 'numero') {
 		return coincideFiltroNumero(Number(valor), filtro);
 	}
@@ -382,6 +472,7 @@ export function aplicarFiltrosYOrden<T extends ArticuloGrilla>(
 		filtros?: FiltrosColumnas;
 		orden?: OrdenGrilla | null;
 		snapshots?: Record<string, SnapshotFila>;
+		modo?: ModoIngresoLista;
 	} = {}
 ): T[] {
 	const {
@@ -390,7 +481,8 @@ export function aplicarFiltrosYOrden<T extends ArticuloGrilla>(
 		rubros = [],
 		filtros = {},
 		orden = null,
-		snapshots = {}
+		snapshots = {},
+		modo = MODO_LISTA_POR_DEFECTO
 	} = opciones;
 
 	const filtrados = articulos.filter((articulo) => {
@@ -402,7 +494,7 @@ export function aplicarFiltrosYOrden<T extends ArticuloGrilla>(
 			return false;
 		}
 		for (const [columna, filtro] of Object.entries(filtros) as [ColumnaId, string][]) {
-			if (!coincideFiltroColumna(articulo, columna, filtro ?? '', snapshots)) return false;
+			if (!coincideFiltroColumna(articulo, columna, filtro ?? '', snapshots, modo)) return false;
 		}
 		return true;
 	});
@@ -410,8 +502,8 @@ export function aplicarFiltrosYOrden<T extends ArticuloGrilla>(
 	if (!orden) return filtrados;
 
 	return [...filtrados].sort((a, b) => {
-		const va = valorCeldaOrden(a, orden.columna, snapshots);
-		const vb = valorCeldaOrden(b, orden.columna, snapshots);
+		const va = valorCeldaOrden(a, orden.columna, snapshots, modo);
+		const vb = valorCeldaOrden(b, orden.columna, snapshots, modo);
 		const cmp =
 			typeof va === 'number' && typeof vb === 'number'
 				? va - vb
@@ -423,7 +515,8 @@ export function aplicarFiltrosYOrden<T extends ArticuloGrilla>(
 export function valorCeldaOrden(
 	articulo: ArticuloGrilla,
 	columna: ColumnaId,
-	snapshots: Record<string, SnapshotFila> = {}
+	snapshots: Record<string, SnapshotFila> = {},
+	modo: ModoIngresoLista = MODO_LISTA_POR_DEFECTO
 ): string | number {
 	if (columna === 'Fecha') {
 		const valor = articulo.FechaActualizacionCosto;
@@ -431,5 +524,5 @@ export function valorCeldaOrden(
 		const tiempo = new Date(valor).getTime();
 		return Number.isNaN(tiempo) ? 0 : tiempo;
 	}
-	return valorCeldaFiltro(articulo, columna, snapshots);
+	return valorCeldaFiltro(articulo, columna, snapshots, modo);
 }

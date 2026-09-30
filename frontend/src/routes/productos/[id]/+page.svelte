@@ -5,6 +5,21 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { PUBLIC_API_URL } from '$env/static/public';
+  import { ConfiguracionService } from '$lib/services/ConfiguracionService';
+  import {
+    MODO_LISTA_POR_DEFECTO,
+    NUMEROS_LISTA,
+    descripcionModoLista,
+    listasDesactualizadasPorCosto,
+    porcentajeDesdePrecio,
+    porcentajesParaMantenerPrecios,
+    textoListasDesactualizadas,
+    valorVisibleLista,
+    type CampoListaPrecio,
+    type ModoIngresoLista,
+    type NumeroLista,
+    type PreciosArticulo
+  } from '$lib/utils/modoListaPrecios';
   
   let isEditing = $page.params.id !== 'nuevo';
   let historialCosto: { Fecha: string; PrecioCosto: number }[] = [];
@@ -43,6 +58,7 @@
             throw new Error('Error al cargar el artículo');
           }
           articulo = await response.json();
+          tomarPreciosGuardados(articulo);
           await cargarHistorialCosto($page.params.id);
         } catch (err: unknown) {
           console.error('Error cargando artículo:', err);
@@ -152,24 +168,62 @@
   let error: string | null = null;
   let successMessage: string | null = null;
   
-  // Función helper para calcular precios de lista
-  const calcularPrecioLista = (porcentajeLista: number): { sinIva: number; conIva: number } => {
-    if (articulo.PrecioCosto > 0 && porcentajeLista >= 0) {
-      const sinIva = formatearADosDecimales(articulo.PrecioCosto * (1 + porcentajeLista / 100));
-      const conIva = articulo.PorcentajeIVA1 >= 0
-        ? formatearADosDecimales(sinIva * (1 + articulo.PorcentajeIVA1 / 100))
-        : sinIva;
-      return { sinIva, conIva };
-    }
-    return { sinIva: 0, conIva: 0 };
+  let modoLista: ModoIngresoLista = MODO_LISTA_POR_DEFECTO;
+
+  type ClaveLista = CampoListaPrecio;
+  const numerosLista = NUMEROS_LISTA;
+  const camposLista: { modo: ModoIngresoLista; sufijo: string; etiqueta: (n: NumeroLista) => string }[] = [
+    { modo: 'PorcentajeDeGanancia', sufijo: '', etiqueta: (n) => `% Lista ${n}` },
+    { modo: 'PrecioSinIva', sufijo: 'SinIva', etiqueta: (n) => `Precio Lista ${n} sin IVA` },
+    { modo: 'PrecioConIva', sufijo: 'ConIva', etiqueta: (n) => `Precio Lista ${n} con IVA` }
+  ];
+
+  $: sinCosto = !(Number(articulo.PrecioCosto) > 0);
+
+  // Precios tal como están guardados, para avisar si el costo cambia los precios finales
+  let preciosGuardados: PreciosArticulo | null = null;
+
+  const tomarPreciosGuardados = (a: Articulo): void => {
+    preciosGuardados = {
+      PrecioCosto: a.PrecioCosto,
+      PorcentajeIVA1: a.PorcentajeIVA1,
+      Lista1: a.Lista1,
+      Lista2: a.Lista2,
+      Lista3: a.Lista3,
+      Lista4: a.Lista4,
+      Lista5: a.Lista5
+    };
   };
-  
-  // Variables reactivas calculadas para todas las listas
-  $: preciosLista1 = calcularPrecioLista(articulo.Lista1);
-  $: preciosLista2 = calcularPrecioLista(articulo.Lista2);
-  $: preciosLista3 = calcularPrecioLista(articulo.Lista3);
-  $: preciosLista4 = calcularPrecioLista(articulo.Lista4);
-  $: preciosLista5 = calcularPrecioLista(articulo.Lista5);
+
+  $: listasDesactualizadas = isEditing
+    ? listasDesactualizadasPorCosto(preciosGuardados, articulo, modoLista)
+    : [];
+
+  const mantenerPreciosAnteriores = (): void => {
+    const porcentajes = porcentajesParaMantenerPrecios(articulo, listasDesactualizadas, modoLista);
+    articulo = { ...articulo, ...porcentajes };
+  };
+
+  const valorCampoLista = (articuloActual: Articulo, n: NumeroLista, modo: ModoIngresoLista): string =>
+    valorVisibleLista(
+      articuloActual.PrecioCosto,
+      articuloActual.PorcentajeIVA1,
+      articuloActual[`Lista${n}` as ClaveLista],
+      modo
+    ).toFixed(2);
+
+  const actualizarListaDesdeInput = (n: NumeroLista, input: HTMLInputElement): void => {
+    const porcentaje = porcentajeDesdePrecio(
+      articulo.PrecioCosto,
+      articulo.PorcentajeIVA1,
+      parseFloat(input.value),
+      modoLista
+    );
+    if (porcentaje !== null) {
+      articulo[`Lista${n}` as ClaveLista] = porcentaje;
+    }
+    input.value = valorCampoLista(articulo, n, modoLista);
+  };
   
   // Cargar datos de proveedores y rubros para los selectores
   const loadProveedores = async (): Promise<void> => {
@@ -211,7 +265,12 @@
       loading = true;
       
       // Cargar selectores
-      await Promise.all([loadProveedores(), loadRubros()]);
+      const [modo] = await Promise.all([
+        ConfiguracionService.obtenerModoIngresoLista(),
+        loadProveedores(),
+        loadRubros()
+      ]);
+      modoLista = modo;
       
       // Si estamos editando, cargar datos del artículo
       if (isEditing) {
@@ -221,6 +280,7 @@
         }
         
         articulo = await response.json();
+        tomarPreciosGuardados(articulo);
         await cargarHistorialCosto($page.params.id);
         await invalidate(`/articulos/${$page.params.id}`);
       }
@@ -270,37 +330,13 @@
     articulo.PrecioCostoMasImp = formatearADosDecimales(articulo.PrecioCostoMasImp);
   };
   
-  // Formatear lista de precios a 2 decimales
-  const formatearLista = (numeroLista: 1 | 2 | 3 | 4 | 5): void => {
-    switch (numeroLista) {
-      case 1:
-        articulo.Lista1 = formatearADosDecimales(articulo.Lista1);
-        break;
-      case 2:
-        articulo.Lista2 = formatearADosDecimales(articulo.Lista2);
-        break;
-      case 3:
-        articulo.Lista3 = formatearADosDecimales(articulo.Lista3);
-        break;
-      case 4:
-        articulo.Lista4 = formatearADosDecimales(articulo.Lista4);
-        break;
-      case 5:
-        articulo.Lista5 = formatearADosDecimales(articulo.Lista5);
-        break;
-    }
-  };
-  
-  // Actualizar listas de precios con márgenes predeterminados
+  // Listas guardan % de ganancia: márgenes predeterminados
   const actualizarListas = (): void => {
-    if (articulo.PrecioCosto > 0) {
-      // Ejemplo de márgenes: personalizar según necesidades
-      articulo.Lista1 = Number((articulo.PrecioCosto * 1.3).toFixed(2)); // 30% margen
-      articulo.Lista2 = Number((articulo.PrecioCosto * 1.4).toFixed(2)); // 40% margen
-      articulo.Lista3 = Number((articulo.PrecioCosto * 1.5).toFixed(2)); // 50% margen
-      articulo.Lista4 = Number((articulo.PrecioCosto * 1.6).toFixed(2)); // 60% margen
-      articulo.Lista5 = Number((articulo.PrecioCosto * 1.7).toFixed(2)); // 70% margen
-    }
+    articulo.Lista1 = 30;
+    articulo.Lista2 = 40;
+    articulo.Lista3 = 50;
+    articulo.Lista4 = 60;
+    articulo.Lista5 = 70;
   };
   
   // Validar que el porcentaje de IVA 1 sea uno de los valores permitidos
@@ -328,6 +364,16 @@
     
     // Validar el porcentaje de IVA 1 antes de enviar
     if (!validarPorcentajeIVA1()) {
+      return;
+    }
+
+    if (
+      listasDesactualizadas.length > 0 &&
+      !confirm(
+        `Cambió el precio de costo pero no actualizó los precios de lista. ` +
+          `Los precios finales van a cambiar:\n\n${textoListasDesactualizadas(listasDesactualizadas)}\n\n¿Guardar igual?`
+      )
+    ) {
       return;
     }
     
@@ -358,6 +404,7 @@
       
       // Actualizar el artículo con los datos del servidor
       articulo = data;
+      tomarPreciosGuardados(articulo);
       if (isEditing) {
         await cargarHistorialCosto(articulo.Codigo);
       }
@@ -756,206 +803,59 @@
           
           <!-- Listas de Precios: Diseño compacto en una sola línea -->
           <div class="mb-4 border border-gray-200 rounded-md p-3">
-            <h3 class="text-sm font-medium text-gray-700 mb-3">Listas de Precios</h3>
+            <h3 class="text-sm font-medium text-gray-700 mb-1">Listas de Precios</h3>
+            <p class="text-xs text-gray-500 mb-3">
+              Se ingresa por {descripcionModoLista(modoLista)}.
+              {#if sinCosto && modoLista !== 'PorcentajeDeGanancia'}
+                <span class="text-amber-700">Cargue el precio de costo para poder ingresar los precios de lista.</span>
+              {/if}
+            </p>
+            {#if listasDesactualizadas.length > 0}
+              <div class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                <div>
+                  <p class="font-medium">Cambió el precio de costo pero no actualizó los precios de lista.</p>
+                  <p class="text-xs">Los precios finales van a cambiar: {textoListasDesactualizadas(listasDesactualizadas)}</p>
+                </div>
+                <Button type="button" variant="secondary" on:click={mantenerPreciosAnteriores}>
+                  Mantener precios anteriores
+                </Button>
+              </div>
+            {/if}
             <div class="grid grid-cols-5 gap-3">
-              <!-- Lista 1 -->
-              <div>
-                <div class="block text-xs font-medium text-gray-600 mb-1 text-center">Lista 1</div>
-                <div class="space-y-2">
-                  <div>
-                    <label for="lista1" class="block text-xs font-medium text-gray-500 mb-1 text-center">% Lista 1</label>
-                    <input
-                      type="number"
-                      id="lista1"
-                      bind:value={articulo.Lista1}
-                      step="0.01"
-                      on:keydown={prevenirSubmitEnEnter}
-                      on:blur={() => formatearLista(1)}
-                      class="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
-                      placeholder="%"
-                    />
-                  </div>
-                  <div>
-                    <label for="precioLista1SinIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 1 sin IVA</label>
-                    <input
-                      type="text"
-                      id="precioLista1SinIva"
-                      readonly
-                      value={preciosLista1.sinIva.toFixed(2)}
-                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
-                    />
-                  </div>
-                  <div>
-                    <label for="precioLista1ConIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 1 con IVA</label>
-                    <input
-                      type="text"
-                      id="precioLista1ConIva"
-                      readonly
-                      value={preciosLista1.conIva.toFixed(2)}
-                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
-                    />
+              {#each numerosLista as n}
+                <div>
+                  <div class="block text-xs font-medium text-gray-600 mb-1 text-center">Lista {n}</div>
+                  <div class="space-y-2">
+                    {#each camposLista as campo}
+                      {@const editable = campo.modo === modoLista}
+                      {@const idCampo = campo.sufijo ? `precioLista${n}${campo.sufijo}` : `lista${n}`}
+                      <div>
+                        <label for={idCampo} class="block text-xs font-medium text-gray-500 mb-1 text-center">{campo.etiqueta(n)}</label>
+                        {#if editable}
+                          <input
+                            type="number"
+                            id={idCampo}
+                            value={valorCampoLista(articulo, n, campo.modo)}
+                            step="0.01"
+                            disabled={sinCosto && campo.modo !== 'PorcentajeDeGanancia'}
+                            on:keydown={prevenirSubmitEnEnter}
+                            on:change={(e) => actualizarListaDesdeInput(n, e.currentTarget)}
+                            class="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          />
+                        {:else}
+                          <input
+                            type="text"
+                            id={idCampo}
+                            readonly
+                            value={valorCampoLista(articulo, n, campo.modo)}
+                            class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
+                          />
+                        {/if}
+                      </div>
+                    {/each}
                   </div>
                 </div>
-              </div>
-              
-              <!-- Lista 2 -->
-              <div>
-                <div class="block text-xs font-medium text-gray-600 mb-1 text-center">Lista 2</div>
-                <div class="space-y-2">
-                  <div>
-                    <label for="lista2" class="block text-xs font-medium text-gray-500 mb-1 text-center">% Lista 2</label>
-                    <input
-                      type="number"
-                      id="lista2"
-                      bind:value={articulo.Lista2}
-                      step="0.01"
-                      on:blur={() => formatearLista(2)}
-                      class="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
-                      placeholder="%"
-                    />
-                  </div>
-                  <div>
-                    <label for="precioLista2SinIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 2 sin IVA</label>
-                    <input
-                      type="text"
-                      id="precioLista2SinIva"
-                      readonly
-                      value={preciosLista2.sinIva.toFixed(2)}
-                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
-                    />
-                  </div>
-                  <div>
-                    <label for="precioLista2ConIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 2 con IVA</label>
-                    <input
-                      type="text"
-                      id="precioLista2ConIva"
-                      readonly
-                      value={preciosLista2.conIva.toFixed(2)}
-                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <!-- Lista 3 -->
-              <div>
-                <div class="block text-xs font-medium text-gray-600 mb-1 text-center">Lista 3</div>
-                <div class="space-y-2">
-                  <div>
-                    <label for="lista3" class="block text-xs font-medium text-gray-500 mb-1 text-center">% Lista 3</label>
-                    <input
-                      type="number"
-                      id="lista3"
-                      bind:value={articulo.Lista3}
-                      step="0.01"
-                      on:keydown={prevenirSubmitEnEnter}
-                      on:blur={() => formatearLista(3)}
-                      class="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
-                      placeholder="%"
-                    />
-                  </div>
-                  <div>
-                    <label for="precioLista3SinIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 3 sin IVA</label>
-                    <input
-                      type="text"
-                      id="precioLista3SinIva"
-                      readonly
-                      value={preciosLista3.sinIva.toFixed(2)}
-                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
-                    />
-                  </div>
-                  <div>
-                    <label for="precioLista3ConIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 3 con IVA</label>
-                    <input
-                      type="text"
-                      id="precioLista3ConIva"
-                      readonly
-                      value={preciosLista3.conIva.toFixed(2)}
-                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <!-- Lista 4 -->
-              <div>
-                <div class="block text-xs font-medium text-gray-600 mb-1 text-center">Lista 4</div>
-                <div class="space-y-2">
-                  <div>
-                    <label for="lista4" class="block text-xs font-medium text-gray-500 mb-1 text-center">% Lista 4</label>
-                    <input
-                      type="number"
-                      id="lista4"
-                      bind:value={articulo.Lista4}
-                      step="0.01"
-                      on:keydown={prevenirSubmitEnEnter}
-                      on:blur={() => formatearLista(4)}
-                      class="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
-                      placeholder="%"
-                    />
-                  </div>
-                  <div>
-                    <label for="precioLista4SinIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 4 sin IVA</label>
-                    <input
-                      type="text"
-                      id="precioLista4SinIva"
-                      readonly
-                      value={preciosLista4.sinIva.toFixed(2)}
-                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
-                    />
-                  </div>
-                  <div>
-                    <label for="precioLista4ConIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 4 con IVA</label>
-                    <input
-                      type="text"
-                      id="precioLista4ConIva"
-                      readonly
-                      value={preciosLista4.conIva.toFixed(2)}
-                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <!-- Lista 5 -->
-              <div>
-                <div class="block text-xs font-medium text-gray-600 mb-1 text-center">Lista 5</div>
-                <div class="space-y-2">
-                  <div>
-                    <label for="lista5" class="block text-xs font-medium text-gray-500 mb-1 text-center">% Lista 5</label>
-                    <input
-                      type="number"
-                      id="lista5"
-                      bind:value={articulo.Lista5}
-                      step="0.01"
-                      on:keydown={prevenirSubmitEnEnter}
-                      on:blur={() => formatearLista(5)}
-                      class="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
-                      placeholder="%"
-                    />
-                  </div>
-                  <div>
-                    <label for="precioLista5SinIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 5 sin IVA</label>
-                    <input
-                      type="text"
-                      id="precioLista5SinIva"
-                      readonly
-                      value={preciosLista5.sinIva.toFixed(2)}
-                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
-                    />
-                  </div>
-                  <div>
-                    <label for="precioLista5ConIva" class="block text-xs font-medium text-gray-500 mb-1 text-center">Precio Lista 5 con IVA</label>
-                    <input
-                      type="text"
-                      id="precioLista5ConIva"
-                      readonly
-                      value={preciosLista5.conIva.toFixed(2)}
-                      class="w-full px-2 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed text-center"
-                    />
-                  </div>
-                </div>
-              </div>
+              {/each}
             </div>
           </div>
           
