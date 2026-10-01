@@ -57,8 +57,10 @@
           if (!response.ok) {
             throw new Error('Error al cargar el artículo');
           }
-          articulo = await response.json();
-          tomarPreciosGuardados(articulo);
+          // No leer `articulo` acá: el bloque reactivo dependería de él y recargaría en cada tecla
+          const cargado: Articulo = await response.json();
+          articulo = cargado;
+          tomarPreciosGuardados(cargado);
           await cargarHistorialCosto($page.params.id);
         } catch (err: unknown) {
           console.error('Error cargando artículo:', err);
