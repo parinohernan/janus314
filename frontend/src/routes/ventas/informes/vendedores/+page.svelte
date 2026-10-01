@@ -5,6 +5,9 @@
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import Button from '$lib/components/ui/Button.svelte';
   import MultiSelect from '$lib/components/ui/MultiSelect.svelte';
+  import FechaCampos from '$lib/components/ui/FechaCampos.svelte';
+  import RangosFecha from '$lib/components/ui/RangosFecha.svelte';
+  import { aISOFecha, deISOFecha } from '$lib/utils/fechaCampos';
   import { VendedorService, type VendedorOption } from '$lib/services/VendedorService';
   import { UserCircle } from 'lucide-svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
@@ -76,16 +79,48 @@
   let vendedoresLoading = false;
 
   // Fechas
-  const hoy = new Date();
-  hoy.setHours(hoy.getHours() - 3); // Ajustar a GMT-3
-  const fechaFormateada = hoy.toISOString().substring(0, 10);
-  
-  let fechaDesde = fechaFormateada;
-  let fechaHasta = fechaFormateada;
+  function inicioDeHoy(): Date {
+    const fecha = new Date();
+    fecha.setHours(0, 0, 0, 0);
+    return fecha;
+  }
+
+  function finDeHoy(): Date {
+    const fecha = new Date();
+    fecha.setHours(23, 59, 59, 999);
+    return fecha;
+  }
+
+  let fechaDesde: Date = inicioDeHoy();
+  let fechaHasta: Date = finDeHoy();
   let filtroPagoTipo = '';
   let formasPago: { value: string; label: string }[] = [];
   let tiposFacturaSeleccionados: string[] = [...TODOS_TIPOS_FACTURA];
   let tiposNcSeleccionados: string[] = [...TODOS_TIPOS_NC];
+
+  // Filtros con los que se armó el informe visible, para avisar cuando cambian
+  let filtrosBuscados: string | null = null;
+
+  function firmaFiltros(
+    vendedor: string,
+    desde: Date,
+    hasta: Date,
+    pago: string,
+    tiposFactura: string[],
+    tiposNc: string[]
+  ): string {
+    return JSON.stringify([vendedor, aISOFecha(desde), aISOFecha(hasta), pago, [...tiposFactura].sort(), [...tiposNc].sort()]);
+  }
+
+  $: filtrosActuales = firmaFiltros(
+    vendedorSeleccionado,
+    fechaDesde,
+    fechaHasta,
+    filtroPagoTipo,
+    tiposFacturaSeleccionados,
+    tiposNcSeleccionados
+  );
+  $: filtrosPendientes = filtrosBuscados !== null && filtrosActuales !== filtrosBuscados;
 
   async function cargarFormasPago() {
     try {
@@ -124,11 +159,12 @@
       loading = true;
       error = null;
       mostrarInforme = false;
+      filtrosBuscados = filtrosActuales;
 
       const params = new URLSearchParams();
       params.append('vendedorCodigo', vendedorSeleccionado);
-      params.append('fechaDesde', fechaDesde);
-      params.append('fechaHasta', fechaHasta);
+      params.append('fechaDesde', aISOFecha(fechaDesde));
+      params.append('fechaHasta', aISOFecha(fechaHasta));
       params.append('tiposFactura', tiposFacturaSeleccionados.join(','));
       params.append('tiposNotaCredito', tiposNcSeleccionados.join(','));
       if (filtroPagoTipo) params.append('pagoTipo', filtroPagoTipo);
@@ -155,14 +191,15 @@
   // Limpiar formulario
   const limpiarFormulario = () => {
     vendedorSeleccionado = '';
-    fechaDesde = fechaFormateada;
-    fechaHasta = fechaFormateada;
+    fechaDesde = inicioDeHoy();
+    fechaHasta = finDeHoy();
     filtroPagoTipo = '';
     tiposFacturaSeleccionados = [...TODOS_TIPOS_FACTURA];
     tiposNcSeleccionados = [...TODOS_TIPOS_NC];
     mostrarInforme = false;
     informeData = null;
     error = null;
+    filtrosBuscados = null;
   };
 
   // Descargar PDF
@@ -175,8 +212,8 @@
     try {
       const params = new URLSearchParams();
       params.append('vendedorCodigo', vendedorSeleccionado);
-      params.append('fechaDesde', fechaDesde);
-      params.append('fechaHasta', fechaHasta);
+      params.append('fechaDesde', aISOFecha(fechaDesde));
+      params.append('fechaHasta', aISOFecha(fechaHasta));
       params.append('tiposFactura', tiposFacturaSeleccionados.join(','));
       params.append('tiposNotaCredito', tiposNcSeleccionados.join(','));
       if (filtroPagoTipo) params.append('pagoTipo', filtroPagoTipo);
@@ -194,7 +231,7 @@
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `informe-vendedor-${vendedorSeleccionado}-${fechaDesde}-${fechaHasta}.pdf`;
+      a.download = `informe-vendedor-${vendedorSeleccionado}-${aISOFecha(fechaDesde)}-${aISOFecha(fechaHasta)}.pdf`;
       document.body.appendChild(a);
       a.click();
       
@@ -222,8 +259,8 @@
         tiposNotaCredito?: string[];
       } | undefined;
       if (filters?.vendedorSeleccionado) vendedorSeleccionado = filters.vendedorSeleccionado;
-      if (filters?.fechaDesde) fechaDesde = filters.fechaDesde;
-      if (filters?.fechaHasta) fechaHasta = filters.fechaHasta;
+      fechaDesde = deISOFecha(filters?.fechaDesde ?? '') ?? fechaDesde;
+      fechaHasta = deISOFecha(filters?.fechaHasta ?? '', fechaHasta) ?? fechaHasta;
       if (filters?.pagoTipo) filtroPagoTipo = filters.pagoTipo;
       if (Array.isArray(filters?.tiposFactura)) tiposFacturaSeleccionados = filters.tiposFactura;
       if (Array.isArray(filters?.tiposNotaCredito)) tiposNcSeleccionados = filters.tiposNotaCredito;
@@ -255,8 +292,8 @@
         scroll: typeof window !== 'undefined' ? window.scrollY : 0,
         filters: {
           vendedorSeleccionado,
-          fechaDesde,
-          fechaHasta,
+          fechaDesde: aISOFecha(fechaDesde),
+          fechaHasta: aISOFecha(fechaHasta),
           pagoTipo: filtroPagoTipo,
           tiposFactura: tiposFacturaSeleccionados,
           tiposNotaCredito: tiposNcSeleccionados
@@ -273,10 +310,32 @@
   </h1>
 
   <!-- Formulario de filtros -->
-  <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+  <div
+    class="bg-white p-6 rounded-lg shadow-md mb-6 border transition-colors {filtrosPendientes
+      ? 'border-amber-400'
+      : 'border-transparent'}"
+  >
     <h2 class="text-xl font-semibold text-gray-700 mb-4">Filtros</h2>
     
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="md:col-span-2">
+        <p class="block text-sm font-medium text-gray-700 mb-1">
+          Período <span class="text-red-500">*</span>
+        </p>
+        <RangosFecha bind:desde={fechaDesde} bind:hasta={fechaHasta} className="mb-3" />
+        <div class="flex flex-wrap items-end gap-2">
+          <div>
+            <label for="fechaDesde" class="mb-1 block text-xs text-gray-500">Desde</label>
+            <FechaCampos id="fechaDesde" bind:value={fechaDesde} ariaLabel="Fecha desde" />
+          </div>
+          <span class="mb-2 select-none text-gray-300" aria-hidden="true">→</span>
+          <div>
+            <label for="fechaHasta" class="mb-1 block text-xs text-gray-500">Hasta</label>
+            <FechaCampos id="fechaHasta" bind:value={fechaHasta} ariaLabel="Fecha hasta" />
+          </div>
+        </div>
+      </div>
+
       <!-- Selector de vendedor -->
       <div>
         <label for="vendedor" class="block text-sm font-medium text-gray-700 mb-1">
@@ -312,32 +371,6 @@
           {/each}
         </select>
       </div>
-
-      <!-- Fecha desde -->
-      <div>
-        <label for="fechaDesde" class="block text-sm font-medium text-gray-700 mb-1">
-          Fecha Desde <span class="text-red-500">*</span>
-        </label>
-        <input 
-          id="fechaDesde" 
-          type="date" 
-          bind:value={fechaDesde}
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-
-      <!-- Fecha hasta -->
-      <div>
-        <label for="fechaHasta" class="block text-sm font-medium text-gray-700 mb-1">
-          Fecha Hasta <span class="text-red-500">*</span>
-        </label>
-        <input 
-          id="fechaHasta" 
-          type="date" 
-          bind:value={fechaHasta}
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -360,7 +393,12 @@
     </div>
 
     <!-- Botones -->
-    <div class="flex justify-end space-x-3 mt-6">
+    <div class="flex flex-wrap items-center justify-end gap-3 mt-6">
+      {#if filtrosPendientes}
+        <p class="text-sm font-medium text-amber-700">
+          Cambiaste los filtros. Presioná Buscar para actualizar el informe.
+        </p>
+      {/if}
       <Button variant="secondary" on:click={limpiarFormulario}>
         Limpiar
       </Button>
@@ -372,11 +410,16 @@
           Descargar PDF
         </Button>
       {/if}
-      <Button variant="primary" on:click={generarInforme} disabled={loading || !vendedorSeleccionado}>
+      <Button
+        variant="primary"
+        on:click={generarInforme}
+        disabled={loading || !vendedorSeleccionado}
+        className={filtrosPendientes ? 'ring-4 ring-amber-400 animate-pulse' : ''}
+      >
         {#if loading}
           <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
         {/if}
-        Generar Informe
+        {loading ? 'Buscando...' : 'Buscar'}
       </Button>
     </div>
   </div>

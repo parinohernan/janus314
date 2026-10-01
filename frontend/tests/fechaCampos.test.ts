@@ -4,6 +4,7 @@ import {
 	ajustarCampo,
 	aISOFecha,
 	debeAvanzarAlTipear,
+	deISOFecha,
 	diasEnMes,
 	fechaLocal,
 	interpretarBorrador,
@@ -17,6 +18,14 @@ describe('fechaCampos', () => {
 		expect(partesDeFecha(fecha)).toEqual({ dia: 25, mes: 9, anio: 2026 });
 		expect(fecha.getHours()).toBe(23);
 		expect(aISOFecha(fecha)).toBe('2026-09-25');
+	});
+
+	it('parsea YYYY-MM-DD en hora local, ida y vuelta con aISOFecha', () => {
+		const fecha = deISOFecha('2026-09-01', new Date(2000, 0, 1, 23, 59, 59, 999));
+		expect(partesDeFecha(fecha!)).toEqual({ dia: 1, mes: 9, anio: 2026 });
+		expect(fecha!.getHours()).toBe(23);
+		expect(aISOFecha(fecha!)).toBe('2026-09-01');
+		expect(deISOFecha('basura')).toBeNull();
 	});
 
 	it('acota el día al último del mes, incluyendo febrero bisiesto', () => {

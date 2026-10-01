@@ -418,6 +418,22 @@ exports.detalleVentasPorVendedor = async (req, res) => {
 // INFORME DE FACTURACIÓN
 // ================================================================
 
+// Se envía repetido (?localidad=A&localidad=B) porque los nombres pueden tener comas.
+// Devuelve null si no hay filtro de localidad.
+async function codigosClientesDeLocalidades(Cliente, localidadQuery) {
+  const localidades = [].concat(localidadQuery || [])
+    .map((l) => String(l).trim())
+    .filter(Boolean);
+  if (!localidades.length) return null;
+
+  const clientes = await Cliente.findAll({
+    where: { Localidad: { [Op.in]: localidades } },
+    attributes: ['Codigo'],
+    raw: true
+  });
+  return clientes.map((c) => c.Codigo);
+}
+
 // Informe completo de facturación
 exports.informeFacturacion = async (req, res) => {
   try {
@@ -454,6 +470,11 @@ exports.informeFacturacion = async (req, res) => {
     };
     if (pagoTipo) {
       whereClause.PagoTipo = pagoTipo;
+    }
+
+    const clientesDeLocalidades = await codigosClientesDeLocalidades(Cliente, req.query.localidad);
+    if (clientesDeLocalidades) {
+      whereClause.ClienteCodigo = { [Op.in]: clientesDeLocalidades };
     }
 
     console.log("Consultando facturas con whereClause:", whereClause);
@@ -572,6 +593,11 @@ exports.informeFacturacionNeta = async (req, res) => {
       whereFacturas.PagoTipo = pagoTipo;
     }
 
+    const clientesDeLocalidades = await codigosClientesDeLocalidades(Cliente, req.query.localidad);
+    if (clientesDeLocalidades) {
+      whereFacturas.ClienteCodigo = { [Op.in]: clientesDeLocalidades };
+    }
+
     const facturas = await FacturaCabeza.findAll({
       where: whereFacturas,
       attributes: [
@@ -634,12 +660,17 @@ exports.informeFacturacionNeta = async (req, res) => {
       TIPOS_NC_DEFAULT
     );
 
+    const whereNotasDelPeriodo = {
+      Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
+      FechaAnulacion: null,
+      DocumentoTipo: TIPOS_NC_DEFAULT
+    };
+    if (clientesDeLocalidades) {
+      whereNotasDelPeriodo.CodigoCliente = { [Op.in]: clientesDeLocalidades };
+    }
+
     const notasDelPeriodo = await NotaCredito.findAll({
-      where: {
-        Fecha: { [Op.between]: [fechaDesde, fechaHasta] },
-        FechaAnulacion: null,
-        DocumentoTipo: TIPOS_NC_DEFAULT
-      },
+      where: whereNotasDelPeriodo,
       attributes: [
         'DocumentoTipo',
         'DocumentoSucursal',

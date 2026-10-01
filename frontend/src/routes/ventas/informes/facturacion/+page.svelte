@@ -3,8 +3,12 @@
   import { beforeNavigate } from '$app/navigation';
   import { browser } from '$app/environment';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
-  import DatePicker from '$lib/components/DatePicker.svelte';
+  import FechaCampos from '$lib/components/ui/FechaCampos.svelte';
+  import RangosFecha from '$lib/components/ui/RangosFecha.svelte';
+  import { aISOFecha, deISOFecha } from '$lib/utils/fechaCampos';
+  import { rangoFecha } from '$lib/utils/rangosFecha';
   import Button from '$lib/components/ui/Button.svelte';
+  import MultiSelect from '$lib/components/ui/MultiSelect.svelte';
   import Chart from '$lib/components/Chart.svelte';
   import { formatDate } from '$lib/utils/dateUtils';
   import { PieChart, TrendingUp, FileText } from 'lucide-svelte';
@@ -19,11 +23,49 @@
   let datos: any = null;
 
   // Filtros
-  let fechaDesde = new Date();
-  let fechaHasta = new Date();
+  const periodoInicial = rangoFecha('mes_actual');
+  let fechaDesde: Date = periodoInicial.desde;
+  let fechaHasta: Date = periodoInicial.hasta;
   let agruparPor: 'dia' | 'semana' | 'mes' = 'dia';
   let filtroPagoTipo = '';
   let formasPago: { value: string; label: string }[] = [];
+  let localidades: { value: string; label: string }[] = [];
+  let localidadesSeleccionadas: string[] = [];
+
+  // Filtros con los que se armó el informe visible, para avisar cuando cambian
+  let filtrosBuscados: string | null = null;
+  let agruparPorBuscado: 'dia' | 'semana' | 'mes' = 'dia';
+
+  function firmaFiltros(
+    desde: Date,
+    hasta: Date,
+    agrupar: string,
+    pago: string,
+    locs: string[]
+  ): string {
+    return JSON.stringify([
+      aISOFecha(desde),
+      aISOFecha(hasta),
+      agrupar,
+      pago,
+      [...locs].sort()
+    ]);
+  }
+
+  $: filtrosActuales = firmaFiltros(fechaDesde, fechaHasta, agruparPor, filtroPagoTipo, localidadesSeleccionadas);
+  $: filtrosPendientes = filtrosBuscados !== null && filtrosActuales !== filtrosBuscados;
+
+  async function cargarLocalidades() {
+    try {
+      const response = await fetchWithAuth('/clientes/localidades');
+      if (!response.ok) return;
+      const result: string[] = await response.json();
+      localidades = (result || []).map((nombre) => ({ value: nombre, label: nombre }));
+    } catch (err) {
+      console.error('Error cargando localidades:', err);
+      localidades = [];
+    }
+  }
 
   async function cargarFormasPago() {
     try {
@@ -51,25 +93,15 @@
         fechaHasta?: string;
         agruparPor?: 'dia' | 'semana' | 'mes';
         pagoTipo?: string;
+        localidades?: string[];
       } | undefined;
       if (filters?.pagoTipo) filtroPagoTipo = filters.pagoTipo;
-      if (filters?.fechaDesde) fechaDesde = new Date(filters.fechaDesde);
-      else {
-        const hoy = new Date();
-        fechaDesde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-      }
-      if (filters?.fechaHasta) fechaHasta = new Date(filters.fechaHasta);
-      else {
-        const hoy = new Date();
-        fechaHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
-      }
+      if (Array.isArray(filters?.localidades)) localidadesSeleccionadas = filters.localidades;
+      fechaDesde = deISOFecha(filters?.fechaDesde ?? '') ?? fechaDesde;
+      fechaHasta = deISOFecha(filters?.fechaHasta ?? '', fechaHasta) ?? fechaHasta;
       if (filters?.agruparPor) agruparPor = filters.agruparPor;
-    } else {
-      const hoy = new Date();
-      fechaDesde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-      fechaHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
     }
-    await cargarFormasPago();
+    await Promise.all([cargarFormasPago(), cargarLocalidades()]);
     await cargarDatos();
     if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
       requestAnimationFrame(() => window.scrollTo(0, savedScroll));
@@ -83,10 +115,11 @@
         ...currentState,
         scroll: typeof window !== 'undefined' ? window.scrollY : 0,
         filters: {
-          fechaDesde: fechaDesde.toISOString().split('T')[0],
-          fechaHasta: fechaHasta.toISOString().split('T')[0],
+          fechaDesde: aISOFecha(fechaDesde),
+          fechaHasta: aISOFecha(fechaHasta),
           agruparPor,
-          pagoTipo: filtroPagoTipo
+          pagoTipo: filtroPagoTipo,
+          localidades: localidadesSeleccionadas
         }
       });
     }
@@ -97,13 +130,15 @@
     try {
       loading = true;
       error = null;
+      filtrosBuscados = firmaFiltros(fechaDesde, fechaHasta, agruparPor, filtroPagoTipo, localidadesSeleccionadas);
 
       const params = new URLSearchParams({
-        fechaDesde: fechaDesde.toISOString().split('T')[0],
-        fechaHasta: fechaHasta.toISOString().split('T')[0],
+        fechaDesde: aISOFecha(fechaDesde),
+        fechaHasta: aISOFecha(fechaHasta),
         agruparPor: agruparPor
       });
       if (filtroPagoTipo) params.append('pagoTipo', filtroPagoTipo);
+      for (const localidad of localidadesSeleccionadas) params.append('localidad', localidad);
 
       const response = await fetchWithAuth(`/informes/facturacion?${params}`);
       
@@ -115,6 +150,7 @@
       
       if (result.success) {
         datos = result.data;
+        agruparPorBuscado = params.get('agruparPor') as 'dia' | 'semana' | 'mes';
         console.log("Datos recibidos:", datos);
         console.log("Evolución de ventas:", datos.evolucionVentas);
       } else {
@@ -154,11 +190,6 @@
     if (anterior === 0) return actual > 0 ? 100 : 0;
     return ((actual - anterior) / anterior) * 100;
   }
-
-  // Reactive statement para cargar datos cuando cambien los filtros
-  $: if (fechaDesde && fechaHasta && filtroPagoTipo !== undefined) {
-    cargarDatos();
-  }
 </script>
 
 <svelte:head>
@@ -175,34 +206,30 @@
       </h1>
       <p class="text-gray-600 mt-2">Análisis completo de ventas y facturación</p>
     </div>
-    
-    <div class="flex flex-col sm:flex-row gap-3">
-      <select 
-        bind:value={agruparPor}
-        class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-      >
-        <option value="dia">Por Día</option>
-        <option value="semana">Por Semana</option>
-        <option value="mes">Por Mes</option>
-      </select>
-      
-      <Button variant="primary" on:click={cargarDatos} disabled={loading}>
-        {loading ? '🔄 Cargando...' : '🔄 Actualizar'}
-      </Button>
-    </div>
   </div>
 
   <!-- Filtros -->
-  <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+  <div
+    class="bg-white p-6 rounded-xl shadow-sm border transition-colors {filtrosPendientes
+      ? 'border-amber-400'
+      : 'border-gray-200'}"
+  >
     <h2 class="text-lg font-semibold mb-4">Filtros</h2>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div>
-        <label for="fechaDesde" class="block text-sm font-medium text-gray-700 mb-2">Fecha Desde</label>
-        <DatePicker id="fechaDesde" bind:value={fechaDesde} />
-      </div>
-      <div>
-        <label for="fechaHasta" class="block text-sm font-medium text-gray-700 mb-2">Fecha Hasta</label>
-        <DatePicker id="fechaHasta" bind:value={fechaHasta} />
+      <div class="md:col-span-3">
+        <p class="block text-sm font-medium text-gray-700 mb-2">Período</p>
+        <RangosFecha bind:desde={fechaDesde} bind:hasta={fechaHasta} className="mb-3" />
+        <div class="flex flex-wrap items-end gap-2">
+          <div>
+            <label for="fechaDesde" class="mb-1 block text-xs text-gray-500">Desde</label>
+            <FechaCampos id="fechaDesde" bind:value={fechaDesde} ariaLabel="Fecha desde" />
+          </div>
+          <span class="mb-2 select-none text-gray-300" aria-hidden="true">→</span>
+          <div>
+            <label for="fechaHasta" class="mb-1 block text-xs text-gray-500">Hasta</label>
+            <FechaCampos id="fechaHasta" bind:value={fechaHasta} ariaLabel="Fecha hasta" />
+          </div>
+        </div>
       </div>
       <div>
         <label for="filtroPagoTipo" class="block text-sm font-medium text-gray-700 mb-2">Forma de pago</label>
@@ -217,6 +244,42 @@
           {/each}
         </select>
       </div>
+      <div role="group" aria-labelledby="localidades-label">
+        <!-- svelte-ignore a11y_label_has_associated_control -->
+        <label id="localidades-label" class="block text-sm font-medium text-gray-700 mb-2">Localidad</label>
+        <MultiSelect
+          items={localidades}
+          bind:selectedValues={localidadesSeleccionadas}
+          placeholder="Todas las localidades..."
+        />
+      </div>
+      <div>
+        <label for="agruparPor" class="block text-sm font-medium text-gray-700 mb-2">Agrupar</label>
+        <select
+          id="agruparPor"
+          bind:value={agruparPor}
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="dia">Por Día</option>
+          <option value="semana">Por Semana</option>
+          <option value="mes">Por Mes</option>
+        </select>
+      </div>
+    </div>
+    <div class="mt-4 flex flex-wrap items-center justify-end gap-3">
+      {#if filtrosPendientes}
+        <p class="text-sm font-medium text-amber-700">
+          Cambiaste los filtros. Presioná Buscar para actualizar el informe.
+        </p>
+      {/if}
+      <Button
+        variant="primary"
+        on:click={cargarDatos}
+        disabled={loading}
+        className={filtrosPendientes ? 'ring-4 ring-amber-400 animate-pulse' : ''}
+      >
+        {loading ? 'Buscando...' : 'Buscar'}
+      </Button>
     </div>
   </div>
 
@@ -280,9 +343,9 @@
       {#if datos.evolucionVentas && datos.evolucionVentas.length > 0}
         {@const chartData = {
           labels: datos.evolucionVentas.map((item: any) => {
-            if (agruparPor === 'dia') {
+            if (agruparPorBuscado === 'dia') {
               return new Date(item.periodo).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
-            } else if (agruparPor === 'semana') {
+            } else if (agruparPorBuscado === 'semana') {
               return `Sem ${item.periodo.split('-W')[1]}`;
             } else {
               return new Date(item.periodo + '-01').toLocaleDateString('es-AR', { month: 'short' });

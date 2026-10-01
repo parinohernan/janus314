@@ -151,3 +151,13 @@ export function aISOFecha(valor: Date): string {
 	const partes = partesDeFecha(valor);
 	return `${partes.anio}-${padCampo(partes.mes, 'mes')}-${padCampo(partes.dia, 'dia')}`;
 }
+
+/** Inversa de `aISOFecha`: `new Date('YYYY-MM-DD')` es UTC y en GMT-3 cae el día anterior. */
+export function deISOFecha(valor: string, plantilla?: Date): Date | null {
+	const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(valor ?? '');
+	if (!match) return null;
+	return fechaLocal(
+		{ anio: Number(match[1]), mes: Number(match[2]), dia: Number(match[3]) },
+		plantilla
+	);
+}
