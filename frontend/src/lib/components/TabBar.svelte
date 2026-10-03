@@ -101,6 +101,12 @@
     tabsStore.closeTab(tabId);
   }
 
+  function handleCloseAllTabs() {
+    tabsStore.closeAllTabs();
+  }
+
+  let hayPestanasCerrables = $derived(tabs.some((tab) => !tab.pinned));
+
   function handleContextMenu(event: MouseEvent, tabId: string) {
     event.preventDefault();
     contextMenuTabId = tabId;
@@ -172,10 +178,10 @@
 <svelte:window onclick={handleClickOutside} />
 
 {#if tabs.length > 0}
-<div class="tab-bar bg-gray-100 border-b border-gray-300 overflow-hidden relative z-30">
+<div class="tab-bar bg-gray-100 border-b border-gray-300 overflow-hidden relative z-30 flex items-stretch">
   <div 
     bind:this={tabsContainer}
-    class="flex overflow-x-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200"
+    class="flex min-w-0 flex-1 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200"
   >
     {#each tabs as tab (tab.id)}
       <div
@@ -227,6 +233,18 @@
       </div>
     {/each}
   </div>
+  {#if hayPestanasCerrables}
+    <button
+      type="button"
+      class="close-all-btn flex shrink-0 items-center gap-1.5 border-l border-gray-300 bg-gray-100 px-3 text-sm font-medium text-gray-700 hover:bg-red-50 hover:text-red-700"
+      onclick={handleCloseAllTabs}
+      aria-label="Cerrar todas las pestañas"
+      title="Cerrar todas las pestañas"
+    >
+      <Icon icon={X} size={14} strokeWidth={3} />
+      <span class="hidden sm:inline">Cerrar todas</span>
+    </button>
+  {/if}
 </div>
 {/if}
 
