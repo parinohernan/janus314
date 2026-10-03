@@ -26,7 +26,7 @@ export type PosTicketDto = {
 	qr?: string;
 };
 
-const LABEL_TIPO: Record<PosTicketTipo, string> = {
+export const LABEL_TIPO: Record<PosTicketTipo, string> = {
 	PRF: 'PREFACTURA',
 	FCA: 'FACTURA A',
 	FCB: 'TICKET B'
@@ -138,7 +138,12 @@ export function urlQrArca(dto: PosTicketDto): string | null {
 	return `https://www.arca.gob.ar/fe/qr/?p=${aBase64(JSON.stringify(datos))}`;
 }
 
-function fechaVisible(valor?: string): string {
+export const LEYENDA_ARCA =
+	'Esta Agencia no se responsabiliza por los datos ingresados en el detalle de la operación';
+
+export const LEYENDA_PRF = 'Documento no válido como factura';
+
+export function fechaVisible(valor?: string): string {
 	const match = String(valor || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
 	if (!match) return String(valor || '');
 	return `${match[3]}/${match[2]}/${match[1]}`;
@@ -216,7 +221,7 @@ export function ticketPrueba(): PosTicketDto {
 		fecha: '2026-09-20',
 		empresa: { nombre: 'Prueba POS', cuit: '00000000000' },
 		cliente: { codigo: 'CF', descripcion: 'Consumidor Final' },
-		items: [{ cantidad: 1, descripcion: 'Item de prueba', total: 1 }],
+		items: [{ cantidad: 1, descripcion: 'Item de prueba ñ áéí', total: 1 }],
 		totales: { neto: 0.83, iva: 0.17, total: 1 }
 	};
 }
@@ -240,13 +245,13 @@ export function renderPosTicketHtml(dto: PosTicketDto): string {
 	const comprobante = `${dto.sucursal}-${dto.numero}`;
 	const leyendaFiscal =
 		dto.tipo === 'PRF'
-			? '<p class="warn">Documento no válido como factura</p>'
+			? `<p class="warn">${LEYENDA_PRF}</p>`
 			: dto.cae
 				? `<div class="fiscal">
         ${dto.qr ? `<img class="qr" src="${escapeHtml(dto.qr)}" alt="QR ARCA" />` : ''}
         <p class="cae">CAE N°: ${escapeHtml(dto.cae)}</p>
         ${dto.caeVencimiento ? `<p class="cae">Fecha Vto. CAE: ${escapeHtml(fechaVisible(dto.caeVencimiento))}</p>` : ''}
-        <p class="leyenda">Esta Agencia no se responsabiliza por los datos ingresados en el detalle de la operación</p>
+        <p class="leyenda">${escapeHtml(LEYENDA_ARCA)}</p>
       </div>`
 				: '';
 

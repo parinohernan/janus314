@@ -2,6 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { toast } from '$lib/utils/toast';
 	import {
+		COLUMNAS_ESCPOS,
 		loadPosPrinterConfig,
 		savePosPrinterConfig,
 		type PosPrinterConfig
@@ -50,13 +51,27 @@
 		}
 	}
 
-	function guardar() {
-		const saved = savePosPrinterConfig({
+	const ETIQUETA_COLUMNAS: Record<number, string> = {
+		48: '48 columnas (papel de 80 mm)',
+		42: '42 columnas (papel de 58 mm)',
+		32: '32 columnas (papel de 58 mm, letra grande)'
+	};
+
+	function datosFormulario(): Partial<PosPrinterConfig> {
+		return {
 			terminalName: config.terminalName.trim() || 'Caja 1',
 			printerName: config.printerName,
 			anchoMm: 80,
-			copias: Math.max(1, Number(config.copias) || 1)
-		});
+			copias: Math.max(1, Number(config.copias) || 1),
+			modo: config.modo,
+			columnas: Number(config.columnas) || 48,
+			cortarPapel: config.cortarPapel,
+			abrirCajon: config.abrirCajon
+		};
+	}
+
+	function guardar() {
+		const saved = savePosPrinterConfig(datosFormulario());
 		config = saved;
 		dispatch('saved', saved);
 		dispatch('close');
@@ -70,7 +85,7 @@
 		testing = true;
 		error = '';
 		try {
-			savePosPrinterConfig(config);
+			config = savePosPrinterConfig(datosFormulario());
 			await printTicket(ticketPrueba(), config);
 			toast.success('Ticket de prueba enviado');
 		} catch (err) {
@@ -97,7 +112,7 @@
 		on:keydown={onKeyDown}
 	>
 		<div
-			class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+			class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="pos-printer-title"
@@ -130,6 +145,38 @@
 					<option value={printer}>{printer}</option>
 				{/each}
 			</select>
+
+			<label class="mt-4 block text-sm font-medium text-slate-700" for="pos-printer-mode">Modo de impresión</label>
+			<select
+				id="pos-printer-mode"
+				bind:value={config.modo}
+				class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-base outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+			>
+				<option value="qz">QZ (imagen HTML)</option>
+				<option value="escpos">ESC/POS (Epson TM-T20II, recomendado)</option>
+			</select>
+
+			{#if config.modo === 'escpos'}
+				<label class="mt-4 block text-sm font-medium text-slate-700" for="pos-printer-columns">Columnas</label>
+				<select
+					id="pos-printer-columns"
+					bind:value={config.columnas}
+					class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-base outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+				>
+					{#each COLUMNAS_ESCPOS as columnas}
+						<option value={columnas}>{ETIQUETA_COLUMNAS[columnas]}</option>
+					{/each}
+				</select>
+
+				<label class="mt-4 flex items-center gap-2 text-sm text-slate-700">
+					<input type="checkbox" bind:checked={config.cortarPapel} class="h-4 w-4" />
+					Cortar papel al final
+				</label>
+				<label class="mt-2 flex items-center gap-2 text-sm text-slate-700">
+					<input type="checkbox" bind:checked={config.abrirCajon} class="h-4 w-4" />
+					Abrir cajón de dinero
+				</label>
+			{/if}
 
 			<label class="mt-4 block text-sm font-medium text-slate-700" for="pos-printer-copies">Copias</label>
 			<input

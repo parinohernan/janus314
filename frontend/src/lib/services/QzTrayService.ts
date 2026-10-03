@@ -3,6 +3,9 @@ import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 import { loadPosPrinterConfig, type PosPrinterConfig } from '$lib/utils/posPrinterConfig';
 import { renderPosTicketHtml, type PosTicketDto } from '$lib/utils/posTicketHtml';
 import { prepararTicketFiscal } from '$lib/utils/posTicketQr';
+import { bytesABase64 } from '$lib/utils/escpos/comandos';
+import { logoRaster } from '$lib/utils/escpos/logoRaster';
+import { renderPosTicketEscPos } from '$lib/utils/escpos/ticketEscPos';
 
 export type QzStatus = 'desconectado' | 'conectado' | 'imprimiendo' | 'error';
 
@@ -206,10 +209,55 @@ export async function printPixelHtml(
 	}
 }
 
+export async function printRawEscPos(
+	bytes: Uint8Array,
+	config: PosPrinterConfig = loadPosPrinterConfig()
+): Promise<void> {
+	if (!config.printerName) {
+		throw new QzPrintError('Elegí la impresora de esta caja', 'NO_PRINTER');
+	}
+
+	const qz = await connectQz();
+	qzStatus.set('imprimiendo');
+	try {
+		const qzConfig = qz.configs.create(config.printerName, {
+			copies: config.copias || 1,
+			jobName: 'POS Janus314'
+		});
+		await qz.print(qzConfig, [
+			{
+				type: 'raw',
+				format: 'command',
+				flavor: 'base64',
+				data: bytesABase64(bytes)
+			}
+		]);
+		qzStatus.set('conectado');
+	} catch (error) {
+		qzStatus.set('error');
+		if (error instanceof QzPrintError) throw error;
+		throw new QzPrintError(
+			error instanceof Error ? error.message : 'No se pudo imprimir el ticket',
+			'PRINT_FAILED'
+		);
+	}
+}
+
 export async function printTicket(
 	dto: PosTicketDto,
 	config: PosPrinterConfig = loadPosPrinterConfig()
 ): Promise<void> {
+	if (config.modo === 'escpos') {
+		const logo = await logoRaster(dto.empresa.logo);
+		const bytes = renderPosTicketEscPos(dto, {
+			columnas: config.columnas,
+			cortarPapel: config.cortarPapel,
+			abrirCajon: config.abrirCajon,
+			logo
+		});
+		await printRawEscPos(bytes, config);
+		return;
+	}
 	const fiscal = await prepararTicketFiscal(dto);
 	await printPixelHtml(renderPosTicketHtml(fiscal), config);
 }
