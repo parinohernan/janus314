@@ -3,9 +3,10 @@
   import { auth } from '$lib/stores/authStore';
   import { EmpresaService } from '$lib/services/EmpresaService';
   import { goto } from '$app/navigation';
-  import { Search, User, LogOut, X } from 'lucide-svelte';
+  import { Bug, Search, User, LogOut } from 'lucide-svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
   import { toast } from '$lib/utils/toast';
+  import { devOptions } from '$lib/stores/devOptionsStore';
 
   let logo = "/janus314.png";
   let logoEmpresa = $state("");
@@ -15,8 +16,19 @@
   let unsubscribe: () => void;
   let searchQuery = $state('');
   let showSearch = $state(false);
+  let devUnlocked = $state(false);
+  let showDevGate = $state(false);
+  let showDevMenu = $state(false);
+  let devPassword = $state('');
+  let devPasswordError = $state('');
 
   onMount(() => {
+    devOptions.hydrate();
+    const unsubscribeDev = devOptions.subscribe((unlocked) => {
+      devUnlocked = unlocked;
+      if (!unlocked) showDevMenu = false;
+    });
+
     // Suscribirse a cambios en el estado de autenticación
     unsubscribe = auth.subscribe(state => {
       isLoggedIn = state.isAuthenticated;
@@ -35,6 +47,7 @@
     });
 
     return () => {
+      unsubscribeDev();
       if (unsubscribe) {
         unsubscribe();
       }
@@ -56,15 +69,52 @@
       setTimeout(() => {
         document.getElementById('universal-search')?.focus();
       }, 100);
+    } else {
+      showDevGate = false;
     }
   }
 
   function handleSearch() {
-    if (searchQuery.trim()) {
-      console.log('Buscando:', searchQuery);
-      // TODO: Implementar búsqueda universal
-      toast.info('Búsqueda universal en desarrollo: ' + searchQuery);
+    const query = searchQuery.trim();
+    if (!query) return;
+
+    if (query.toLowerCase() === 'janus') {
+      searchQuery = '';
+      if (devUnlocked) {
+        showDevGate = false;
+        showDevMenu = true;
+        return;
+      }
+      devPassword = '';
+      devPasswordError = '';
+      showDevGate = true;
+      setTimeout(() => {
+        document.getElementById('dev-options-password')?.focus();
+      }, 50);
+      return;
     }
+
+    showDevGate = false;
+    console.log('Buscando:', query);
+    toast.info('Búsqueda universal en desarrollo: ' + query);
+  }
+
+  function submitDevPassword() {
+    if (devOptions.unlock(devPassword)) {
+      showDevGate = false;
+      devPassword = '';
+      devPasswordError = '';
+      showDevMenu = true;
+      toast.success('Opciones de desarrollador activadas');
+      return;
+    }
+    devPasswordError = 'Contraseña incorrecta';
+  }
+
+  function deactivateDevOptions() {
+    devOptions.lock();
+    showDevMenu = false;
+    toast.info('Opciones de desarrollador desactivadas');
   }
 </script>
 
@@ -126,6 +176,43 @@
                 ✕
               </button>
             </div>
+            {#if showDevGate}
+              <button
+                class="fixed inset-0 z-40 cursor-default"
+                aria-label="Cerrar"
+                onclick={() => (showDevGate = false)}
+              ></button>
+              <form
+                class="absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border border-gray-600 bg-gray-800 p-3 shadow-xl"
+                onsubmit={(e) => {
+                  e.preventDefault();
+                  submitDevPassword();
+                }}
+              >
+                <p class="mb-2 text-sm text-gray-200">
+                  Ingrese contraseña para activar opciones de desarrollador
+                </p>
+                <input
+                  id="dev-options-password"
+                  type="password"
+                  bind:value={devPassword}
+                  placeholder="Contraseña"
+                  class="w-full rounded bg-gray-700 px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onkeydown={(e) => {
+                    if (e.key === 'Escape') showDevGate = false;
+                  }}
+                />
+                {#if devPasswordError}
+                  <p class="mt-1 text-xs text-red-400">{devPasswordError}</p>
+                {/if}
+                <button
+                  type="submit"
+                  class="mt-2 w-full rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  Activar
+                </button>
+              </form>
+            {/if}
           {:else}
             <button
               class="transition-all duration-200"
@@ -137,6 +224,38 @@
             </button>
           {/if}
         </div>
+
+        {#if devUnlocked}
+          <div class="relative">
+            <button
+              class="transition-all duration-200"
+              onclick={() => (showDevMenu = !showDevMenu)}
+              aria-label="Opciones de desarrollador"
+              title="Opciones de desarrollador"
+            >
+              <Icon icon={Bug} size={20} strokeWidth={2.5} glass={true} />
+            </button>
+            {#if showDevMenu}
+              <button
+                class="fixed inset-0 z-40 cursor-default"
+                aria-label="Cerrar menú"
+                onclick={() => (showDevMenu = false)}
+              ></button>
+              <div class="absolute right-0 top-full z-50 mt-2 w-64 rounded-lg border border-amber-700/60 bg-gray-900 p-3 shadow-xl">
+                <p class="text-sm font-semibold text-amber-300">Opciones de desarrollador</p>
+                <p class="mt-1 text-xs text-gray-400">
+                  Funciones para implementadores y depuración.
+                </p>
+                <button
+                  class="mt-3 w-full rounded border border-gray-600 px-3 py-1.5 text-sm text-gray-200 hover:bg-gray-800"
+                  onclick={deactivateDevOptions}
+                >
+                  Desactivar
+                </button>
+              </div>
+            {/if}
+          </div>
+        {/if}
         
         <!-- Usuario -->
         <div class="flex items-center gap-2 text-sm">

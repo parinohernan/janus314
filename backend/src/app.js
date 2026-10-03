@@ -53,6 +53,7 @@ const proveedoresNotaCreditoRoutes = require('./routes/proveedoresNotaCredito.ro
 const proveedoresNotaDebitoRoutes = require('./routes/proveedoresNotaDebito.routes');
 const optimizacionRoutes = require('./routes/optimizacion.routes');
 const backupRoutes = require('./routes/backup.routes');
+const desarrolladorRoutes = require('./routes/desarrollador.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const wikiRoutes = require('./routes/wiki.routes');
 const posRoutes = require('./routes/pos.routes');
@@ -194,6 +195,9 @@ app.use('/api/optimizacion', getEmpresaConnection, requireAdmin, optimizacionRou
 
 // Backups de la empresa (admin lista/genera; superadm restaura). No abre el pool del tenant.
 app.use('/api/backups', getEmpresaConnection.requireAuthEmpresaOnly, backupRoutes);
+
+// Opciones de desarrollador (reseteo de base por etapas)
+app.use('/api/desarrollador', getEmpresaConnection, desarrolladorRoutes);
 
 // Wiki / Ayuda (contenido compartido en BD maestra)
 app.use('/api/wiki', getEmpresaConnection.requireAuthEmpresaOnly, wikiRoutes);

@@ -10,6 +10,7 @@ const {
   prepararActualizacionPreciosStock,
   OBSERVACION_AJUSTE,
 } = require('../utils/actualizarPreciosStock');
+const { analizarCatalogoCsv } = require('../utils/importarCatalogoCsv');
 
 // Configurar multer
 const storage = multer.diskStorage({
@@ -1658,6 +1659,205 @@ exports.ensurePosVarios = async (req, res) => {
       success: false,
       message: "Error al preparar artículos de rubro",
       error: error.message,
+    });
+  }
+};
+
+const CAMPOS_IMPORTACION = [
+  'Descripcion',
+  'PorcentajeIVA1',
+  'PrecioCosto',
+  'PrecioCostoMasImp',
+  'Lista1',
+  'Lista2',
+  'Lista3',
+  'Lista4',
+  'Lista5',
+  'CodigoBarras',
+  'ProveedorCodigo',
+];
+
+function enBloques(lista, tamano) {
+  const bloques = [];
+  for (let i = 0; i < lista.length; i += tamano) {
+    bloques.push(lista.slice(i, i + tamano));
+  }
+  return bloques;
+}
+
+async function codigosExistentes(Articulo, codigos) {
+  const mapa = new Map();
+  for (const bloque of enBloques(codigos, 500)) {
+    if (!bloque.length) continue;
+    const filas = await Articulo.findAll({
+      attributes: ['Codigo', 'PrecioCosto'],
+      where: { Codigo: { [Op.in]: bloque } },
+      raw: true,
+    });
+    for (const fila of filas) mapa.set(fila.Codigo, fila);
+  }
+  return mapa;
+}
+
+async function codigosProveedorExistentes(Proveedor, codigos) {
+  const existentes = new Set();
+  for (const bloque of enBloques(codigos, 500)) {
+    if (!bloque.length) continue;
+    const filas = await Proveedor.findAll({
+      attributes: ['Codigo'],
+      where: { Codigo: { [Op.in]: bloque } },
+      raw: true,
+    });
+    for (const fila of filas) existentes.add(fila.Codigo);
+  }
+  return existentes;
+}
+
+function resumenImportacion(analisis, porCodigo, proveedoresNuevos) {
+  let nuevos = 0;
+  let actualizar = 0;
+  for (const articulo of analisis.validos) {
+    if (porCodigo.has(articulo.Codigo)) actualizar += 1;
+    else nuevos += 1;
+  }
+  return {
+    filas: analisis.validos.length + analisis.errores.length,
+    nuevos,
+    actualizar,
+    omitidos: analisis.errores.length,
+    proveedoresNuevos: proveedoresNuevos.map((p) => ({
+      codigo: p.codigo,
+      descripcion: p.descripcion,
+    })),
+    barrasDuplicadas: analisis.barrasDuplicadas.slice(0, 50),
+    barrasDuplicadasTotal: analisis.barrasDuplicadas.length,
+    errores: analisis.errores.slice(0, 50),
+    erroresTotal: analisis.errores.length,
+  };
+}
+
+exports.importarCatalogo = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No se ha proporcionado ningún archivo' });
+    }
+    const nombre = req.file.originalname || '';
+    if (!nombre.toLowerCase().endsWith('.csv')) {
+      return res.status(400).json({ message: 'Solo se permiten archivos CSV' });
+    }
+
+    const confirmar = String(req.body.confirmar || '').toLowerCase() === 'true';
+    const analisis = analizarCatalogoCsv(req.file.buffer.toString('utf8'));
+    if (analisis.errorArchivo) {
+      return res.status(400).json({ message: analisis.errorArchivo });
+    }
+    if (!analisis.validos.length) {
+      return res.status(400).json({
+        message: 'No hay filas válidas para importar',
+        errores: analisis.errores.slice(0, 50),
+        erroresTotal: analisis.errores.length,
+      });
+    }
+
+    const { Articulo, Proveedor, ArticuloCostoHistorial } = req.models;
+    const porCodigo = await codigosExistentes(
+      Articulo,
+      analisis.validos.map((a) => a.Codigo)
+    );
+    const proveedoresArchivo = [...analisis.proveedores.values()];
+    const yaExistentes = await codigosProveedorExistentes(
+      Proveedor,
+      proveedoresArchivo.map((p) => p.codigo)
+    );
+    const proveedoresNuevos = proveedoresArchivo.filter((p) => !yaExistentes.has(p.codigo));
+    const resumen = resumenImportacion(analisis, porCodigo, proveedoresNuevos);
+
+    if (!confirmar) {
+      return res.status(200).json({ success: true, confirmado: false, ...resumen });
+    }
+
+    await ensureCostoHistorialSchema(req.db);
+    const transaction = await req.db.transaction();
+    const ahora = new Date();
+    try {
+      if (proveedoresNuevos.length) {
+        await Proveedor.bulkCreate(
+          proveedoresNuevos.map((p) => ({
+            Codigo: p.codigo,
+            Descripcion: p.descripcion,
+            ImporteDeuda: 0,
+            Enviado: 0,
+            SaldoNTCNoAplicado: 0,
+            Activo: true,
+          })),
+          { transaction }
+        );
+      }
+
+      const historial = [];
+      let creados = 0;
+      let actualizados = 0;
+      const filas = analisis.validos.map((articulo) => {
+        const actual = porCodigo.get(articulo.Codigo);
+        if (actual) actualizados += 1;
+        else creados += 1;
+        const costoAnterior = actual ? actual.PrecioCosto : null;
+        if (redondearCosto(costoAnterior) !== redondearCosto(articulo.PrecioCosto)) {
+          historial.push({
+            ArticuloCodigo: articulo.Codigo,
+            Fecha: ahora,
+            PrecioCosto: redondearCosto(articulo.PrecioCosto),
+          });
+        }
+        return {
+          ...ARTICULO_CREATE_DEFAULTS,
+          ...articulo,
+          Existencia: 0,
+          PorcentajeIVA2: 0,
+          Activo: 1,
+          SeVende: 1,
+        };
+      });
+
+      for (const bloque of enBloques(filas, 200)) {
+        await Articulo.bulkCreate(bloque, {
+          updateOnDuplicate: CAMPOS_IMPORTACION,
+          transaction,
+        });
+      }
+
+      for (const bloque of enBloques(historial, 500)) {
+        await ArticuloCostoHistorial.bulkCreate(bloque, { transaction });
+      }
+      const codigosConCosto = historial.map((h) => h.ArticuloCodigo);
+      for (const bloque of enBloques(codigosConCosto, 500)) {
+        await Articulo.update(
+          { FechaActualizacionCosto: ahora },
+          { where: { Codigo: { [Op.in]: bloque } }, transaction }
+        );
+      }
+
+      await transaction.commit();
+      return res.status(200).json({
+        success: true,
+        confirmado: true,
+        ...resumen,
+        creados,
+        actualizados,
+      });
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error al importar catálogo:', error);
+    if (error.name === 'SequelizeForeignKeyConstraintError') {
+      return res.status(400).json({
+        message: 'No se pudo grabar por una referencia inexistente en la base',
+      });
+    }
+    return res.status(500).json({
+      message: error.message || 'Error al importar el catálogo',
     });
   }
 };

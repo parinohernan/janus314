@@ -79,6 +79,14 @@ export function navigateToTab(
  * @returns Label generado
  */
 export function getLabelFromUrl(url: string): string {
+  const etiquetasExactas: Record<string, string> = {
+    '/desarrollador/base-de-datos': 'Base de datos - optimizar',
+    '/desarrollador/resetear': 'Base de datos - resetear',
+    '/desarrollador/clientes': 'Clientes - importar',
+    '/desarrollador/productos': 'Productos - importar'
+  };
+  if (etiquetasExactas[url]) return etiquetasExactas[url];
+
   const pathParts = url.split('/').filter(p => p);
   
   if (pathParts.length === 0) return 'Inicio';

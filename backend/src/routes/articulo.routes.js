@@ -31,8 +31,19 @@ const upload = multer({
   }
 });
 
+const uploadCsv = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 }
+}).single('archivo');
+
 // Rutas específicas primero
 router.post("/procesar-lista-precios", upload.single('archivo'), articuloController.procesarListaPrecios);
+router.post("/importar-catalogo", (req, res, next) => {
+  uploadCsv(req, res, (err) => {
+    if (err) return res.status(400).json({ message: err.message || 'No se pudo leer el archivo' });
+    next();
+  });
+}, articuloController.importarCatalogo);
 router.get("/stock-bajo", articuloController.getStockBajo);
 router.post("/asociar-codigo", articuloController.asociarCodigoBarras);
 router.post("/actualizar-precios", articuloController.actualizarPrecios);

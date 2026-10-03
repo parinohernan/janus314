@@ -12,6 +12,7 @@ const {
   describirErrorCliente,
 } = require("../utils/clientePersistencia.util");
 const { ensureClienteConsumidorFinal } = require("../utils/posVarios");
+const { analizarClientesCsv, normalizarNombre } = require("../utils/importarClientesCsv");
 
 // Obtener todos los clientes (con filtros y paginación)
 const getAllClientes = async (req, res) => {
@@ -623,7 +624,223 @@ const ensurePosCf = async (req, res) => {
   }
 };
 
+const CAMPOS_IMPORTACION_CLIENTE = [
+  "Descripcion",
+  "Calle",
+  "Localidad",
+  "CodigoPostal",
+  "ProvinciaCodigo",
+  "Telefono",
+  "Mail",
+  "Cuit",
+  "CategoriaIva",
+  "TipoDocumento",
+  "Activo",
+];
+
+function enBloques(lista, tamano) {
+  const bloques = [];
+  for (let i = 0; i < lista.length; i += tamano) {
+    bloques.push(lista.slice(i, i + tamano));
+  }
+  return bloques;
+}
+
+async function clientesExistentes(Cliente, codigos) {
+  const existentes = new Set();
+  for (const bloque of enBloques(codigos, 500)) {
+    if (!bloque.length) continue;
+    const filas = await Cliente.findAll({
+      attributes: ["Codigo"],
+      where: { Codigo: { [Op.in]: bloque } },
+      raw: true,
+    });
+    for (const fila of filas) existentes.add(fila.Codigo);
+  }
+  return existentes;
+}
+
+async function provinciasPorNombre(Provincia) {
+  const mapa = new Map();
+  if (!Provincia) return mapa;
+  const filas = await Provincia.findAll({ attributes: ["Codigo", "Descripcion"], raw: true });
+  for (const fila of filas) {
+    if (String(fila.Codigo || "").length > 3) continue;
+    mapa.set(normalizarNombre(fila.Descripcion), fila.Codigo);
+  }
+  return mapa;
+}
+
+async function provinciasPorCodigoPostal(Localidad, codigosPostales) {
+  const mapa = new Map();
+  if (!Localidad) return mapa;
+  for (const bloque of enBloques(codigosPostales, 500)) {
+    if (!bloque.length) continue;
+    const filas = await Localidad.findAll({
+      attributes: ["Codigo", "Provincia"],
+      where: { Codigo: { [Op.in]: bloque } },
+      raw: true,
+    });
+    for (const fila of filas) {
+      if (fila.Provincia && String(fila.Provincia).length <= 3) {
+        mapa.set(fila.Codigo, fila.Provincia);
+      }
+    }
+  }
+  return mapa;
+}
+
+async function tiposDocumentoExistentes(db) {
+  try {
+    const [filas] = await db.query("SELECT Codigo FROM t_tiposdedocumento");
+    return new Set(filas.map((f) => String(f.Codigo || "").trim()).filter(Boolean));
+  } catch (error) {
+    return new Set();
+  }
+}
+
+const importarClientes = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No se ha proporcionado ningún archivo" });
+    }
+    const nombre = req.file.originalname || "";
+    if (!nombre.toLowerCase().endsWith(".csv")) {
+      return res.status(400).json({ message: "Solo se permiten archivos CSV" });
+    }
+
+    const confirmar = String(req.body.confirmar || "").toLowerCase() === "true";
+    const analisis = analizarClientesCsv(req.file.buffer.toString("utf8"));
+    if (analisis.errorArchivo) {
+      return res.status(400).json({ message: analisis.errorArchivo });
+    }
+
+    const { Cliente, CategoriaIva, Provincia, Localidad } = req.models;
+    const [existentes, porNombre, categorias, tiposDocumento] = await Promise.all([
+      clientesExistentes(Cliente, analisis.validos.map((c) => c.Codigo)),
+      provinciasPorNombre(Provincia),
+      CategoriaIva.findAll({ attributes: ["Codigo"], raw: true }),
+      tiposDocumentoExistentes(req.db),
+    ]);
+    const codigosPostales = [
+      ...new Set(analisis.validos.map((c) => c.CodigoPostal).filter(Boolean)),
+    ];
+    const porCodigoPostal = await provinciasPorCodigoPostal(Localidad, codigosPostales);
+    const categoriasExistentes = new Set(categorias.map((c) => c.Codigo));
+
+    const errores = [...analisis.errores];
+    const avisos = [...analisis.avisos];
+    const clientes = [];
+    let crearCategoriaF = false;
+
+    for (const cliente of analisis.validos) {
+      const { Provincia: nombreProvincia, fila, ...datos } = cliente;
+      if (!categoriasExistentes.has(datos.CategoriaIva)) {
+        if (datos.CategoriaIva === "F") {
+          crearCategoriaF = true;
+        } else {
+          errores.push({
+            fila,
+            codigo: datos.Codigo,
+            mensaje: `La categoría de IVA ${datos.CategoriaIva} no existe en la base`,
+          });
+          continue;
+        }
+      }
+
+      let provinciaCodigo = nombreProvincia ? porNombre.get(nombreProvincia) : null;
+      if (!provinciaCodigo && datos.CodigoPostal) {
+        provinciaCodigo = porCodigoPostal.get(datos.CodigoPostal) || null;
+      }
+      if (!provinciaCodigo && nombreProvincia) {
+        avisos.push({
+          fila,
+          codigo: datos.Codigo,
+          mensaje: `Provincia no encontrada: ${nombreProvincia}`,
+        });
+      }
+
+      if (datos.TipoDocumento && !tiposDocumento.has(datos.TipoDocumento)) {
+        datos.TipoDocumento = null;
+      }
+
+      clientes.push({ ...datos, ProvinciaCodigo: provinciaCodigo || null });
+    }
+
+    errores.sort((a, b) => (a.fila || 0) - (b.fila || 0));
+    const nuevos = clientes.filter((c) => !existentes.has(c.Codigo)).length;
+    const resumen = {
+      filas: analisis.validos.length + analisis.errores.length,
+      nuevos,
+      actualizar: clientes.length - nuevos,
+      omitidos: errores.length,
+      errores: errores.slice(0, 50),
+      erroresTotal: errores.length,
+      avisos: avisos.slice(0, 50),
+      avisosTotal: avisos.length,
+    };
+
+    if (!clientes.length) {
+      return res.status(400).json({ message: "No hay filas válidas para importar", ...resumen });
+    }
+    if (!confirmar) {
+      return res.status(200).json({ success: true, confirmado: false, ...resumen });
+    }
+
+    const transaction = await req.db.transaction();
+    const hoy = new Date().toISOString().slice(0, 10);
+    try {
+      if (crearCategoriaF) {
+        await CategoriaIva.create(
+          { Codigo: "F", Descripcion: "Consumidor Final" },
+          { transaction }
+        );
+      }
+
+      const filas = clientes.map((c) => ({
+        ...c,
+        Activo: 1,
+        ListaPrecio: "1",
+        ImporteDeuda: 0,
+        SaldoNTCNoAplicado: 0,
+        LimiteCredito: 0,
+        PorcentajeBonificacionGeneral: 0,
+        FechaDeAlta: hoy,
+      }));
+      for (const bloque of enBloques(filas, 200)) {
+        await Cliente.bulkCreate(bloque, {
+          updateOnDuplicate: CAMPOS_IMPORTACION_CLIENTE,
+          transaction,
+        });
+      }
+
+      await transaction.commit();
+      return res.status(200).json({
+        success: true,
+        confirmado: true,
+        ...resumen,
+        creados: resumen.nuevos,
+        actualizados: resumen.actualizar,
+      });
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error al importar clientes:", error);
+    if (error.name === "SequelizeForeignKeyConstraintError") {
+      return res.status(400).json({
+        message: "No se pudo grabar por una referencia inexistente en la base",
+      });
+    }
+    return res.status(500).json({
+      message: error.message || "Error al importar clientes",
+    });
+  }
+};
+
 module.exports = {
+  importarClientes,
   getAllClientes,
   getLocalidadesDistinct,
   getClienteById,

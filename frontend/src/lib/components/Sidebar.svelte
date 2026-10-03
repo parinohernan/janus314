@@ -55,9 +55,13 @@
     BookOpen,
     Percent,
     HardDrive,
-    Store
+    Store,
+    Bug,
+    Database,
+    Trash2
   } from 'lucide-svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
+  import { devOptions } from '$lib/stores/devOptionsStore';
 
   interface SubmenuItem {
     label: string;
@@ -70,11 +74,13 @@
     id: string;
     label: string;
     icon: string;
+    accent?: boolean;
     submenus?: SubmenuItem[];
     items?: SubmenuItem[];
   }
 
   let isCollapsed = $derived($sidebarCollapsed);
+  let devUnlocked = $state(false);
   let expandedMenu = $state<string | null>(null);
   let expandedSubmenu = $state<string | null>(null);
 
@@ -183,7 +189,26 @@
 
     // Ayuda
     'ayuda': CircleHelp,
-    'wiki': BookOpen
+    'wiki': BookOpen,
+
+    'desarrollador': Bug,
+    'dev-bd': Database,
+    'dev-reset': Trash2,
+    'dev-clientes': Users,
+    'dev-productos': Package
+  };
+
+  const devMenuItem: MenuItem = {
+    id: 'desarrollador',
+    label: 'Opciones de desarrollador',
+    icon: 'desarrollador',
+    accent: true,
+    items: [
+      { label: 'Base de datos - optimizar', url: '/desarrollador/base-de-datos', icon: 'dev-bd' },
+      { label: 'Base de datos - resetear', url: '/desarrollador/resetear', icon: 'dev-reset' },
+      { label: 'Clientes - importar', url: '/desarrollador/clientes', icon: 'dev-clientes' },
+      { label: 'Productos - importar', url: '/desarrollador/productos', icon: 'dev-productos' }
+    ]
   };
 
   // Estructura del menú con iconos (sin configuracionItems en definición inicial)
@@ -368,10 +393,10 @@
       })
       .filter((e): e is (typeof baseMenuItems)[0] => e !== null);
 
-    if (soloInformes) {
-      return filtrados.filter((item) => item.id === 'informes');
-    }
-    return filtrados;
+    const visibles = soloInformes
+      ? filtrados.filter((item) => item.id === 'informes')
+      : filtrados;
+    return devUnlocked ? [...visibles, devMenuItem] : visibles;
   });
 
   $effect(() => {
@@ -468,6 +493,16 @@
     }
   });
 
+  onMount(() => {
+    devOptions.hydrate();
+    return devOptions.subscribe((unlocked) => {
+      devUnlocked = unlocked;
+      if (!unlocked && expandedMenu === 'desarrollador') {
+        expandedMenu = null;
+      }
+    });
+  });
+
   onDestroy(() => {
     clearIdleCollapseTimer();
   });
@@ -510,8 +545,11 @@
     {#each menuItems as item (item.id)}
       <div class="menu-item">
         <button
-          class="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-700 transition-all
-            {expandedMenu === item.id ? 'bg-gray-700' : ''}"
+          class="w-full flex items-center gap-3 px-4 py-3 transition-all
+            {item.accent
+              ? 'text-amber-300 hover:bg-amber-900/50'
+              : 'hover:bg-gray-700'}
+            {expandedMenu === item.id ? (item.accent ? 'bg-amber-900/40' : 'bg-gray-700') : ''}"
           onclick={() => toggleMenu(item.id)}
           title={isCollapsed ? item.label : ''}
         >
@@ -528,7 +566,7 @@
 
         <!-- Submenú -->
         {#if !isCollapsed && expandedMenu === item.id}
-          <div class="submenu bg-gray-900">
+          <div class="submenu {item.accent ? 'bg-amber-950 text-amber-100' : 'bg-gray-900'}">
             {#each (item.id === 'configuracion' ? configuracionItems : (item.submenus || item.items || [])) as submenu}
               {#if submenu.submenus}
                 <!-- Item con sub-submenú -->
@@ -553,8 +591,13 @@
                       {#each submenu.submenus as subsubmenu}
                         <a
                           href={subsubmenu.url}
-                          class="flex items-center gap-2 px-8 py-2 text-xs hover:bg-gray-700 transition-all truncate
-                            {isActiveUrl(subsubmenu.url) ? 'bg-gray-600 border-l-2 border-blue-500' : ''}"
+                          class="flex items-center gap-2 px-8 py-2 text-xs transition-all truncate
+                            {item.accent ? 'hover:bg-amber-900/50' : 'hover:bg-gray-700'}
+                            {isActiveUrl(subsubmenu.url)
+                              ? item.accent
+                                ? 'bg-amber-900/60 border-l-2 border-amber-400'
+                                : 'bg-gray-600 border-l-2 border-blue-500'
+                              : ''}"
                           onclick={(e) => handleNavigation(e, subsubmenu.url, subsubmenu.label, subsubmenu.icon ? iconMap[subsubmenu.icon] : undefined)}
                         >
                           {#if subsubmenu.icon && iconMap[subsubmenu.icon]}
@@ -572,8 +615,13 @@
                 <!-- Item simple -->
                 <a
                   href={submenu.url}
-                  class="flex items-center gap-2 px-6 py-2 text-sm hover:bg-gray-700 transition-all truncate
-                    {isActiveUrl(submenu.url) ? 'bg-gray-600 border-l-2 border-blue-500' : ''}"
+                  class="flex items-center gap-2 px-6 py-2 text-sm transition-all truncate
+                    {item.accent ? 'hover:bg-amber-900/50' : 'hover:bg-gray-700'}
+                    {isActiveUrl(submenu.url)
+                      ? item.accent
+                        ? 'bg-amber-900/60 border-l-2 border-amber-400'
+                        : 'bg-gray-600 border-l-2 border-blue-500'
+                      : ''}"
                   onclick={(e) => handleNavigation(e, submenu.url, submenu.label, submenu.icon ? iconMap[submenu.icon] : undefined)}
                 >
                   {#if submenu.icon && iconMap[submenu.icon]}
