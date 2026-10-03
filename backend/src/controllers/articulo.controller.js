@@ -4,8 +4,8 @@ const XLSX = require("xlsx");
 const multer = require('multer');
 const path = require('path');
 const { alicuotaIvaArticulo } = require('../utils/ivaArticulo');
-const { registrarCostoSiCambio, ultimosCostos, ultimosCostosPorCodigos } = require('../utils/costoHistorial');
-const { registrarAjusteExistencia } = require('../utils/ajusteExistencia');
+const { registrarCostoSiCambio, ultimosCostos, ultimosCostosPorCodigos, ensureCostoHistorialSchema, redondearCosto, preciosAnterioresPorCodigos } = require('../utils/costoHistorial');
+const { registrarAjusteExistencia, registrarAjustesEnBloque } = require('../utils/ajusteExistencia');
 const {
   prepararActualizacionPreciosStock,
   OBSERVACION_AJUSTE,
@@ -145,9 +145,20 @@ exports.getAllArticulosForPricing = async (req, res) => {
       ]
     });
 
+    const anteriores = await preciosAnterioresPorCodigos(
+      req.db,
+      articulos.map((articulo) => articulo.Codigo)
+    );
+    const items = articulos.map((articulo) => {
+      const plano = articulo.toJSON();
+      const anterior = anteriores.get(String(articulo.Codigo).trim());
+      plano.PrecioAnterior = anterior === undefined ? null : anterior;
+      return plano;
+    });
+
     return res.status(200).json({
-      items: articulos,
-      total: articulos.length
+      items,
+      total: items.length
     });
 
   } catch (error) {
@@ -1061,88 +1072,101 @@ exports.actualizarPreciosManual = async (req, res) => {
 };
 
 exports.actualizarPreciosStock = async (req, res) => {
+  const { articulos } = req.body;
+  if (!articulos || !Array.isArray(articulos) || articulos.length === 0) {
+    return res.status(400).json({ message: "Debe proporcionar una lista de artículos" });
+  }
+
+  let transaction = null;
   try {
-    const { Articulo } = req.models;
-    const { articulos } = req.body;
+    const { Articulo, ArticuloCostoHistorial } = req.models;
+    await ensureCostoHistorialSchema(req.db);
 
-    if (!articulos || !Array.isArray(articulos) || articulos.length === 0) {
-      return res.status(400).json({ message: "Debe proporcionar una lista de artículos" });
-    }
-
-    let actualizados = 0;
-    let movimientosCreados = 0;
     const errores = [];
-
+    const porItem = new Map();
     for (const item of articulos) {
-      const codigo = item?.Codigo;
+      const codigo = String(item?.Codigo || "").trim();
       if (!codigo) {
-        errores.push({ codigo: '', mensaje: 'Código de artículo requerido' });
+        errores.push({ codigo: "", mensaje: "Código de artículo requerido" });
         continue;
       }
+      porItem.set(codigo, item);
+    }
 
-      const transaction = await req.db.transaction();
-      try {
-        const articulo = await Articulo.findByPk(codigo, { transaction });
-        if (!articulo) {
-          await transaction.rollback();
-          errores.push({ codigo, mensaje: 'Artículo no encontrado' });
-          continue;
-        }
+    transaction = await req.db.transaction();
+    const encontrados = porItem.size
+      ? await Articulo.findAll({
+          where: { Codigo: { [Op.in]: [...porItem.keys()] } },
+          transaction,
+        })
+      : [];
+    const porArticulo = new Map(encontrados.map((articulo) => [articulo.Codigo, articulo]));
 
-        const prep = prepararActualizacionPreciosStock(articulo, item);
-        if (!prep.ok) {
-          await transaction.rollback();
-          errores.push({ codigo, mensaje: prep.error });
-          continue;
-        }
-        if (prep.noop) {
-          await transaction.rollback();
-          continue;
-        }
+    const preparados = [];
+    for (const [codigo, item] of porItem) {
+      const articulo = porArticulo.get(codigo);
+      if (!articulo) {
+        errores.push({ codigo, mensaje: "Artículo no encontrado" });
+        continue;
+      }
+      const prep = prepararActualizacionPreciosStock(articulo, item);
+      if (!prep.ok) {
+        errores.push({ codigo, mensaje: prep.error });
+        continue;
+      }
+      if (prep.noop) continue;
+      preparados.push({ articulo, prep });
+    }
 
-        await articulo.update(prep.updates, { transaction });
-        if (prep.registrarCosto) {
-          await registrarCostoSiCambio({
-            sequelize: req.db,
-            Historial: req.models.ArticuloCostoHistorial,
-            articulo,
-            costoAnterior: prep.costoAnterior,
-            costoNuevo: prep.updates.PrecioCosto,
-            transaction,
-          });
-        }
-        if (prep.ajuste) {
-          await registrarAjusteExistencia({
-            models: req.models,
-            articulo,
-            existenciaAnterior: prep.existenciaAnterior,
-            existenciaNueva: prep.updates.Existencia,
-            transaction,
-            observacion: OBSERVACION_AJUSTE,
-          });
-          movimientosCreados += 1;
-        }
-
-        await transaction.commit();
-        actualizados += 1;
-      } catch (error) {
-        await transaction.rollback();
-        errores.push({
-          codigo,
-          mensaje: error.message || 'Error al actualizar el artículo',
+    const ahora = new Date();
+    const historial = [];
+    const ajustes = [];
+    for (const { articulo, prep } of preparados) {
+      if (prep.registrarCosto) {
+        prep.updates.FechaActualizacionCosto = ahora;
+        historial.push({
+          ArticuloCodigo: articulo.Codigo,
+          Fecha: ahora,
+          PrecioCosto: redondearCosto(prep.updates.PrecioCosto),
+        });
+      }
+      await articulo.update(prep.updates, { transaction });
+      if (prep.ajuste) {
+        ajustes.push({
+          codigo: articulo.Codigo,
+          cantidad: prep.ajuste.cantidad,
+          movimientoTipo: prep.ajuste.movimientoTipo,
         });
       }
     }
 
+    if (historial.length) {
+      await ArticuloCostoHistorial.bulkCreate(historial, { transaction });
+    }
+
+    const bloques = await registrarAjustesEnBloque({
+      models: req.models,
+      lineas: ajustes,
+      transaction,
+      observacion: OBSERVACION_AJUSTE,
+    });
+
+    await transaction.commit();
+    transaction = null;
+
+    const movimientosCreados = (bloques.ingreso ? 1 : 0) + (bloques.egreso ? 1 : 0);
     return res.status(200).json({
-      message: 'Actualización de precios y stock aplicada',
-      actualizados,
+      message: "Actualización de precios y stock aplicada",
+      actualizados: preparados.length,
       movimientosCreados,
+      ingreso: bloques.ingreso,
+      egreso: bloques.egreso,
       errores,
     });
   } catch (error) {
-    console.error('Error al actualizar precios y stock:', error);
-    return res.status(500).json({ message: 'Error al actualizar precios y stock' });
+    if (transaction) await transaction.rollback();
+    console.error("Error al actualizar precios y stock:", error);
+    return res.status(500).json({ message: "Error al actualizar precios y stock" });
   }
 };
 

@@ -1,4 +1,4 @@
-const { ajusteExistencia } = require('../utils/ajusteExistencia');
+const { ajusteExistencia, partirAjustes } = require('../utils/ajusteExistencia');
 
 describe('ajusteExistencia', () => {
   it('no arma movimiento si la existencia no cambió', () => {
@@ -12,6 +12,20 @@ describe('ajusteExistencia', () => {
     expect(ajusteExistencia(10, 12.5)).toEqual({
       cantidad: 2.5,
       movimientoTipo: 'ING',
+    });
+  });
+
+  it('separa un lote en un bloque de ingresos y otro de egresos', () => {
+    expect(partirAjustes([
+      { codigo: 'A', cantidad: 2, movimientoTipo: 'ING' },
+      { codigo: 'B', cantidad: 1, movimientoTipo: 'EGR' },
+      { codigo: 'C', cantidad: 4, movimientoTipo: 'ING' },
+    ])).toEqual({
+      ingresos: [
+        { codigo: 'A', cantidad: 2, movimientoTipo: 'ING' },
+        { codigo: 'C', cantidad: 4, movimientoTipo: 'ING' },
+      ],
+      egresos: [{ codigo: 'B', cantidad: 1, movimientoTipo: 'EGR' }],
     });
   });
 

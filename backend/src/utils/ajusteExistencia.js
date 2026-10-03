@@ -90,9 +90,121 @@ async function registrarAjusteExistencia({
   };
 }
 
+function partirAjustes(lineas = []) {
+  const ingresos = [];
+  const egresos = [];
+  for (const linea of lineas) {
+    if (!linea || !linea.codigo) continue;
+    if (linea.movimientoTipo === 'ING') ingresos.push(linea);
+    else if (linea.movimientoTipo === 'EGR') egresos.push(linea);
+  }
+  return { ingresos, egresos };
+}
+
+async function sucursalStock(models, transaction) {
+  const { DatosEmpresa } = models;
+  const empresa = await DatosEmpresa.findOne({ transaction });
+  const sucursalRaw = empresa?.Sucursal;
+  if (!sucursalRaw || !String(sucursalRaw).trim()) {
+    throw new Error('No se encontró la sucursal de la empresa para registrar el movimiento de stock');
+  }
+  return String(sucursalRaw).trim().padStart(4, '0');
+}
+
+async function asegurarNumeroStk(models, sucursal, transaction) {
+  const { NumerosControl } = models;
+  const numeroControl = await NumerosControl.findOne({
+    where: { Codigo: 'STK', Sucursal: sucursal },
+    transaction,
+  });
+  if (!numeroControl) {
+    await NumerosControl.create(
+      {
+        Codigo: 'STK',
+        Descripcion: 'Movimientos de stock',
+        NumeroProximo: 1,
+        Copias: 1,
+        Sucursal: sucursal,
+      },
+      { transaction }
+    );
+  }
+}
+
+async function grabarBloqueStock({
+  models,
+  sucursal,
+  lineas,
+  movimientoTipo,
+  transaction,
+  fecha,
+  observacion,
+}) {
+  if (!lineas.length) return null;
+  const { MovimientoStock, NumerosControl } = models;
+  const documentoNumero = await NumeroControlService.obtenerYActualizarNumero(
+    'STK',
+    sucursal,
+    transaction,
+    NumerosControl
+  );
+  await MovimientoStock.bulkCreate(
+    lineas.map((linea) => ({
+      DocumentoTipo: 'STK',
+      DocumentoSucursal: sucursal,
+      DocumentoNumero: documentoNumero,
+      Fecha: fecha,
+      CodigoArticulo: linea.codigo,
+      Cantidad: linea.cantidad,
+      MovimientoTipo: movimientoTipo,
+      Observacion: observacion,
+    })),
+    { transaction }
+  );
+  return { documentoNumero, sucursal, lineas: lineas.length };
+}
+
+async function registrarAjustesEnBloque({
+  models,
+  lineas = [],
+  transaction,
+  fecha = fechaLocal(),
+  observacion = 'Ajuste desde actualización de precios y stock',
+}) {
+  const { ingresos, egresos } = partirAjustes(lineas);
+  if (!ingresos.length && !egresos.length) {
+    return { ingreso: null, egreso: null };
+  }
+
+  const sucursal = await sucursalStock(models, transaction);
+  await asegurarNumeroStk(models, sucursal, transaction);
+
+  const ingreso = await grabarBloqueStock({
+    models,
+    sucursal,
+    lineas: ingresos,
+    movimientoTipo: 'ING',
+    transaction,
+    fecha,
+    observacion,
+  });
+  const egreso = await grabarBloqueStock({
+    models,
+    sucursal,
+    lineas: egresos,
+    movimientoTipo: 'EGR',
+    transaction,
+    fecha,
+    observacion,
+  });
+  return { ingreso, egreso };
+}
+
 module.exports = {
   redondearCantidad,
   ajusteExistencia,
   fechaLocal,
+  partirAjustes,
   registrarAjusteExistencia,
+  registrarAjustesEnBloque,
 };

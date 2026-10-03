@@ -4,6 +4,7 @@ export interface Articulo {
 	PrecioCosto: number;
 	PrecioCostoMasImp?: number;
 	FechaActualizacionCosto?: string | Date | null;
+	PrecioAnterior?: number | null;
 	PrecioVenta?: number;
 	PorcentajeIva?: number;
 	PorcentajeIva1?: number;

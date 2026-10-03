@@ -188,6 +188,8 @@ export class ArticuloService {
 	): Promise<{
 		actualizados: number;
 		movimientosCreados: number;
+		ingreso: { documentoNumero: string; sucursal: string; lineas: number } | null;
+		egreso: { documentoNumero: string; sucursal: string; lineas: number } | null;
 		errores: Array<{ codigo: string; mensaje: string }>;
 	}> {
 		const response = await fetchWithAuth('/articulos/actualizar-precios-stock', {
@@ -202,6 +204,8 @@ export class ArticuloService {
 		return {
 			actualizados: data.actualizados ?? 0,
 			movimientosCreados: data.movimientosCreados ?? 0,
+			ingreso: data.ingreso ?? null,
+			egreso: data.egreso ?? null,
 			errores: data.errores ?? []
 		};
 	}

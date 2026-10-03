@@ -10,6 +10,8 @@ import {
 
 export const COLUMNAS_STORAGE_KEY = 'precios-stock-columnas';
 export const CACHE_INFORME_ID = 'actualizacion-precios-stock';
+export const PENDIENTES_CACHE_ID = 'actualizacion-precios-stock-pendientes';
+export const TTL_PENDIENTES_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type ColumnaId =
 	| 'Codigo'
@@ -312,6 +314,30 @@ export function payloadDesdeCambios(filas: CambioFila[]) {
 	});
 }
 
+export function aplicarPendientes<T extends { Codigo: string }>(
+	articulos: T[],
+	pendientes: Array<Record<string, string | number>>
+): T[] {
+	const porCodigo = new Map(
+		pendientes
+			.filter((item) => String(item.Codigo || '').trim())
+			.map((item) => [String(item.Codigo), item])
+	);
+	if (porCodigo.size === 0) return articulos;
+	return articulos.map((articulo) => {
+		const pendiente = porCodigo.get(articulo.Codigo);
+		if (!pendiente) return articulo;
+		const copia = { ...articulo };
+		for (const campo of CAMPOS_EDITABLES) {
+			if (pendiente[campo] === undefined || pendiente[campo] === '') continue;
+			const valor = Number(pendiente[campo]);
+			if (!Number.isFinite(valor)) continue;
+			(copia as Record<string, unknown>)[campo] = redondearCampo(campo, valor);
+		}
+		return copia;
+	});
+}
+
 export function formatearFechaCosto(valor: string | Date | null | undefined): string {
 	if (!valor) return '—';
 	const fecha = valor instanceof Date ? valor : new Date(valor);
@@ -357,6 +383,7 @@ export interface ArticuloGrilla {
 	ProveedorCodigo?: string | null;
 	RubroCodigo?: string | null;
 	FechaActualizacionCosto?: string | Date | null;
+	PrecioAnterior?: number | null;
 	Proveedor?: { Codigo?: string; Descripcion?: string };
 	Rubro?: { Codigo?: string; Descripcion?: string };
 }
@@ -405,7 +432,7 @@ export function valorCeldaFiltro(
 		case 'Proveedor':
 			return articulo.Proveedor?.Descripcion || articulo.ProveedorCodigo || '';
 		case 'PrecioAnterior':
-			return snapshots[articulo.Codigo]?.PrecioCosto ?? 0;
+			return articulo.PrecioAnterior == null ? Number.NaN : redondear2(articulo.PrecioAnterior);
 		case 'Fecha':
 			return formatearFechaCosto(articulo.FechaActualizacionCosto);
 		default:

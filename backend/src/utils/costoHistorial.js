@@ -133,6 +133,40 @@ async function ultimosCostosPorCodigos(sequelize, codigos, limite = 3) {
   return porCodigo;
 }
 
+/** Costo registrado antes del último cambio. El último renglón del historial es el precio vigente. */
+async function preciosAnterioresPorCodigos(sequelize, codigos) {
+  await ensureCostoHistorialSchema(sequelize);
+  const lista = [...new Set((codigos || []).map((codigo) => String(codigo || "").trim()).filter(Boolean))];
+  if (!lista.length) return new Map();
+
+  const rows = await sequelize.query(
+    `SELECT h.ArticuloCodigo, h.PrecioCosto
+     FROM t_articulos_costo_historial h
+     INNER JOIN (
+       SELECT h2.ArticuloCodigo, MAX(h2.Id) AS anteriorId
+       FROM t_articulos_costo_historial h2
+       INNER JOIN (
+         SELECT ArticuloCodigo, MAX(Id) AS ultimoId
+         FROM t_articulos_costo_historial
+         WHERE ArticuloCodigo IN (:codigos)
+         GROUP BY ArticuloCodigo
+       ) ultimo ON ultimo.ArticuloCodigo = h2.ArticuloCodigo AND h2.Id < ultimo.ultimoId
+       WHERE h2.ArticuloCodigo IN (:codigos)
+       GROUP BY h2.ArticuloCodigo
+     ) anterior ON anterior.ArticuloCodigo = h.ArticuloCodigo AND anterior.anteriorId = h.Id`,
+    {
+      replacements: { codigos: lista },
+      type: sequelize.QueryTypes.SELECT,
+    }
+  );
+
+  const porCodigo = new Map();
+  for (const row of rows) {
+    porCodigo.set(String(row.ArticuloCodigo).trim(), Number(row.PrecioCosto));
+  }
+  return porCodigo;
+}
+
 module.exports = {
   redondearCosto,
   costoCambio,
@@ -140,4 +174,5 @@ module.exports = {
   registrarCostoSiCambio,
   ultimosCostos,
   ultimosCostosPorCodigos,
+  preciosAnterioresPorCodigos,
 };

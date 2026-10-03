@@ -96,9 +96,6 @@ function prepararActualizacionPreciosStock(articulo, item = {}) {
   if (campoEnviado(item.Existencia)) {
     const parseado = parseNumeroFinito(item.Existencia, 'Existencia');
     if (parseado.error) return { ok: false, error: parseado.error };
-    if (parseado.valor < 0) {
-      return { ok: false, error: 'Existencia no puede ser negativa' };
-    }
     ajuste = ajusteExistencia(articulo.Existencia, parseado.valor);
     if (ajuste) {
       updates.Existencia = redondearCantidad(parseado.valor);

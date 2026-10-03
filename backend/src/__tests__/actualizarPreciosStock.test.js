@@ -84,8 +84,11 @@ describe('prepararActualizacionPreciosStock', () => {
     expect(prep.updates.PrecioCostoMasImp).toBe(22);
   });
 
-  it('rechaza existencia negativa y números no finitos', () => {
-    expect(prepararActualizacionPreciosStock(articuloBase, { Existencia: -1 }).ok).toBe(false);
+  it('acepta existencia negativa como egreso y rechaza números no finitos', () => {
+    const negativa = prepararActualizacionPreciosStock(articuloBase, { Existencia: -1 });
+    expect(negativa.ok).toBe(true);
+    expect(negativa.updates.Existencia).toBe(-1);
+    expect(negativa.ajuste).toEqual({ cantidad: 9, movimientoTipo: 'EGR' });
     expect(prepararActualizacionPreciosStock(articuloBase, { PrecioCosto: Infinity }).ok).toBe(false);
     expect(prepararActualizacionPreciosStock(articuloBase, { Lista2: 'abc' }).ok).toBe(false);
     expect(prepararActualizacionPreciosStock(null, { PrecioCosto: 1 }).ok).toBe(false);

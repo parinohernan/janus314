@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import Button from '$lib/components/ui/Button.svelte';
 	import MultiSelect from '$lib/components/ui/MultiSelect.svelte';
@@ -21,6 +21,9 @@
 	} from '$lib/utils/modoListaPrecios';
 	import {
 		CACHE_INFORME_ID,
+		PENDIENTES_CACHE_ID,
+		TTL_PENDIENTES_MS,
+		aplicarPendientes,
 		CAMPOS_LISTA,
 		COLUMNAS,
 		costoEfectivo,
@@ -50,6 +53,7 @@
 	} from '$lib/utils/preciosStockGrilla';
 
 	const informeCache = new InformeCacheService(idbCacheAdapter);
+	let persistirTimer: ReturnType<typeof setTimeout> | null = null;
 
 	interface Proveedor {
 		Codigo: string;
@@ -128,6 +132,7 @@
 		if (!Number.isFinite(valor)) return;
 		(articulo as Record<string, unknown>)[campo] = redondearCampo(campo, valor);
 		articulos = articulos;
+		programarPendientes();
 	}
 
 	function sinCosto(articulo: Articulo): boolean {
@@ -170,8 +175,58 @@
 		orden = null;
 	}
 
+	function programarPendientes() {
+		if (!browser) return;
+		if (persistirTimer) clearTimeout(persistirTimer);
+		persistirTimer = setTimeout(() => {
+			persistirTimer = null;
+			void guardarPendientes();
+		}, 400);
+	}
+
+	async function guardarPendientes() {
+		const payload = payloadDesdeCambios(resumenCambios(articulos, snapshots, modoLista).filas);
+		await informeCache.set(
+			PENDIENTES_CACHE_ID,
+			{ empresaId },
+			{ articulos: payload },
+			TTL_PENDIENTES_MS
+		);
+	}
+
+	async function guardarPendientesAhora() {
+		if (persistirTimer) {
+			clearTimeout(persistirTimer);
+			persistirTimer = null;
+		}
+		await guardarPendientes();
+	}
+
+	async function leerPendientes() {
+		const cached = await informeCache.get<{ articulos: Array<Record<string, string | number>> }>(
+			PENDIENTES_CACHE_ID,
+			{ empresaId }
+		);
+		return cached?.data?.articulos ?? [];
+	}
+
+	async function instalarCatalogo(items: Articulo[], origenCache: boolean) {
+		const pendientesLocales = await leerPendientes();
+		snapshots = snapshotsDesdeCatalogo(items);
+		articulos = aplicarPendientes(items, pendientesLocales);
+		desdeCache = origenCache;
+	}
+
 	async function persistirCatalogo() {
-		await informeCache.set(CACHE_INFORME_ID, cacheParams, { articulos });
+		const codigosPendientes = new Set(
+			resumenCambios(articulos, snapshots, modoLista).filas.map((fila) => fila.codigo)
+		);
+		const base = articulos.map((articulo) => {
+			if (!codigosPendientes.has(articulo.Codigo)) return articulo;
+			const snap = snapshots[articulo.Codigo];
+			return snap ? { ...articulo, ...snap } : articulo;
+		});
+		await informeCache.set(CACHE_INFORME_ID, cacheParams, { articulos: base });
 	}
 
 	async function cargarCatalogo(forzarServidor = false) {
@@ -182,17 +237,17 @@
 
 			if (!forzarServidor) {
 				const cached = await informeCache.get<{ articulos: Articulo[] }>(CACHE_INFORME_ID, cacheParams);
-				if (cached?.data?.articulos?.length) {
-					articulos = cached.data.articulos;
-					snapshots = snapshotsDesdeCatalogo(articulos);
-					desdeCache = true;
+				const cacheTienePrecioAnterior = cached?.data?.articulos?.some((articulo) =>
+					Object.prototype.hasOwnProperty.call(articulo, 'PrecioAnterior')
+				);
+				if (cached?.data?.articulos?.length && cacheTienePrecioAnterior) {
+					await instalarCatalogo(cached.data.articulos, true);
 					return;
 				}
 			}
 
 			const items = await ArticuloService.obtenerArticulosParaListadoPrecios(true);
-			articulos = items;
-			snapshots = snapshotsDesdeCatalogo(articulos);
+			await instalarCatalogo(items, false);
 			await persistirCatalogo();
 		} catch (err) {
 			console.error(err);
@@ -201,6 +256,12 @@
 			loading = false;
 		}
 	}
+
+	onDestroy(() => {
+		if (persistirTimer) clearTimeout(persistirTimer);
+		if (articulos.length === 0) return;
+		void guardarPendientes();
+	});
 
 	onMount(async () => {
 		if (browser) {
@@ -253,6 +314,7 @@
 			);
 		}
 		articulos = articulos;
+		programarPendientes();
 		const actualizado = resumenCambios(articulos, snapshots, modoLista);
 		pendientes = actualizado.filas;
 		cantidadPrecios = actualizado.precios;
@@ -268,6 +330,7 @@
 		try {
 			guardando = true;
 			error = null;
+			await guardarPendientesAhora();
 			const resultado = await ArticuloService.actualizarPreciosStock(payloadDesdeCambios(pendientes));
 			const fallidos = new Set(
 				(resultado.errores ?? []).map((item) => item.codigo).filter(Boolean)
@@ -277,6 +340,11 @@
 				if (fallidos.has(fila.codigo)) continue;
 				const articulo = articulos.find((item) => item.Codigo === fila.codigo);
 				if (!articulo) continue;
+				const snap = snapshots[articulo.Codigo];
+				const cambioCosto = fila.cambios.some(
+					(cambio) => cambio.campo === 'PrecioCosto' || cambio.campo === 'PrecioCostoMasImp'
+				);
+				if (cambioCosto && snap) articulo.PrecioAnterior = snap.PrecioCosto;
 				snapshots[articulo.Codigo] = snapshotDesdeArticulo(articulo);
 				if (fila.cambiaPrecio) {
 					articulo.FechaActualizacionCosto = new Date().toISOString();
@@ -284,8 +352,15 @@
 			}
 			snapshots = snapshots;
 			articulos = articulos;
+			await guardarPendientes();
 			await persistirCatalogo();
 			mostrarConfirmacion = false;
+
+			const stock = [
+				resultado.ingreso ? 'un ingreso de stock' : '',
+				resultado.egreso ? 'un egreso de stock' : ''
+			].filter(Boolean);
+			const detalleStock = stock.length ? ` y se generó ${stock.join(' y ')}` : '';
 
 			if (resultado.errores?.length) {
 				error = resultado.errores.map((item) => `${item.codigo}: ${item.mensaje}`).join(' · ');
@@ -293,12 +368,7 @@
 					`Se actualizaron ${resultado.actualizados} artículo(s). ${resultado.errores.length} con error.`
 				);
 			} else {
-				toast.success(
-					`Se actualizaron ${resultado.actualizados} artículo(s)` +
-						(resultado.movimientosCreados
-							? ` y se generaron ${resultado.movimientosCreados} movimiento(s) de stock`
-							: '')
-				);
+				toast.success(`Se actualizaron ${resultado.actualizados} artículo(s)${detalleStock}`);
 			}
 		} catch (err) {
 			console.error(err);
@@ -359,7 +429,7 @@
 			</div>
 		</div>
 
-		<div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+		<div class="relative z-20 mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
 			<div>
 				<label class="mb-2 block text-sm font-medium text-gray-700" for="busqueda-precios-stock">
 					Buscar
@@ -527,7 +597,7 @@
 								{/each}
 								{#if columnasVisiblesSet.has('PrecioAnterior')}
 									<td class="whitespace-nowrap px-3 py-2 text-gray-500">
-										{(snapshots[articulo.Codigo]?.PrecioCosto ?? 0).toFixed(2)}
+										{articulo.PrecioAnterior == null ? '—' : articulo.PrecioAnterior.toFixed(2)}
 									</td>
 								{/if}
 								{#if columnasVisiblesSet.has('Fecha')}
@@ -540,7 +610,6 @@
 										<input
 											type="number"
 											step="0.01"
-											min="0"
 											value={valorCelda(articulo, 'Existencia')}
 											on:change={(e) =>
 												setValor(articulo, 'Existencia', parseFloat((e.target as HTMLInputElement).value))}
