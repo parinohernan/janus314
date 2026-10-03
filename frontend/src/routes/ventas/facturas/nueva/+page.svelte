@@ -28,7 +28,8 @@
   import {
     aplicarImportesDesdeDescuento,
     aplicarImportesDesdePrecio,
-    aplicarImportesDesdePrecioConIva
+    aplicarImportesDesdePrecioConIva,
+    esPrecioItemValido
   } from '$lib/utils/facturaRenglon';
   // import { formatDateOnly } from '$lib/utils/dateUtils';
 
@@ -797,12 +798,9 @@ const fechaFormateada = hoy.toISOString().substring(0, 10);
     if (factura.Items.length === 0) {
       return "Debe agregar al menos un artículo a la factura";
     }
-    const indiceInvalido = factura.Items.findIndex((item) => {
-      const precio = Number(item.PrecioUnitario);
-      return !Number.isFinite(precio) || precio <= 0;
-    });
+    const indiceInvalido = factura.Items.findIndex((item) => !esPrecioItemValido(item.PrecioUnitario));
     if (indiceInvalido >= 0) {
-      return `El precio del ítem ${indiceInvalido + 1} debe ser mayor a cero`;
+      return `El precio del ítem ${indiceInvalido + 1} no puede ser negativo`;
     }
     return null;
   };

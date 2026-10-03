@@ -16,7 +16,17 @@ describe("FacturaValidator", () => {
       ],
     });
     expect(isValid).toBe(false);
-    expect(errors.some((e) => e.includes("mayor a cero"))).toBe(true);
+    expect(errors.some((e) => e.includes("negativo"))).toBe(true);
+  });
+
+  test("acepta ítem sin cargo con PrecioUnitario 0", () => {
+    const { isValid } = FacturaValidator.validarFactura({
+      ...base,
+      Items: [
+        { ArticuloCodigo: "BONIF", Cantidad: 1, PrecioUnitario: 0 },
+      ],
+    });
+    expect(isValid).toBe(true);
   });
 
   test("acepta ítem con CodigoArticulo y precio positivo", () => {

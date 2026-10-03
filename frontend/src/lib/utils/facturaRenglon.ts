@@ -7,6 +7,11 @@ export function descuentoDesdePrecios(precioLista: number, precioUnitario: numbe
 	return redondear2((1 - unitario / lista) * 100);
 }
 
+export function esPrecioItemValido(precio: unknown): boolean {
+	const n = Number(precio);
+	return Number.isFinite(n) && n >= 0;
+}
+
 export function precioUnitarioDesdeDescuento(precioLista: number, porcentajeBonificado: number): number {
 	const lista = Number(precioLista) || 0;
 	const desc = Number(porcentajeBonificado) || 0;

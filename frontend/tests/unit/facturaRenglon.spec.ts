@@ -4,10 +4,18 @@ import {
 	aplicarImportesDesdePrecio,
 	aplicarImportesDesdePrecioConIva,
 	descuentoDesdePrecios,
+	esPrecioItemValido,
 	precioUnitarioDesdeDescuento
 } from '../../src/lib/utils/facturaRenglon';
 
 describe('facturaRenglon', () => {
+	it('acepta precio 0 y rechaza negativos', () => {
+		expect(esPrecioItemValido(0)).toBe(true);
+		expect(esPrecioItemValido(10)).toBe(true);
+		expect(esPrecioItemValido(-1.51)).toBe(false);
+		expect(esPrecioItemValido(Number.NaN)).toBe(false);
+	});
+
 	it('calcula descuento positivo si el unitario es menor a la lista', () => {
 		expect(descuentoDesdePrecios(100, 80)).toBe(20);
 	});

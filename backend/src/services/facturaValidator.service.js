@@ -39,8 +39,8 @@ const FacturaValidator = {
           );
         }
         const precio = Number(item.PrecioUnitario);
-        if (!Number.isFinite(precio) || precio <= 0) {
-          errors.push(`El precio del ítem ${index + 1} debe ser mayor a cero`);
+        if (!Number.isFinite(precio) || precio < 0) {
+          errors.push(`El precio del ítem ${index + 1} no puede ser negativo`);
         }
       });
     }
