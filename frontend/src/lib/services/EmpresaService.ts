@@ -13,6 +13,8 @@ export interface DatosEmpresa {
 	EMail?: string;
 	Cuit?: string;
 	Localidad?: string;
+	DomicilioComercial?: string;
+	CategoriaIva?: string;
 	Sucursal: string; // La API devuelve "Sucursal", no "SucursalPredeterminada"
 	LogoURL?: string;
 	IngresosBrutos?: string;

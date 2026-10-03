@@ -24,7 +24,7 @@
 	} from '$lib/utils/posTicket';
 	import { calcularTotalesComprobante } from '$lib/utils/comprobanteTotales';
 	import { datosComercialesDesdeCliente } from '$lib/utils/facturaClienteDefaults';
-	import { armarPosTicketDto, extraerCae, type PosTicketDto } from '$lib/utils/posTicketHtml';
+	import { armarPosTicketDto, extraerFiscal, type PosTicketDto } from '$lib/utils/posTicketHtml';
 	import {
 		catalogoVacio,
 		incorporarPosCatalogo,
@@ -649,9 +649,9 @@
 
 	async function onCaeObtenido(event: CustomEvent) {
 		if (!facturaCreada) return;
-		const cae = extraerCae(event.detail);
-		if (ultimoTicket) {
-			ultimoTicket = { ...ultimoTicket, cae };
+		const fiscal = extraerFiscal(event.detail);
+		if (ultimoTicket && fiscal.cae) {
+			ultimoTicket = { ...ultimoTicket, cae: fiscal.cae, caeVencimiento: fiscal.vencimiento };
 		}
 		if (ultimoTicket) {
 			await imprimirTicket(ultimoTicket);

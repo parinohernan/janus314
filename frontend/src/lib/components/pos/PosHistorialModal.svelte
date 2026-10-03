@@ -3,6 +3,7 @@
 	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 	import { formatMoneyAR, tipoTicketFiscal } from '$lib/utils/posTicket';
 	import { armarPosTicketDto, renderPosTicketHtml, type PosTicketDto, type PosTicketTipo } from '$lib/utils/posTicketHtml';
+	import { prepararTicketFiscal } from '$lib/utils/posTicketQr';
 	import { mensajeErrorImpresion, printTicket } from '$lib/services/QzTrayService';
 	import { loadPosPrinterConfig } from '$lib/utils/posPrinterConfig';
 	import { DocumentService } from '$lib/services/DocumentService';
@@ -13,7 +14,19 @@
 	export let show = false;
 	export let cajaId: number | null = null;
 	export let sucursal = '0001';
-	export let empresa: { Nombre?: string; RazonSocial?: string; Cuit?: string } | null = null;
+	export let empresa: {
+		Nombre?: string;
+		RazonSocial?: string;
+		Cuit?: string;
+		Domicilio?: string;
+		DomicilioComercial?: string;
+		Localidad?: string;
+		Telefono?: string;
+		IngresosBrutos?: string;
+		InicioActividades?: string;
+		CategoriaIva?: string;
+		LogoURL?: string;
+	} | null = null;
 
 	type Movimiento = {
 		Codigo?: number;
@@ -160,7 +173,8 @@
 				ImporteIva: Number(encabezado.ImporteIva) || Number(encabezado.ImporteIva1 || 0) + Number(encabezado.ImporteIva2 || 0),
 				ImporteTotal: Number(encabezado.ImporteTotal) || 0
 			},
-			cae: encabezado.afip_cae || undefined
+			cae: encabezado.afip_cae || undefined,
+			caeVencimiento: encabezado.afip_cae_vencimiento || undefined
 		});
 	}
 
@@ -183,7 +197,7 @@
 		if (!clave.numero || viendo) return;
 		viendo = clave.id;
 		try {
-			const dto = await ticketDe(item);
+			const dto = await prepararTicketFiscal(await ticketDe(item));
 			vistaClave = { tipo: dto.tipo, sucursal: dto.sucursal, numero: dto.numero };
 			movimientoCodigo = item.Codigo ?? null;
 			vistaHtml = renderPosTicketHtml(dto);

@@ -2,6 +2,7 @@ import { writable } from 'svelte/store';
 import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 import { loadPosPrinterConfig, type PosPrinterConfig } from '$lib/utils/posPrinterConfig';
 import { renderPosTicketHtml, type PosTicketDto } from '$lib/utils/posTicketHtml';
+import { prepararTicketFiscal } from '$lib/utils/posTicketQr';
 
 export type QzStatus = 'desconectado' | 'conectado' | 'imprimiendo' | 'error';
 
@@ -209,7 +210,8 @@ export async function printTicket(
 	dto: PosTicketDto,
 	config: PosPrinterConfig = loadPosPrinterConfig()
 ): Promise<void> {
-	await printPixelHtml(renderPosTicketHtml(dto), config);
+	const fiscal = await prepararTicketFiscal(dto);
+	await printPixelHtml(renderPosTicketHtml(fiscal), config);
 }
 
 export function mensajeErrorImpresion(error: unknown): string {

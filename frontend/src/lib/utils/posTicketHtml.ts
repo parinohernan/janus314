@@ -7,17 +7,35 @@ export type PosTicketDto = {
 	sucursal: string;
 	numero: string;
 	fecha: string;
-	empresa: { nombre: string; cuit?: string };
-	cliente: { codigo: string; descripcion: string };
+	empresa: {
+		nombre: string;
+		cuit?: string;
+		domicilio?: string;
+		localidad?: string;
+		telefono?: string;
+		ingresosBrutos?: string;
+		inicioActividades?: string;
+		condicionIva?: string;
+		logo?: string;
+	};
+	cliente: { codigo: string; descripcion: string; cuit?: string; categoriaIva?: string };
 	items: { cantidad: number; descripcion: string; total: number }[];
 	totales: { neto: number; iva: number; total: number };
 	cae?: string;
+	caeVencimiento?: string;
+	qr?: string;
 };
 
 const LABEL_TIPO: Record<PosTicketTipo, string> = {
 	PRF: 'PREFACTURA',
 	FCA: 'FACTURA A',
 	FCB: 'TICKET B'
+};
+
+const CONDICION_IVA: Record<string, string> = {
+	I: 'Responsable Inscrito',
+	M: 'Monotributista',
+	E: 'Exento'
 };
 
 export function escapeHtml(value: string): string {
@@ -44,16 +62,111 @@ export function extraerCae(payload: unknown): string | undefined {
 	return undefined;
 }
 
+function textoEn(payload: unknown, claves: string[]): string | undefined {
+	if (!payload || typeof payload !== 'object') return undefined;
+	const root = payload as Record<string, unknown>;
+	const capas = [root, root.data].filter((capa) => capa && typeof capa === 'object') as Record<string, unknown>[];
+	for (const capa of capas) {
+		for (const clave of claves) {
+			const valor = capa[clave];
+			if (typeof valor === 'string' && valor.trim()) return valor.trim();
+		}
+	}
+	return undefined;
+}
+
+export function extraerFiscal(payload: unknown): { cae?: string; vencimiento?: string } {
+	return {
+		cae: extraerCae(payload),
+		vencimiento: textoEn(payload, [
+			'fechaVencimiento',
+			'fecha_vencimiento',
+			'afip_cae_vencimiento',
+			'vencimiento'
+		])
+	};
+}
+
+const TIPO_COMPROBANTE_ARCA: Record<string, number> = {
+	FCA: 1,
+	FCB: 6
+};
+
+function soloDigitos(valor?: string): string {
+	return String(valor || '').replace(/\D/g, '');
+}
+
+function fechaQr(fecha: string): string {
+	const directa = String(fecha || '').slice(0, 10);
+	if (/^\d{4}-\d{2}-\d{2}$/.test(directa)) return directa;
+	const date = new Date(fecha);
+	if (Number.isNaN(date.getTime())) return '';
+	return date.toISOString().split('T')[0];
+}
+
+function aBase64(texto: string): string {
+	if (typeof Buffer !== 'undefined') return Buffer.from(texto, 'utf8').toString('base64');
+	return btoa(texto);
+}
+
+/** Misma carga que el QR de los PDF: especificación ARCA, tipos FCA=1 y FCB=6. */
+export function urlQrArca(dto: PosTicketDto): string | null {
+	if (dto.tipo !== 'FCA' && dto.tipo !== 'FCB') return null;
+	const cuit = soloDigitos(dto.empresa.cuit);
+	const cae = String(dto.cae || '').trim();
+	const fecha = fechaQr(dto.fecha);
+	const tipoCmp = TIPO_COMPROBANTE_ARCA[dto.tipo];
+	if (!cuit || !cae || !fecha || !tipoCmp) return null;
+
+	const responsableInscripto = dto.cliente.categoriaIva === 'I';
+	const documento = soloDigitos(dto.cliente.cuit);
+	const datos = {
+		ver: 1,
+		fecha,
+		cuit,
+		ptoVta: parseInt(dto.sucursal, 10) || 0,
+		tipoCmp,
+		nroCmp: parseInt(dto.numero, 10) || 0,
+		importe: parseFloat(Number(dto.totales.total).toFixed(2)),
+		moneda: 'PES',
+		ctz: 1,
+		tipoDocRec: responsableInscripto ? 80 : 96,
+		nroDocRec: documento || '00000000000',
+		tipoCodAut: 'E',
+		codAut: cae
+	};
+	return `https://www.arca.gob.ar/fe/qr/?p=${aBase64(JSON.stringify(datos))}`;
+}
+
+function fechaVisible(valor?: string): string {
+	const match = String(valor || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+	if (!match) return String(valor || '');
+	return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
 export function armarPosTicketDto(input: {
 	tipo: PosTicketTipo;
 	sucursal: string;
 	numero: string;
 	fecha: string;
-	empresa?: { Nombre?: string; RazonSocial?: string; Cuit?: string } | null;
-	cliente?: { Codigo?: string; Descripcion?: string } | null;
+	empresa?: {
+		Nombre?: string;
+		RazonSocial?: string;
+		Cuit?: string;
+		Domicilio?: string;
+		DomicilioComercial?: string;
+		Localidad?: string;
+		Telefono?: string;
+		IngresosBrutos?: string;
+		InicioActividades?: string;
+		CategoriaIva?: string;
+		LogoURL?: string;
+	} | null;
+	cliente?: { Codigo?: string; Descripcion?: string; Cuit?: string; CategoriaIva?: string } | null;
 	items: { Cantidad: number; Descripcion: string; DescripcionLibre?: string; Total: number }[];
 	totales: { ImporteNeto: number; ImporteIva?: number; ImporteIva1?: number; ImporteIva2?: number; ImporteTotal: number };
 	cae?: string;
+	caeVencimiento?: string;
 }): PosTicketDto {
 	const iva =
 		Number(input.totales.ImporteIva) ||
@@ -64,12 +177,21 @@ export function armarPosTicketDto(input: {
 		numero: String(input.numero || ''),
 		fecha: input.fecha,
 		empresa: {
-			nombre: input.empresa?.Nombre || input.empresa?.RazonSocial || 'Empresa',
-			cuit: input.empresa?.Cuit
+			nombre: input.empresa?.RazonSocial || input.empresa?.Nombre || 'Empresa',
+			cuit: input.empresa?.Cuit,
+			domicilio: input.empresa?.DomicilioComercial || input.empresa?.Domicilio,
+			localidad: input.empresa?.Localidad,
+			telefono: input.empresa?.Telefono,
+			ingresosBrutos: input.empresa?.IngresosBrutos,
+			inicioActividades: input.empresa?.InicioActividades,
+			condicionIva: CONDICION_IVA[String(input.empresa?.CategoriaIva || '').trim()] || '',
+			logo: input.empresa?.LogoURL
 		},
 		cliente: {
 			codigo: input.cliente?.Codigo || 'CF',
-			descripcion: input.cliente?.Descripcion || 'Consumidor Final'
+			descripcion: input.cliente?.Descripcion || 'Consumidor Final',
+			cuit: input.cliente?.Cuit,
+			categoriaIva: input.cliente?.CategoriaIva
 		},
 		items: input.items.map((item) => ({
 			cantidad: Number(item.Cantidad) || 0,
@@ -81,7 +203,8 @@ export function armarPosTicketDto(input: {
 			iva,
 			total: Number(input.totales.ImporteTotal) || 0
 		},
-		cae: input.cae
+		cae: input.cae,
+		caeVencimiento: input.caeVencimiento
 	};
 }
 
@@ -96,6 +219,12 @@ export function ticketPrueba(): PosTicketDto {
 		items: [{ cantidad: 1, descripcion: 'Item de prueba', total: 1 }],
 		totales: { neto: 0.83, iva: 0.17, total: 1 }
 	};
+}
+
+function linea(texto?: string): string {
+	const limpio = String(texto || '').trim();
+	if (!limpio) return '';
+	return `<p class="muted">${escapeHtml(limpio)}</p>`;
 }
 
 function filaItem(item: PosTicketDto['items'][number]): string {
@@ -113,7 +242,12 @@ export function renderPosTicketHtml(dto: PosTicketDto): string {
 		dto.tipo === 'PRF'
 			? '<p class="warn">Documento no válido como factura</p>'
 			: dto.cae
-				? `<p class="cae">CAE ${escapeHtml(dto.cae)}</p>`
+				? `<div class="fiscal">
+        ${dto.qr ? `<img class="qr" src="${escapeHtml(dto.qr)}" alt="QR ARCA" />` : ''}
+        <p class="cae">CAE N°: ${escapeHtml(dto.cae)}</p>
+        ${dto.caeVencimiento ? `<p class="cae">Fecha Vto. CAE: ${escapeHtml(fechaVisible(dto.caeVencimiento))}</p>` : ''}
+        <p class="leyenda">Esta Agencia no se responsabiliza por los datos ingresados en el detalle de la operación</p>
+      </div>`
 				: '';
 
 	return `<!DOCTYPE html>
@@ -130,7 +264,8 @@ export function renderPosTicketHtml(dto: PosTicketDto): string {
     font-size: 12px;
     color: #000;
   }
-  h1 { font-size: 14px; margin: 0 0 4px; text-align: center; }
+  h1 { font-size: 14px; margin: 0 0 2px; text-align: center; }
+  .logo { display: block; margin: 0 auto 3px; max-width: 32mm; max-height: 16mm; object-fit: contain; }
   .muted { font-size: 11px; text-align: center; margin: 0; }
   .tipo { font-size: 13px; font-weight: 700; text-align: center; margin: 8px 0 2px; }
   table { width: 100%; border-collapse: collapse; margin-top: 8px; }
@@ -140,13 +275,23 @@ export function renderPosTicketHtml(dto: PosTicketDto): string {
   .totales { margin-top: 8px; width: 100%; }
   .totales td { padding: 1px 0; }
   .total { font-size: 22px; font-weight: 700; }
-  .warn, .cae { text-align: center; margin-top: 10px; font-weight: 700; }
+  .warn, .cae { text-align: center; margin-top: 6px; font-weight: 700; }
+  .fiscal { text-align: center; margin-top: 8px; }
+  .qr { width: 32mm; height: 32mm; }
+  .leyenda { font-size: 9px; font-weight: 400; margin: 6px 0 0; }
   hr { border: none; border-top: 1px dashed #000; margin: 8px 0; }
 </style>
 </head>
 <body>
+  ${dto.empresa.logo ? `<img class="logo" src="${escapeHtml(dto.empresa.logo)}" alt="" />` : ''}
   <h1>${escapeHtml(dto.empresa.nombre)}</h1>
-  ${dto.empresa.cuit ? `<p class="muted">CUIT ${escapeHtml(dto.empresa.cuit)}</p>` : ''}
+  ${linea(dto.empresa.domicilio)}
+  ${linea(dto.empresa.localidad)}
+  ${linea(dto.empresa.telefono ? `Teléfono: ${dto.empresa.telefono}` : '')}
+  ${linea(dto.empresa.cuit ? `CUIT: ${dto.empresa.cuit}` : '')}
+  ${linea(dto.empresa.condicionIva ? `IVA: ${dto.empresa.condicionIva}` : '')}
+  ${linea(dto.empresa.ingresosBrutos ? `Ingresos Brutos: ${dto.empresa.ingresosBrutos}` : '')}
+  ${linea(dto.empresa.inicioActividades ? `Inicio de Actividades: ${fechaVisible(dto.empresa.inicioActividades)}` : '')}
   <p class="tipo">${LABEL_TIPO[dto.tipo]} ${escapeHtml(comprobante)}</p>
   <p class="muted">${escapeHtml(dto.fecha)}</p>
   <p class="muted">${escapeHtml(dto.cliente.descripcion)} (${escapeHtml(dto.cliente.codigo)})</p>

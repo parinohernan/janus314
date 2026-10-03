@@ -145,7 +145,7 @@ exports.obtenerFactura = async (req, res) => {
       include: [
         {
           model: Cliente,
-          attributes: ["Codigo", "Descripcion", "CategoriaIva"],
+          attributes: ["Codigo", "Descripcion", "CategoriaIva", "Cuit"],
         },
       ],
     });
