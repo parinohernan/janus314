@@ -5,6 +5,7 @@
   import { Chart } from 'chart.js/auto';
   import DatePicker from '$lib/components/DatePicker.svelte';
   import EntitySelector from '$lib/components/ui/EntitySelector.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { Box } from 'lucide-svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
@@ -22,6 +23,8 @@
   
   let productosSeleccionados: { codigo: string; descripcion: string }[] = [];
   let datosVentas: any = null;
+  let loading = false;
+  let error: string | null = null;
   let chart: Chart | null = null;
   let chartCanvas: HTMLCanvasElement;
   let tipoGrafico: 'cantidad' | 'importe' = 'cantidad';
@@ -37,9 +40,15 @@
 
   // Función para cargar los datos de ventas
   async function cargarDatosVentas() {
-    if (productosSeleccionados.length === 0) return;
+    if (productosSeleccionados.length === 0) {
+      datosVentas = null;
+      error = 'Elegí al menos un producto para generar el informe';
+      return;
+    }
 
     try {
+      loading = true;
+      error = null;
       const response = await fetchWithAuth('/informes/ventas-por-productos', {
         params: {
           fechaDesde: formatDate(fechaDesde),
@@ -67,9 +76,12 @@
       } else {
         throw new Error(result.message || 'Error en el servidor');
       }
-    } catch (error) {
-      console.error('Error al cargar datos de ventas:', error);
+    } catch (err) {
+      console.error('Error al cargar datos de ventas:', err);
       datosVentas = null;
+      error = err instanceof Error ? err.message : 'Error al cargar el informe';
+    } finally {
+      loading = false;
     }
   }
 
@@ -131,11 +143,6 @@
     });
   }
 
-  // Observadores para actualizar datos cuando cambien las fechas o productos
-  $: if (fechaDesde && fechaHasta && productosSeleccionados.length > 0) {
-    cargarDatosVentas();
-  }
-
   // Observador para actualizar el gráfico cuando cambien los datos o el tipo de gráfico
   $: if (datosVentas && chartCanvas) {
     actualizarGrafico();
@@ -166,9 +173,6 @@
         productosSeleccionados = filters.productosSeleccionados;
       }
       if (filters?.tipoGrafico) tipoGrafico = filters.tipoGrafico;
-    }
-    if (productosSeleccionados.length > 0) {
-      await cargarDatosVentas();
     }
     if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
       requestAnimationFrame(() => window.scrollTo(0, savedScroll));
@@ -250,6 +254,19 @@
     </div>
   {/if}
 
+  <div class="mb-6">
+    <p class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+      Este informe puede demorar varios segundos. Elegí productos y fechas, y generalo cuando esté listo.
+    </p>
+    <Button on:click={cargarDatosVentas} disabled={loading || productosSeleccionados.length === 0}>
+      {loading ? 'Generando...' : 'Generar informe'}
+    </Button>
+  </div>
+
+  {#if error}
+    <div class="mb-4 rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700">{error}</div>
+  {/if}
+
   {#if datosVentas}
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div class="bg-white p-4 rounded-lg shadow">
@@ -299,13 +316,13 @@
         </div>
       </div>
     </div>
-  {:else if productosSeleccionados.length > 0}
+  {:else if loading}
     <div class="text-center text-gray-500 py-8">
-      Cargando datos...
+      Generando informe, esto puede tardar...
     </div>
   {:else}
     <div class="text-center text-gray-500 py-8">
-      Seleccione al menos un producto para ver el informe
+      Elegí al menos un producto y generá el informe.
     </div>
   {/if}
 </div>
