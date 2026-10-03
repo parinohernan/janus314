@@ -173,10 +173,19 @@ export class NotaCreditoService {
 			formaPagoCodigo?: string;
 			documentoTipo?: 'NCA' | 'NCB' | 'NCF';
 			facturaReferencia: { tipo: string; sucursal: string; numero: string };
+			porcentajeBonificacion?: number;
+			items?: {
+				CodigoArticulo: string;
+				Descripcion: string;
+				Cantidad: number;
+				PrecioUnitario: number;
+				PorcentajeIva: number;
+				PorcentajeBonificacion: number;
+			}[];
 		}
 	): Promise<{ success: boolean; data?: any; error?: string }> {
 		try {
-			const { formaPagoCodigo = 'CC', documentoTipo = 'NCF', facturaReferencia } = opciones;
+			const { formaPagoCodigo = 'CC', documentoTipo = 'NCF', facturaReferencia, porcentajeBonificacion, items } = opciones;
 			if (!facturaReferencia?.tipo || !facturaReferencia?.sucursal || !facturaReferencia?.numero) {
 				return { success: false, error: 'Debe seleccionar una factura del cliente como comprobante asociado.' };
 			}
@@ -189,7 +198,9 @@ export class NotaCreditoService {
 					preventaNumero,
 					FormaPagoCodigo: formaPagoCodigo,
 					DocumentoTipo: documentoTipo,
-					FacturaReferencia: facturaReferencia
+					FacturaReferencia: facturaReferencia,
+					PorcentajeBonificacion: porcentajeBonificacion,
+					Items: items
 				})
 			});
 

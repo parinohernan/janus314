@@ -6,10 +6,11 @@ const sequelize = require("../config/database");
 const { Op } = require("sequelize");
 const numerosControlController = require("./numerosControl.controller");
 const NotaCreditoService = require("../services/notaCredito.service");
+const { aplicarBonificacionATotales } = require("../utils/bonificacionGeneral");
 const {
-  porcentajeBonificacionDesdeFactura,
-  aplicarBonificacionATotales,
-} = require("../utils/bonificacionGeneral");
+  mapearItemPreventaANotaCredito,
+  porcentajeBonificacionNcRapida,
+} = require("../utils/ncRapidaPreventa");
 const { calcularTotalesComprobante } = require("../templates/pdf/common/precioItem");
 const { usaMatematicaExacta } = require("../utils/matematicaExacta");
 
@@ -417,7 +418,7 @@ exports.crearNotaCreditoRapidaDesdePreventa = async (req, res) => {
         DocumentoSucursal: preventaSucursal,
         DocumentoNumero: preventaNumero,
       },
-      include: [{ model: Articulo, attributes: ["Codigo", "Descripcion"] }],
+      include: [{ model: Articulo, attributes: ["Codigo", "Descripcion", "PorcentajeIVA1"] }],
     });
 
     if (!preventaItems || preventaItems.length === 0) {
@@ -447,40 +448,25 @@ exports.crearNotaCreditoRapidaDesdePreventa = async (req, res) => {
       });
     }
 
-    // Mapear ítems preventa -> ítems nota de crédito (con campos que espera el servicio/validador)
+    const origenItems = Array.isArray(req.body.Items) && req.body.Items.length
+      ? req.body.Items
+      : preventaItems.map((pi) => (pi.get ? pi.get({ plain: true }) : pi));
     let importeBruto = 0;
     let baseImponible1 = 0;
     let baseImponible2 = 0;
-    const Items = preventaItems.map((pi) => {
-      const plain = pi.get ? pi.get({ plain: true }) : pi;
-      const articulo = plain.Articulo || {};
-      const cantidad = parseFloat(plain.Cantidad) || 0;
-      // Precio: preventa puede tener 0 o null; usar PrecioLista como respaldo (el validador no acepta 0)
-      let precioUnitario = parseFloat(plain.PrecioUnitario) || parseFloat(plain.PrecioLista) || 0;
-      if (precioUnitario <= 0) {
-        precioUnitario = 0.01; // fallback mínimo para que el validador acepte el ítem cuando no hay precio en la preventa
-      }
-      // IVA: la tabla t_articulos puede no tener PorcentajeIva; usar 21 por defecto
-      const porcIva = (articulo.PorcentajeIva != null && articulo.PorcentajeIva !== undefined)
-        ? parseFloat(articulo.PorcentajeIva)
-        : 21;
-      const subtotal = cantidad * precioUnitario;
+    const Items = origenItems.map((plain) => {
+      const item = mapearItemPreventaANotaCredito(plain);
+      const subtotal = item.Cantidad * item.PrecioUnitario;
       importeBruto += subtotal;
-      if (porcIva === 21) baseImponible1 += subtotal;
-      else if (porcIva === 10.5) baseImponible2 += subtotal;
-      return {
-        CodigoArticulo: plain.CodigoArticulo,
-        Descripcion: articulo.Descripcion || "",
-        Cantidad: cantidad,
-        PrecioUnitario: precioUnitario,
-        PorcentajeIva: porcIva,
-        PorcentajeBonificacion: parseFloat(plain.PorcentajeBonificacion) || 0,
-        // No enviar DocummentoLiq*: la tabla notacreditoitems no tiene esas columnas (igual que notas de crédito comunes)
-      };
+      if (item.PorcentajeIva === 21) baseImponible1 += subtotal;
+      else if (item.PorcentajeIva === 10.5) baseImponible2 += subtotal;
+      return item;
     });
 
-    const facturaPlain = facturaAsociada.get ? facturaAsociada.get({ plain: true }) : facturaAsociada;
-    const porcentajeBonificacion = porcentajeBonificacionDesdeFactura(facturaPlain);
+    const porcentajeBonificacion = porcentajeBonificacionNcRapida({
+      solicitado: req.body.PorcentajeBonificacion,
+      preventa: cabeza,
+    });
     const hoy = new Date().toISOString().slice(0, 10);
     const totalesConBonificacion = usaMatematicaExacta(hoy)
       ? calcularTotalesComprobante({
@@ -502,6 +488,7 @@ exports.crearNotaCreditoRapidaDesdePreventa = async (req, res) => {
       Cliente: { Codigo: cliente.Codigo, Descripcion: cliente.Descripcion, CategoriaIva: cliente.CategoriaIva },
       ListaNumero: String(cabeza.ListaNumero || "1"),
       ImporteBruto: totalesConBonificacion.ImporteBruto,
+      PorcentajeBonificacion: porcentajeBonificacion,
       ImporteBonificado: totalesConBonificacion.ImporteBonificado,
       ImporteNeto: totalesConBonificacion.ImporteNeto,
       ImporteIva1: totalesConBonificacion.ImporteIva1,

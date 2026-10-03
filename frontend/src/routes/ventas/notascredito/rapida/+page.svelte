@@ -11,6 +11,15 @@
 	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 	import type { Preventa } from '$lib/types';
 	import { formatCurrency } from '$lib/utils/formatters';
+	import { calcularTotalesNotaCredito } from '$lib/utils/notaCreditoTotales';
+	import {
+		acotarPorcentaje,
+		itemNcDesdeLinea,
+		lineaDesdePreventaItem,
+		precioNetoLinea,
+		subtotalLinea,
+		type LineaNcRapida
+	} from '$lib/utils/ncRapidaPreventa';
 	import CaeModal from '$lib/components/facturas/CaeModal.svelte';
 	import ImprimirModal from '$lib/components/facturas/ImprimirModal.svelte';
 	import DetalleFacturaModal from '$lib/components/facturas/DetalleFacturaModal.svelte';
@@ -28,6 +37,8 @@
 	let documentoTipo: TipoNC = 'NCF';
 	let facturasCliente: FacturaOption[] = [];
 	let facturaSeleccionada: FacturaOption | null = null;
+	let itemsNC: LineaNcRapida[] = [];
+	let porcentajeBonificacion = 0;
 	let notaCreditoCreada: { DocumentoTipo: string; DocumentoSucursal: string; DocumentoNumero: string } | null = null;
 	let showCaeModal = false;
 	let showImprimirModal = false;
@@ -48,11 +59,11 @@
 	$: preventaParam = $page.url.searchParams.get('preventa'); // PRV/0001/00000123
 	$: [preventaTipo, preventaSucursal, preventaNumero] = preventaParam ? preventaParam.split('/') : [null, null, null];
 
-	const subtotalPreventaItem = (item: Preventa['items'][number]) =>
-		(item.Cantidad ?? 0) * (item.PrecioUnitario ?? 0);
-
-	$: totalItemsPreventa =
-		preventa?.items?.reduce((sum, item) => sum + subtotalPreventaItem(item), 0) ?? 0;
+	$: totalesNC = calcularTotalesNotaCredito(
+		itemsNC.map(itemNcDesdeLinea),
+		porcentajeBonificacion,
+		documentoTipo
+	);
 
 	onMount(async () => {
 		if (!preventaParam || !preventaTipo || !preventaSucursal || !preventaNumero) {
@@ -64,6 +75,8 @@
 		try {
 			preventa = await PreventaService.obtenerPreventa(preventaTipo, preventaSucursal, preventaNumero);
 			error = null;
+			itemsNC = (preventa.items || []).map(lineaDesdePreventaItem);
+			porcentajeBonificacion = acotarPorcentaje(preventa.preventa?.PorcentajeBonificacion);
 			// Cargar facturas del cliente para comprobante asociado
 			if (preventa?.preventa?.ClienteCodigo) {
 				loadingFacturas = true;
@@ -116,10 +129,16 @@
 				formaPagoCodigo?: string;
 				documentoTipo?: TipoNC;
 				facturaSeleccionada?: FacturaOption | null;
+				itemsNC?: LineaNcRapida[];
+				porcentajeBonificacion?: number;
 			} | undefined;
 			if (filters?.preventaParam === preventaParam) {
 				if (filters.formaPagoCodigo) formaPagoCodigo = filters.formaPagoCodigo;
 				if (filters.documentoTipo) documentoTipo = filters.documentoTipo;
+				if (filters.itemsNC?.length) itemsNC = filters.itemsNC;
+				if (filters.porcentajeBonificacion != null) {
+					porcentajeBonificacion = acotarPorcentaje(filters.porcentajeBonificacion);
+				}
 				if (filters.facturaSeleccionada && facturasCliente.some(f => f.tipo === filters.facturaSeleccionada?.tipo && f.numero === filters.facturaSeleccionada?.numero)) {
 					facturaSeleccionada = filters.facturaSeleccionada;
 				}
@@ -144,7 +163,9 @@
 					preventaParam,
 					formaPagoCodigo,
 					documentoTipo,
-					facturaSeleccionada
+					facturaSeleccionada,
+					itemsNC,
+					porcentajeBonificacion
 				}
 			});
 		}
@@ -170,7 +191,9 @@
 						tipo: facturaSeleccionada.tipo,
 						sucursal: facturaSeleccionada.sucursal,
 						numero: facturaSeleccionada.numero
-					}
+					},
+					porcentajeBonificacion,
+					items: itemsNC.map(itemNcDesdeLinea)
 				}
 			);
 			if (resultado.success && resultado.data) {
@@ -226,6 +249,18 @@
 
 	function seleccionarFactura(factura: FacturaOption) {
 		facturaSeleccionada = factura;
+	}
+
+	function onCambioDescuentoItem(index: number) {
+		itemsNC = itemsNC.map((linea, i) =>
+			i === index
+				? { ...linea, PorcentajeBonificacion: acotarPorcentaje(linea.PorcentajeBonificacion) }
+				: linea
+		);
+	}
+
+	function onCambioBonificacionGeneral() {
+		porcentajeBonificacion = acotarPorcentaje(porcentajeBonificacion);
 	}
 
 	async function abrirDetalleFactura(factura: FacturaOption) {
@@ -287,24 +322,59 @@
 						<tr class="border-b">
 							<th class="text-left py-2">Artículo</th>
 							<th class="text-right py-2">Cant.</th>
+							<th class="text-right py-2">P. lista</th>
+							<th class="text-right py-2">% Desc.</th>
 							<th class="text-right py-2">P. unit.</th>
 							<th class="text-right py-2">Subtotal</th>
 						</tr>
 					</thead>
 					<tbody>
-						{#each preventa.items as item}
+						{#each itemsNC as item, i}
 							<tr class="border-b border-gray-100">
-								<td class="py-1">{item.Articulo?.Descripcion || item.CodigoArticulo}</td>
+								<td class="py-1">{item.Descripcion}</td>
 								<td class="text-right">{item.Cantidad}</td>
-								<td class="text-right">{formatCurrency(item.PrecioUnitario ?? 0)}</td>
-								<td class="text-right">{formatCurrency(subtotalPreventaItem(item))}</td>
+								<td class="text-right">{formatCurrency(item.PrecioLista)}</td>
+								<td class="text-right">
+									<input
+										type="number"
+										min="0"
+										max="100"
+										step="0.01"
+										class="w-20 px-2 py-1 text-right border border-gray-300 rounded-md"
+										bind:value={item.PorcentajeBonificacion}
+										on:change={() => onCambioDescuentoItem(i)}
+										aria-label="Porcentaje de descuento del ítem {i + 1}"
+									/>
+								</td>
+								<td class="text-right">{formatCurrency(precioNetoLinea(item))}</td>
+								<td class="text-right">{formatCurrency(subtotalLinea(item))}</td>
 							</tr>
 						{/each}
 					</tbody>
 					<tfoot>
+						<tr class="border-t border-gray-200">
+							<td colspan="5" class="py-2 text-right text-gray-600">Importe bruto</td>
+							<td class="py-2 text-right">{formatCurrency(totalesNC.ImporteBruto)}</td>
+						</tr>
+						<tr>
+							<td colspan="5" class="py-2 text-right text-gray-600">
+								<label for="bonificacion-general" class="mr-2">Bonificación general (%)</label>
+								<input
+									id="bonificacion-general"
+									type="number"
+									min="0"
+									max="100"
+									step="0.1"
+									class="w-20 px-2 py-1 text-right border border-gray-300 rounded-md"
+									bind:value={porcentajeBonificacion}
+									on:change={onCambioBonificacionGeneral}
+								/>
+							</td>
+							<td class="py-2 text-right">{formatCurrency(totalesNC.ImporteBonificado)}</td>
+						</tr>
 						<tr class="border-t-2 border-gray-300 bg-gray-50 font-semibold">
-							<td colspan="3" class="py-2 text-right text-gray-700">Total</td>
-							<td class="py-2 text-right text-gray-900">{formatCurrency(totalItemsPreventa)}</td>
+							<td colspan="5" class="py-2 text-right text-gray-700">Total</td>
+							<td class="py-2 text-right text-gray-900">{formatCurrency(totalesNC.ImporteTotal)}</td>
 						</tr>
 					</tfoot>
 				</table>
