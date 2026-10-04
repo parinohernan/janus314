@@ -7,5 +7,7 @@ const router = express.Router();
 router.use(requireAdminOrSuperadm);
 router.get('/reset', desarrolladorController.obtenerEstadoReset);
 router.post('/reset', desarrolladorController.ejecutarReset);
+router.get('/base/diagnostico', desarrolladorController.diagnosticoBase);
+router.post('/base/accion', desarrolladorController.accionBase);
 
 module.exports = router;

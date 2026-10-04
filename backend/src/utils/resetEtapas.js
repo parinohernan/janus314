@@ -6,6 +6,24 @@
  */
 const ETAPAS = [
   {
+    id: 'caja',
+    label: 'Caja',
+    descripcion:
+      'Aperturas y cierres de caja, movimientos (cobros, pagos, ingresos y egresos), arqueos, resúmenes de cierre y cheques. No toca los conceptos de caja ni los tipos de pago.',
+    tablas: [
+      'caja_arqueo_resumen',
+      'CajaResumen',
+      'caja_arqueo_detalle',
+      'caja_movimientos',
+      'caja_movimientosaaa',
+      'tmp_informecierrecaja',
+      'caja_cabeza',
+      'caja_cabeza_new',
+      'cheques',
+    ],
+    requiere: [],
+  },
+  {
     id: 'facturas',
     label: 'Facturas y ventas',
     descripcion: 'Facturas, ventas a cuenta, órdenes de entrega y comisiones de vendedores.',
@@ -19,14 +37,14 @@ const ETAPAS = [
       'facturaitems',
       'facturacabeza',
     ],
-    requiere: [],
+    requiere: ['caja'],
   },
   {
     id: 'notas-credito',
     label: 'Notas de crédito',
     descripcion: 'Notas de crédito a clientes con sus ítems y valores.',
     tablas: ['notacreditovalores', 'notacreditoitems', 'notacreditocabeza'],
-    requiere: [],
+    requiere: ['caja'],
   },
   {
     id: 'notas-debito',
@@ -40,7 +58,7 @@ const ETAPAS = [
     label: 'Recibos de clientes',
     descripcion: 'Cobranzas: recibos, ítems imputados y valores.',
     tablas: ['recibosvalores', 'recibositems', 'reciboscabeza'],
-    requiere: [],
+    requiere: ['caja'],
   },
   {
     id: 'presupuestos',
@@ -85,20 +103,7 @@ const ETAPAS = [
       'proveedoresnotadebitoitems',
       'proveedoresnotadebitocabeza',
     ],
-    requiere: [],
-  },
-  {
-    id: 'caja',
-    label: 'Caja y cheques',
-    descripcion: 'Aperturas y cierres de caja, movimientos, arqueos y cheques.',
-    tablas: [
-      'caja_arqueo_detalle',
-      'caja_movimientos',
-      'caja_cabeza',
-      'caja_cabeza_new',
-      'cheques',
-    ],
-    requiere: [],
+    requiere: ['caja'],
   },
   {
     id: 'stock',

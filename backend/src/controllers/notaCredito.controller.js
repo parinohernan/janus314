@@ -7,6 +7,7 @@ const { Op } = require("sequelize");
 const numerosControlController = require("./numerosControl.controller");
 const NotaCreditoService = require("../services/notaCredito.service");
 const { aplicarBonificacionATotales } = require("../utils/bonificacionGeneral");
+const { modeloPorConexion } = require("../utils/modeloPorConexion");
 const {
   mapearItemPreventaANotaCredito,
   porcentajeBonificacionNcRapida,
@@ -100,13 +101,12 @@ exports.listarNotasCredito = async (req, res) => {
     console.log("whereClause", whereClause);
 
     // Definir los modelos para esta conexión
-    const NotaCreditoCabezaEmpresa = require('../models/notaCreditoCabeza.model');
-    NotaCreditoCabezaEmpresa.init(NotaCreditoCabezaEmpresa.getAttributes(), {
-      sequelize: req.dbConnection,
+    const NotaCreditoCabezaEmpresa = modeloPorConexion(NotaCreditoCabeza, req.dbConnection, {
+      modelName: "NotaCreditoCabezaListado",
       tableName: "notacreditocabeza",
       timestamps: false
     });
-    
+
     const ClienteEmpresa = req.dbConnection.model('Cliente');
     const VendedorEmpresa = req.dbConnection.model('Vendedor');
     
@@ -249,16 +249,14 @@ exports.obtenerNotaCredito = async (req, res) => {
     const { tipo, sucursal, numero } = req.params;
 
     // Definir los modelos para esta conexión
-    const NotaCreditoCabezaEmpresa = require('../models/notaCreditoCabeza.model');
-    NotaCreditoCabezaEmpresa.init(NotaCreditoCabezaEmpresa.getAttributes(), {
-      sequelize: req.dbConnection,
+    const NotaCreditoCabezaEmpresa = modeloPorConexion(NotaCreditoCabeza, req.dbConnection, {
+      modelName: "NotaCreditoCabezaDetalle",
       tableName: "notacreditocabeza",
       timestamps: false
     });
-    
-    const NotaCreditoItemEmpresa = require('../models/notaCreditoItem.model');
-    NotaCreditoItemEmpresa.init(NotaCreditoItemEmpresa.getAttributes(), {
-      sequelize: req.dbConnection,
+
+    const NotaCreditoItemEmpresa = modeloPorConexion(NotaCreditoItem, req.dbConnection, {
+      modelName: "NotaCreditoItemDetalle",
       tableName: "notacreditoitems",
       timestamps: false
     });

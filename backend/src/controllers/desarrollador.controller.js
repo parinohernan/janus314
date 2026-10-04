@@ -3,6 +3,7 @@ const Empresa = require('../models/Empresa');
 const mysqlBackup = require('../services/mysqlBackup.service');
 const backupJobs = require('../utils/backupJobs');
 const { ETAPAS, ETAPAS_DOCUMENTOS_CLIENTE } = require('../utils/resetEtapas');
+const optimizacionBase = require('../utils/optimizacionBase');
 
 const DEV_PASSWORD = process.env.DEV_OPTIONS_PASSWORD || 'tel0303456';
 
@@ -319,4 +320,79 @@ async function ejecutarReset(req, res) {
   }
 }
 
-module.exports = { obtenerEstadoReset, ejecutarReset, ordenarParaBorrar };
+async function diagnosticoBase(req, res) {
+  try {
+    const diagnostico = await optimizacionBase.diagnosticar(req.db);
+    const compartida = await empresasQueCompartenBase(req.empresaData);
+    return res.json({ success: true, compartida, ...diagnostico });
+  } catch (error) {
+    console.error('Error en diagnóstico de base:', error);
+    return res.status(500).json({ message: error.message || 'No se pudo diagnosticar la base' });
+  }
+}
+
+const ACCIONES_BASE = {
+  'crear-indices': { compartidaPermitida: true },
+  analizar: { compartidaPermitida: true },
+  optimizar: { compartidaPermitida: true },
+  'vaciar-temporales': { compartidaPermitida: false },
+  'purgar-preventas': { compartidaPermitida: false },
+};
+
+async function accionBase(req, res) {
+  const { accion, password } = req.body || {};
+  if (password !== DEV_PASSWORD) {
+    return res.status(403).json({ message: 'Contraseña de desarrollador incorrecta' });
+  }
+  const definicion = ACCIONES_BASE[accion];
+  if (!definicion) {
+    return res.status(400).json({ message: 'Acción desconocida' });
+  }
+
+  try {
+    if (!definicion.compartidaPermitida) {
+      const compartida = await empresasQueCompartenBase(req.empresaData);
+      if (compartida.length) {
+        return res.status(409).json({
+          message: `La base también la usan: ${compartida.join(', ')}. Esta acción borraría sus datos.`,
+        });
+      }
+    }
+
+    const inicio = Date.now();
+    let detalle;
+    if (accion === 'crear-indices') {
+      const resultados = await optimizacionBase.crearIndices(req.db);
+      const fallidos = resultados.filter((r) => !r.ok);
+      detalle = {
+        mensaje: `Índices creados: ${resultados.length - fallidos.length} de ${resultados.length}`,
+        fallidos,
+      };
+    } else if (accion === 'analizar') {
+      const cantidad = await optimizacionBase.analizarTablas(req.db);
+      detalle = { mensaje: `Estadísticas actualizadas en ${cantidad} tablas` };
+    } else if (accion === 'optimizar') {
+      const { tablas, recuperadoMb } = await optimizacionBase.optimizarTablas(req.db);
+      detalle = { mensaje: `Tablas optimizadas: ${tablas} (aprox. ${recuperadoMb} MB recuperados)` };
+    } else if (accion === 'vaciar-temporales') {
+      const cantidad = await optimizacionBase.vaciarTemporales(req.db);
+      detalle = { mensaje: `Tablas temporales vaciadas: ${cantidad}` };
+    } else {
+      const { fechaLimite, cabezas, items } = await optimizacionBase.purgarPreventas(req.db);
+      detalle = { mensaje: `Preventas anteriores al ${fechaLimite} eliminadas: ${cabezas} (${items} ítems)` };
+    }
+
+    console.warn('[desarrollador] Acción de base', {
+      empresaId: req.empresaData?.id,
+      base: req.db.config.database,
+      usuario: req.userData?.userId,
+      accion,
+    });
+    return res.json({ success: true, accion, segundos: Math.round((Date.now() - inicio) / 100) / 10, ...detalle });
+  } catch (error) {
+    console.error(`Error en acción de base ${accion}:`, error);
+    return res.status(500).json({ message: error.message || 'No se pudo completar la acción' });
+  }
+}
+
+module.exports = { obtenerEstadoReset, ejecutarReset, ordenarParaBorrar, diagnosticoBase, accionBase };

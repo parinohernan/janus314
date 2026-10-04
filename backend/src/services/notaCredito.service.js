@@ -6,6 +6,7 @@ const NumeroControlService = require("./numeroControl.service");
 const TransactionService = require("./transaction.service");
 const Cliente = require("../models/cliente.model");
 const { usaMatematicaExacta } = require("../utils/matematicaExacta");
+const { modeloPorConexion } = require("../utils/modeloPorConexion");
 const { aplicarTotalesAFactura } = require("../templates/pdf/common/precioItem");
 
 /**
@@ -28,16 +29,14 @@ const NotaCreditoService = {
     }
 
     // Definir los modelos para esta conexión
-    const NotaCreditoCabezaEmpresa = require('../models/notaCreditoCabeza.model');
-    NotaCreditoCabezaEmpresa.init(NotaCreditoCabezaEmpresa.getAttributes(), {
-      sequelize: dbConnection,
+    const NotaCreditoCabezaEmpresa = modeloPorConexion(NotaCreditoCabeza, dbConnection, {
+      modelName: "NotaCreditoCabezaAlta",
       tableName: "notacreditocabeza",
       timestamps: false
     });
-    
-    const NotaCreditoItemEmpresa = require('../models/notaCreditoItem.model');
-    NotaCreditoItemEmpresa.init(NotaCreditoItemEmpresa.getAttributes(), {
-      sequelize: dbConnection,
+
+    const NotaCreditoItemEmpresa = modeloPorConexion(NotaCreditoItem, dbConnection, {
+      modelName: "NotaCreditoItemAlta",
       tableName: "notacreditoitems",
       timestamps: false
     });

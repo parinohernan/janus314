@@ -1,25 +1,22 @@
 const { DataTypes } = require('sequelize');
-const CajaCabeza = require('../models/cajaCabeza.model');
-const CajaMovimientos = require('../models/cajaMovimientos.model');
-const CajaArqueoDetalle = require('../models/cajaArqueoDetalle.model');
+const CajaCabezaModel = require('../models/cajaCabeza.model');
+const CajaMovimientosModel = require('../models/cajaMovimientos.model');
+const CajaArqueoDetalleModel = require('../models/cajaArqueoDetalle.model');
 const NotaCreditoCabezaModel = require('../models/notaCreditoCabeza.model');
+const { modeloPorConexion } = require('./modeloPorConexion');
 
 const initializeModels = (sequelize) => {
-  // Inicializar modelos de caja
-  CajaCabeza.init(CajaCabeza.getAttributes(), {
-    sequelize,
-          tableName: 'caja_cabeza_new',
+  const CajaCabeza = modeloPorConexion(CajaCabezaModel, sequelize, {
+    tableName: 'caja_cabeza_new',
     timestamps: false,
   });
 
-  CajaMovimientos.init(CajaMovimientos.getAttributes(), {
-    sequelize,
+  const CajaMovimientos = modeloPorConexion(CajaMovimientosModel, sequelize, {
     tableName: 'caja_movimientos',
     timestamps: false,
   });
 
-  CajaArqueoDetalle.init(CajaArqueoDetalle.getAttributes(), {
-    sequelize,
+  const CajaArqueoDetalle = modeloPorConexion(CajaArqueoDetalleModel, sequelize, {
     tableName: 'caja_arqueo_detalle',
     timestamps: false,
   });
@@ -895,12 +892,10 @@ const initializeModels = (sequelize) => {
   });
 
   // Definir modelo NotaCreditoCabeza (atributos completos, incl. afip_cae para PDF)
-  NotaCreditoCabezaModel.init(NotaCreditoCabezaModel.getAttributes(), {
-    sequelize,
+  const NotaCreditoCabeza = modeloPorConexion(NotaCreditoCabezaModel, sequelize, {
     tableName: "notacreditocabeza",
     timestamps: false,
   });
-  const NotaCreditoCabeza = NotaCreditoCabezaModel;
 
   // Definir modelo NotaDebitoCabeza
   const NotaDebitoCabeza = sequelize.define('NotaDebitoCabeza', {
@@ -1830,6 +1825,18 @@ const initializeModels = (sequelize) => {
     foreignKey: 'UsuarioId',
     targetKey: 'Codigo',
     as: 'Usuario'
+  });
+  CajaMovimientos.belongsTo(CajaCabeza, { foreignKey: 'CajaCabezaId', as: 'Caja' });
+  CajaCabeza.belongsTo(Vendedor, {
+    foreignKey: 'VendedorId',
+    targetKey: 'Codigo',
+    as: 'CajaVendedor'
+  });
+  CajaArqueoDetalle.belongsTo(CajaCabeza, { foreignKey: 'CajaCabezaId', as: 'Caja' });
+  CajaArqueoDetalle.belongsTo(TipoDePago, {
+    foreignKey: 'MetodoPago',
+    targetKey: 'Codigo',
+    as: 'TipoPago'
   });
 
   // Crear el objeto de modelos
