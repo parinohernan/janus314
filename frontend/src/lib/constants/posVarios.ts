@@ -18,7 +18,7 @@ export const POS_RUBROS: PosRubro[] = [
 		label: 'Almacén',
 		iva: 21,
 		descripcionDefault: 'VARIOS ALMACEN',
-		clase: 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100'
+		clase: 'bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-100 hover:bg-amber-100 dark:hover:bg-amber-900'
 	},
 	{
 		id: 'panaderia',
@@ -26,7 +26,7 @@ export const POS_RUBROS: PosRubro[] = [
 		label: 'Panadería',
 		iva: 10.5,
 		descripcionDefault: 'VARIOS PANADERIA',
-		clase: 'bg-orange-50 border-orange-200 text-orange-900 hover:bg-orange-100'
+		clase: 'bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800 text-orange-900 dark:text-orange-100 hover:bg-orange-100 dark:hover:bg-orange-900'
 	},
 	{
 		id: 'fiambreria',
@@ -34,7 +34,7 @@ export const POS_RUBROS: PosRubro[] = [
 		label: 'Fiambrería',
 		iva: 21,
 		descripcionDefault: 'VARIOS FIAMBRERIA',
-		clase: 'bg-rose-50 border-rose-200 text-rose-900 hover:bg-rose-100'
+		clase: 'bg-rose-50 dark:bg-rose-950 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-100 hover:bg-rose-100 dark:hover:bg-rose-900'
 	},
 	{
 		id: 'verduleria',
@@ -42,7 +42,7 @@ export const POS_RUBROS: PosRubro[] = [
 		label: 'Verdulería',
 		iva: 10.5,
 		descripcionDefault: 'VARIOS VERDULERIA',
-		clase: 'bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100'
+		clase: 'bg-emerald-50 dark:bg-emerald-950 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100 hover:bg-emerald-100 dark:hover:bg-emerald-900'
 	},
 	{
 		id: 'carniceria',
@@ -50,7 +50,7 @@ export const POS_RUBROS: PosRubro[] = [
 		label: 'Carnicería',
 		iva: 10.5,
 		descripcionDefault: 'VARIOS CARNICERIA',
-		clase: 'bg-red-50 border-red-200 text-red-900 hover:bg-red-100'
+		clase: 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800 text-red-900 dark:text-red-100 hover:bg-red-100 dark:hover:bg-red-900'
 	},
 	{
 		id: 'varios',
@@ -58,9 +58,24 @@ export const POS_RUBROS: PosRubro[] = [
 		label: 'Varios',
 		iva: 21,
 		descripcionDefault: 'VARIOS',
-		clase: 'bg-slate-50 border-slate-200 text-slate-800 hover:bg-slate-100'
+		clase: 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800'
 	}
 ];
+
+/** Shift + número (fila superior o teclado numérico) abre el rubro en esa posición. Se usa event.code para no depender del idioma del teclado. */
+export function rubroPorAtajo(
+	event: Pick<KeyboardEvent, 'code' | 'shiftKey' | 'ctrlKey' | 'altKey' | 'metaKey'>
+): PosRubro | undefined {
+	if (!event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return undefined;
+	const match = /^(?:Digit|Numpad)(\d)$/.exec(event.code || '');
+	if (!match) return undefined;
+	const posicion = Number(match[1]);
+	return posicion >= 1 ? POS_RUBROS[posicion - 1] : undefined;
+}
+
+export function etiquetaAtajoRubro(rubro: PosRubro): string {
+	return `⇧${POS_RUBROS.indexOf(rubro) + 1}`;
+}
 
 export function esCodigoBalanza(code: string): boolean {
 	const value = String(code || '').trim();

@@ -191,7 +191,7 @@
 			class="flex-grow min-w-0 transition-all duration-300 {leftMargin} {usarChromePrincipal
 				? 'w-full max-w-none px-4 sm:px-5 lg:px-10 py-6'
 				: esPosSupermercado
-					? 'w-full h-screen min-h-0 overflow-hidden p-0'
+					? 'w-full h-[calc(100dvh/var(--pos-zoom,1))] min-h-0 overflow-hidden p-0'
 					: 'w-full min-h-0'}"
 		>
 			{@render children()}

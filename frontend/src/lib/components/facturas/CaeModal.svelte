@@ -282,4 +282,37 @@
     gap: 16px;
     margin-top: 20px;
   }
+
+  :global(.dark) .modal-content {
+    background-color: #0f172a;
+    color: #f1f5f9;
+  }
+
+  :global(.dark) .modal-header,
+  :global(.dark) .info-row {
+    border-color: #334155;
+  }
+
+  :global(.dark) .close-button {
+    color: #cbd5e1;
+  }
+
+  :global(.dark) .cae-info {
+    background-color: #1e293b;
+    border-color: #334155;
+  }
+
+  :global(.dark) .label {
+    color: #cbd5e1;
+  }
+
+  :global(.dark) .error-detalle {
+    background: #450a0a;
+    border-color: #7f1d1d;
+  }
+
+  :global(.dark) .error-detalle summary,
+  :global(.dark) .error-detalle p {
+    color: #fecaca;
+  }
 </style> 

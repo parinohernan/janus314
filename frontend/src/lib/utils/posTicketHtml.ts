@@ -165,7 +165,6 @@ export function armarPosTicketDto(input: {
 		IngresosBrutos?: string;
 		InicioActividades?: string;
 		CategoriaIva?: string;
-		LogoURL?: string;
 	} | null;
 	cliente?: { Codigo?: string; Descripcion?: string; Cuit?: string; CategoriaIva?: string } | null;
 	items: { Cantidad: number; Descripcion: string; DescripcionLibre?: string; Total: number }[];
@@ -189,8 +188,7 @@ export function armarPosTicketDto(input: {
 			telefono: input.empresa?.Telefono,
 			ingresosBrutos: input.empresa?.IngresosBrutos,
 			inicioActividades: input.empresa?.InicioActividades,
-			condicionIva: CONDICION_IVA[String(input.empresa?.CategoriaIva || '').trim()] || '',
-			logo: input.empresa?.LogoURL
+			condicionIva: CONDICION_IVA[String(input.empresa?.CategoriaIva || '').trim()] || ''
 		},
 		cliente: {
 			codigo: input.cliente?.Codigo || 'CF',

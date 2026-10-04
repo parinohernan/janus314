@@ -135,37 +135,37 @@
 		role="presentation"
 		on:click|self={() => dispatch('close')}
 	>
-		<div class="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true">
+		<div class="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white dark:bg-slate-900 shadow-2xl" role="dialog" aria-modal="true">
 			<div class="min-h-0 flex-1 overflow-y-auto p-6">
-			<h2 class="text-xl font-semibold text-slate-900">{cajaId ? 'Caja abierta' : 'Caja cerrada'}</h2>
+			<h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100">{cajaId ? 'Caja abierta' : 'Caja cerrada'}</h2>
 
 			{#if cajaId}
-				<p class="mt-1 text-sm text-slate-500">Previsualización de esta caja.</p>
+				<p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Previsualización de esta caja.</p>
 
 				{#if loading}
 					<p class="mt-6 text-sm text-slate-400">Cargando...</p>
 				{:else if resumen}
 					<div class="mt-5 grid grid-cols-2 gap-3">
-						<div class="rounded-xl bg-slate-50 p-3">
-							<p class="text-xs uppercase text-slate-500">Saldo inicial</p>
+						<div class="rounded-xl bg-slate-50 dark:bg-slate-800 p-3">
+							<p class="text-xs uppercase text-slate-500 dark:text-slate-400">Saldo inicial</p>
 							<p class="text-lg font-semibold">{formatMoneyAR(resumen.saldoInicial)}</p>
 						</div>
-						<div class="rounded-xl bg-emerald-50 p-3">
-							<p class="text-xs uppercase text-emerald-700">Ingresos</p>
-							<p class="text-lg font-semibold text-emerald-800">{formatMoneyAR(resumen.totalIngresos)}</p>
+						<div class="rounded-xl bg-emerald-50 dark:bg-emerald-950 p-3">
+							<p class="text-xs uppercase text-emerald-700 dark:text-emerald-300">Ingresos</p>
+							<p class="text-lg font-semibold text-emerald-800 dark:text-emerald-200">{formatMoneyAR(resumen.totalIngresos)}</p>
 						</div>
-						<div class="rounded-xl bg-red-50 p-3">
-							<p class="text-xs uppercase text-red-700">Egresos</p>
-							<p class="text-lg font-semibold text-red-800">{formatMoneyAR(resumen.totalEgresos)}</p>
+						<div class="rounded-xl bg-red-50 dark:bg-red-950 p-3">
+							<p class="text-xs uppercase text-red-700 dark:text-red-300">Egresos</p>
+							<p class="text-lg font-semibold text-red-800 dark:text-red-200">{formatMoneyAR(resumen.totalEgresos)}</p>
 						</div>
 					</div>
 
 					<div class="mt-5">
-						<p class="text-sm font-semibold text-slate-700">Ingresos por tipo de pago</p>
+						<p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Ingresos por tipo de pago</p>
 						{#if !resumen.ingresosPorTipo?.length}
-							<p class="mt-2 text-sm text-slate-500">Todavía no hay ingresos.</p>
+							<p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Todavía no hay ingresos.</p>
 						{:else}
-							<ul class="mt-2 divide-y divide-slate-100 rounded-xl border border-slate-200">
+							<ul class="mt-2 divide-y divide-slate-100 dark:divide-slate-700 rounded-xl border border-slate-200 dark:border-slate-700">
 								{#each resumen.ingresosPorTipo as tipo}
 									<li class="flex items-center justify-between px-3 py-2 text-sm">
 										<span>{tipo.descripcion}</span>
@@ -181,59 +181,59 @@
 						<p class="text-2xl font-semibold text-purple-800">{formatMoneyAR(resumen.saldoTeorico)}</p>
 					</div>
 
-					<label class="mt-5 block text-sm font-medium text-slate-700" for="pos-efectivo-final">Efectivo contado</label>
+					<label class="mt-5 block text-sm font-medium text-slate-700 dark:text-slate-200" for="pos-efectivo-final">Efectivo contado</label>
 					<input
 						id="pos-efectivo-final"
 						type="number"
 						min="0"
 						step="0.01"
 						bind:value={efectivoFinal}
-						class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+						class="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 px-3 py-3 text-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900"
 					/>
 					<p
 						class="mt-2 text-sm font-semibold {diferenciaLabel === 'Faltante'
-							? 'text-red-600'
+							? 'text-red-600 dark:text-red-400'
 							: diferenciaLabel === 'Sobrante'
-								? 'text-emerald-700'
-								: 'text-slate-500'}"
+								? 'text-emerald-700 dark:text-emerald-300'
+								: 'text-slate-500 dark:text-slate-400'}"
 					>
 						{diferenciaLabel}
 						{#if diferenciaLabel !== 'Sin diferencia'}
 							{formatMoneyAR(Math.abs(diferencia))}
 						{/if}
 					</p>
-					<label class="mt-4 block text-sm font-medium text-slate-700" for="pos-obs-cierre">Observaciones</label>
+					<label class="mt-4 block text-sm font-medium text-slate-700 dark:text-slate-200" for="pos-obs-cierre">Observaciones</label>
 					<textarea
 						id="pos-obs-cierre"
 						rows="2"
 						bind:value={observaciones}
-						class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+						class="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900"
 						placeholder="Opcional"
 					></textarea>
 				{/if}
 			{:else}
-				<p class="mt-1 text-sm text-slate-500">Abrí la caja para cobrar en el punto de venta.</p>
-				<label class="mt-5 block text-sm font-medium text-slate-700" for="pos-saldo-inicial">Saldo inicial</label>
+				<p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Abrí la caja para cobrar en el punto de venta.</p>
+				<label class="mt-5 block text-sm font-medium text-slate-700 dark:text-slate-200" for="pos-saldo-inicial">Saldo inicial</label>
 				<input
 					id="pos-saldo-inicial"
 					type="number"
 					min="0"
 					step="0.01"
 					bind:value={saldoInicial}
-					class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+					class="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 px-3 py-3 text-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900"
 				/>
 			{/if}
 
 			</div>
 
 			{#if error}
-				<p class="px-6 text-sm text-red-600">{error}</p>
+				<p class="px-6 text-sm text-red-600 dark:text-red-400">{error}</p>
 			{/if}
 
-			<div class="flex gap-3 border-t border-slate-100 p-6">
+			<div class="flex gap-3 border-t border-slate-100 dark:border-slate-700 p-6">
 				<button
 					type="button"
-					class="flex-1 rounded-xl border border-slate-200 px-4 py-3 font-medium text-slate-600 hover:bg-slate-50"
+					class="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
 					on:click={() => dispatch('close')}
 				>
 					Volver

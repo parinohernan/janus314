@@ -74,10 +74,10 @@
 	</button>
 
 	{#if abierto}
-		<div class="absolute right-0 z-30 mt-2 w-80 rounded-xl bg-white p-3 text-slate-900 shadow-xl ring-1 ring-slate-200">
+		<div class="absolute right-0 z-30 mt-2 w-80 rounded-xl bg-white dark:bg-slate-900 p-3 text-slate-900 dark:text-slate-100 shadow-xl ring-1 ring-slate-200 dark:ring-slate-700">
 			<input
 				bind:value={busqueda}
-				class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500"
+				class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none placeholder:text-slate-400 focus:border-blue-500"
 				placeholder="Buscar cliente..."
 				on:input={onInput}
 			/>
@@ -90,10 +90,10 @@
 					{#each resultados as item}
 						<button
 							type="button"
-							class="block w-full rounded-lg px-2 py-2 text-left hover:bg-blue-50"
+							class="block w-full rounded-lg px-2 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-950"
 							on:click={() => elegir(item)}
 						>
-							<p class="text-sm font-medium text-slate-800">{item.Descripcion}</p>
+							<p class="text-sm font-medium text-slate-800 dark:text-slate-100">{item.Descripcion}</p>
 							<p class="text-xs text-slate-400">{item.Codigo} · IVA {item.CategoriaIva || '-'}</p>
 						</button>
 					{/each}

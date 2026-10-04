@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { LogOut, Wallet } from 'lucide-svelte';
+	import { LogOut, Settings, Wallet } from 'lucide-svelte';
 	import { auth } from '$lib/stores/authStore';
 	import { esCajero } from '$lib/utils/permisos';
 	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 	import { toast } from '$lib/utils/toast';
 	import { EmpresaService } from '$lib/services/EmpresaService';
 	import CaeModal from '$lib/components/facturas/CaeModal.svelte';
-	import { decodificarCodigoBalanza, type PosRubro } from '$lib/constants/posVarios';
+	import { decodificarCodigoBalanza, rubroPorAtajo, type PosRubro } from '$lib/constants/posVarios';
 	import {
 		agregarOIncrementar,
 		cambiarCantidad,
@@ -48,7 +48,12 @@
 	import PosVariosModal from '$lib/components/pos/PosVariosModal.svelte';
 	import PosClienteChip from '$lib/components/pos/PosClienteChip.svelte';
 	import PosPrinterChip from '$lib/components/pos/PosPrinterChip.svelte';
-	import PosPrinterModal from '$lib/components/pos/PosPrinterModal.svelte';
+	import PosConfigModal, { type PestanaConfig } from '$lib/components/pos/PosConfigModal.svelte';
+	import {
+		aplicarPantallaPos,
+		loadPosPantallaConfig,
+		quitarPantallaPos
+	} from '$lib/utils/posPantallaConfig';
 	import PosArticuloBuscarModal from '$lib/components/pos/PosArticuloBuscarModal.svelte';
 	import PosCobroModal from '$lib/components/pos/PosCobroModal.svelte';
 	import PosCajaModal from '$lib/components/pos/PosCajaModal.svelte';
@@ -117,7 +122,8 @@
 	let rubroActivo: PosRubro | null = null;
 	let showVarios = false;
 	let showCae = false;
-	let showPrinter = false;
+	let showConfig = false;
+	let pestanaConfig: PestanaConfig = 'impresora';
 	let showBuscar = false;
 	let showCobro = false;
 	let showCaja = false;
@@ -210,7 +216,13 @@
 		}
 	}
 
+	function abrirConfig(pestana: PestanaConfig) {
+		pestanaConfig = pestana;
+		showConfig = true;
+	}
+
 	onMount(async () => {
+		aplicarPantallaPos(loadPosPantallaConfig());
 		window.addEventListener('keydown', onGlobalKey, true);
 		document.addEventListener('visibilitychange', onVisible);
 		catalogoTimer = setInterval(cargarCatalogo, REFRESCO_CATALOGO_MS);
@@ -244,6 +256,7 @@
 		document.removeEventListener('visibilitychange', onVisible);
 		if (catalogoTimer) clearInterval(catalogoTimer);
 		disconnectQz().catch(() => null);
+		quitarPantallaPos();
 	});
 
 	function esTeclaMas(event: KeyboardEvent) {
@@ -265,12 +278,12 @@
 	}
 
 	function onGlobalKey(event: KeyboardEvent) {
-		if (showVarios || showCae || showPrinter || showBuscar || showCobro || showCaja || showHistorial || movimientoCaja || cobrando) {
+		if (showVarios || showCae || showConfig || showBuscar || showCobro || showCaja || showHistorial || movimientoCaja || cobrando) {
 			if (event.key === 'Escape' && showVarios) {
 				showVarios = false;
 			}
-			if (event.key === 'Escape' && showPrinter) {
-				showPrinter = false;
+			if (event.key === 'Escape' && showConfig) {
+				showConfig = false;
 			}
 			if (event.key === 'Escape' && showBuscar) {
 				showBuscar = false;
@@ -296,6 +309,12 @@
 			return;
 		}
 
+		if (event.key === 'F4') {
+			event.preventDefault();
+			if (!sinCaja && !cobrando && lineas.length > 0 && !listoParaEmitir) showCobro = true;
+			return;
+		}
+
 		if (event.key === 'F9') {
 			event.preventDefault();
 			if (listoParaEmitir) cobrar('PRF');
@@ -311,6 +330,13 @@
 			if (!pagoConfirmado) nuevaVenta();
 			return;
 		}
+		const rubroAtajo = rubroPorAtajo(event);
+		if (rubroAtajo) {
+			event.preventDefault();
+			if (!sinCaja && !cobrando && !pagoConfirmado) abrirRubroDirecto(rubroAtajo);
+			return;
+		}
+
 		if (event.key === 'Delete' && seleccionId && !pagoConfirmado) {
 			event.preventDefault();
 			quitar(seleccionId);
@@ -457,9 +483,13 @@
 		search?.focusInput();
 	}
 
-	function abrirRubro(event: CustomEvent<PosRubro>) {
-		rubroActivo = event.detail;
+	function abrirRubroDirecto(rubro: PosRubro) {
+		rubroActivo = rubro;
 		showVarios = true;
+	}
+
+	function abrirRubro(event: CustomEvent<PosRubro>) {
+		abrirRubroDirecto(event.detail);
 	}
 
 	function confirmarVarios(event: CustomEvent<{ descripcion: string; precioConIva: number }>) {
@@ -679,7 +709,9 @@
 	<title>Punto de venta</title>
 </svelte:head>
 
-<div class="flex h-screen min-h-0 flex-col bg-slate-100">
+<div
+	class="flex h-[calc(100dvh/var(--pos-zoom,1))] min-h-0 flex-col bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
+>
 	<header class="flex items-center gap-3 bg-blue-700 px-4 py-3 text-white shadow">
 		<div class="hidden shrink-0 sm:block">
 			<p class="text-xs uppercase tracking-widest text-blue-100">Janus314</p>
@@ -696,8 +728,18 @@
 		<PosPrinterChip
 			printerName={printerConfig.printerName}
 			disabled={cobrando}
-			on:open={() => (showPrinter = true)}
+			on:open={() => abrirConfig('impresora')}
 		/>
+		<button
+			type="button"
+			class="flex shrink-0 items-center rounded-full bg-white/10 p-2 hover:bg-white/20 disabled:opacity-50"
+			title="Configuración de esta caja (impresora y pantalla)"
+			aria-label="Configuración de esta caja"
+			disabled={cobrando}
+			on:click={() => abrirConfig('pantalla')}
+		>
+			<Settings class="h-5 w-5" />
+		</button>
 		<button
 			type="button"
 			class="flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold {cajaAbierta
@@ -721,11 +763,11 @@
 	</header>
 
 	{#if loadingInit}
-		<div class="flex flex-1 items-center justify-center text-slate-500">Abriendo caja...</div>
+		<div class="flex flex-1 items-center justify-center text-slate-500 dark:text-slate-400">Abriendo caja...</div>
 	{:else if sinCaja}
 		<div class="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-			<p class="text-xl font-semibold text-slate-800">No hay una caja abierta</p>
-			<p class="max-w-md text-slate-500">Abrí la caja del vendedor para cobrar en el punto de venta.</p>
+			<p class="text-xl font-semibold text-slate-800 dark:text-slate-100">No hay una caja abierta</p>
+			<p class="max-w-md text-slate-500 dark:text-slate-400">Abrí la caja del vendedor para cobrar en el punto de venta.</p>
 			<button
 				type="button"
 				class="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700"
@@ -745,7 +787,7 @@
 				on:qty={onQty}
 				on:remove={(e) => quitar(e.detail)}
 			/>
-			<div class="border-t border-slate-200 bg-slate-50 lg:border-l lg:border-t-0">
+			<div class="border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 lg:border-l lg:border-t-0">
 				<PosActions
 					{total}
 					{ticketLabel}
@@ -777,11 +819,16 @@
 	/>
 {/if}
 
-{#if showPrinter}
-	<PosPrinterModal
-		show={showPrinter}
-		on:close={() => (showPrinter = false)}
+{#if showConfig}
+	<PosConfigModal
+		show={showConfig}
+		pestana={pestanaConfig}
+		on:close={() => {
+			showConfig = false;
+			search?.focusInput();
+		}}
 		on:saved={(e) => (printerConfig = e.detail)}
+		on:pantalla={(e) => aplicarPantallaPos(e.detail)}
 	/>
 {/if}
 

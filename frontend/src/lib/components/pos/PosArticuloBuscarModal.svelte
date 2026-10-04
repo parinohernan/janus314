@@ -76,21 +76,21 @@
 		on:keydown={onKeyDown}
 	>
 		<div
-			class="w-full max-w-xl rounded-2xl bg-white p-5 shadow-2xl"
+			class="w-full max-w-xl rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-2xl"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="pos-buscar-title"
 			tabindex="-1"
 		>
-			<h2 id="pos-buscar-title" class="text-xl font-semibold text-slate-900">Buscar producto</h2>
-			<p class="mt-1 text-sm text-slate-500">Por descripción o código · F2 para abrir · Enter para agregar</p>
+			<h2 id="pos-buscar-title" class="text-xl font-semibold text-slate-900 dark:text-slate-100">Buscar producto</h2>
+			<p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Por descripción o código · F2 para abrir · Enter para agregar</p>
 
-			<label class="mt-4 flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200">
+			<label class="mt-4 flex items-center gap-2 rounded-xl border border-slate-300 dark:border-slate-600 px-3 py-2 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200">
 				<Search class="h-5 w-5 shrink-0 text-slate-400" />
 				<input
 					bind:this={inputEl}
 					bind:value={busqueda}
-					class="w-full border-0 bg-transparent p-1 text-base text-slate-900 outline-none placeholder:text-slate-400"
+					class="w-full border-0 bg-transparent p-1 text-base text-slate-900 dark:text-slate-100 outline-none placeholder:text-slate-400"
 					placeholder="Escribí al menos 2 letras..."
 					autocomplete="off"
 				/>
@@ -108,18 +108,18 @@
 						<button
 							type="button"
 							class="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left {index === destacado
-								? 'bg-blue-50 ring-1 ring-blue-200'
-								: 'hover:bg-slate-50'}"
+								? 'bg-blue-50 dark:bg-blue-950 ring-1 ring-blue-200 dark:ring-blue-800'
+								: 'hover:bg-slate-50 dark:hover:bg-slate-800'}"
 							on:click={() => elegir(item)}
 							on:mouseenter={() => (destacado = index)}
 						>
 							<span class="min-w-0">
-								<span class="block truncate font-medium text-slate-800">{item.Descripcion}</span>
+								<span class="block truncate font-medium text-slate-800 dark:text-slate-100">{item.Descripcion}</span>
 								<span class="block text-xs text-slate-400">
 									{item.Codigo} · stock {Number(item.Existencia) || 0}
 								</span>
 							</span>
-							<span class="shrink-0 text-base font-semibold tabular-nums text-slate-900">
+							<span class="shrink-0 text-base font-semibold tabular-nums text-slate-900 dark:text-slate-100">
 								{formatMoneyAR(precioConIva(item))}
 							</span>
 						</button>

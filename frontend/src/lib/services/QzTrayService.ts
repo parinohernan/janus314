@@ -3,6 +3,7 @@ import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 import { loadPosPrinterConfig, type PosPrinterConfig } from '$lib/utils/posPrinterConfig';
 import { renderPosTicketHtml, type PosTicketDto } from '$lib/utils/posTicketHtml';
 import { prepararTicketFiscal } from '$lib/utils/posTicketQr';
+import { obtenerLogoTicket } from '$lib/services/LogoTicketService';
 import { bytesABase64 } from '$lib/utils/escpos/comandos';
 import { logoRaster } from '$lib/utils/escpos/logoRaster';
 import { renderPosTicketEscPos } from '$lib/utils/escpos/ticketEscPos';
@@ -248,7 +249,7 @@ export async function printTicket(
 	config: PosPrinterConfig = loadPosPrinterConfig()
 ): Promise<void> {
 	if (config.modo === 'escpos') {
-		const logo = await logoRaster(dto.empresa.logo);
+		const logo = await logoRaster((await obtenerLogoTicket()) ?? undefined);
 		const bytes = renderPosTicketEscPos(dto, {
 			columnas: config.columnas,
 			cortarPapel: config.cortarPapel,

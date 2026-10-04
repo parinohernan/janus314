@@ -76,19 +76,19 @@
 {#if show}
 	<div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-4 sm:items-center">
 		<form
-			class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+			class="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl"
 			on:submit|preventDefault={guardar}
 		>
-			<h2 class="text-lg font-semibold text-slate-900">{titulo}</h2>
-			<p class="mt-1 text-sm text-slate-500">Se registra en efectivo de esta caja.</p>
+			<h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">{titulo}</h2>
+			<p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Se registra en efectivo de esta caja.</p>
 
 			<div class="mt-4 flex flex-wrap gap-2">
 				{#each motivos as motivo}
 					<button
 						type="button"
 						class="rounded-full border px-3 py-1.5 text-sm {concepto === motivo
-							? 'border-blue-600 bg-blue-50 font-semibold text-blue-800'
-							: 'border-slate-200 text-slate-600'}"
+							? 'border-blue-600 bg-blue-50 dark:bg-blue-950 font-semibold text-blue-800 dark:text-blue-200'
+							: 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}"
 						on:click={() => (concepto = motivo)}
 					>
 						{motivo}
@@ -96,32 +96,32 @@
 				{/each}
 			</div>
 
-			<label class="mt-4 block text-sm font-medium text-slate-700" for="pos-mov-motivo">Motivo</label>
+			<label class="mt-4 block text-sm font-medium text-slate-700 dark:text-slate-200" for="pos-mov-motivo">Motivo</label>
 			<input
 				id="pos-mov-motivo"
 				bind:value={concepto}
 				maxlength="255"
-				class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+				class="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900"
 			/>
 
-			<label class="mt-4 block text-sm font-medium text-slate-700" for="pos-mov-importe">Importe</label>
+			<label class="mt-4 block text-sm font-medium text-slate-700 dark:text-slate-200" for="pos-mov-importe">Importe</label>
 			<input
 				id="pos-mov-importe"
 				type="number"
 				min="0.01"
 				step="0.01"
 				bind:value={importe}
-				class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+				class="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 px-3 py-3 text-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900"
 			/>
 
 			{#if error}
-				<p class="mt-3 text-sm text-red-600">{error}</p>
+				<p class="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
 			{/if}
 
 			<div class="mt-6 flex gap-3">
 				<button
 					type="button"
-					class="flex-1 rounded-xl border border-slate-200 px-4 py-3 font-medium text-slate-600"
+					class="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 font-medium text-slate-600 dark:text-slate-300"
 					on:click={() => dispatch('close')}
 				>
 					Cancelar

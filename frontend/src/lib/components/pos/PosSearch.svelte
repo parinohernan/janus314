@@ -57,7 +57,7 @@
 			bind:this={inputEl}
 			bind:value={valor}
 			{disabled}
-			class="h-12 w-full rounded-xl border-0 bg-white/15 pl-11 pr-4 text-lg text-white placeholder:text-blue-100/70 shadow-inner outline-none ring-2 ring-transparent focus:bg-white/20 focus:ring-blue-200 {flashOk
+			class="h-12 w-full rounded-xl border-0 bg-white/15 pl-11 pr-4 text-lg text-white placeholder:text-blue-100/70 shadow-inner outline-none ring-2 ring-transparent focus:bg-white/20 focus:ring-blue-200 dark:focus:ring-blue-900 {flashOk
 				? 'ring-emerald-300'
 				: ''}"
 			placeholder="Escaneá o escribí el código y Enter"

@@ -39,7 +39,7 @@ describe('posTicketHtml', () => {
 		expect(html).toContain(escapeHtml('<script>x</script>'));
 	});
 
-	it('muestra el logo y los datos de datosempresa en la cabecera', () => {
+	it('muestra el logo del ticket y los datos de datosempresa en la cabecera', () => {
 		const dto = armarPosTicketDto({
 			tipo: 'FCB',
 			sucursal: '1',
@@ -54,15 +54,16 @@ describe('posTicketHtml', () => {
 				Cuit: '20-12345678-9',
 				CategoriaIva: 'I',
 				IngresosBrutos: '20123456789',
-				InicioActividades: '2010-05-03',
-				LogoURL: 'https://cdn.ejemplo/logo.png'
+				InicioActividades: '2010-05-03'
 			},
 			cliente: { Codigo: 'CF', Descripcion: 'Consumidor Final' },
 			items: [{ Cantidad: 1, Descripcion: 'Pan', Total: 100 }],
 			totales: { ImporteNeto: 90, ImporteIva: 10, ImporteTotal: 100 }
 		});
-		const html = renderPosTicketHtml(dto);
-		expect(html).toContain('https://cdn.ejemplo/logo.png');
+		expect(dto.empresa.logo).toBeUndefined();
+		const logo = 'data:image/png;base64,iVBORw0KGgo=';
+		const html = renderPosTicketHtml({ ...dto, empresa: { ...dto.empresa, logo } });
+		expect(html).toContain(logo);
 		expect(html).toContain('Super Test');
 		expect(html).toContain('Av. San Martín 100');
 		expect(html).not.toContain('Calle 1');

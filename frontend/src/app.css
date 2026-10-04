@@ -1,5 +1,12 @@
 @import 'tailwindcss';
 
+/* El modo oscuro lo activa la clase .dark en <html> (solo el POS la pone), no la preferencia del sistema. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+html.dark {
+	color-scheme: dark;
+}
+
 /* Tablas anchas en pantallas chicas: scroll más visible y gesto táctil claro */
 @layer components {
 	.table-scroll-wrap {

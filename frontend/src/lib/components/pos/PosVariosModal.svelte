@@ -23,7 +23,7 @@
 		descripcion = rubro?.descripcionDefault || '';
 		precio = '';
 		abiertoAntes = true;
-		queueMicrotask(() => descEl?.focus());
+		queueMicrotask(() => precioEl?.focus());
 	}
 	$: if (!show) abiertoAntes = false;
 
@@ -63,30 +63,30 @@
 		on:keydown={onKeyDown}
 	>
 		<div
-			class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+			class="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="pos-varios-title"
 			tabindex="-1"
 		>
-			<h2 id="pos-varios-title" class="text-xl font-semibold text-slate-900">{rubro.label}</h2>
-			<p class="mt-1 text-sm text-slate-500">IVA {iva}% · el precio se carga con impuesto incluido</p>
+			<h2 id="pos-varios-title" class="text-xl font-semibold text-slate-900 dark:text-slate-100">{rubro.label}</h2>
+			<p class="mt-1 text-sm text-slate-500 dark:text-slate-400">IVA {iva}% · el precio se carga con impuesto incluido</p>
 
-			<label class="mt-5 block text-sm font-medium text-slate-700" for="pos-varios-desc">Descripción</label>
+			<label class="mt-5 block text-sm font-medium text-slate-700 dark:text-slate-200" for="pos-varios-desc">Descripción</label>
 			<input
 				id="pos-varios-desc"
 				bind:this={descEl}
 				bind:value={descripcion}
-				class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-base outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+				class="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 px-3 py-3 text-base outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900"
 				maxlength="100"
 			/>
 
-			<label class="mt-4 block text-sm font-medium text-slate-700" for="pos-varios-precio">Precio</label>
+			<label class="mt-4 block text-sm font-medium text-slate-700 dark:text-slate-200" for="pos-varios-precio">Precio</label>
 			<input
 				id="pos-varios-precio"
 				bind:this={precioEl}
 				bind:value={precio}
-				class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-2xl font-semibold tabular-nums outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+				class="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 px-3 py-3 text-2xl font-semibold tabular-nums outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900"
 				inputmode="decimal"
 				placeholder="0,00"
 			/>
@@ -97,7 +97,7 @@
 			<div class="mt-6 flex gap-3">
 				<button
 					type="button"
-					class="flex-1 rounded-xl border border-slate-200 px-4 py-3 font-medium text-slate-600 hover:bg-slate-50"
+					class="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
 					on:click={() => dispatch('close')}
 				>
 					Cancelar

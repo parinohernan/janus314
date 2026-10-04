@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { POS_RUBROS, decodificarCodigoBalanza, esCodigoBalanza } from '../src/lib/constants/posVarios';
+import {
+	POS_RUBROS,
+	decodificarCodigoBalanza,
+	esCodigoBalanza,
+	etiquetaAtajoRubro,
+	rubroPorAtajo
+} from '../src/lib/constants/posVarios';
 import {
 	agregarOIncrementar,
 	labelTicketFiscal,
@@ -139,5 +145,31 @@ describe('POS ticket', () => {
 
 	it('si el porcentaje deja el precio en 0 o menos, usa Lista1', () => {
 		expect(precioListaSinIva({ ...articulo, Lista2: -200 }, '2')).toBe(200);
+	});
+});
+
+describe('atajos de rubros', () => {
+	const tecla = (code: string, mods: Partial<KeyboardEvent> = {}) => ({
+		code,
+		shiftKey: true,
+		ctrlKey: false,
+		altKey: false,
+		metaKey: false,
+		...mods
+	});
+
+	it('Shift + número abre el rubro en esa posición, también desde el teclado numérico', () => {
+		expect(rubroPorAtajo(tecla('Digit1'))?.id).toBe('almacen');
+		expect(rubroPorAtajo(tecla('Digit5'))?.id).toBe('carniceria');
+		expect(rubroPorAtajo(tecla('Numpad4'))?.id).toBe('verduleria');
+		expect(etiquetaAtajoRubro(POS_RUBROS[5])).toBe('⇧6');
+	});
+
+	it('ignora números solos, otros modificadores y posiciones sin rubro', () => {
+		expect(rubroPorAtajo(tecla('Digit1', { shiftKey: false }))).toBeUndefined();
+		expect(rubroPorAtajo(tecla('Digit1', { ctrlKey: true }))).toBeUndefined();
+		expect(rubroPorAtajo(tecla('Digit0'))).toBeUndefined();
+		expect(rubroPorAtajo(tecla('Digit9'))).toBeUndefined();
+		expect(rubroPorAtajo(tecla('KeyA'))).toBeUndefined();
 	});
 });

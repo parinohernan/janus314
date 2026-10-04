@@ -1,31 +1,14 @@
 import QRCode from 'qrcode';
+import { obtenerLogoTicket } from '$lib/services/LogoTicketService';
 import { urlQrArca, type PosTicketDto } from './posTicketHtml';
 
-function leerBlob(blob: Blob): Promise<string> {
-	return new Promise((resolve, reject) => {
-		const reader = new FileReader();
-		reader.onload = () => resolve(String(reader.result || ''));
-		reader.onerror = () => reject(reader.error);
-		reader.readAsDataURL(blob);
-	});
-}
-
-async function incrustarLogo(dto: PosTicketDto): Promise<PosTicketDto> {
-	const logo = String(dto.empresa.logo || '').trim();
-	if (!logo || logo.startsWith('data:')) return dto;
-	try {
-		const response = await fetch(logo);
-		if (!response.ok) return dto;
-		const dataUrl = await leerBlob(await response.blob());
-		if (!dataUrl.startsWith('data:image/')) return dto;
-		return { ...dto, empresa: { ...dto.empresa, logo: dataUrl } };
-	} catch {
-		return dto;
-	}
+export async function adjuntarLogoTicket(dto: PosTicketDto): Promise<PosTicketDto> {
+	const logo = await obtenerLogoTicket();
+	return { ...dto, empresa: { ...dto.empresa, logo: logo ?? undefined } };
 }
 
 export async function prepararTicketFiscal(dto: PosTicketDto): Promise<PosTicketDto> {
-	return adjuntarQrArca(await incrustarLogo(dto));
+	return adjuntarQrArca(await adjuntarLogoTicket(dto));
 }
 
 export async function adjuntarQrArca(dto: PosTicketDto): Promise<PosTicketDto> {
