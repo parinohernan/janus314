@@ -213,10 +213,11 @@ export function labelTicketFiscal(categoriaIva?: string | null): string {
 	return tipoTicketFiscal(categoriaIva) === 'FCA' ? 'Factura A' : 'Ticket B';
 }
 
+/** Cada Varios queda como renglón propio con su DescripcionLibre: facturaitems admite el mismo código repetido en un comprobante. */
 export function mergeLineasParaPersistir(lineas: PosLinea[]): PosLinea[] {
 	const map = new Map<string, PosLinea>();
 	for (const linea of lineas) {
-		const key = linea.ArticuloCodigo;
+		const key = linea.esVarios ? linea.lineId : linea.ArticuloCodigo;
 		const actual = map.get(key);
 		if (!actual) {
 			map.set(key, { ...linea });

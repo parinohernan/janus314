@@ -120,15 +120,16 @@ describe('POS ticket', () => {
 		expect(labelTicketFiscal('I')).toBe('Factura A');
 	});
 
-	it('fusiona dos renglones Varios del mismo código al persistir', () => {
+	it('mantiene separados los Varios del mismo rubro, cada uno con su descripción y precio', () => {
 		const almacen = POS_RUBROS.find((r) => r.id === 'almacen')!;
-		const a = lineaDesdeRubro(almacen, 'Tomate', 100);
-		const b = lineaDesdeRubro(almacen, 'Papa', 50);
-		const merged = mergeLineasParaPersistir([a, b]);
-		expect(merged).toHaveLength(1);
-		expect(merged[0].Descripcion).toContain('Tomate');
-		expect(merged[0].Descripcion).toContain('Papa');
-		expect(totalTicket(merged)).toBeCloseTo(150, 1);
+		const a = lineaDesdeRubro(almacen, 'Manzanas', 200);
+		const b = lineaDesdeRubro(almacen, 'Fruta', 400);
+		const items = mergeLineasParaPersistir([a, b]);
+		expect(items).toHaveLength(2);
+		expect(items.map((i) => i.ArticuloCodigo)).toEqual(['VAR-ALM', 'VAR-ALM']);
+		expect(items.map((i) => i.DescripcionLibre)).toEqual(['Manzanas', 'Fruta']);
+		expect(items.map((i) => i.Total)).toEqual([200, 400]);
+		expect(totalTicket(items)).toBeCloseTo(600, 2);
 	});
 
 	it('conserva IVA 0% al armar una línea', () => {
