@@ -15,7 +15,7 @@
   type FilaParametro = { codigo: string; config: Configuracion | null };
   let filasParametros = $state<FilaParametro[]>([]);
   
-  const FLAGS_01 = ['mostrar_info_en_remitos', 'imprimir_duplicado_en_remitos'] as const;
+  const FLAGS_01 = ['DATOS_REMITO', 'imprimir_duplicado_en_remitos'] as const;
   const configuracionesVisibles = ['CANT_ITEMS', ...FLAGS_01] as const;
 
   function esFlag01(codigo: string): boolean {
@@ -93,7 +93,7 @@
   function obtenerDescripcionAmigable(codigo: string): string {
     const descripciones: Record<string, string> = {
       CANT_ITEMS: 'Cantidad de Items por Página',
-      mostrar_info_en_remitos: 'Mostrar información en remitos',
+      DATOS_REMITO: 'Ocultar datos de la empresa en remitos (PRF)',
       imprimir_duplicado_en_remitos: 'Imprimir duplicado en remitos (PRF)'
     };
     return descripciones[codigo] || codigo;
@@ -103,7 +103,7 @@
   function obtenerTipoInput(codigo: string): string {
     const tipos: Record<string, string> = {
       CANT_ITEMS: 'number',
-      mostrar_info_en_remitos: 'flag01',
+      DATOS_REMITO: 'flag01',
       imprimir_duplicado_en_remitos: 'flag01'
     };
     return tipos[codigo] || 'text';

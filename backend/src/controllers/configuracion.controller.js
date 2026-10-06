@@ -89,7 +89,7 @@ exports.actualizarConfiguracion = async (req, res) => {
       reportes_auto_dir: 'Carpeta local de reportes del contador',
       reportes_auto_rclone: 'Remoto rclone (ej. gdrive:Contabilidad/RubrosProvincia)',
       CANT_ITEMS: 'Cantidad de Items por Página',
-      mostrar_info_en_remitos: 'Mostrar información en remitos',
+      DATOS_REMITO: 'Ocultar datos de la empresa en remitos (PRF)',
       imprimir_duplicado_en_remitos: 'Imprimir duplicado en remitos (PRF)',
     };
 

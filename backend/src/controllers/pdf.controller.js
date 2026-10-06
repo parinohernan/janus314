@@ -45,6 +45,11 @@ async function leerFlagConfig(Configuracion, codigo) {
   }
 }
 
+/** DATOS_REMITO: 1 oculta los datos de la empresa en el PRF; 0, sin fila o error de lectura los muestra. */
+async function mostrarDatosEmpresaEnRemito(Configuracion) {
+  return !(await leerFlagConfig(Configuracion, "DATOS_REMITO"));
+}
+
 // Función para generar PDF de factura
 exports.generarFacturaPDF = async (req, res) => {
   try {
@@ -200,10 +205,7 @@ exports.generarFacturaPDF = async (req, res) => {
         logoPath,
       });
     } else if (tipo === "PRF") {
-      const mostrarInfoEmpresaRemito = await leerFlagConfig(
-        Configuracion,
-        "mostrar_info_en_remitos"
-      );
+      const mostrarInfoEmpresaRemito = await mostrarDatosEmpresaEnRemito(Configuracion);
       const imprimirDuplicado = await leerFlagConfig(
         Configuracion,
         "imprimir_duplicado_en_remitos"
@@ -218,7 +220,7 @@ exports.generarFacturaPDF = async (req, res) => {
       if (mostrarInfoEmpresaRemito) {
         await renderPrefacturaConEmpresa(doc, datosPrf);
       } else {
-        await renderPrefactura(doc, datosPrf);
+        await renderPrefactura(doc, { ...datosPrf, mostrarLogo: false });
       }
     } else {
       doc.fontSize(20).text("Tipo de factura no soportado", 100, 100);

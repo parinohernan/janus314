@@ -6,11 +6,13 @@ const path = require("path");
 /**
  * Genera un PDF para una Prefactura
  * @param {PDFDocument} doc - Documento PDF
- * @param {Object} data - Datos de la prefactura
+ * @param {Object} data - Datos de la prefactura; `mostrarLogo: false` lo omite (PRF con DATOS_REMITO = 1)
  */
 async function renderPrefactura(doc, data) {
-  const { prefactura, items, logoPath, imprimirDuplicado = false } = data;
-  const finalLogoPath = logoPath || path.join(__dirname, "./common/logos/logoempresa.png");
+  const { prefactura, items, logoPath, imprimirDuplicado = false, mostrarLogo = true } = data;
+  const finalLogoPath = mostrarLogo
+    ? logoPath || path.join(__dirname, "./common/logos/logoempresa.png")
+    : null;
   doc.font("Helvetica");
   const interlineado = 10;
 
