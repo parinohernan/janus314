@@ -47,7 +47,6 @@
 	import PosActions from '$lib/components/pos/PosActions.svelte';
 	import PosVariosModal from '$lib/components/pos/PosVariosModal.svelte';
 	import PosClienteChip from '$lib/components/pos/PosClienteChip.svelte';
-	import PosPrinterChip from '$lib/components/pos/PosPrinterChip.svelte';
 	import PosConfigModal, { type PestanaConfig } from '$lib/components/pos/PosConfigModal.svelte';
 	import {
 		aplicarPantallaPos,
@@ -416,7 +415,7 @@
 			search?.focusInput();
 			return true;
 		}
-		lineas = [...lineas, linea];
+		lineas = [linea, ...lineas];
 		flashOk = true;
 		setTimeout(() => (flashOk = false), 250);
 		search?.focusInput();
@@ -495,7 +494,7 @@
 	function confirmarVarios(event: CustomEvent<{ descripcion: string; precioConIva: number }>) {
 		if (!rubroActivo) return;
 		const linea = lineaDesdeRubro(rubroActivo, event.detail.descripcion, event.detail.precioConIva);
-		lineas = [...lineas, completarImportes(linea)];
+		lineas = [completarImportes(linea), ...lineas];
 		showVarios = false;
 		rubroActivo = null;
 		search?.focusInput();
@@ -568,7 +567,7 @@
 
 		cobrando = true;
 		try {
-			const items = mergeLineasParaPersistir(lineas);
+			const items = mergeLineasParaPersistir([...lineas].reverse());
 			const totales = calcularTotalesComprobante({
 				items: items.map((item) => ({
 					Cantidad: item.Cantidad,
@@ -725,18 +724,13 @@
 			on:buscar={() => (showBuscar = true)}
 		/>
 		<PosClienteChip {cliente} disabled={sinCaja || cobrando} on:select={onSelectCliente} />
-		<PosPrinterChip
-			printerName={printerConfig.printerName}
-			disabled={cobrando}
-			on:open={() => abrirConfig('impresora')}
-		/>
 		<button
 			type="button"
 			class="flex shrink-0 items-center rounded-full bg-white/10 p-2 hover:bg-white/20 disabled:opacity-50"
 			title="Configuración de esta caja (impresora y pantalla)"
 			aria-label="Configuración de esta caja"
 			disabled={cobrando}
-			on:click={() => abrirConfig('pantalla')}
+			on:click={() => abrirConfig('impresora')}
 		>
 			<Settings class="h-5 w-5" />
 		</button>
@@ -801,9 +795,6 @@
 					on:ticket={() => cobrar(tipoTicketFiscal(cliente.CategoriaIva))}
 					on:nueva={nuevaVenta}
 					on:rubro={abrirRubro}
-					on:historial={() => (showHistorial = true)}
-					on:ingreso={() => (movimientoCaja = 'ingreso')}
-					on:egreso={() => (movimientoCaja = 'egreso')}
 				/>
 			</div>
 		</div>
@@ -884,6 +875,18 @@
 		vendedorId={vendedorCodigo}
 		on:close={() => (showCaja = false)}
 		on:cambio={verificarCaja}
+		on:ingreso={() => {
+			showCaja = false;
+			movimientoCaja = 'ingreso';
+		}}
+		on:egreso={() => {
+			showCaja = false;
+			movimientoCaja = 'egreso';
+		}}
+		on:historial={() => {
+			showCaja = false;
+			showHistorial = true;
+		}}
 	/>
 {/if}
 

@@ -37,6 +37,15 @@ describe('POS ticket', () => {
 		expect(dos[0].Cantidad).toBe(2);
 	});
 
+	it('agrega el producto nuevo arriba y sube el que se vuelve a escanear', () => {
+		const otro: Articulo = { ...articulo, Codigo: '999', Descripcion: 'OTRO' };
+		const conDos = agregarOIncrementar(agregarOIncrementar([], articulo), otro);
+		expect(conDos.map((l) => l.ArticuloCodigo)).toEqual(['999', '388']);
+		const reescaneado = agregarOIncrementar(conDos, articulo);
+		expect(reescaneado.map((l) => l.ArticuloCodigo)).toEqual(['388', '999']);
+		expect(reescaneado[0].Cantidad).toBe(2);
+	});
+
 	it('detecta prefijo de balanza 5000', () => {
 		expect(esCodigoBalanza('5000123456789')).toBe(true);
 		expect(esCodigoBalanza('7791234567890')).toBe(false);

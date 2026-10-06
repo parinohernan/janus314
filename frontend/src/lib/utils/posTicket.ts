@@ -176,14 +176,14 @@ export function lineaDesdeRubro(rubro: PosRubro, descripcion: string, precioConI
 	});
 }
 
+/** El último producto cargado queda arriba de la lista, también si se vuelve a escanear uno que ya estaba. */
 export function agregarOIncrementar(lineas: PosLinea[], articulo: Articulo, listaId = '1'): PosLinea[] {
 	const existente = lineas.find((l) => !l.esVarios && l.ArticuloCodigo === articulo.Codigo);
 	if (existente) {
-		return lineas.map((l) =>
-			l.lineId === existente.lineId ? completarImportes({ ...l, Cantidad: l.Cantidad + 1 }) : l
-		);
+		const sumada = completarImportes({ ...existente, Cantidad: existente.Cantidad + 1 });
+		return [sumada, ...lineas.filter((l) => l.lineId !== existente.lineId)];
 	}
-	return [...lineas, lineaDesdeArticulo(articulo, listaId)];
+	return [lineaDesdeArticulo(articulo, listaId), ...lineas];
 }
 
 export function cambiarCantidad(lineas: PosLinea[], lineId: string, cantidad: number): PosLinea[] {

@@ -3,6 +3,7 @@
 	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
 	import { confirm, toast } from '$lib/utils/toast';
 	import { formatMoneyAR } from '$lib/utils/posTicket';
+	import { History, Minus, Plus } from 'lucide-svelte';
 
 	export let show = false;
 	export let cajaId: number | null = null;
@@ -17,7 +18,13 @@
 		ingresosPorTipo: IngresoTipo[];
 	};
 
-	const dispatch = createEventDispatcher<{ close: void; cambio: void }>();
+	const dispatch = createEventDispatcher<{
+		close: void;
+		cambio: void;
+		ingreso: void;
+		egreso: void;
+		historial: void;
+	}>();
 
 	let loading = false;
 	let guardando = false;
@@ -142,6 +149,33 @@
 			{#if cajaId}
 				<p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Previsualización de esta caja.</p>
 
+				<div class="mt-4 grid grid-cols-3 gap-2">
+					<button
+						type="button"
+						class="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950 px-3 py-2 text-sm font-semibold text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-900"
+						on:click={() => dispatch('ingreso')}
+					>
+						<Plus class="h-4 w-4" />
+						Ingreso
+					</button>
+					<button
+						type="button"
+						class="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 px-3 py-2 text-sm font-semibold text-red-800 dark:text-red-200 hover:bg-red-100 dark:hover:bg-red-900"
+						on:click={() => dispatch('egreso')}
+					>
+						<Minus class="h-4 w-4" />
+						Egreso
+					</button>
+					<button
+						type="button"
+						class="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
+						on:click={() => dispatch('historial')}
+					>
+						<History class="h-4 w-4" />
+						Historial
+					</button>
+				</div>
+
 				{#if loading}
 					<p class="mt-6 text-sm text-slate-400">Cargando...</p>
 				{:else if resumen}
@@ -176,9 +210,9 @@
 						{/if}
 					</div>
 
-					<div class="mt-5 rounded-xl bg-purple-50 p-3">
-						<p class="text-xs uppercase text-purple-700">Saldo teórico</p>
-						<p class="text-2xl font-semibold text-purple-800">{formatMoneyAR(resumen.saldoTeorico)}</p>
+					<div class="mt-5 rounded-xl bg-purple-50 p-3 dark:bg-purple-950">
+						<p class="text-xs uppercase text-purple-700 dark:text-purple-300">Saldo teórico</p>
+						<p class="text-2xl font-semibold text-purple-800 dark:text-purple-200">{formatMoneyAR(resumen.saldoTeorico)}</p>
 					</div>
 
 					<label class="mt-5 block text-sm font-medium text-slate-700 dark:text-slate-200" for="pos-efectivo-final">Efectivo contado</label>

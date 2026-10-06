@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
-	import { Banknote, History, Minus, Plus, Receipt, RotateCcw } from 'lucide-svelte';
+	import { Banknote, Receipt, RotateCcw } from 'lucide-svelte';
 	import { POS_RUBROS, etiquetaAtajoRubro, type PosRubro } from '$lib/constants/posVarios';
 	import { formatMoneyAR } from '$lib/utils/posTicket';
 
@@ -18,9 +18,6 @@
 		ticket: void;
 		nueva: void;
 		rubro: PosRubro;
-		historial: void;
-		ingreso: void;
-		egreso: void;
 	}>();
 </script>
 
@@ -86,35 +83,5 @@
 				</button>
 			{/each}
 		</div>
-	</div>
-
-	<div class="shrink-0">
-		<p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Sesión</p>
-		<div class="mb-2 grid grid-cols-2 gap-2">
-			<button
-				type="button"
-				class="flex min-h-14 items-center justify-center gap-2 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950 px-3 py-3 text-sm font-semibold text-emerald-800 dark:text-emerald-200 shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-900"
-				on:click={() => dispatch('ingreso')}
-			>
-				<Plus class="h-4 w-4" />
-				Ingreso
-			</button>
-			<button
-				type="button"
-				class="flex min-h-14 items-center justify-center gap-2 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 px-3 py-3 text-sm font-semibold text-red-800 dark:text-red-200 shadow-sm hover:bg-red-100 dark:hover:bg-red-900"
-				on:click={() => dispatch('egreso')}
-			>
-				<Minus class="h-4 w-4" />
-				Egreso
-			</button>
-		</div>
-		<button
-			type="button"
-			class="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-3 text-sm font-semibold text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800"
-			on:click={() => dispatch('historial')}
-		>
-			<History class="h-4 w-4" />
-			Historial
-		</button>
 	</div>
 </div>
