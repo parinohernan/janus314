@@ -90,7 +90,7 @@ export interface ListaDesactualizada {
 
 /**
  * Con ART en PrecioSinIva / PrecioConIva el usuario piensa en precios finales, pero se guarda el %.
- * Si cambia el costo sin tocar una lista, su precio final cambia solo: esto detecta esos casos.
+ * Si cambia el costo o el IVA sin tocar una lista, su precio final cambia solo: esto detecta esos casos.
  */
 export function listasDesactualizadasPorCosto(
 	original: PreciosArticulo | null | undefined,
@@ -100,7 +100,8 @@ export function listasDesactualizadasPorCosto(
 	if (!original || modo === 'PorcentajeDeGanancia') return [];
 	const costoAnterior = redondear2(aNumero(original.PrecioCosto));
 	const costoNuevo = redondear2(aNumero(actual.PrecioCosto));
-	if (costoAnterior <= 0 || costoNuevo <= 0 || costoAnterior === costoNuevo) return [];
+	const cambiaIva = aNumero(original.PorcentajeIVA1) !== aNumero(actual.PorcentajeIVA1);
+	if (costoAnterior <= 0 || costoNuevo <= 0 || (costoAnterior === costoNuevo && !cambiaIva)) return [];
 
 	const resultado: ListaDesactualizada[] = [];
 	for (const numero of NUMEROS_LISTA) {

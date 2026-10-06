@@ -106,6 +106,18 @@ describe('aviso de cambio de costo sin actualizar listas', () => {
 		expect(listasDesactualizadasPorCosto(null, actual, 'PrecioConIva')).toEqual([]);
 	});
 
+	it('avisa cuando cambia el IVA y la lista se ingresa con IVA', () => {
+		const actual = { ...original, PorcentajeIVA1: 21 };
+		const avisos = listasDesactualizadasPorCosto(original, actual, 'PrecioConIva');
+		expect(avisos.map((a) => [a.numero, a.anterior, a.nuevo])).toEqual([
+			[1, 1000, 1095.02],
+			[2, 2000, 2190.05]
+		]);
+		expect(listasDesactualizadasPorCosto(original, actual, 'PrecioSinIva')).toEqual([]);
+		const corregido = { ...actual, ...porcentajesParaMantenerPrecios(actual, avisos, 'PrecioConIva') };
+		expect(valorVisibleLista(3400, 21, corregido.Lista1, 'PrecioConIva')).toBe(1000);
+	});
+
 	it('mantener precios recalcula el porcentaje con el costo nuevo', () => {
 		const actual = { ...original, PrecioCosto: 3740 };
 		const avisos = listasDesactualizadasPorCosto(original, actual, 'PrecioSinIva');

@@ -308,7 +308,7 @@
   
   // Calcular el precio costo a partir del precio con impuestos
   const calcularPrecioCosto = (): void => {
-    if (articulo.PrecioCostoMasImp > 0 && articulo.PorcentajeIVA1 > 0) {
+    if (articulo.PrecioCostoMasImp > 0 && articulo.PorcentajeIVA1 >= 0) {
       const factor = 1 + (articulo.PorcentajeIVA1 / 100);
       articulo.PrecioCosto = Number((articulo.PrecioCostoMasImp / factor).toFixed(2));
     }
@@ -316,7 +316,7 @@
   
   // Calcular el precio con impuestos a partir del precio costo
   const calcularPrecioCostoMasImp = (): void => {
-    if (articulo.PrecioCosto > 0 && articulo.PorcentajeIVA1 > 0) {
+    if (articulo.PrecioCosto > 0 && articulo.PorcentajeIVA1 >= 0) {
       const factor = 1 + (articulo.PorcentajeIVA1 / 100);
       articulo.PrecioCostoMasImp = Number((articulo.PrecioCosto * factor).toFixed(2));
     }
@@ -372,7 +372,7 @@
     if (
       listasDesactualizadas.length > 0 &&
       !confirm(
-        `Cambió el precio de costo pero no actualizó los precios de lista. ` +
+        `Cambió el precio de costo o el IVA pero no actualizó los precios de lista. ` +
           `Los precios finales van a cambiar:\n\n${textoListasDesactualizadas(listasDesactualizadas)}\n\n¿Guardar igual?`
       )
     ) {
@@ -764,11 +764,7 @@
               <select
                 id="porcentajeIVA1"
                 bind:value={articulo.PorcentajeIVA1}
-                on:change={() => {
-                  // Resetear ambos campos de precio cuando cambia el porcentaje de IVA
-                  articulo.PrecioCosto = 0;
-                  articulo.PrecioCostoMasImp = 0;
-                }}
+                on:change={calcularPrecioCostoMasImp}
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value={0}>0%</option>
@@ -815,7 +811,7 @@
             {#if listasDesactualizadas.length > 0}
               <div class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                 <div>
-                  <p class="font-medium">Cambió el precio de costo pero no actualizó los precios de lista.</p>
+                  <p class="font-medium">Cambió el precio de costo o el IVA pero no actualizó los precios de lista.</p>
                   <p class="text-xs">Los precios finales van a cambiar: {textoListasDesactualizadas(listasDesactualizadas)}</p>
                 </div>
                 <Button type="button" variant="secondary" on:click={mantenerPreciosAnteriores}>
