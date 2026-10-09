@@ -3,6 +3,7 @@ const CajaCabezaModel = require('../models/cajaCabeza.model');
 const CajaMovimientosModel = require('../models/cajaMovimientos.model');
 const CajaArqueoDetalleModel = require('../models/cajaArqueoDetalle.model');
 const NotaCreditoCabezaModel = require('../models/notaCreditoCabeza.model');
+const NotaCreditoItemModel = require('../models/notaCreditoItem.model');
 const { modeloPorConexion } = require('./modeloPorConexion');
 
 const initializeModels = (sequelize) => {
@@ -897,6 +898,11 @@ const initializeModels = (sequelize) => {
     timestamps: false,
   });
 
+  const NotaCreditoItem = modeloPorConexion(NotaCreditoItemModel, sequelize, {
+    tableName: "notacreditoitems",
+    timestamps: false,
+  });
+
   // Definir modelo NotaDebitoCabeza
   const NotaDebitoCabeza = sequelize.define('NotaDebitoCabeza', {
     DocumentoTipo: {
@@ -1786,6 +1792,11 @@ const initializeModels = (sequelize) => {
     targetKey: "Codigo",
   });
 
+  NotaCreditoItem.belongsTo(Articulo, {
+    foreignKey: "CodigoArticulo",
+    targetKey: "Codigo",
+  });
+
   ReciboCabeza.belongsTo(Cliente, {
     foreignKey: "ClienteCodigo",
     targetKey: "Codigo",
@@ -1859,6 +1870,8 @@ const initializeModels = (sequelize) => {
     FacturaCabeza,
     FacturaItem,
     NotaCredito: NotaCreditoCabeza,
+    NotaCreditoCabeza,
+    NotaCreditoItem,
     NotaDebito: NotaDebitoCabeza,
     NotaDebitoCabeza,
     NotaDebitoItem,
