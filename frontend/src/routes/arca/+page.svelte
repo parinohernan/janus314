@@ -70,6 +70,9 @@
 			<Button variant="primary" on:click={() => goto('/arca/facturas-sin-cae')}>
 				Facturas sin CAE
 			</Button>
+			<Button variant="secondary" on:click={() => goto('/arca/configuracion')}>
+				Configuración
+			</Button>
 			<Button variant="secondary" on:click={cargarEstadoArca} disabled={loading}>
 				{#if loading}
 					<span class="animate-spin mr-2">⟳</span>
