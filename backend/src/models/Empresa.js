@@ -1,7 +1,17 @@
 const { Model, DataTypes } = require('sequelize');
 const masterDB = require('../config/masterDB');
 
-class Empresa extends Model {}
+class Empresa extends Model {
+  /**
+   * arca_admin_key es un secreto (clave x-admin-key de la instancia atrarca):
+   * se lee solo del lado del servidor y jamás se expone en una respuesta JSON.
+   */
+  toJSON() {
+    const values = { ...this.dataValues };
+    delete values.arca_admin_key;
+    return values;
+  }
+}
 
 const initEmpresa = () => {
   Empresa.init({
@@ -39,6 +49,11 @@ const initEmpresa = () => {
       type: DataTypes.STRING,
       allowNull: true,
       defaultValue: 'http://localhost:3301/api/astrial'
+    },
+    arca_admin_key: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      comment: 'Clave x-admin-key de la instancia atrarca. No se expone en APIs.'
     },
     estado: {
       type: DataTypes.ENUM('activo', 'inactivo'),

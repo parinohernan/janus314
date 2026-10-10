@@ -13,7 +13,7 @@ const requireAdminOrSuperadm = (req, res, next) => {
   if (!esAdminOSuperadm(req)) {
     return res.status(403).json({
       success: false,
-      error: 'Acceso denegado. Solo admin o superadm pueden gestionar backups.'
+      error: 'Acceso denegado. Solo admin o superadm pueden realizar esta operación.'
     });
   }
   next();
