@@ -53,6 +53,11 @@ router.post("/actualizar-precios-stock", articuloController.actualizarPreciosSto
 router.post("/listado-precios-pdf", articuloController.generarListadoPreciosPDF);
 router.post("/resumen-existencia-pdf", articuloController.generarResumenExistenciaPDF);
 router.get("/listado-precios", articuloController.getAllArticulosForPricing);
+router.get("/listado-precios-proveedor", (req, res, next) => {
+  // El listado por proveedor usa el mismo controlador, forzando el criterio de orden.
+  req.query.ordenarPor = "proveedor";
+  return articuloController.getAllArticulosForPricing(req, res, next);
+});
 router.get("/costo-historico", articuloController.getCostoHistorico);
 router.get("/by-proveedor-articulo", articuloController.getArticuloByProveedorYCodigoProveedor);
 router.get("/lookup", articuloController.lookupArticulo);

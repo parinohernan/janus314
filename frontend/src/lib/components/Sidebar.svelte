@@ -273,6 +273,7 @@
         { label: 'Existencia', url: '/productos/existencia', icon: 'existencia' },
         { label: 'Rubros', url: '/rubros', icon: 'rubros-list' },
         { label: 'Listado de Precios', url: '/productos/precios/listado', icon: 'precios-listado' },
+        { label: 'Listado por Proveedor', url: '/productos/precios/listadoporproveedor', icon: 'precios-listado' },
         { label: 'Costo histórico', url: '/productos/precios/costohistorico', icon: 'precios-listado' },
         { label: 'Actualización de Precios', url: '/productos/precios/actualizacion', icon: 'precios-actualizacion' },
         { label: 'Actualización manual', url: '/productos/precios/actualizacionmanual', icon: 'precios-manual' },

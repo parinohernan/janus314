@@ -1,4 +1,5 @@
 import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+import type { Articulo } from '$lib/types';
 
 export interface Proveedor {
   Codigo: string;
@@ -205,5 +206,24 @@ export class ProveedorService {
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
+  }
+
+  /**
+   * Obtiene todos los artículos para el listado de precios por proveedor (sin paginación).
+   * Usa el endpoint dedicado que ordena por ProveedorCodigo.
+   */
+  public static async obtenerArticulosParaListadoPorProveedor(
+    soloActivos: boolean = true
+  ): Promise<Articulo[]> {
+    const response = await fetchWithAuth('/articulos/listado-precios-proveedor', {
+      params: { activo: soloActivos ? 1 : 0 }
+    });
+
+    if (!response.ok) {
+      throw new Error('Error al cargar los artículos');
+    }
+
+    const data = await response.json();
+    return data.items || [];
   }
 } 

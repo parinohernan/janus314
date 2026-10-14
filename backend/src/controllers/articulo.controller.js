@@ -126,10 +126,17 @@ exports.getAllArticulosForPricing = async (req, res) => {
       };
     }
 
+    // Criterio de ordenamiento: por defecto rubro+descripción (listado por rubro).
+    // "proveedor" ordena por ProveedorCodigo y luego por Descripcion (listado por proveedor).
+    const ordenarPor = req.query.ordenarPor === "proveedor" ? "proveedor" : "rubro";
+    const order = ordenarPor === "proveedor"
+      ? [["ProveedorCodigo", "ASC"], ["Descripcion", "ASC"]]
+      : [["RubroCodigo", "ASC"], ["Descripcion", "ASC"]];
+
     // Obtener todos los registros sin paginación
     const articulos = await Articulo.findAll({
       where: whereClause,
-      order: [["RubroCodigo", "ASC"], ["Descripcion", "ASC"]],
+      order,
       include: [
         {
           model: Proveedor,

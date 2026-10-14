@@ -1,0 +1,843 @@
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import { beforeNavigate } from '$app/navigation';
+	import { browser } from '$app/environment';
+	import Button from '$lib/components/ui/Button.svelte';
+	import DraggableList from '$lib/components/DraggableList.svelte';
+	import { ArticuloService } from '$lib/services/ArticuloService';
+	import { ProveedorService, type Proveedor } from '$lib/services/ProveedorService';
+	import { EmpresaService } from '$lib/services/EmpresaService';
+	import type { Articulo } from '$lib/types';
+	import { formatDate } from '$lib/utils/dateUtils';
+	import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
+	import { auth } from '$lib/stores/authStore';
+	import { navigationState } from '$lib/stores/navigationState';
+	import { alicuotaIvaArticulo } from '$lib/utils/ivaArticulo';
+
+	const PAGE_PATH = '/productos/precios/listadoporproveedor';
+
+	// Estado
+	let articulos: Articulo[] = [];
+	let proveedores: Proveedor[] = [];
+	let loading = true;
+	let error: string | null = null;
+	let generandoPDF = false;
+
+	// Datos de la empresa
+	let empresa: any = null;
+
+	// Filtros
+	let listaPrecio = '1';
+	let mostrarExistencia = true;
+	let soloActivos = true;
+
+	// Configuración de proveedores
+	let configuracionProveedores: Array<{
+		codigo: string;
+		visible: boolean;
+		orden: number;
+	}> = [];
+	let mostrarConfiguracionProveedores = false;
+
+	// Agrupar artículos por proveedor (solo proveedores visibles)
+	$: articulosPorProveedor = articulos.reduce((acc, articulo) => {
+		const proveedorCodigo = articulo.ProveedorCodigo || 'SIN_PROVEEDOR';
+
+		// Solo incluir si el proveedor está configurado y visible
+		const configProveedor = configuracionProveedores.find(c => c.codigo === proveedorCodigo);
+		if (configProveedor && configProveedor.visible) {
+			if (!acc[proveedorCodigo]) {
+				acc[proveedorCodigo] = [];
+			}
+			acc[proveedorCodigo].push(articulo);
+		}
+		return acc;
+	}, {} as Record<string, Articulo[]>);
+
+	// Ordenar proveedores según la configuración
+	$: articulosPorProveedorOrdenado = (() => {
+		const resultado: Array<{codigo: string, articulos: Articulo[]}> = [];
+
+		// Usar toda la configuración ordenada y solo incluir proveedores visibles
+		const configuracionOrdenada = [...configuracionProveedores].sort((a, b) => a.orden - b.orden);
+
+		for (const config of configuracionOrdenada) {
+			if (config.visible && articulosPorProveedor[config.codigo]) {
+				resultado.push({
+					codigo: config.codigo,
+					articulos: articulosPorProveedor[config.codigo]
+				});
+			}
+		}
+
+		return resultado;
+	})();
+
+	// Crear configuración por defecto cuando se carguen los proveedores
+	$: if (proveedores.length > 0 && configuracionProveedores.length === 0) {
+		crearConfiguracionProveedoresPorDefecto();
+	}
+
+	// Asegurar que la configuración se aplique inmediatamente al cambiar el orden
+	$: if (configuracionProveedores.length > 0) {
+		// Forzar la reactividad del filtrado (mismo hack que la página de rubros)
+		articulosPorProveedor = articulosPorProveedor;
+	}
+
+	// Guardar configuración automáticamente cuando cambien los filtros
+	$: if (typeof window !== 'undefined' && configuracionProveedores.length > 0) {
+		guardarConfiguracion();
+	}
+
+	// Obtener nombre del proveedor
+	function getNombreProveedor(codigo: string): string {
+		if (codigo === 'SIN_PROVEEDOR') return 'Sin Proveedor';
+		const proveedor = proveedores.find(p => p.Codigo === codigo);
+		return proveedor ? proveedor.Descripcion : `Proveedor ${codigo}`;
+	}
+
+	// Obtener precio según lista
+	function getPrecioLista(articulo: Articulo): number {
+		const precioCosto = articulo.PrecioCosto || 0;
+		let porcentajeLista = 0;
+		
+		// Obtener el porcentaje de la lista seleccionada
+		switch (listaPrecio) {
+			case '1': porcentajeLista = articulo.Lista1 || 0; break;
+			case '2': porcentajeLista = articulo.Lista2 || 0; break;
+			case '3': porcentajeLista = articulo.Lista3 || 0; break;
+			case '4': porcentajeLista = articulo.Lista4 || 0; break;
+			case '5': porcentajeLista = articulo.Lista5 || 0; break;
+			default: porcentajeLista = articulo.Lista1 || 0; break;
+		}
+		
+		// Calcular precio de lista: precio de costo + porcentaje
+		return precioCosto * (1 + porcentajeLista / 100);
+	}
+
+	// Obtener precio con IVA
+	function getPrecioConIva(articulo: Articulo): number {
+		const precioLista = getPrecioLista(articulo);
+		const porcentajeIva = alicuotaIvaArticulo(articulo);
+		return precioLista * (1 + porcentajeIva / 100);
+	}
+
+	// Obtener nivel de existencia
+	function getNivelExistencia(articulo: Articulo): string {
+		if (!mostrarExistencia) return '';
+		
+		const existencia = articulo.Existencia || 0;
+		const existenciaMinima = articulo.ExistenciaMinima || 0;
+		
+		if (existencia === 0) return 'X'; // Sin stock
+		if (existencia <= existenciaMinima) return '!'; // Stock bajo
+		return 'OK'; // Stock alto
+	}
+
+	// Funciones para localStorage específicas por usuario
+	function getStorageKey(): string {
+		const userId = $auth.user?.usuario || 'anonymous';
+		return `listadoPreciosProveedorConfig_${userId}`;
+	}
+
+	function guardarConfiguracion() {
+		if (typeof window !== 'undefined') {
+			const config = {
+				configuracionProveedores,
+				listaPrecio,
+				mostrarExistencia,
+				soloActivos,
+				ultimaActualizacion: new Date().toISOString(),
+				usuario: $auth.user?.usuario || 'anonymous'
+			};
+
+			localStorage.setItem(getStorageKey(), JSON.stringify(config));
+		}
+	}
+
+	function cargarConfiguracion() {
+		if (typeof window !== 'undefined') {
+			const config = localStorage.getItem(getStorageKey());
+
+			if (config) {
+				try {
+					const datos = JSON.parse(config);
+
+					if (Array.isArray(datos.configuracionProveedores)) {
+						configuracionProveedores = datos.configuracionProveedores;
+					} else {
+						configuracionProveedores = [];
+					}
+
+					// Cargar otras configuraciones
+					listaPrecio = datos.listaPrecio || '1';
+					mostrarExistencia = datos.mostrarExistencia !== undefined ? datos.mostrarExistencia : true;
+					soloActivos = datos.soloActivos !== undefined ? datos.soloActivos : true;
+				} catch (error) {
+					console.error('Error al cargar configuración:', error);
+					configuracionProveedores = [];
+				}
+			}
+		}
+	}
+
+	function crearConfiguracionProveedoresPorDefecto() {
+		// Crear configuración por defecto solo si no hay configuración guardada
+		if (configuracionProveedores.length === 0 && proveedores.length > 0) {
+			const proveedoresOrdenados = [...proveedores.map(p => p.Codigo).sort(), 'SIN_PROVEEDOR'];
+			configuracionProveedores = proveedoresOrdenados.map((codigo, index) => ({
+				codigo,
+				visible: true,
+				orden: index
+			}));
+			guardarConfiguracion();
+		}
+	}
+
+	// Cargar datos
+	onMount(() => {
+		let savedScroll: number | undefined;
+		if (browser) {
+			const savedState = navigationState.getState(PAGE_PATH);
+			savedScroll = savedState?.scroll;
+			const filters = savedState?.filters as { listaPrecio?: string; mostrarExistencia?: boolean; soloActivos?: boolean } | undefined;
+			if (filters?.listaPrecio) listaPrecio = filters.listaPrecio;
+			if (typeof filters?.mostrarExistencia === 'boolean') mostrarExistencia = filters.mostrarExistencia;
+			if (typeof filters?.soloActivos === 'boolean') soloActivos = filters.soloActivos;
+		}
+		const esperarUsuario = (): Promise<void> =>
+			new Promise((resolve) => {
+				if ($auth.user) {
+					cargarDatos().then(resolve);
+				} else {
+					setTimeout(() => esperarUsuario().then(resolve), 100);
+				}
+			});
+		esperarUsuario().then(() => {
+			if (typeof savedScroll === 'number' && savedScroll > 0 && typeof window !== 'undefined') {
+				requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+			}
+		});
+	});
+
+	beforeNavigate(({ from }) => {
+		if (from?.url.pathname === PAGE_PATH && browser) {
+			const currentState = navigationState.getState(PAGE_PATH) || {};
+			navigationState.saveState(PAGE_PATH, {
+				...currentState,
+				scroll: typeof window !== 'undefined' ? window.scrollY : 0,
+				filters: {
+					listaPrecio,
+					mostrarExistencia,
+					soloActivos
+				}
+			});
+		}
+	});
+
+	// Función para cargar todos los datos
+	async function cargarDatos() {
+		try {
+			loading = true;
+			error = null;
+
+			// Limpiar configuraciones antiguas
+			limpiarConfiguracionesAntiguas();
+
+			// Cargar configuración guardada PRIMERO
+			cargarConfiguracion();
+
+			// Cargar datos de la empresa
+			empresa = await EmpresaService.obtenerDatos();
+
+			// Cargar proveedores (todos: un artículo puede referenciar a un proveedor inactivo)
+			proveedores = await ProveedorService.obtenerProveedores(500, 'todos');
+
+			// Sincronizar configuración con proveedores disponibles
+			sincronizarConfiguracionConProveedores();
+
+			// Crear configuración por defecto SOLO si no hay configuración
+			crearConfiguracionProveedoresPorDefecto();
+
+			// Cargar artículos usando el endpoint por proveedor
+			articulos = await ProveedorService.obtenerArticulosParaListadoPorProveedor(soloActivos);
+
+		} catch (err) {
+			console.error('Error al cargar datos:', err);
+			error = err instanceof Error ? err.message : 'Error desconocido';
+		} finally {
+			loading = false;
+		}
+	}
+
+	// Funciones para manejo de proveedores
+	function toggleProveedorVisible(codigoProveedor: string) {
+		const config = configuracionProveedores.find(c => c.codigo === codigoProveedor);
+		if (config) {
+			config.visible = !config.visible;
+			configuracionProveedores = [...configuracionProveedores];
+			guardarConfiguracion();
+		}
+	}
+
+	function mostrarTodosLosProveedores() {
+		configuracionProveedores = configuracionProveedores.map(config => ({ ...config, visible: true }));
+		guardarConfiguracion();
+	}
+
+	function ocultarTodosLosProveedores() {
+		configuracionProveedores = configuracionProveedores.map(config => ({ ...config, visible: false }));
+		guardarConfiguracion();
+	}
+
+	function moverProveedorArriba(index: number) {
+		if (index <= 0) return;
+		reordenarProveedores(index, index - 1);
+	}
+
+	function moverProveedorAbajo(index: number) {
+		if (index >= configuracionProveedores.length - 1) return;
+		reordenarProveedores(index, index + 1);
+	}
+
+	/** Intercambia dos posiciones sobre el listado ordenado y renumera los órdenes. */
+	function reordenarProveedores(desde: number, hasta: number) {
+		// Opera sobre el array ordenado, que es el mismo que ve el usuario en pantalla
+		const ordenados = [...configuracionProveedores].sort((a, b) => a.orden - b.orden);
+		const temp = ordenados[desde];
+		ordenados[desde] = ordenados[hasta];
+		ordenados[hasta] = temp;
+		configuracionProveedores = ordenados.map((c, i) => ({ ...c, orden: i }));
+		guardarConfiguracion();
+	}
+
+	// Función para sincronizar configuración con proveedores disponibles
+	function sincronizarConfiguracionConProveedores() {
+		if (configuracionProveedores.length > 0 && proveedores.length > 0) {
+			const codigosProveedoresDisponibles = new Set(proveedores.map(p => p.Codigo));
+			codigosProveedoresDisponibles.add('SIN_PROVEEDOR');
+
+			// Filtrar proveedores que ya no existen
+			const configuracionFiltrada = configuracionProveedores.filter(config =>
+				codigosProveedoresDisponibles.has(config.codigo)
+			);
+
+			// Agregar proveedores nuevos que no están en la configuración
+			const codigosConfigurados = new Set(configuracionFiltrada.map(c => c.codigo));
+			const proveedoresNuevos = Array.from(codigosProveedoresDisponibles).filter(codigo =>
+				!codigosConfigurados.has(codigo)
+			);
+
+			if (proveedoresNuevos.length > 0) {
+				const maxOrden = Math.max(...configuracionFiltrada.map(c => c.orden), -1);
+				const nuevosConfigs = proveedoresNuevos.map((codigo, index) => ({
+					codigo,
+					visible: true,
+					orden: maxOrden + 1 + index
+				}));
+				configuracionFiltrada.push(...nuevosConfigs);
+			}
+
+			if (configuracionFiltrada.length !== configuracionProveedores.length) {
+				configuracionProveedores = configuracionFiltrada;
+				guardarConfiguracion();
+			}
+		}
+	}
+
+	// Función para limpiar configuraciones antiguas
+	function limpiarConfiguracionesAntiguas() {
+		if (typeof window !== 'undefined') {
+			const keys = Object.keys(localStorage);
+			const configKeys = keys.filter(key => key.startsWith('listadoPreciosProveedorConfig_'));
+			
+			configKeys.forEach(key => {
+				try {
+					const config = localStorage.getItem(key);
+					if (config) {
+						const datos = JSON.parse(config);
+						const fechaGuardado = new Date(datos.ultimaActualizacion || 0);
+						const fechaActual = new Date();
+						const diasTranscurridos = (fechaActual.getTime() - fechaGuardado.getTime()) / (1000 * 60 * 60 * 24);
+						
+						// Eliminar configuraciones con más de 30 días
+						if (diasTranscurridos > 30) {
+							localStorage.removeItem(key);
+						}
+					}
+				} catch (error) {
+					console.error('Error al procesar configuración antigua:', error);
+				}
+			});
+		}
+	}
+
+	// Función para manejar el reordenamiento por drag & drop
+	function handleReorder(event: CustomEvent) {
+		const { oldIndex, newIndex, items } = event.detail;
+		
+		// Actualizar los órdenes basándose en la nueva posición
+		const reorderedConfig = items.map((item: any, index: number) => ({
+			...item,
+			orden: index
+		}));
+		
+		configuracionProveedores = reorderedConfig;
+		guardarConfiguracion();
+	}
+
+	// Generar PDF
+	async function generarPDF() {
+		try {
+			generandoPDF = true;
+			
+			// Convertir el array ordenado a objeto para el backend
+			const articulosPorRubroObj = articulosPorProveedorOrdenado.reduce((acc, {codigo, articulos}) => {
+				acc[codigo] = articulos;
+				return acc;
+			}, {} as Record<string, Articulo[]>);
+
+			// Obtener el orden de los proveedores visibles
+			const ordenRubros = articulosPorProveedorOrdenado.map(proveedor => proveedor.codigo);
+
+			// Enviar los proveedores para que el backend resuelva los nombres
+			const rubros = proveedores.map(p => ({ Codigo: p.Codigo, Descripcion: p.Descripcion }));
+
+			const datos = {
+				empresa: empresa,
+				fecha: new Date().toISOString().split('T')[0],
+				listaPrecio: parseInt(listaPrecio),
+				mostrarExistencia: mostrarExistencia,
+				articulosPorRubro: articulosPorRubroObj,
+				rubros: rubros,
+				ordenRubros: ordenRubros
+			};
+
+            const response = await fetchWithAuth('articulos/listado-precios-pdf', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(datos)
+			});
+
+			if (!response.ok) {
+				throw new Error('Error al generar PDF');
+			}
+
+			const blob = await response.blob();
+			const url = URL.createObjectURL(blob);
+			
+			// Descargar PDF
+			const a = document.createElement('a');
+			a.href = url;
+			const nombreEmpresa = empresa?.RazonSocial || 'Empresa';
+			const fecha = formatDate(new Date().toISOString());
+			a.download = `${nombreEmpresa}_listade_precios_${fecha}.pdf`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+
+		} catch (err) {
+			console.error('Error al generar PDF:', err);
+			error = err instanceof Error ? err.message : 'Error al generar PDF';
+		} finally {
+			generandoPDF = false;
+		}
+	}
+
+	// Compartir PDF
+	async function compartirPDF() {
+		try {
+			generandoPDF = true;
+			
+			// Convertir el array ordenado a objeto para el backend
+			const articulosPorRubroObj = articulosPorProveedorOrdenado.reduce((acc, {codigo, articulos}) => {
+				acc[codigo] = articulos;
+				return acc;
+			}, {} as Record<string, Articulo[]>);
+
+			// Obtener el orden de los proveedores visibles
+			const ordenRubros = articulosPorProveedorOrdenado.map(proveedor => proveedor.codigo);
+
+			// Enviar los proveedores para que el backend resuelva los nombres
+			const rubros = proveedores.map(p => ({ Codigo: p.Codigo, Descripcion: p.Descripcion }));
+
+			const datos = {
+				empresa: empresa,
+				fecha: new Date().toISOString().split('T')[0],
+				listaPrecio: parseInt(listaPrecio),
+				mostrarExistencia: mostrarExistencia,
+				articulosPorRubro: articulosPorRubroObj,
+				rubros: rubros,
+				ordenRubros: ordenRubros
+			};
+
+            const response = await fetchWithAuth('articulos/listado-precios-pdf', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(datos)
+			});
+
+			if (!response.ok) {
+				throw new Error('Error al generar PDF');
+			}
+
+			const blob = await response.blob();
+			
+			// Usar Web Share API si está disponible
+			if (navigator.share) {
+				const nombreEmpresa = empresa?.RazonSocial || 'Empresa';
+				const fecha = formatDate(new Date().toISOString());
+				const file = new File([blob], `${nombreEmpresa}_listade_precios_${fecha}.pdf`, {
+					type: 'application/pdf'
+				});
+				
+				await navigator.share({
+					title: 'Listado de Precios',
+					files: [file]
+				});
+			} else {
+				// Fallback: descargar
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				const nombreEmpresa = empresa?.RazonSocial || 'Empresa';
+				const fecha = formatDate(new Date().toISOString());
+				a.download = `${nombreEmpresa}_listade_precios_${fecha}.pdf`;
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+				URL.revokeObjectURL(url);
+			}
+
+		} catch (err) {
+			console.error('Error al compartir PDF:', err);
+			error = err instanceof Error ? err.message : 'Error al compartir PDF';
+		} finally {
+			generandoPDF = false;
+		}
+	}
+
+	// Imprimir vista previa
+	function imprimirVistaPrevia() {
+		window.print();
+	}
+</script>
+
+<div class="container mx-auto px-4 py-6">
+	<h1 class="text-2xl font-bold mb-6">Listado de Precios por Proveedor</h1>
+
+	<!-- Configuración -->
+	<div class="bg-white rounded-lg shadow-md p-4 mb-6">
+		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+			<div>
+				<label for="listaPrecio" class="block text-sm font-medium text-gray-700 mb-2">
+					Lista de Precios
+				</label>
+				<select 
+					id="listaPrecio" 
+					bind:value={listaPrecio}
+					class="w-full border border-gray-300 rounded-md shadow-sm p-2"
+				>
+					<option value="1">Lista 1</option>
+					<option value="2">Lista 2</option>
+					<option value="3">Lista 3</option>
+					<option value="4">Lista 4</option>
+					<option value="5">Lista 5</option>
+				</select>
+			</div>
+
+			<div class="flex items-end">
+				<label class="inline-flex items-center">
+					<input 
+						type="checkbox" 
+						bind:checked={mostrarExistencia} 
+						class="form-checkbox h-5 w-5 text-indigo-600"
+					>
+					<span class="ml-2 text-gray-700">Mostrar existencia</span>
+				</label>
+			</div>
+
+			<div class="flex items-end">
+				<label class="inline-flex items-center">
+					<input 
+						type="checkbox" 
+						bind:checked={soloActivos} 
+						class="form-checkbox h-5 w-5 text-indigo-600"
+					>
+					<span class="ml-2 text-gray-700">Solo activos</span>
+				</label>
+			</div>
+
+			<div class="flex items-end space-x-2">
+				<Button 
+					variant="primary" 
+					on:click={generarPDF}
+					disabled={generandoPDF || loading}
+				>
+					{generandoPDF ? 'Generando...' : 'Descargar PDF'}
+				</Button>
+				
+				<Button 
+					variant="secondary" 
+					on:click={compartirPDF}
+					disabled={generandoPDF || loading}
+				>
+					Compartir
+				</Button>
+				
+				<Button 
+					variant="secondary" 
+					on:click={imprimirVistaPrevia}
+					disabled={loading}
+				>
+					Imprimir
+				</Button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Configuración de Proveedores -->
+	<div class="bg-white rounded-lg shadow-md p-4 mb-6">
+		<div class="flex justify-between items-center mb-4">
+			<h3 class="text-lg font-semibold text-gray-800">Configuración de Proveedores</h3>
+			<Button
+				variant="secondary"
+				on:click={() => mostrarConfiguracionProveedores = !mostrarConfiguracionProveedores}
+			>
+				{mostrarConfiguracionProveedores ? 'Ocultar' : 'Configurar'} Proveedores
+			</Button>
+		</div>
+
+		{#if mostrarConfiguracionProveedores}
+			<div class="space-y-4">
+				<!-- Controles generales -->
+				<div class="flex space-x-2">
+					<Button variant="secondary" size="sm" on:click={mostrarTodosLosProveedores}>
+						Mostrar Todos
+					</Button>
+					<Button variant="secondary" size="sm" on:click={ocultarTodosLosProveedores}>
+						Ocultar Todos
+					</Button>
+				</div>
+
+				<!-- Lista de proveedores ordenados con drag & drop -->
+				<div class="max-h-96 overflow-y-auto border border-gray-200 rounded-md">
+					<DraggableList
+						items={configuracionProveedores.sort((a, b) => a.orden - b.orden)}
+						itemKey="codigo"
+						on:reorder={handleReorder}
+					>
+						<svelte:fragment slot="default" let:item let:index>
+							{@const config = item as {codigo: string, visible: boolean, orden: number}}
+							<div class="flex items-center justify-between p-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
+								<div class="flex items-center space-x-3 flex-1">
+									<div class="text-gray-400 cursor-move mr-2">
+										⋮⋮
+									</div>
+									<button
+										on:click={() => toggleProveedorVisible(config.codigo)}
+										class={`px-2 py-1 text-xs rounded ${
+											config.visible
+												? 'bg-green-100 text-green-700 hover:bg-green-200'
+												: 'bg-red-100 text-red-700 hover:bg-red-200'
+										}`}
+									>
+										{config.visible ? 'Visible' : 'Oculto'}
+									</button>
+									<span class="text-sm font-mono text-gray-500">{config.codigo}</span>
+									<span class="text-sm text-gray-700">
+										{config.codigo === 'SIN_PROVEEDOR' ? 'Sin Proveedor' :
+											proveedores.find(p => p.Codigo === config.codigo)?.Descripcion || config.codigo}
+									</span>
+								</div>
+
+								<div class="flex space-x-1">
+									<button
+										on:click={() => moverProveedorArriba(index)}
+										disabled={index === 0}
+										class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded disabled:opacity-50"
+										title="Mover arriba"
+									>
+										↑
+									</button>
+									<button
+										on:click={() => moverProveedorAbajo(index)}
+										disabled={index === configuracionProveedores.length - 1}
+										class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded disabled:opacity-50"
+										title="Mover abajo"
+									>
+										↓
+									</button>
+								</div>
+							</div>
+						</svelte:fragment>
+					</DraggableList>
+				</div>
+
+				<!-- Información del orden -->
+				<div class="text-sm text-gray-600 bg-gray-50 p-3 rounded">
+					<p><strong>Orden actual:</strong> Todos los proveedores están incluidos en el orden. Puedes:</p>
+					<ul class="list-disc list-inside mt-1 space-y-1">
+						<li><strong>Arrastrar y soltar:</strong> Haz clic y arrastra cualquier proveedor para reordenarlo</li>
+						<li><strong>Botones ↑/↓:</strong> Usa los botones para mover proveedores uno por uno</li>
+						<li><strong>Icono ⋮⋮:</strong> Indica que el elemento se puede arrastrar</li>
+					</ul>
+					<div class="mt-2 pt-2 border-t border-gray-200">
+						<p class="text-xs text-gray-500">
+							<strong>Configuración guardada para:</strong> {$auth.user?.usuario || 'Usuario anónimo'}
+						</p>
+						<p class="text-xs text-gray-500">
+							<strong>Última actualización:</strong> {new Date().toLocaleString()}
+						</p>
+					</div>
+				</div>
+			</div>
+		{/if}
+	</div>
+
+	<!-- Error -->
+	{#if error}
+		<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+			{error}
+		</div>
+	{/if}
+
+	<!-- Loading -->
+	{#if loading}
+		<div class="flex justify-center items-center h-48">
+			<div class="spinner"></div>
+		</div>
+	{:else}
+		<!-- Vista previa del listado -->
+		<div class="bg-white rounded-lg shadow-md p-6 print:shadow-none">
+			<!-- Encabezado -->
+			<div class="text-center mb-8 print:mb-4">
+				{#if empresa?.Logo}
+					<img src={empresa.Logo} alt="Logo" class="h-16 mx-auto mb-4 print:h-12">
+				{/if}
+				<h2 class="text-2xl font-bold text-gray-800 print:text-xl">
+					{empresa?.RazonSocial || 'Empresa'}
+				</h2>
+				<p class="text-lg text-gray-600 print:text-base">
+					Listado de Precios por Proveedor - Lista {listaPrecio}
+				</p>
+				<p class="text-sm text-gray-500 print:text-xs">
+					Fecha: {formatDate(new Date().toISOString())}
+				</p>
+			</div>
+
+			<!-- Listado por proveedores -->
+			{#each articulosPorProveedorOrdenado as {codigo: proveedorCodigo, articulos: articulosProveedor}}
+				<div class="mb-8 print:mb-6">
+					<h3 class="text-xl font-bold text-gray-800 mb-4 print:text-lg print:mb-3 border-b-2 border-gray-300 pb-2">
+						{getNombreProveedor(proveedorCodigo)}
+					</h3>
+
+					<div class="overflow-x-auto">
+						<table class="min-w-full divide-y divide-gray-200 print:text-xs">
+							<thead class="bg-gray-50 print:bg-gray-100">
+								<tr>
+									<th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider print:px-2 print:py-2">
+										Código
+									</th>
+									<th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider print:px-2 print:py-2">
+										Descripción
+									</th>
+									<th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider print:px-2 print:py-2">
+										Proveedor
+									</th>
+									<th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider print:px-2 print:py-2">
+										Precio Lista
+									</th>
+									<th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider print:px-2 print:py-2">
+										Precio + IVA
+									</th>
+									{#if mostrarExistencia}
+										<th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider print:px-2 print:py-2">
+											Existencia
+										</th>
+									{/if}
+								</tr>
+							</thead>
+							<tbody class="bg-white divide-y divide-gray-200">
+								{#each articulosProveedor as articulo}
+									<tr class="hover:bg-gray-50 print:hover:bg-transparent">
+										<td class="px-3 py-4 whitespace-nowrap text-sm font-mono print:px-2 print:py-2">
+											{articulo.Codigo}
+										</td>
+										<td class="px-3 py-4 text-sm print:px-2 print:py-2">
+											{articulo.Descripcion}
+										</td>
+										<td class="px-3 py-4 text-sm print:px-2 print:py-2">
+											{articulo.Proveedor?.Descripcion || 'Sin proveedor'}
+										</td>
+										<td class="px-3 py-4 whitespace-nowrap text-sm text-right print:px-2 print:py-2">
+											${getPrecioLista(articulo).toFixed(2)}
+										</td>
+										<td class="px-3 py-4 whitespace-nowrap text-sm text-right print:px-2 print:py-2">
+											${getPrecioConIva(articulo).toFixed(2)}
+										</td>
+										{#if mostrarExistencia}
+											<td class="px-3 py-4 whitespace-nowrap text-sm text-center print:px-2 print:py-2">
+												<span class={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+													getNivelExistencia(articulo) === 'NULA' ? 'bg-red-100 text-red-800' :
+													getNivelExistencia(articulo) === 'BAJA' ? 'bg-yellow-100 text-yellow-800' :
+													'bg-green-100 text-green-800'
+												}`}>
+													{getNivelExistencia(articulo)}
+												</span>
+											</td>
+										{/if}
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			{/each}
+
+			<!-- Pie de página -->
+			<div class="mt-8 pt-4 border-t border-gray-200 text-center text-sm text-gray-500 print:mt-6">
+				<p>Total de artículos: {articulos.length}</p>
+				<p>Generado el {formatDate(new Date().toISOString())}</p>
+			</div>
+		</div>
+	{/if}
+</div>
+
+<style>
+	.spinner {
+		border: 4px solid rgba(0, 0, 0, 0.1);
+		width: 36px;
+		height: 36px;
+		border-radius: 50%;
+		border-left-color: #09f;
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		0% { transform: rotate(0deg); }
+		100% { transform: rotate(360deg); }
+	}
+
+	/* Estilos para impresión */
+	@media print {
+		.container {
+			max-width: none;
+			padding: 0;
+		}
+		
+		table {
+			font-size: 10pt;
+		}
+		
+		th, td {
+			padding: 4px 6px;
+		}
+	}
+</style> 

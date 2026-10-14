@@ -317,6 +317,9 @@
       <Button variant="secondary" on:click={() => goto('/productos/precios/listado')}>
         Listado de Precios
       </Button>
+      <Button variant="secondary" on:click={() => goto('/productos/precios/listadoporproveedor')}>
+        Listado por Proveedor
+      </Button>
       <Button variant="primary" on:click={() => goto('/productos/nuevo')}>
         Nuevo Producto 
       </Button>
