@@ -11,6 +11,7 @@ const {
   OBSERVACION_AJUSTE,
 } = require('../utils/actualizarPreciosStock');
 const { analizarCatalogoCsv } = require('../utils/importarCatalogoCsv');
+const { formatearFecha } = require('../utils/formatters');
 
 // Configurar multer
 const storage = multer.diskStorage({
@@ -1252,7 +1253,7 @@ exports.generarListadoPreciosPDF = async (req, res) => {
     doc.moveDown(0.5);
     doc.fontSize(16).font('Helvetica').text(`Listado de Precios - Lista ${listaPrecio}`, { align: 'center' });
     doc.moveDown(0.5);
-    doc.fontSize(12).text(`Fecha: ${fecha}`, { align: 'center' });
+    doc.fontSize(12).text(`Fecha: ${formatearFecha(fecha)}`, { align: 'center' });
     doc.moveDown(2);
 
     let yPosition = doc.y;
@@ -1437,7 +1438,7 @@ exports.generarResumenExistenciaPDF = async (req, res) => {
     const etiquetaAgrupamiento = agrupamiento === 'rubro' ? 'Rubro' : 'Proveedor';
     doc.fontSize(16).font('Helvetica').text(`Resumen de Existencia - por ${etiquetaAgrupamiento}`, { align: 'center' });
     doc.moveDown(0.5);
-    doc.fontSize(11).text(`Fecha: ${fecha}`, { align: 'center' });
+    doc.fontSize(11).text(`Fecha: ${formatearFecha(fecha)}`, { align: 'center' });
     doc.moveDown(0.5);
 
     // Resumen rápido

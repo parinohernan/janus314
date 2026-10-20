@@ -85,7 +85,7 @@ async function renderElectronicInfo(doc, factura, yTotales) {
 
     if (factura.afip_cae_vencimiento) {
       doc.text(
-        `Fecha Vto. CAE: ${new Date(factura.afip_cae_vencimiento).toLocaleDateString("es-AR")}`,
+        `Fecha Vto. CAE: ${formatearFecha(factura.afip_cae_vencimiento)}`,
         caeX,
         caeY + 14,
         { width: 200, align: "left" }
@@ -106,6 +106,7 @@ async function renderElectronicInfo(doc, factura, yTotales) {
 
 // Importar las funciones necesarias
 const path = require("path");
+const { formatearFecha } = require("../../../utils/formatters");
 const { generarDatosQR, generarQR } = require("../../../utils/qrAfip");
 
 module.exports = renderElectronicInfo; 

@@ -107,7 +107,7 @@ export function armarTicketEscPos(dto: PosTicketDto, opciones: OpcionesTicketEsc
 	p.feed(1).bold(true);
 	centrado(p, `${LABEL_TIPO[dto.tipo]} ${dto.sucursal}-${dto.numero}`, columnas);
 	p.bold(false);
-	centrado(p, dto.fecha, columnas);
+	centrado(p, fechaVisible(dto.fecha), columnas);
 	centrado(p, `${dto.cliente.descripcion} (${dto.cliente.codigo})`, columnas);
 
 	p.align('izquierda').line('-'.repeat(columnas));

@@ -29,7 +29,7 @@ async function renderNotaDebitoF(doc, data) {
       companyLocalidad: notaDebito.Empresa.Localidad,
       companyIngresosBrutos: notaDebito.Empresa.IngresosBrutos,
       companyInicioActividades: notaDebito.Empresa.InicioActividades 
-        ? notaDebito.Empresa.InicioActividades.toLocaleDateString("es-AR")
+        ? notaDebito.Empresa.InicioActividades
         : "No especificado",
       title: "F",
       documentType: "F",

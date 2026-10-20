@@ -1,4 +1,5 @@
 const logoManager = require('../../utils/logoManager');
+const { formatearFecha } = require('../../utils/formatters');
 
 async function renderInformeRubrosProvincia(doc, data, datosEmpresa = {}) {
   const margin = 22;
@@ -17,7 +18,7 @@ async function renderInformeRubrosProvincia(doc, data, datosEmpresa = {}) {
     doc.font('Helvetica')
       .fontSize(7)
       .fillColor('#6b7280')
-      .text(`Generado el ${new Date().toLocaleDateString('es-AR')} a las ${new Date().toLocaleTimeString('es-AR')}`, margin, bottom, {
+      .text(`Generado el ${formatearFecha(new Date())} a las ${new Date().toLocaleTimeString('es-AR')}`, margin, bottom, {
         width: contentWidth / 2,
         align: 'left',
         lineBreak: false
@@ -77,7 +78,11 @@ async function renderInformeRubrosProvincia(doc, data, datosEmpresa = {}) {
       .fillColor('#374151')
       .text(datosEmpresa.RazonSocial || 'Empresa', margin + 68, 38)
       .text(`CUIT: ${datosEmpresa.Cuit || 'N/A'}`, margin + 68, 49)
-      .text(`Periodo: ${data.periodo.fechaDesde} - ${data.periodo.fechaHasta}`, margin + 68, 60);
+      .text(
+        `Periodo: ${formatearFecha(data.periodo.fechaDesde)} - ${formatearFecha(data.periodo.fechaHasta)}`,
+        margin + 68,
+        60
+      );
 
     yPos = 75;
     doc.moveTo(margin, yPos).lineTo(pageWidth - margin, yPos).strokeColor('#d1d5db').stroke();

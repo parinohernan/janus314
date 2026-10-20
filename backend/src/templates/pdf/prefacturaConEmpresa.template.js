@@ -1,3 +1,4 @@
+const { formatearFecha } = require("../../utils/formatters");
 const renderHeader = require("./common/header");
 const renderClienteInfo = require("./common/clienteInfo.js");
 const renderItemsListConIva = require("./common/itemsListConIva.js");
@@ -17,17 +18,9 @@ async function renderPrefacturaConEmpresa(doc, data) {
   doc.font("Helvetica");
   const interlineado = 10;
 
-  const fechaStr = new Date(prefactura.Fecha).toLocaleDateString("es-AR");
-
   let inicioActividadesStr = "No especificado";
   if (Empresa.InicioActividades) {
-    const d =
-      Empresa.InicioActividades instanceof Date
-        ? Empresa.InicioActividades
-        : new Date(Empresa.InicioActividades);
-    if (!Number.isNaN(d.getTime())) {
-      inicioActividadesStr = d.toLocaleDateString("es-AR");
-    }
+    inicioActividadesStr = formatearFecha(Empresa.InicioActividades) || "No especificado";
   }
 
   const renderPage = async (isOriginal) => {
@@ -38,7 +31,7 @@ async function renderPrefacturaConEmpresa(doc, data) {
     }
 
     let y = renderHeader(doc, {
-      fecha: fechaStr,
+      fecha: prefactura.Fecha,
       companyName: Empresa.RazonSocial || "",
       companyName2: Empresa.PieCero || "",
       companyTaxId: Empresa.Cuit || "",

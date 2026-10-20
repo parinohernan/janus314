@@ -144,9 +144,11 @@ export const LEYENDA_ARCA =
 export const LEYENDA_PRF = 'Documento no válido como factura';
 
 export function fechaVisible(valor?: string): string {
-	const match = String(valor || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
-	if (!match) return String(valor || '');
-	return `${match[3]}/${match[2]}/${match[1]}`;
+	const iso = String(valor || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+	if (iso) return `${iso[3]}-${iso[2]}-${iso[1]}`;
+	const dmy = String(valor || '').match(/^(\d{2})-(\d{2})-(\d{4})$/);
+	if (dmy) return `${dmy[1]}-${dmy[2]}-${dmy[3]}`;
+	return String(valor || '');
 }
 
 export function armarPosTicketDto(input: {
@@ -296,7 +298,7 @@ export function renderPosTicketHtml(dto: PosTicketDto): string {
   ${linea(dto.empresa.ingresosBrutos ? `Ingresos Brutos: ${dto.empresa.ingresosBrutos}` : '')}
   ${linea(dto.empresa.inicioActividades ? `Inicio de Actividades: ${fechaVisible(dto.empresa.inicioActividades)}` : '')}
   <p class="tipo">${LABEL_TIPO[dto.tipo]} ${escapeHtml(comprobante)}</p>
-  <p class="muted">${escapeHtml(dto.fecha)}</p>
+  <p class="muted">${escapeHtml(fechaVisible(dto.fecha))}</p>
   <p class="muted">${escapeHtml(dto.cliente.descripcion)} (${escapeHtml(dto.cliente.codigo)})</p>
   <hr />
   <table>

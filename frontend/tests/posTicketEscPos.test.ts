@@ -90,7 +90,7 @@ describe('renderPosTicketEscPos', () => {
 		expect(Array.from(bytes.slice(inicio + 8, inicio + 8 + url.length))).toEqual(codificar1252(url));
 		expect(contiene(bytes, [0x1d, 0x28, 0x6b, 3, 0, 0x31, 0x51, 0x30])).toBeGreaterThan(inicio);
 		expect(contiene(bytes, codificar1252('CAE N°: 76123456789012'))).toBeGreaterThan(0);
-		expect(contiene(bytes, codificar1252('Fecha Vto. CAE: 12/10/2026'))).toBeGreaterThan(0);
+		expect(contiene(bytes, codificar1252('Fecha Vto. CAE: 12-10-2026'))).toBeGreaterThan(0);
 	});
 
 	it('PRF no lleva QR y avisa que no es factura', () => {

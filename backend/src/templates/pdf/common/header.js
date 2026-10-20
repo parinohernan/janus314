@@ -1,3 +1,5 @@
+const { formatearFecha } = require("../../../utils/formatters");
+
 /**
  * Genera el encabezado estándar para documentos
  * @param {PDFDocument} doc - Documento PDF
@@ -93,7 +95,7 @@ function renderHeader(doc, options = {}) {
     doc.fontSize(12).text(`${documentTypeText} N° ${documentNumber}`, { align: "right" });
   }
   // fecha
-  doc.fontSize(12).text(`Fecha: ${fecha}`, { align: "right" });
+  doc.fontSize(12).text(`Fecha: ${formatearFecha(fecha)}`, { align: "right" });
   doc.moveDown();
 
   // informacion general de la empresa
@@ -128,9 +130,11 @@ function renderHeader(doc, options = {}) {
   doc
     .fontSize(fontSize.infoEmpresa)
     .text(`Ingresos Brutos: ${companyIngresosBrutos}`);
-  doc
-    .fontSize(fontSize.infoEmpresa)
-    .text(`Inicio de Actividades: ${companyInicioActividades}`);
+  const inicioActividades =
+    !companyInicioActividades || companyInicioActividades === "No especificado"
+      ? companyInicioActividades || "No especificado"
+      : formatearFecha(companyInicioActividades);
+  doc.fontSize(fontSize.infoEmpresa).text(`Inicio de Actividades: ${inicioActividades}`);
   //   doc.text(`Dirección: ${companyAddress}`);
   //   doc.text(`Tel: ${companyPhone}`);
   doc.moveDown(); // espacio

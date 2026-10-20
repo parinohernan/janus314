@@ -26,7 +26,7 @@ async function renderOrdenCompra(doc, { orden, items, logoPath, vistaProveedor =
     companyLocalidad: orden.Empresa.Localidad,
     companyIngresosBrutos: orden.Empresa.IngresosBrutos,
     companyInicioActividades: orden.Empresa.InicioActividades
-      ? orden.Empresa.InicioActividades.toLocaleDateString("es-AR")
+      ? orden.Empresa.InicioActividades
       : "No especificado",
     title: "OC",
     documentType: "OC",

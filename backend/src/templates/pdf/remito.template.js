@@ -1,3 +1,4 @@
+const { formatearFecha } = require("../../utils/formatters");
 const renderHeader = require("./common/header");
 const renderFooter = require("./common/footer");
 const renderTable = require("./common/table");
@@ -39,7 +40,7 @@ function renderRemito(doc, data) {
   // Fecha
   doc
     .fontSize(10)
-    .text(`Fecha: ${new Date(factura.Fecha).toLocaleDateString("es-AR")}`);
+    .text(`Fecha: ${formatearFecha(factura.Fecha)}`);
   doc.moveDown();
 
   // Tabla de items

@@ -28,7 +28,7 @@ async function renderNotaCreditoF(doc, { factura: notaCredito, items, logoPath }
       companyLocalidad: notaCredito.Empresa.Localidad,
       companyIngresosBrutos: notaCredito.Empresa.IngresosBrutos,
       companyInicioActividades: notaCredito.Empresa.InicioActividades 
-        ? notaCredito.Empresa.InicioActividades.toLocaleDateString("es-AR")
+        ? notaCredito.Empresa.InicioActividades
         : "No especificado",
       title: "F",
       documentType: "F",

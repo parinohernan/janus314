@@ -1,3 +1,4 @@
+const { formatearFecha } = require("../../utils/formatters");
 const renderClienteInfo = require("./common/clienteInfo.js");
 const renderItemsListConIva = require("./common/itemsListConIva.js");
 const { renderPiePrefactura } = require("./common/piePrefactura");
@@ -38,7 +39,7 @@ async function renderPrefactura(doc, data) {
     doc.fontSize(14).font("Helvetica-Bold");
     doc.text(`Remito Nº: ${prefactura.DocumentoSucursal} - ${prefactura.DocumentoNumero}`, 40, 40, { align: "center" });
 
-    const fecha = new Date(prefactura.Fecha).toLocaleDateString('es-AR');
+    const fecha = formatearFecha(prefactura.Fecha);
     doc.fontSize(12).font("Helvetica");
     doc.text(`Fecha: ${fecha}`, 450, 40, { align: "right" });
 

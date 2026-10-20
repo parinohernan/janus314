@@ -32,7 +32,7 @@ async function renderNotaCreditoC(doc, data) {
       companyLocalidad: notaCredito.Empresa.Localidad,
       companyIngresosBrutos: notaCredito.Empresa.IngresosBrutos,
       companyInicioActividades: notaCredito.Empresa.InicioActividades 
-        ? notaCredito.Empresa.InicioActividades.toLocaleDateString("es-AR")
+        ? notaCredito.Empresa.InicioActividades
         : "No especificado",
       title: "C",
       documentType: "C",

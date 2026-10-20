@@ -1,5 +1,6 @@
 const PDFDocument = require('pdfkit');
 const logoManager = require('../../utils/logoManager');
+const { formatearFecha } = require('../../utils/formatters');
 
 /**
  * Genera un PDF para el informe de ventas por vendedor
@@ -64,7 +65,11 @@ async function renderInformeVendedor(doc, data, datosEmpresa) {
     
     doc.fontSize(11)
        .font('Helvetica')
-       .text(`${periodo.fechaDesde} - ${periodo.fechaHasta}`, margin + 80, yPos);
+       .text(
+         `${formatearFecha(periodo.fechaDesde)} - ${formatearFecha(periodo.fechaHasta)}`,
+         margin + 80,
+         yPos
+       );
 
     yPos += 25;
 
@@ -181,7 +186,7 @@ async function renderInformeVendedor(doc, data, datosEmpresa) {
           ? [
               factura.tipo,
               factura.numero,
-              factura.fecha,
+              formatearFecha(factura.fecha),
               `${factura.clienteDescripcion} (${factura.clienteCodigo})`,
               factura.preventa?.label || '',
               formatCurrency(factura.importe)
@@ -189,7 +194,7 @@ async function renderInformeVendedor(doc, data, datosEmpresa) {
           : [
               factura.tipo,
               factura.numero,
-              factura.fecha,
+              formatearFecha(factura.fecha),
               `${factura.clienteDescripcion} (${factura.clienteCodigo})`,
               formatCurrency(factura.importe)
             ];
@@ -259,7 +264,7 @@ async function renderInformeVendedor(doc, data, datosEmpresa) {
         const rowData = [
           nc.tipo,
           nc.numero,
-          nc.fecha,
+          formatearFecha(nc.fecha),
           `${nc.clienteDescripcion} (${nc.clienteCodigo})`,
           nc.facturaRelacionada,
           formatCurrency(nc.importe)
@@ -293,7 +298,7 @@ async function renderInformeVendedor(doc, data, datosEmpresa) {
          .font('Helvetica')
          .fillColor('#6b7280')
          .text(
-           `Generado el ${new Date().toLocaleDateString('es-AR')} a las ${new Date().toLocaleTimeString('es-AR')}`,
+           `Generado el ${formatearFecha(new Date())} a las ${new Date().toLocaleTimeString('es-AR')}`,
            margin,
            bottom,
            { align: 'left' }

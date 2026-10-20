@@ -71,7 +71,8 @@ describe('posTicketHtml', () => {
 		expect(html).toContain('CUIT: 20-12345678-9');
 		expect(html).toContain('IVA: Responsable Inscrito');
 		expect(html).toContain('Ingresos Brutos: 20123456789');
-		expect(html).toContain('Inicio de Actividades: 03/05/2010');
+		expect(html).toContain('Inicio de Actividades: 03-05-2010');
+		expect(html).toContain('01-10-2026');
 	});
 
 	it('incluye CAE en tickets fiscales', () => {
@@ -101,7 +102,7 @@ describe('posTicketHtml', () => {
 		};
 		const html = renderPosTicketHtml({ ...dto, qr: 'data:image/png;base64,QQ' });
 		expect(html).toContain('FACTURA A');
-		expect(html).toContain('Fecha Vto. CAE: 11/10/2026');
+		expect(html).toContain('Fecha Vto. CAE: 11-10-2026');
 		expect(html).toContain('data:image/png;base64,QQ');
 
 		const url = urlQrArca(dto);

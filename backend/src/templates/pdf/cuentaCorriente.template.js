@@ -1,3 +1,4 @@
+const { formatearFecha } = require("../../utils/formatters");
 const renderHeader = require("./common/header");
 const path = require("path");
 
@@ -33,7 +34,7 @@ async function renderCuentaCorriente(doc, data) {
   doc.font("Helvetica");
   
   // Fecha actual (derecha)
-  const fechaActual = new Date().toLocaleDateString("es-AR");
+  const fechaActual = formatearFecha(new Date());
   doc.fontSize(12);
   doc.text(`Fecha: ${fechaActual}`, doc.page.width - 150, y + 10, { align: "right" });
 
@@ -115,9 +116,7 @@ async function renderCuentaCorriente(doc, data) {
         y += 5;
       }
 
-      // Formatear fecha
-      const fecha = new Date(comprobante.Fecha);
-      const fechaFormateada = fecha.toLocaleDateString("es-AR");
+      const fechaFormateada = formatearFecha(comprobante.Fecha);
 
       // Fecha
       doc.text(fechaFormateada, xInicio, y);

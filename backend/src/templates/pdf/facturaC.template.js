@@ -1,3 +1,4 @@
+const { formatearFecha } = require("../../utils/formatters");
 const renderHeader = require("./common/header");
 const renderFooter = require("./common/footer");
 const renderTable = require("./common/table");
@@ -42,13 +43,11 @@ function renderFacturaC(doc, data) {
   // Fecha y CAE
   doc
     .fontSize(10)
-    .text(`Fecha: ${new Date(factura.Fecha).toLocaleDateString("es-AR")}`);
+    .text(`Fecha: ${formatearFecha(factura.Fecha)}`);
   if (factura.afip_cae) {
     doc.text(`CAE: ${factura.afip_cae}`);
     doc.text(
-      `Vencimiento CAE: ${new Date(
-        factura.afip_cae_vencimiento
-      ).toLocaleDateString("es-AR")}`
+      `Vencimiento CAE: ${formatearFecha(factura.afip_cae_vencimiento)}`
     );
   }
   doc.moveDown();
@@ -136,9 +135,7 @@ function renderFacturaC(doc, data) {
   renderFooter(doc, {
     legalText: "Documento válido como factura",
     additionalText: factura.afip_cae
-      ? `CAE: ${factura.afip_cae} - Vto: ${new Date(
-          factura.afip_cae_vencimiento
-        ).toLocaleDateString("es-AR")}`
+      ? `CAE: ${factura.afip_cae} - Vto: ${formatearFecha(factura.afip_cae_vencimiento)}`
       : null,
   });
 }

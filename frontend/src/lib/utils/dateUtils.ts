@@ -6,14 +6,16 @@
 export function formatDate(dateString: string): string {
 	if (!dateString) return '';
 	try {
-		// Crear una fecha y ajustar a GMT-3
-		const [year, month, day] = dateString.split('-').map(Number);
-		const date = new Date(year, month - 1, day);
-		return date.toLocaleDateString('es-AR', {
-			day: '2-digit',
-			month: '2-digit',
-			year: 'numeric'
-		});
+		const iso = dateString.match(/^(\d{4})-(\d{2})-(\d{2})/);
+		if (iso) return `${iso[3]}-${iso[2]}-${iso[1]}`;
+		const dmy = dateString.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+		if (dmy) return `${dmy[1]}-${dmy[2]}-${dmy[3]}`;
+		const date = new Date(dateString);
+		if (Number.isNaN(date.getTime())) return dateString;
+		const day = date.getDate().toString().padStart(2, '0');
+		const month = (date.getMonth() + 1).toString().padStart(2, '0');
+		const year = date.getFullYear();
+		return `${day}-${month}-${year}`;
 	} catch (error) {
 		console.error('Error al formatear fecha:', error);
 		return dateString;
@@ -23,24 +25,10 @@ export function formatDate(dateString: string): string {
 /**
  * Formatea una fecha en formato legible sin hora
  * @param dateString Fecha en formato ISO o string de fecha
- * @returns Fecha formateada en formato local (DD/MM/YYYY)
+ * @returns Fecha formateada en formato DD-MM-YYYY
  */
 export function formatDateOnly(dateString: string): string {
-	if (!dateString) return '';
-	try {
-		// Crear una fecha en GMT
-		const date = new Date(dateString);
-		// Ajustar a GMT-3
-		const localDate = new Date(date.getTime() - (3 * 60 * 60 * 1000));
-		return localDate.toLocaleDateString('es-AR', {
-			day: '2-digit',
-			month: '2-digit',
-			year: 'numeric'
-		});
-	} catch (error) {
-		console.error('Error al formatear fecha:', error);
-		return '';
-	}
+	return formatDate(dateString);
 }
 
 /**

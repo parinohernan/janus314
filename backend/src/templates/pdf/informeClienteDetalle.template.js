@@ -1,4 +1,5 @@
 const logoManager = require('../../utils/logoManager');
+const { formatearFecha } = require('../../utils/formatters');
 
 /**
  * PDF detalle cliente (facturas + NC).
@@ -28,11 +29,7 @@ async function renderInformeClienteDetalle(doc, data, datosEmpresa = {}) {
 
   function formatDate(value) {
     if (!value) return '—';
-    const d = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(d.getTime())) {
-      return String(value).slice(0, 10);
-    }
-    return d.toLocaleDateString('es-AR');
+    return formatearFecha(value) || '—';
   }
 
   /** Texto sin width => no LineWrapper => no addPage automático */
@@ -51,7 +48,7 @@ async function renderInformeClienteDetalle(doc, data, datosEmpresa = {}) {
     const bottom = pageHeight - 40;
     doc.font('Helvetica').fontSize(8).fillColor('#6b7280');
     drawText(
-      `Generado el ${new Date().toLocaleDateString('es-AR')} a las ${new Date().toLocaleTimeString('es-AR')}`,
+      `Generado el ${formatearFecha(new Date())} a las ${new Date().toLocaleTimeString('es-AR')}`,
       margin,
       bottom
     );
@@ -120,7 +117,11 @@ async function renderInformeClienteDetalle(doc, data, datosEmpresa = {}) {
   doc.font('Helvetica-Bold').fontSize(11).fillColor('#111827');
   drawText('Período:', margin, yPos);
   doc.font('Helvetica').fontSize(11);
-  drawText(`${periodo.fechaDesde} — ${periodo.fechaHasta}`, margin + 70, yPos);
+  drawText(
+    `${formatearFecha(periodo.fechaDesde)} — ${formatearFecha(periodo.fechaHasta)}`,
+    margin + 70,
+    yPos
+  );
   yPos += 20;
 
   // Resumen
