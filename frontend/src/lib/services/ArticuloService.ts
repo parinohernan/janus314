@@ -183,6 +183,50 @@ export class ArticuloService {
 		}
 	}
 
+	public static async obtenerSubproductos(codigoPadre: string): Promise<unknown[]> {
+		const response = await fetchWithAuth(`/articulos/${codigoPadre}/subproductos`);
+		const data = await response.json();
+		if (!response.ok) {
+			throw new Error(data.message || 'Error al cargar subproductos');
+		}
+		return data.data || [];
+	}
+
+	public static async guardarSubproductos(
+		codigoPadre: string,
+		reglas: Array<{ CodigoArticuloSub: string; CantidadPorUnidad: number }>
+	): Promise<unknown[]> {
+		const response = await fetchWithAuth(`/articulos/${codigoPadre}/subproductos`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ reglas })
+		});
+		const data = await response.json();
+		if (!response.ok) {
+			throw new Error(data.message || 'Error al guardar subproductos');
+		}
+		return data.data || [];
+	}
+
+	public static async subproductosPorPadres(codigos: string[]): Promise<{
+		reglas: Array<Record<string, unknown>>;
+		articulosSub: Articulo[];
+	}> {
+		const response = await fetchWithAuth('/articulos/subproductos/por-padres', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ codigos })
+		});
+		const data = await response.json();
+		if (!response.ok) {
+			throw new Error(data.message || 'Error al cargar reglas de subproductos');
+		}
+		return {
+			reglas: data.reglas || [],
+			articulosSub: data.articulosSub || []
+		};
+	}
+
 	public static async actualizarPreciosStock(
 		articulos: Array<Record<string, string | number>>
 	): Promise<{

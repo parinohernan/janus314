@@ -18,10 +18,13 @@
 		lineaDesdeRubro,
 		mergeLineasParaPersistir,
 		quitarLinea,
+		recalcSubproductosEnTicket,
 		tipoTicketFiscal,
 		totalTicket,
-		type PosLinea
+		type PosLinea,
+		type SubproductoReglaPos
 	} from '$lib/utils/posTicket';
+	import { ArticuloService } from '$lib/services/ArticuloService';
 	import { calcularTotalesComprobante } from '$lib/utils/comprobanteTotales';
 	import { datosComercialesDesdeCliente } from '$lib/utils/facturaClienteDefaults';
 	import { armarPosTicketDto, extraerFiscal, type PosTicketDto } from '$lib/utils/posTicketHtml';
@@ -106,6 +109,9 @@
 
 	let search: PosSearch;
 	let lineas: PosLinea[] = [];
+	let reglasSubproductos: SubproductoReglaPos[] = [];
+	let catalogoSubArticulos: Record<string, Articulo> = {};
+	let reglasSubproductosKey = '';
 	let seleccionId: string | null = null;
 	let cliente: Cliente = CLIENTE_CF;
 	let listaPrecio = '1';
@@ -374,11 +380,57 @@
 		}
 	}
 
+	function codigosPadreEnLineas(base: PosLinea[]): string[] {
+		return [
+			...new Set(
+				base
+					.filter((l) => !l.esSubproductoAuto && !l.esVarios)
+					.map((l) => l.ArticuloCodigo)
+					.filter(Boolean)
+			)
+		];
+	}
+
+	async function cargarReglasSubproductos(base: PosLinea[]) {
+		const codigos = codigosPadreEnLineas(base);
+		const key = codigos.slice().sort().join('|');
+		if (key === reglasSubproductosKey) return;
+		reglasSubproductosKey = key;
+		if (codigos.length === 0) {
+			reglasSubproductos = [];
+			return;
+		}
+		try {
+			const payload = await ArticuloService.subproductosPorPadres(codigos);
+			reglasSubproductos = (payload.reglas || []) as SubproductoReglaPos[];
+			for (const articulo of payload.articulosSub || []) {
+				catalogoSubArticulos[articulo.Codigo] = articulo;
+			}
+		} catch {
+			reglasSubproductos = [];
+		}
+	}
+
+	async function actualizarLineasConSubproductos(updater: (prev: PosLinea[]) => PosLinea[]) {
+		const sinAuto = lineas.filter((l) => !l.esSubproductoAuto);
+		const actualizadas = updater(sinAuto);
+		await cargarReglasSubproductos(actualizadas);
+		lineas = recalcSubproductosEnTicket(
+			actualizadas,
+			reglasSubproductos,
+			catalogoSubArticulos,
+			listaPrecio
+		);
+	}
+
 	function agregarArticulo(articulo: Articulo) {
-		lineas = agregarOIncrementar(lineas, articulo, listaPrecio);
-		flashOk = true;
-		setTimeout(() => (flashOk = false), 250);
-		search?.focusInput();
+		void actualizarLineasConSubproductos((prev) => agregarOIncrementar(prev, articulo, listaPrecio)).then(
+			() => {
+				flashOk = true;
+				setTimeout(() => (flashOk = false), 250);
+				search?.focusInput();
+			}
+		);
 	}
 
 	async function agregarDesdeBalanza(code: string): Promise<boolean> {
@@ -415,7 +467,7 @@
 			search?.focusInput();
 			return true;
 		}
-		lineas = [linea, ...lineas];
+		await actualizarLineasConSubproductos((prev) => [linea, ...prev]);
 		flashOk = true;
 		setTimeout(() => (flashOk = false), 250);
 		search?.focusInput();
@@ -456,13 +508,13 @@
 
 	function ajustarCantidad(lineId: string, delta: number) {
 		const linea = lineas.find((l) => l.lineId === lineId);
-		if (!linea) return;
+		if (!linea || linea.esSubproductoAuto) return;
 		const siguiente = linea.Cantidad + delta;
 		if (siguiente <= 0) {
 			quitar(linea.lineId);
 			return;
 		}
-		lineas = cambiarCantidad(lineas, linea.lineId, siguiente);
+		void actualizarLineasConSubproductos((prev) => cambiarCantidad(prev, linea.lineId, siguiente));
 	}
 
 	function onQty(event: CustomEvent<{ lineId: string; delta: number }>) {
@@ -470,15 +522,20 @@
 	}
 
 	function quitar(lineId: string) {
-		lineas = quitarLinea(lineas, lineId);
-		if (seleccionId === lineId) seleccionId = lineas[lineas.length - 1]?.lineId ?? null;
-		search?.focusInput();
+		const linea = lineas.find((l) => l.lineId === lineId);
+		if (linea?.esSubproductoAuto) return;
+		void actualizarLineasConSubproductos((prev) => quitarLinea(prev, lineId)).then(() => {
+			if (seleccionId === lineId) seleccionId = lineas[lineas.length - 1]?.lineId ?? null;
+			search?.focusInput();
+		});
 	}
 
 	function onSelectCliente(event: CustomEvent<Cliente>) {
 		cliente = event.detail;
 		const comercial = datosComercialesDesdeCliente(cliente);
 		listaPrecio = comercial.listaPrecio;
+		reglasSubproductosKey = '';
+		void actualizarLineasConSubproductos((prev) => prev);
 		search?.focusInput();
 	}
 
@@ -494,10 +551,11 @@
 	function confirmarVarios(event: CustomEvent<{ descripcion: string; precioConIva: number }>) {
 		if (!rubroActivo) return;
 		const linea = lineaDesdeRubro(rubroActivo, event.detail.descripcion, event.detail.precioConIva);
-		lineas = [completarImportes(linea), ...lineas];
-		showVarios = false;
-		rubroActivo = null;
-		search?.focusInput();
+		void actualizarLineasConSubproductos((prev) => [completarImportes(linea), ...prev]).then(() => {
+			showVarios = false;
+			rubroActivo = null;
+			search?.focusInput();
+		});
 	}
 
 	async function salir() {
@@ -511,6 +569,8 @@
 
 	function nuevaVenta() {
 		lineas = [];
+		reglasSubproductosKey = '';
+		reglasSubproductos = [];
 		seleccionId = null;
 		facturaCreada = null;
 		pagoConfirmado = null;

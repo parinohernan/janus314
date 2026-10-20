@@ -7,6 +7,8 @@ const { adjuntarPreventistasAFacturas } = require("../services/preventaFacturaLi
 const { ensureDescripcionLibreColumn, ensureClienteConsumidorFinal } = require("../utils/posVarios");
 const { alicuotaIvaArticulo } = require("../utils/ivaArticulo");
 const { paginacionFacturasCliente } = require('../utils/paginacionFacturasCliente');
+const articuloSubproductoService = require('../services/articuloSubproducto.service');
+const { aplicarTotalesAFactura } = require('../templates/pdf/common/precioItem');
 
 // Obtener listado de facturas (con paginación y filtros)
 exports.listarFacturas = async (req, res) => {
@@ -280,6 +282,14 @@ exports.crearFactura = async (req, res) => {
       const clienteCf = await ensureClienteConsumidorFinal(Cliente, CategoriaIva, t);
       facturaData.ClienteCodigo = clienteCf.Codigo;
     }
+
+    facturaData.Items = await articuloSubproductoService.expandirItemsFactura(
+      facturaData.Items,
+      { Articulo },
+      facturaData.ListaNumero || facturaData.ListaPrecio || '1',
+      connection
+    );
+    aplicarTotalesAFactura(facturaData);
 
     // Verificar si el tipo de pago aplica saldo
     const { TipoDePago } = req.models;

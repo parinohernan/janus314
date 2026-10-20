@@ -6,6 +6,7 @@
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { PUBLIC_API_URL } from '$env/static/public';
   import { ConfiguracionService } from '$lib/services/ConfiguracionService';
+  import { ArticuloService } from '$lib/services/ArticuloService';
   import {
     MODO_LISTA_POR_DEFECTO,
     NUMEROS_LISTA,
@@ -23,6 +24,92 @@
   
   let isEditing = $page.params.id !== 'nuevo';
   let historialCosto: { Fecha: string; PrecioCosto: number }[] = [];
+
+  interface SubproductoReglaFila {
+    CodigoArticuloSub: string;
+    SubDescripcion: string;
+    CantidadPorUnidad: number;
+  }
+
+  let subproductosReglas: SubproductoReglaFila[] = [];
+  let subproductoBusqueda = '';
+  let subproductoOpciones: { Codigo: string; Descripcion: string }[] = [];
+  let guardandoSubproductos = false;
+
+  async function cargarSubproductos(codigo: string) {
+    try {
+      const data = (await ArticuloService.obtenerSubproductos(codigo)) as Array<{
+        CodigoArticuloSub: string;
+        SubDescripcion?: string;
+        CantidadPorUnidad?: number;
+      }>;
+      subproductosReglas = data.map((row) => ({
+        CodigoArticuloSub: row.CodigoArticuloSub,
+        SubDescripcion: row.SubDescripcion || row.CodigoArticuloSub,
+        CantidadPorUnidad: Number(row.CantidadPorUnidad) || 1
+      }));
+    } catch {
+      subproductosReglas = [];
+    }
+  }
+
+  async function buscarSubproductoArticulos() {
+    const term = subproductoBusqueda.trim();
+    if (term.length < 2) {
+      subproductoOpciones = [];
+      return;
+    }
+    try {
+      const response = await fetchWithAuth('/articulos', {
+        params: { search: term, limit: 15, activo: -1 }
+      });
+      if (!response.ok) {
+        subproductoOpciones = [];
+        return;
+      }
+      const data = await response.json();
+      subproductoOpciones = (data.items || []).map((a: { Codigo: string; Descripcion: string }) => ({
+        Codigo: a.Codigo,
+        Descripcion: a.Descripcion
+      }));
+    } catch {
+      subproductoOpciones = [];
+    }
+  }
+
+  function agregarSubproducto(codigo: string, descripcion: string) {
+    if (subproductosReglas.some((r) => r.CodigoArticuloSub === codigo)) return;
+    subproductosReglas = [
+      ...subproductosReglas,
+      { CodigoArticuloSub: codigo, SubDescripcion: descripcion, CantidadPorUnidad: 1 }
+    ];
+    subproductoBusqueda = '';
+    subproductoOpciones = [];
+  }
+
+  function quitarSubproducto(codigo: string) {
+    subproductosReglas = subproductosReglas.filter((r) => r.CodigoArticuloSub !== codigo);
+  }
+
+  async function guardarSubproductos() {
+    if (!isEditing) return;
+    guardandoSubproductos = true;
+    error = null;
+    try {
+      await ArticuloService.guardarSubproductos(
+        $page.params.id,
+        subproductosReglas.map((r) => ({
+          CodigoArticuloSub: r.CodigoArticuloSub,
+          CantidadPorUnidad: r.CantidadPorUnidad
+        }))
+      );
+      successMessage = 'Subproductos guardados correctamente';
+    } catch (err: unknown) {
+      error = err instanceof Error ? err.message : 'Error al guardar subproductos';
+    } finally {
+      guardandoSubproductos = false;
+    }
+  }
 
   function formatearFechaCosto(valor: string | null | undefined): string {
     if (!valor) return '—';
@@ -62,6 +149,7 @@
           articulo = cargado;
           tomarPreciosGuardados(cargado);
           await cargarHistorialCosto($page.params.id);
+          await cargarSubproductos($page.params.id);
         } catch (err: unknown) {
           console.error('Error cargando artículo:', err);
           if (err instanceof Error) {
@@ -880,6 +968,99 @@
           -->
         </div>
         
+        {#if isEditing}
+          <div>
+            <h2 class="text-lg font-medium mb-3 text-gray-800 border-b pb-2">
+              Subproductos / cargos asociados
+            </h2>
+            <p class="mb-3 text-sm text-gray-600">
+              Creá los cargos (ej. entrega a domicilio) como artículos con <strong>Activo = No</strong> y
+              <strong>Se vende = No</strong>. Al vender este producto en el POS se agregan solos al ticket.
+            </p>
+            <div class="mb-4 flex flex-col gap-2 md:flex-row md:items-end">
+              <div class="flex-1">
+                <label for="subproductoBusqueda" class="block text-sm font-medium text-gray-700 mb-1">
+                  Buscar subproducto (incluye inactivos)
+                </label>
+                <input
+                  id="subproductoBusqueda"
+                  type="search"
+                  bind:value={subproductoBusqueda}
+                  on:input={buscarSubproductoArticulos}
+                  placeholder="Código o descripción"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            {#if subproductoOpciones.length > 0}
+              <ul class="mb-4 rounded-md border border-gray-200 divide-y max-h-40 overflow-y-auto">
+                {#each subproductoOpciones as opcion}
+                  <li>
+                    <button
+                      type="button"
+                      class="w-full px-3 py-2 text-left text-sm hover:bg-blue-50"
+                      on:click={() => agregarSubproducto(opcion.Codigo, opcion.Descripcion)}
+                    >
+                      <span class="font-mono text-gray-600">{opcion.Codigo}</span>
+                      — {opcion.Descripcion}
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+            {#if subproductosReglas.length === 0}
+              <p class="text-sm text-gray-500 mb-3">Sin subproductos asociados.</p>
+            {:else}
+              <div class="overflow-x-auto mb-3">
+                <table class="min-w-full text-sm border border-gray-200 rounded-md">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th class="px-3 py-2 text-left">Código</th>
+                      <th class="px-3 py-2 text-left">Descripción</th>
+                      <th class="px-3 py-2 text-right">Cant. por unidad padre</th>
+                      <th class="px-3 py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each subproductosReglas as regla (regla.CodigoArticuloSub)}
+                      <tr class="border-t">
+                        <td class="px-3 py-2 font-mono">{regla.CodigoArticuloSub}</td>
+                        <td class="px-3 py-2">{regla.SubDescripcion}</td>
+                        <td class="px-3 py-2 text-right">
+                          <input
+                            type="number"
+                            min="0.001"
+                            step="0.001"
+                            bind:value={regla.CantidadPorUnidad}
+                            class="w-24 px-2 py-1 border border-gray-300 rounded text-right"
+                          />
+                        </td>
+                        <td class="px-3 py-2 text-right">
+                          <button
+                            type="button"
+                            class="text-red-600 hover:underline"
+                            on:click={() => quitarSubproducto(regla.CodigoArticuloSub)}
+                          >
+                            Quitar
+                          </button>
+                        </td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            {/if}
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={guardandoSubproductos}
+              on:click={guardarSubproductos}
+            >
+              {guardandoSubproductos ? 'Guardando subproductos...' : 'Guardar subproductos'}
+            </Button>
+          </div>
+        {/if}
+
         <!-- Configuración -->
         <div>
           <h2 class="text-lg font-medium mb-3 text-gray-800 border-b pb-2">Configuración</h2>

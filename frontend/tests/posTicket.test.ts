@@ -12,10 +12,12 @@ import {
 	lineaDesdeBalanza,
 	lineaDesdeRubro,
 	mergeLineasParaPersistir,
+	recalcSubproductosEnTicket,
 	tipoTicketFiscal,
 	totalTicket,
 	ivaDeArticulo,
-	precioListaSinIva
+	precioListaSinIva,
+	type SubproductoReglaPos
 } from '../src/lib/utils/posTicket';
 import type { Articulo } from '../src/lib/types/articulo';
 
@@ -181,5 +183,65 @@ describe('atajos de rubros', () => {
 		expect(rubroPorAtajo(tecla('Digit0'))).toBeUndefined();
 		expect(rubroPorAtajo(tecla('Digit9'))).toBeUndefined();
 		expect(rubroPorAtajo(tecla('KeyA'))).toBeUndefined();
+	});
+});
+
+describe('subproductos POS', () => {
+	const entrega: Articulo = {
+		Codigo: 'ENT-DOM',
+		Descripcion: 'Entrega a domicilio',
+		PrecioCosto: 0,
+		Lista1: 300,
+		PorcentajeIVA1: 21,
+		Existencia: 0,
+		Activo: 0
+	};
+
+	const garrafa: Articulo = {
+		Codigo: 'GARRAFA',
+		Descripcion: 'Garrafa 20kg',
+		PrecioCosto: 0,
+		Lista1: 4000,
+		PorcentajeIVA1: 21,
+		Existencia: 10,
+		Activo: 1
+	};
+
+	const reglas: SubproductoReglaPos[] = [
+		{ CodigoArticuloPadre: 'GARRAFA', CodigoArticuloSub: 'ENT-DOM', CantidadPorUnidad: 1 }
+	];
+
+	it('multiplica la entrega por la cantidad del padre', () => {
+		const base = agregarOIncrementar([], garrafa);
+		const dos = agregarOIncrementar(base, garrafa);
+		const ticket = recalcSubproductosEnTicket(dos, reglas, { 'ENT-DOM': entrega }, '1');
+		const lineaEntrega = ticket.find((l) => l.ArticuloCodigo === 'ENT-DOM');
+		expect(lineaEntrega?.Cantidad).toBe(2);
+		expect(lineaEntrega?.esSubproductoAuto).toBe(true);
+		expect(lineaEntrega?.Total).toBe(726);
+	});
+
+	it('genera dos entregas distintas si los códigos difieren', () => {
+		const papas: Articulo = { ...garrafa, Codigo: 'PAPAS', Descripcion: 'Bolsa papas', Lista1: 20000 };
+		const entregaPapas: Articulo = { ...entrega, Codigo: 'ENT-PAPAS', Lista1: 350 };
+		const reglasMix: SubproductoReglaPos[] = [
+			{ CodigoArticuloPadre: 'GARRAFA', CodigoArticuloSub: 'ENT-DOM', CantidadPorUnidad: 1 },
+			{ CodigoArticuloPadre: 'PAPAS', CodigoArticuloSub: 'ENT-PAPAS', CantidadPorUnidad: 1 }
+		];
+		let ticket = agregarOIncrementar([], garrafa);
+		ticket = agregarOIncrementar(ticket, papas);
+		ticket = recalcSubproductosEnTicket(ticket, reglasMix, {
+			'ENT-DOM': entrega,
+			'ENT-PAPAS': entregaPapas
+		});
+		expect(ticket.filter((l) => l.esSubproductoAuto)).toHaveLength(2);
+	});
+
+	it('quita subs auto al recalcular sin padres', () => {
+		const base = agregarOIncrementar([], garrafa);
+		const conSub = recalcSubproductosEnTicket(base, reglas, { 'ENT-DOM': entrega }, '1');
+		expect(conSub.some((l) => l.esSubproductoAuto)).toBe(true);
+		const vacio = recalcSubproductosEnTicket([], reglas, { 'ENT-DOM': entrega }, '1');
+		expect(vacio.some((l) => l.esSubproductoAuto)).toBe(false);
 	});
 });

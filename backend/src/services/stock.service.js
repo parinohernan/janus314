@@ -104,19 +104,45 @@ const StockService = {
       }
 
       console.log("🔍 Procesando items...");
+      const codigos = [
+        ...new Set(
+          items
+            .map((item) => item.ArticuloCodigo || item.CodigoArticulo)
+            .filter(Boolean)
+        ),
+      ];
+      const articulosPorCodigo = new Map();
+      if (codigos.length > 0) {
+        const filas = await Articulo.findAll({
+          where: { Codigo: codigos },
+          attributes: ['Codigo', 'SeVende'],
+          transaction,
+        });
+        for (const fila of filas) {
+          articulosPorCodigo.set(fila.Codigo, fila);
+        }
+      }
+
       for (const item of items) {
         console.log(" Procesando item:", item);
         console.log("🔍 item.ArticuloCodigo:", item.ArticuloCodigo);
         console.log("🔍 item.Cantidad:", item.Cantidad);
 
-        if (esArticuloPosVarios(item.ArticuloCodigo)) {
-          console.log("🔍 Skip stock de artículo Varios POS:", item.ArticuloCodigo);
+        const codigoArticulo = item.ArticuloCodigo || item.CodigoArticulo;
+        if (esArticuloPosVarios(codigoArticulo)) {
+          console.log("🔍 Skip stock de artículo Varios POS:", codigoArticulo);
+          continue;
+        }
+
+        const articuloRow = articulosPorCodigo.get(codigoArticulo);
+        if (articuloRow && Number(articuloRow.SeVende) === 0) {
+          console.log("🔍 Skip stock artículo servicio (SeVende=0):", codigoArticulo);
           continue;
         }
         
         // Actualizar stock (solo descuento, sin crear movimiento)
         await this.actualizarStock(
-          item.ArticuloCodigo,
+          codigoArticulo,
           signo * item.Cantidad,
           transaction,
           Articulo

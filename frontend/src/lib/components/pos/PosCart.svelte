@@ -48,52 +48,65 @@
 		{:else}
 			{#each lineas as linea (linea.lineId)}
 				<div
-					class="grid w-full select-none {cols} items-center gap-2 border-b px-4 py-3 {enEdicion(linea.lineId)
-						? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 ring-2 ring-inset ring-amber-400'
-						: 'border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}"
+					class="grid w-full select-none {cols} items-center gap-2 border-b px-4 py-3 {linea.esSubproductoAuto
+						? 'border-slate-100 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50'
+						: enEdicion(linea.lineId)
+							? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 ring-2 ring-inset ring-amber-400'
+							: 'border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}"
 					role="row"
 					aria-selected={enEdicion(linea.lineId)}
 					tabindex="-1"
 					title="Doble clic para editar cantidad con + y −"
-					on:dblclick={() => toggleEdicion(linea.lineId)}
+					on:dblclick={() => !linea.esSubproductoAuto && toggleEdicion(linea.lineId)}
 				>
 					<div class="flex flex-col items-center gap-1">
-						<button
-							type="button"
-							class="flex h-6 w-6 items-center justify-center rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-							disabled={disabled}
-							aria-label="Sumar cantidad"
-							on:click|stopPropagation={() => dispatch('qty', { lineId: linea.lineId, delta: 1 })}
-						>
-							<Plus class="h-3.5 w-3.5" />
-						</button>
+						{#if !linea.esSubproductoAuto}
+							<button
+								type="button"
+								class="flex h-6 w-6 items-center justify-center rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+								disabled={disabled}
+								aria-label="Sumar cantidad"
+								on:click|stopPropagation={() => dispatch('qty', { lineId: linea.lineId, delta: 1 })}
+							>
+								<Plus class="h-3.5 w-3.5" />
+							</button>
+						{/if}
 						<span class="text-sm font-semibold text-slate-800 dark:text-slate-100">{linea.Cantidad}</span>
-						<button
-							type="button"
-							class="flex h-6 w-6 items-center justify-center rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-							disabled={disabled}
-							aria-label="Restar cantidad"
-							on:click|stopPropagation={() => dispatch('qty', { lineId: linea.lineId, delta: -1 })}
-						>
-							<Minus class="h-3.5 w-3.5" />
-						</button>
+						{#if !linea.esSubproductoAuto}
+							<button
+								type="button"
+								class="flex h-6 w-6 items-center justify-center rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+								disabled={disabled}
+								aria-label="Restar cantidad"
+								on:click|stopPropagation={() => dispatch('qty', { lineId: linea.lineId, delta: -1 })}
+							>
+								<Minus class="h-3.5 w-3.5" />
+							</button>
+						{/if}
 					</div>
 					<div class="min-w-0">
-						<p class="truncate font-medium text-slate-900 dark:text-slate-100">{linea.Descripcion}</p>
+						<p class="truncate font-medium text-slate-900 dark:text-slate-100">
+							{linea.Descripcion}
+							{#if linea.esSubproductoAuto}
+								<span class="ml-1 text-xs font-normal text-slate-500">(automático)</span>
+							{/if}
+						</p>
 						<p class="truncate text-xs text-slate-400">{linea.ArticuloCodigo}</p>
 					</div>
 					<span class="text-right text-sm tabular-nums text-slate-600 dark:text-slate-300">{linea.PorcentajeIva}%</span>
 					<span class="text-right text-sm text-slate-600 dark:text-slate-300">{formatMoneyAR(linea.PrecioUnitarioConIva)}</span>
 					<span class="text-right text-base font-semibold text-slate-900 dark:text-slate-100">{formatMoneyAR(linea.Total)}</span>
-					<button
-						type="button"
-						class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 dark:hover:bg-red-950 hover:text-red-600"
-						disabled={disabled}
-						aria-label="Quitar línea"
-						on:click|stopPropagation={() => dispatch('remove', linea.lineId)}
-					>
-						<Trash2 class="h-4 w-4" />
-					</button>
+					{#if !linea.esSubproductoAuto}
+						<button
+							type="button"
+							class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 dark:hover:bg-red-950 hover:text-red-600"
+							disabled={disabled}
+							aria-label="Quitar línea"
+							on:click|stopPropagation={() => dispatch('remove', linea.lineId)}
+						>
+							<Trash2 class="h-4 w-4" />
+						</button>
+					{/if}
 				</div>
 			{/each}
 		{/if}

@@ -16,6 +16,14 @@ export type PosLinea = {
 	Total: number;
 	esVarios: boolean;
 	esBalanza?: boolean;
+	esSubproductoAuto?: boolean;
+};
+
+export type SubproductoReglaPos = {
+	CodigoArticuloPadre: string;
+	CodigoArticuloSub: string;
+	CantidadPorUnidad: number;
+	SubDescripcion?: string;
 };
 
 export function formatMoneyAR(n: number): string {
@@ -214,6 +222,41 @@ export function labelTicketFiscal(categoriaIva?: string | null): string {
 }
 
 /** Cada Varios queda como renglón propio con su DescripcionLibre: facturaitems admite el mismo código repetido en un comprobante. */
+export function recalcSubproductosEnTicket(
+	lineas: PosLinea[],
+	reglas: SubproductoReglaPos[],
+	catalogoSubs: Record<string, Articulo>,
+	listaId = '1'
+): PosLinea[] {
+	const base = lineas.filter((l) => !l.esSubproductoAuto);
+	const cantidades = new Map<string, number>();
+
+	for (const linea of base) {
+		if (linea.esVarios) continue;
+		const reglasPadre = reglas.filter((r) => r.CodigoArticuloPadre === linea.ArticuloCodigo);
+		for (const regla of reglasPadre) {
+			const add = linea.Cantidad * (Number(regla.CantidadPorUnidad) || 1);
+			cantidades.set(regla.CodigoArticuloSub, (cantidades.get(regla.CodigoArticuloSub) || 0) + add);
+		}
+	}
+
+	const autoLineas: PosLinea[] = [];
+	for (const [codigo, cantidad] of cantidades) {
+		const articulo = catalogoSubs[codigo];
+		if (!articulo || !(cantidad > 0)) continue;
+		const linea = lineaDesdeArticulo(articulo, listaId);
+		autoLineas.push(
+			completarImportes({
+				...linea,
+				Cantidad: cantidad,
+				esSubproductoAuto: true
+			})
+		);
+	}
+
+	return [...base, ...autoLineas];
+}
+
 export function mergeLineasParaPersistir(lineas: PosLinea[]): PosLinea[] {
 	const map = new Map<string, PosLinea>();
 	for (const linea of lineas) {

@@ -1868,3 +1868,58 @@ exports.importarCatalogo = async (req, res) => {
     });
   }
 };
+
+const articuloSubproductoService = require('../services/articuloSubproducto.service');
+
+exports.getSubproductos = async (req, res) => {
+  try {
+    const codigo = String(req.params.id || '').trim();
+    const reglas = await articuloSubproductoService.listarPorPadre(req.db, codigo);
+    res.json({ success: true, data: reglas });
+  } catch (error) {
+    console.error('Error al listar subproductos:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al listar subproductos',
+    });
+  }
+};
+
+exports.putSubproductos = async (req, res) => {
+  let t = null;
+  try {
+    const codigo = String(req.params.id || '').trim();
+    const { Articulo } = req.models;
+    t = await req.db.transaction();
+    const reglas = await articuloSubproductoService.guardarPorPadre(
+      req.db,
+      codigo,
+      req.body?.reglas || req.body?.items || [],
+      Articulo,
+      t
+    );
+    await t.commit();
+    res.json({ success: true, data: reglas });
+  } catch (error) {
+    if (t) await t.rollback();
+    console.error('Error al guardar subproductos:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Error al guardar subproductos',
+    });
+  }
+};
+
+exports.subproductosPorPadres = async (req, res) => {
+  try {
+    const codigos = req.body?.codigos || [];
+    const payload = await articuloSubproductoService.listarPorPadres(req.db, codigos);
+    res.json({ success: true, ...payload });
+  } catch (error) {
+    console.error('Error al listar subproductos por padres:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al listar subproductos',
+    });
+  }
+};

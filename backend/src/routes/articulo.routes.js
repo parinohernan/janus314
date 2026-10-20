@@ -63,8 +63,11 @@ router.get("/by-proveedor-articulo", articuloController.getArticuloByProveedorYC
 router.get("/lookup", articuloController.lookupArticulo);
 router.get("/pos/catalogo", articuloController.catalogoPos);
 router.post("/pos/ensure-varios", articuloController.ensurePosVarios);
+router.post("/subproductos/por-padres", articuloController.subproductosPorPadres);
 
 // Rutas con parámetros después
+router.get("/:id/subproductos", articuloController.getSubproductos);
+router.put("/:id/subproductos", articuloController.putSubproductos);
 router.get("/:id/costo-historico", articuloController.getCostoHistoricoArticulo);
 router.get("/:id", articuloController.getArticuloById);
 router.put("/:id", articuloController.updateArticulo);
