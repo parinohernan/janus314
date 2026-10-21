@@ -66,8 +66,12 @@
 					>
 					<button
 						type="button"
-						class="absolute inset-y-0 right-0 px-3 text-gray-400"
-						on:click={() => showPassword = !showPassword}
+						tabindex="-1"
+						class="absolute inset-y-0 right-0 z-20 px-3 text-gray-400 hover:text-gray-600"
+						on:mousedown|preventDefault={() => (showPassword = !showPassword)}
+						aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+						aria-controls="password"
+						aria-pressed={showPassword}
 					>
 						{showPassword ? 'Ocultar' : 'Ver'}
 					</button>
