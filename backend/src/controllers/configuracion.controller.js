@@ -1,5 +1,9 @@
 const Configuracion = require("../models/configuracion.model");
 const db = require('../config/database');
+const {
+  listFacturaAPlantillas,
+  normalizePlantillaId,
+} = require("../templates/pdf/resolveFacturaA");
 
 // Obtener una configuración por su código
 exports.getConfiguracionPorCodigo = async (req, res) => {
@@ -68,7 +72,7 @@ exports.actualizarConfiguracion = async (req, res) => {
   try {
     const { Configuracion } = req.models;
     const { codigo } = req.params;
-    const { valor, descripcion } = req.body;
+    let { valor, descripcion } = req.body;
 
     if (!codigo) {
       return res.status(400).json({
@@ -91,7 +95,20 @@ exports.actualizarConfiguracion = async (req, res) => {
       CANT_ITEMS: 'Cantidad de Items por Página',
       DATOS_REMITO: 'Ocultar datos de la empresa en remitos (PRF)',
       imprimir_duplicado_en_remitos: 'Imprimir duplicado en remitos (PRF)',
+      PDF_PLANTILLA_FCA: 'Plantilla PDF Factura A (FCA)',
     };
+
+    if (codigo === "PDF_PLANTILLA_FCA") {
+      const id = normalizePlantillaId(valor);
+      const permitidas = new Set(listFacturaAPlantillas().map((p) => p.id));
+      if (!permitidas.has(id)) {
+        return res.status(400).json({
+          success: false,
+          message: `Plantilla FCA no válida: ${valor}`,
+        });
+      }
+      valor = id;
+    }
 
     let config = await Configuracion.findOne({
       where: { Codigo: codigo }
@@ -120,6 +137,22 @@ exports.actualizarConfiguracion = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Error al actualizar la configuración",
+      error: error.message,
+    });
+  }
+};
+
+exports.getPdfPlantillasFca = async (_req, res) => {
+  try {
+    return res.status(200).json({
+      success: true,
+      plantillas: listFacturaAPlantillas(),
+    });
+  } catch (error) {
+    console.error("Error al listar plantillas FCA:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error al listar plantillas de Factura A",
       error: error.message,
     });
   }

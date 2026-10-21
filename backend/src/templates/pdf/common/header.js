@@ -25,6 +25,7 @@ function renderHeader(doc, options = {}) {
     isNotaDebito = false, // Para distinguir notas de débito
     isOrdenCompra = false, // Para órdenes de compra
     isRemito = false, // PRF / remito interno con encabezado completo
+    typography = null,
   } = options;
 
   // constantes de posicionamiento
@@ -38,11 +39,16 @@ function renderHeader(doc, options = {}) {
   const titleHeight = 7;
   const infoEmpresaY = logoY + 50;
   const infoEmpresaX = logoX + logoWidth + 20;
+  /** Borde izquierdo del recuadro de la letra (A/B/C); la razón social no debe invadirlo. */
+  const letterBoxLeft = doc.page.width / 2 - 15;
+  const companyNameMaxWidth = Math.max(72, letterBoxLeft - infoEmpresaX - 10);
 
-  const fontSize = {
+  const fontSize = typography?.header || {
     infoEmpresa: 12,
     fecha: 12,
-    companyName: 16, // Tamaño fijo para el nombre de la empresa
+    documentMeta: 12,
+    companyName: 16,
+    titleLetter: 26,
   };
 
   // Logo de la empresa (si está habilitado y se proporciona una ruta)
@@ -66,7 +72,7 @@ function renderHeader(doc, options = {}) {
   doc.strokeColor("#000000").moveTo(20, 115).lineTo(580, 115).stroke();
   const rectY = doc.y;
   doc.rect(doc.page.width / 2 - 15, 20, 30, 30).stroke(); //rectangulo contenedor de letra de Comprobante
-  doc.fontSize(26).text(title, doc.page.width / 2 - 14, 26, {
+  doc.fontSize(fontSize.titleLetter || 26).text(title, doc.page.width / 2 - 14, 26, {
     width: 12,
     align: "center",
     height: 7,
@@ -92,25 +98,40 @@ function renderHeader(doc, options = {}) {
       documentTypeText = "Remito";
     }
     
-    doc.fontSize(12).text(`${documentTypeText} N° ${documentNumber}`, { align: "right" });
+    doc
+      .fontSize(fontSize.documentMeta || fontSize.fecha || 12)
+      .text(`${documentTypeText} N° ${documentNumber}`, { align: "right" });
   }
   // fecha
-  doc.fontSize(12).text(`Fecha: ${formatearFecha(fecha)}`, { align: "right" });
+  doc
+    .fontSize(fontSize.fecha || 12)
+    .text(`Fecha: ${formatearFecha(fecha)}`, { align: "right" });
   doc.moveDown();
 
   // informacion general de la empresa
   // correr x a margen izquierdo
 
-  doc.y = 20;
   doc.x = infoEmpresaX;
+  doc.y = logoY;
 
-  // Usar un tamaño de fuente fijo para el nombre de la empresa
-  doc
-    .fontSize(fontSize.companyName)
-    .text(`${companyName}`, { align: "left" });
-  doc.text(`${companyName2}`, { align: "left" });
+  doc.fontSize(fontSize.companyName);
+  doc.text(String(companyName || "").trim(), {
+    width: companyNameMaxWidth,
+    align: "left",
+    lineGap: 1,
+  });
+  const pieEmpresa = String(companyName2 || "").trim();
+  if (pieEmpresa) {
+    doc.text(pieEmpresa, {
+      width: companyNameMaxWidth,
+      align: "left",
+      lineGap: 1,
+    });
+  }
 
-  doc.y = infoEmpresaY;
+  // Dirección/teléfono: debajo del nombre aunque ocupe varios renglones
+  doc.y = Math.max(infoEmpresaY, doc.y + 2);
+  doc.x = infoEmpresaX;
   doc
     .fontSize(fontSize.infoEmpresa)
     .text(`${companyLocalidad}`, { align: "left" });

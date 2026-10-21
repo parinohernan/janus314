@@ -2,10 +2,11 @@
  * Renderiza la información electrónica en el documento PDF (QR, CAE, logo ARCA, etc.)
  * @param {PDFDocument} doc - Documento PDF
  * @param {Object} factura - Datos de la factura o nota de crédito
- * @param {number} yTotales - Posición Y de los totales
+ * @param {number} yZonaElectronica - Y donde empieza el bloque QR / ARCA (debajo de leyendas)
  * @returns {number} - Posición Y final
  */
-async function renderElectronicInfo(doc, factura, yTotales) {
+async function renderElectronicInfo(doc, factura, yZonaElectronica) {
+  yZonaElectronica = Math.min(yZonaElectronica, yMaxInicioQr(doc));
   console.log('🔍 Verificando datos para QR:', {
     documentoTipo: factura.DocumentoTipo,
     afip_cae: factura.afip_cae,
@@ -15,8 +16,7 @@ async function renderElectronicInfo(doc, factura, yTotales) {
   // Código QR en el pie de página (para facturas A y B, y notas de crédito A y B)
   if (factura.DocumentoTipo === "FCA" || factura.DocumentoTipo === "FCB" || 
       factura.DocumentoTipo === "NCA" || factura.DocumentoTipo === "NCB") {
-    // Zona para el QR
-    doc.y = yTotales;
+    doc.y = yZonaElectronica;
     doc.x = 20;
 
     try {
@@ -34,7 +34,7 @@ async function renderElectronicInfo(doc, factura, yTotales) {
         if (qrImage) {
           console.log('📱 Dibujando QR en PDF...');
           // Dibujar el QR
-          doc.image(qrImage, doc.x, doc.y + 24, { width: 80, height: 80 });
+          doc.image(qrImage, doc.x, doc.y, { width: QR_SIZE, height: QR_SIZE });
           console.log('✅ QR dibujado exitosamente');
         } else {
           console.error("❌ Error generando QR para documento");
@@ -51,8 +51,7 @@ async function renderElectronicInfo(doc, factura, yTotales) {
   if (factura.DocumentoTipo === "FCA" || factura.DocumentoTipo === "FCB" || 
       factura.DocumentoTipo === "NCA" || factura.DocumentoTipo === "NCB") {
     doc.x = 140;
-    yTotales = yTotales + 24 
-    doc.y = yTotales
+    doc.y = yZonaElectronica;
 
     // Modificar esta parte para verificar si el archivo existe
     const logoARCA = path.join(__dirname, "./logos/ARCA.PNG");
@@ -77,7 +76,7 @@ async function renderElectronicInfo(doc, factura, yTotales) {
     // Mostrar CAE y fecha de vencimiento debajo del logo ARCA
     doc.fontSize(10);
     const caeX = 140;
-    const caeY = yTotales + 50;
+    const caeY = yZonaElectronica + 50;
 
     if (factura.afip_cae) {
       doc.text(`CAE N°: ${factura.afip_cae}`, caeX, caeY, { width: 200, align: "left" });
@@ -95,18 +94,21 @@ async function renderElectronicInfo(doc, factura, yTotales) {
 
   // Leyenda "Esta Agencia no se responsabiliza..."
   doc.fontSize(8);
-  doc.x = 30
-  doc.y = yTotales + 100;
+  const yPieLegal = yLeyendaLegal(doc);
   doc.text(
-    "Esta Agencia no se responsabiliza por los datos ingresados en el detalle de la operación"
+    "Esta Agencia no se responsabiliza por los datos ingresados en el detalle de la operación",
+    30,
+    yPieLegal,
+    { width: 535, align: "center", lineBreak: false }
   );
 
-  return doc.y;
+  return yPieLegal;
 }
 
 // Importar las funciones necesarias
 const path = require("path");
 const { formatearFecha } = require("../../../utils/formatters");
 const { generarDatosQR, generarQR } = require("../../../utils/qrAfip");
+const { QR_SIZE, yLeyendaLegal, yMaxInicioQr } = require("./piePageBounds");
 
 module.exports = renderElectronicInfo; 

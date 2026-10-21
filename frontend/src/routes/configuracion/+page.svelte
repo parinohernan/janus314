@@ -14,6 +14,13 @@
 
   type FilaParametro = { codigo: string; config: Configuracion | null };
   let filasParametros = $state<FilaParametro[]>([]);
+
+  const CODIGO_PDF_FCA = 'PDF_PLANTILLA_FCA';
+  type PlantillaFca = { id: string; label: string; tipo: 'builtin' | 'custom' };
+  let plantillasFca = $state<PlantillaFca[]>([]);
+  let pdfPlantillaFca = $state('default');
+  let pdfPlantillaFcaOriginal = $state('default');
+  let guardandoPdfFca = $state(false);
   
   const FLAGS_01 = ['DATOS_REMITO', 'imprimir_duplicado_en_remitos'] as const;
   const configuracionesVisibles = ['CANT_ITEMS', ...FLAGS_01] as const;
@@ -27,8 +34,37 @@
   }
   
   onMount(async () => {
-    await cargarConfiguraciones();
+    await Promise.all([cargarConfiguraciones(), cargarPlantillaFacturaA()]);
   });
+
+  async function cargarPlantillaFacturaA() {
+    plantillasFca = await ConfiguracionService.obtenerPlantillasFacturaA();
+    const cfg = await ConfiguracionService.obtenerConfiguracion(CODIGO_PDF_FCA);
+    const raw = String(cfg?.ValorConfig ?? '').trim().toLowerCase();
+    pdfPlantillaFca = raw && raw !== 'default' ? raw : 'default';
+    pdfPlantillaFcaOriginal = pdfPlantillaFca;
+  }
+
+  async function guardarPlantillaFacturaA() {
+    try {
+      guardandoPdfFca = true;
+      const exito = await ConfiguracionService.actualizarConfiguracion(
+        CODIGO_PDF_FCA,
+        pdfPlantillaFca
+      );
+      if (exito) {
+        pdfPlantillaFcaOriginal = pdfPlantillaFca;
+        mostrarMensaje('Plantilla de Factura A guardada', 'success');
+      } else {
+        mostrarMensaje('Error al guardar la plantilla de Factura A', 'error');
+      }
+    } catch (error) {
+      console.error(error);
+      mostrarMensaje('Error al guardar la plantilla de Factura A', 'error');
+    } finally {
+      guardandoPdfFca = false;
+    }
+  }
   
   async function cargarConfiguraciones() {
     try {
@@ -203,6 +239,41 @@
             Restaurar todos visibles
           </button>
         </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-md mb-6">
+      <div class="p-6">
+        <h2 class="text-xl font-semibold text-gray-800 mb-2">Impresión PDF</h2>
+        <p class="text-sm text-gray-500 mb-4">
+          Solo afecta a <strong>Factura A (FCA)</strong>. Las demás empresas siguen con el formato estándar hasta que cambien este valor.
+        </p>
+        <div class="flex flex-col md:flex-row md:items-end gap-4 max-w-2xl">
+          <label class="flex-1 block">
+            <span class="block text-sm font-medium text-gray-700 mb-1">Plantilla Factura A</span>
+            <select
+              bind:value={pdfPlantillaFca}
+              disabled={guardandoPdfFca || guardando}
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              {#each plantillasFca as p (p.id)}
+                <option value={p.id}>{p.label}</option>
+              {/each}
+            </select>
+          </label>
+          <button
+            type="button"
+            onclick={guardarPlantillaFacturaA}
+            disabled={guardandoPdfFca || guardando || pdfPlantillaFca === pdfPlantillaFcaOriginal}
+            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed whitespace-nowrap"
+          >
+            {guardandoPdfFca ? 'Guardando...' : 'Guardar'}
+          </button>
+        </div>
+        <p class="mt-3 text-xs text-gray-400">
+          Código: {CODIGO_PDF_FCA}. Variante <em>legible</em> aumenta la tipografía (útil si se quejan de letra chica).
+          Plantillas personalizadas las agrega soporte en el servidor.
+        </p>
       </div>
     </div>
 

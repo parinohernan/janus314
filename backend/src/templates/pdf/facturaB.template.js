@@ -2,8 +2,14 @@ const renderHeader = require("./common/header");
 const renderClienteInfo = require("./common/clienteInfo.js");
 const renderItemsListConIva = require("./common/itemsListConIva.js");
 const renderElectronicInfo = require("./common/electronicInfo.js");
-const { textoImporteBonificado } = require("./common/formatBonificacion");
+const { resolverYInicioQr } = require("./common/piePageBounds");
 const { renderPieExactoConIva } = require("./common/pieConIva");
+const {
+  columnasPie,
+  filaPie,
+  etiquetaBonificacion,
+  importeBonificadoSolo,
+} = require("./common/pieTotalesLayout");
 const { usaMatematicaExacta } = require("../../utils/matematicaExacta");
 const path = require("path");
 
@@ -64,59 +70,50 @@ async function renderFacturaB(doc, data) {
     // me posiciono en la parte de los totales
     y = 660;
     let yTotales = y;
-    let xTotales = 420;
-
-    doc.x = xTotales;
+    const cols = columnasPie(doc);
 
     // Totales (en Factura B no se discrimina IVA)
     if (usaMatematicaExacta(factura.Fecha)) {
-      renderPieExactoConIva(doc, { items, documento: factura, y, xTotales });
+      renderPieExactoConIva(doc, { items, documento: factura, y });
     } else {
       doc.font("Helvetica-Bold");
 
       if (factura.ImporteBonificado && factura.ImporteBonificado > 0) {
-        doc.text("Subtotal:", xTotales, y, { width: 90, align: "right" });
-        doc.text(
-          factura.ImporteBruto ? factura.ImporteBruto.toFixed(2) : "0.00",
-          xTotales + 90,
+        y = filaPie(
+          doc,
+          cols,
           y,
-          { width: 70, align: "right" }
+          "Subtotal:",
+          factura.ImporteBruto ? factura.ImporteBruto.toFixed(2) : "0.00"
         );
-        y += 20;
-
-        doc.text("Bonificación:", xTotales, y, { width: 90, align: "right" });
-        doc.text(
-          textoImporteBonificado(factura.ImporteBonificado, factura.PorcentajeBonificacion),
-          xTotales + 70,
+        y = filaPie(
+          doc,
+          cols,
           y,
-          { width: 90, align: "right" }
+          etiquetaBonificacion(factura.PorcentajeBonificacion),
+          importeBonificadoSolo(factura.ImporteBonificado)
         );
-        y += 20;
       }
 
       if (factura.ImportePercepcionIIBB && factura.ImportePercepcionIIBB > 0) {
-        doc.text("Perc. IIBB:", xTotales, y, { width: 90, align: "right" });
-        doc.text(factura.ImportePercepcionIIBB.toFixed(2), xTotales + 90, y, {
-          width: 70,
-          align: "right",
-        });
-        y += 20;
+        y = filaPie(doc, cols, y, "Perc. IIBB:", factura.ImportePercepcionIIBB.toFixed(2));
       }
 
       doc.strokeColor("#000000").moveTo(20, 650).lineTo(580, 650).stroke();
       y += 10;
 
-      doc.fontSize(12).text("TOTAL:", xTotales, y, { width: 90, align: "right" });
-      doc.text(
-        factura.ImporteTotal ? factura.ImporteTotal.toFixed(2) : "0.00",
-        xTotales + 90,
+      doc.fontSize(12);
+      filaPie(
+        doc,
+        cols,
         y,
-        { width: 70, align: "right" }
+        "TOTAL:",
+        factura.ImporteTotal ? factura.ImporteTotal.toFixed(2) : "0.00"
       );
     }
 
     // Renderizar información electrónica (QR, CAE, logo ARCA, etc.)
-    await renderElectronicInfo(doc, factura, yTotales);
+    await renderElectronicInfo(doc, factura, resolverYInicioQr(doc, yTotales, 8));
   };
 
   // Renderizar página original

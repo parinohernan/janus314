@@ -21,8 +21,174 @@ function formatearCantidad(value) {
   return String(parseFloat(n.toFixed(2)));
 }
 
+/** Columnas matemática exacta; legible omite Precio U. y reparte ancho (~552pt). */
+function columnasExacto(legible) {
+  if (!legible) {
+    return [
+      { header: "Código", property: "CodigoArticulo", width: 38, align: "left" },
+      {
+        header: "Cant.",
+        property: "Cantidad",
+        width: 34,
+        align: "right",
+        format: formatearCantidad,
+      },
+      {
+        header: "Descripción",
+        property: "Descripcion",
+        width: 254,
+        align: "left",
+        extraWidth: 0,
+        offset: 8,
+      },
+      {
+        header: "P. Lista",
+        property: "PrecioLista",
+        width: 48,
+        align: "right",
+        format: (value) => Number(value || 0).toFixed(2),
+      },
+      {
+        header: "Desc.",
+        property: "Descuento",
+        width: 28,
+        align: "right",
+        format: formatearPorcentaje,
+      },
+      {
+        header: "Precio U.",
+        property: "PrecioUnitario",
+        width: 48,
+        align: "right",
+        format: (value) => Number(value || 0).toFixed(2),
+      },
+      {
+        header: "% IVA",
+        property: "PorcentajeIvaPrincipal",
+        width: 30,
+        align: "right",
+        format: formatearPorcentaje,
+      },
+      {
+        header: "Subt. s/IVA",
+        property: "Subtotal",
+        width: 54,
+        align: "right",
+        format: (value) => Number(value || 0).toFixed(2),
+      },
+    ];
+  }
+
+  return [
+    { header: "Código", property: "CodigoArticulo", width: 44, align: "left" },
+    {
+      header: "Cant.",
+      property: "Cantidad",
+      width: 38,
+      align: "left",
+      format: formatearCantidad,
+    },
+    {
+      header: "Descripción",
+      property: "Descripcion",
+      width: 294,
+      align: "left",
+      extraWidth: 0,
+    },
+    {
+      header: "P. Lista",
+      property: "PrecioLista",
+      width: 58,
+      align: "right",
+      format: (value) => Number(value || 0).toFixed(2),
+    },
+    {
+      header: "Desc.",
+      property: "Descuento",
+      width: 36,
+      align: "right",
+      format: formatearPorcentaje,
+    },
+    {
+      header: "% IVA",
+      property: "PorcentajeIvaPrincipal",
+      width: 38,
+      align: "right",
+      format: formatearPorcentaje,
+    },
+    {
+      header: "Subt. s/IVA",
+      property: "Subtotal",
+      width: 62,
+      align: "right",
+      format: (value) => Number(value || 0).toFixed(2),
+    },
+  ];
+}
+
+function columnasNoExacto(legible) {
+  if (!legible) {
+    return [
+      { header: "Código", property: "CodigoArticulo", width: 40, align: "left" },
+      { header: "Cant.", property: "Cantidad", width: 30, align: "left" },
+      { header: "Descripción", property: "Descripcion", width: 280, align: "left" },
+      {
+        header: "Precio U.",
+        property: "PrecioLista",
+        width: 70,
+        align: "right",
+        format: (value) => value.toFixed(2),
+        offset: 6,
+      },
+      {
+        header: "Desc.",
+        property: "Descuento",
+        width: 70,
+        align: "right",
+        format: (value) => value.toFixed(2),
+      },
+      {
+        header: "Subtotal",
+        property: "Subtotal",
+        width: 70,
+        align: "right",
+        format: (value) => value.toFixed(2),
+      },
+    ];
+  }
+
+  return [
+    { header: "Código", property: "CodigoArticulo", width: 44, align: "left" },
+    { header: "Cant.", property: "Cantidad", width: 38, align: "left" },
+    { header: "Descripción", property: "Descripcion", width: 308, align: "left", extraWidth: 0 },
+    {
+      header: "P. Lista",
+      property: "PrecioLista",
+      width: 68,
+      align: "right",
+      format: (value) => value.toFixed(2),
+    },
+    {
+      header: "Desc.",
+      property: "Descuento",
+      width: 52,
+      align: "right",
+      format: (value) => value.toFixed(2),
+    },
+    {
+      header: "Subtotal",
+      property: "Subtotal",
+      width: 66,
+      align: "right",
+      format: (value) => value.toFixed(2),
+    },
+  ];
+}
+
 function renderItemsList(doc, items, y, options = {}) {
   const exacto = Boolean(options.exacto);
+  const itemsTypo = options.typography?.items || {};
+  const legible = itemsTypo.layout === "legible";
 
   const itemsConSubtotal = items.map((item) => {
     if (exacto) {
@@ -58,98 +224,33 @@ function renderItemsList(doc, items, y, options = {}) {
     };
   });
 
-  // Ancho útil ~555. La descripción se lleva el resto para no recortar nombres.
-  const columns = exacto
-    ? [
-        { header: "Código", property: "CodigoArticulo", width: 38, align: "left" },
-        {
-          header: "Cant.",
-          property: "Cantidad",
-          width: 34,
-          align: "right",
-          format: formatearCantidad,
-        },
-        {
-          header: "Descripción",
-          property: "Descripcion",
-          width: 254,
-          align: "left",
-          extraWidth: 0,
-          offset: 8,
-        },
-        {
-          header: "P. Lista",
-          property: "PrecioLista",
-          width: 48,
-          align: "right",
-          format: (value) => Number(value || 0).toFixed(2),
-        },
-        {
-          header: "Desc.",
-          property: "Descuento",
-          width: 28,
-          align: "right",
-          format: formatearPorcentaje,
-        },
-        {
-          header: "Precio U.",
-          property: "PrecioUnitario",
-          width: 48,
-          align: "right",
-          format: (value) => Number(value || 0).toFixed(2),
-        },
-        {
-          header: "% IVA",
-          property: "PorcentajeIvaPrincipal",
-          width: 30,
-          align: "right",
-          format: formatearPorcentaje,
-        },
-        {
-          header: "Subt. s/IVA",
-          property: "Subtotal",
-          width: 54,
-          align: "right",
-          format: (value) => Number(value || 0).toFixed(2),
-        },
-      ]
-    : [
-        { header: "Código", property: "CodigoArticulo", width: 40, align: "left" },
-        { header: "Cant.", property: "Cantidad", width: 30, align: "left" },
-        { header: "Descripción", property: "Descripcion", width: 280, align: "left" },
-        {
-          header: "Precio U.",
-          property: "PrecioLista",
-          width: 70,
-          align: "right",
-          format: (value) => value.toFixed(2),
-          offset: 6,
-        },
-        {
-          header: "Desc.",
-          property: "Descuento",
-          width: 70,
-          align: "right",
-          format: (value) => value.toFixed(2),
-        },
-        {
-          header: "Subtotal",
-          property: "Subtotal",
-          width: 70,
-          align: "right",
-          format: (value) => value.toFixed(2),
-        },
-      ];
+  const columns = exacto ? columnasExacto(legible) : columnasNoExacto(legible);
 
   // Posicionar el cursor
   doc.y = y;
   doc.x = 0;
 
+  const headerFontSize =
+    options.headerFontSize ??
+    itemsTypo.headerFontSize ??
+    (exacto
+      ? itemsTypo.headerFontSizeExacto ?? 8
+      : itemsTypo.headerFontSizeNormal ?? 10);
+  const fontSize =
+    options.fontSize ??
+    itemsTypo.fontSize ??
+    (exacto ? itemsTypo.fontSizeExacto ?? 8 : itemsTypo.fontSizeNormal ?? 10);
+
   // Renderizar tabla de ítems con columnas personalizadas
   y = renderTable(doc, itemsConSubtotal, {
     columns,
-    headerFontSize: exacto ? 8 : 10,
-    fontSize: exacto ? 8 : 10,
+    headerFontSize,
+    fontSize,
+    margin: itemsTypo.tableMargin ?? 20,
+    padding: legible ? 2 : 20,
+    lineGap: legible ? 0 : undefined,
+    dynamicRowHeight: legible,
+    minRowHeight: legible ? fontSize + 1 : 10,
   });
 
   return y;

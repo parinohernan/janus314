@@ -56,6 +56,9 @@ function renderTable(doc, items, options = {}) {
     headerFontSize = 10,
     font = "Helvetica",
     interlineado = 5,
+    dynamicRowHeight = false,
+    minRowHeight = 10,
+    lineGap = undefined,
   } = options;
 
   // Calcular ancho total y posición inicial
@@ -63,12 +66,15 @@ function renderTable(doc, items, options = {}) {
   const startX = margin;
   let y = startY;
 
+  const headerBlockHeight =
+    padding <= 4 ? headerFontSize + 3 : Math.max(15, headerFontSize + 6);
+
   // Dibujar encabezados
   doc.font("Helvetica-Bold").fontSize(headerFontSize);
 
   // Fondo del encabezado si se especifica
   if (headerBgColor) {
-    doc.fillColor(headerBgColor).rect(startX, y, tableWidth, 15).fill(); // Reducido de 20 a 15
+    doc.fillColor(headerBgColor).rect(startX, y, tableWidth, headerBlockHeight).fill();
   }
 
   doc.fillColor(headerTextColor);
@@ -83,7 +89,7 @@ function renderTable(doc, items, options = {}) {
   });
 
   // Línea después del encabezado
-  y += 20; // Reducido de 20 a 15
+  y += headerBlockHeight + (padding <= 4 ? 2 : 4);
   doc
     .strokeColor(borderColor)
     .moveTo(startX, y)
@@ -146,6 +152,9 @@ function renderTable(doc, items, options = {}) {
 
     // Dibujar celdas
     x = startX;
+    const rowTop = y;
+    let rowHeight = minRowHeight;
+
     columns.forEach((column) => {
       let value = item[column.property];
 
@@ -180,14 +189,27 @@ function renderTable(doc, items, options = {}) {
           : column.property === "Descripcion"
             ? 20
             : 0;
-      doc.text(value.toString(), x + (column.offset || 0), y + padding / 2, {
-        width: column.width + extraWidth,
+      const cellWidth = column.width + extraWidth;
+      const text = value.toString();
+      const cellX = x + (column.offset || 0);
+      const cellY = y + padding / 2;
+
+      const textOpts = {
+        width: cellWidth,
         align: column.align || "left",
-      });
+      };
+      if (lineGap !== undefined) textOpts.lineGap = lineGap;
+
+      if (dynamicRowHeight) {
+        const h = doc.heightOfString(text, textOpts);
+        rowHeight = Math.max(rowHeight, h + (padding <= 4 ? 1 : padding / 2));
+      }
+
+      doc.text(text, cellX, cellY, textOpts);
       x += column.width + (column.offset || 0);
     });
 
-    y += 10; // Reducido de 20 a 10 para achicar el espaciado entre filas
+    y = rowTop + (dynamicRowHeight ? rowHeight : minRowHeight);
   });
 
   // Línea después de las filas
@@ -197,7 +219,7 @@ function renderTable(doc, items, options = {}) {
   //   .lineTo(startX + tableWidth, y + 10)
   //   .stroke();
 
-  return y + 10; // Retornar la posición Y actual para saber dónde continuar
+  return y + (padding <= 4 ? 2 : 10);
 }
 
 module.exports = renderTable;

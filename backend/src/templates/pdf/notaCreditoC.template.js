@@ -2,7 +2,13 @@ const renderHeader = require("./common/header");
 const renderClienteInfo = require("./common/clienteInfo.js");
 const renderItemsList = require("./common/itemsList.js");
 const renderElectronicInfo = require("./common/electronicInfo.js");
-const { textoImporteBonificado } = require("./common/formatBonificacion");
+const {
+  columnasPie,
+  filaPie,
+  etiquetaBonificacion,
+  importeBonificadoSolo,
+} = require("./common/pieTotalesLayout");
+const { renderPieLeyendaIzquierda } = require("./common/pieLeyendaIzquierda");
 const path = require("path");
 
 /**
@@ -71,59 +77,55 @@ async function renderNotaCreditoC(doc, data) {
     // me posiciono en la parte de los totales
     y = 660;
     let yTotales = y;
-    let xTotales = 420;
+    const cols = columnasPie(doc);
+    const anchoLeyendaIzq = Math.max(200, cols.xLabel - 28);
 
-    doc.x = xTotales;
-
-    // Totales
     doc.font("Helvetica-Bold");
     const hayBonificacion = Number(notaCredito.ImporteBonificado) > 0;
     const subtotalC = hayBonificacion ? notaCredito.ImporteBruto : notaCredito.ImporteNeto;
-    doc.text("Subtotal:", xTotales, y, { width: 90, align: "right" });
-    doc.text(
-      subtotalC ? Number(subtotalC).toFixed(2) : "0.00",
-      xTotales + 90,
+    y = filaPie(
+      doc,
+      cols,
       y,
-      { width: 70, align: "right" }
+      "Subtotal:",
+      subtotalC ? Number(subtotalC).toFixed(2) : "0.00"
     );
-    y += 20;
 
     if (hayBonificacion) {
-      doc.text("Bonificación:", xTotales, y, { width: 90, align: "right" });
-      doc.text(
-        textoImporteBonificado(notaCredito.ImporteBonificado, notaCredito.PorcentajeBonificacion),
-        xTotales + 70,
+      y = filaPie(
+        doc,
+        cols,
         y,
-        { width: 90, align: "right" }
+        etiquetaBonificacion(notaCredito.PorcentajeBonificacion),
+        importeBonificadoSolo(notaCredito.ImporteBonificado)
       );
-      y += 20;
     }
 
     // Línea antes de los TOTALES
     doc.strokeColor("#000000").moveTo(20, 650).lineTo(580, 650).stroke();
     y += 10;
 
-    // Total en palabras
-    doc.fontSize(10);
     const convertirNumeroAPalabras = require("../../utils/convertirNumeroAPalabras");
     const TotalEnPalabras = convertirNumeroAPalabras(notaCredito.ImporteTotal);
-    doc.text(`Son ${TotalEnPalabras}`, 20, yTotales);
-    
-    // Observaciones específicas para notas de crédito
-    if (notaCredito.Observacion) {
-      doc.text(`Observación: ${notaCredito.Observacion}`, 20, yTotales + 12);
-    }
+    const yZonaElectronica = renderPieLeyendaIzquierda(doc, {
+      y: yTotales,
+      width: anchoLeyendaIzq,
+      totalEnPalabras: TotalEnPalabras,
+      observacion: notaCredito.Observacion,
+      mostrarDevoluciones: false,
+    });
 
-    doc.fontSize(12).text("TOTAL:", xTotales, y, { width: 90, align: "right" });
-    doc.text(
-      notaCredito.ImporteTotal ? notaCredito.ImporteTotal.toFixed(2) : "0.00",
-      xTotales + 90,
+    doc.fontSize(12);
+    filaPie(
+      doc,
+      cols,
       y,
-      { width: 70, align: "right" }
+      "TOTAL:",
+      notaCredito.ImporteTotal ? notaCredito.ImporteTotal.toFixed(2) : "0.00"
     );
 
     // Renderizar información electrónica (QR, CAE, logo ARCA, etc.)
-    await renderElectronicInfo(doc, notaCredito, yTotales);
+    await renderElectronicInfo(doc, notaCredito, yZonaElectronica);
   };
 
   // Renderizar página original

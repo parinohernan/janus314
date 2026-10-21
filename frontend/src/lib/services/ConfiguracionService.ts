@@ -59,6 +59,25 @@ export class ConfiguracionService {
 	/**
 	 * Actualiza el valor de una configuración específica
 	 */
+	public static async obtenerPlantillasFacturaA(): Promise<
+		{ id: string; label: string; tipo: 'builtin' | 'custom' }[]
+	> {
+		try {
+			const response = await fetchWithAuth('/config/pdf-plantillas-fca');
+			if (!response.ok) {
+				throw new Error('Error al obtener plantillas FCA');
+			}
+			const resultado = await response.json();
+			return resultado.plantillas || [];
+		} catch (error) {
+			console.error('Error en obtenerPlantillasFacturaA:', error);
+			return [
+				{ id: 'default', label: 'Estándar (actual)', tipo: 'builtin' },
+				{ id: 'legible', label: 'Legible (tipografía más grande)', tipo: 'builtin' }
+			];
+		}
+	}
+
 	public static async actualizarConfiguracion(codigo: string, valor: string): Promise<boolean> {
 		try {
 			const response = await fetchWithAuth(`/config/${codigo}`, {

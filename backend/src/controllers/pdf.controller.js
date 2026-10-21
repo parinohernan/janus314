@@ -9,7 +9,7 @@ const path = require("path");
 const { getTemplateRenderer } = require("../templates/pdf");
 const { porcentajeBonificacionDesdeFactura } = require("../utils/bonificacionGeneral");
 // const DatosEmpresa = require("../models/datosEmpresa.model");
-const renderFacturaA = require("../templates/pdf/facturaA.template");
+const { getFacturaARenderer } = require("../templates/pdf/resolveFacturaA");
 const renderFacturaB = require("../templates/pdf/facturaB.template");
 const renderPrefactura = require("../templates/pdf/prefactura.template.js");
 const renderPrefacturaConEmpresa = require("../templates/pdf/prefacturaConEmpresa.template.js");
@@ -193,6 +193,7 @@ exports.generarFacturaPDF = async (req, res) => {
 
     // Aplicar plantilla según tipo de factura
     if (tipo === "FCA") {
+      const renderFacturaA = await getFacturaARenderer(Configuracion);
       await renderFacturaA(doc, {
         factura: factura,
         items: itemsConArticulos,

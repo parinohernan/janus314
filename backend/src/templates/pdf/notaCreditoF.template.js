@@ -1,7 +1,15 @@
 const renderHeader = require("./common/header");
 const renderClienteInfo = require("./common/clienteInfo.js");
 const renderElectronicInfo = require("./common/electronicInfo.js");
-const { textoImporteBonificado, subtotalConIvaDesdeItems } = require("./common/formatBonificacion");
+const { subtotalConIvaDesdeItems } = require("./common/formatBonificacion");
+const {
+  columnasPie,
+  filaPie,
+  etiquetaBonificacion,
+  importeBonificadoSolo,
+} = require("./common/pieTotalesLayout");
+const { renderPieLeyendaIzquierda } = require("./common/pieLeyendaIzquierda");
+const { resolverYInicioQr } = require("./common/piePageBounds");
 const { formatearNumero, formatearFecha } = require("../../utils/formatters");
 const { renderPieExactoConIva } = require("./common/pieConIva");
 const { usaMatematicaExacta } = require("../../utils/matematicaExacta");
@@ -107,71 +115,60 @@ async function renderNotaCreditoF(doc, { factura: notaCredito, items, logoPath }
     // me posiciono en la parte de los totales
     y = 660;
     let yTotales = y;
-    let xTotales = 420;
-
-    doc.x = xTotales;
+    const cols = columnasPie(doc);
+    const anchoLeyendaIzq = Math.max(200, cols.xLabel - 28);
+    const convertirNumeroAPalabras = require("../../utils/convertirNumeroAPalabras");
+    let yZonaElectronica = resolverYInicioQr(doc, yTotales, 8);
 
     if (usaMatematicaExacta(notaCredito.Fecha)) {
-      renderPieExactoConIva(doc, { items, documento: notaCredito, y, xTotales });
-      doc.fontSize(10).font("Helvetica");
-      const convertirNumeroAPalabras = require("../../utils/convertirNumeroAPalabras");
+      renderPieExactoConIva(doc, { items, documento: notaCredito, y });
       const TotalEnPalabras = convertirNumeroAPalabras(notaCredito.ImporteTotal);
-      doc.text(`Son ${TotalEnPalabras}`, 20, yTotales);
-      if (notaCredito.Observacion) {
-        doc.text(`Observación: ${notaCredito.Observacion}`, 20, yTotales + 12);
-      }
+      yZonaElectronica = renderPieLeyendaIzquierda(doc, {
+        y: yTotales,
+        width: anchoLeyendaIzq,
+        totalEnPalabras: TotalEnPalabras,
+        observacion: notaCredito.Observacion,
+        mostrarDevoluciones: false,
+      });
     } else {
       doc.font("Helvetica-Bold").fontSize(10);
 
       if (notaCredito.ImporteBonificado && notaCredito.ImporteBonificado > 0) {
         const subtotalConIva = subtotalConIvaDesdeItems(items);
-        doc.text("Subtotal:", xTotales, y, { width: 90, align: "right" });
-        doc.text(
-          formatearNumero(subtotalConIva),
-          xTotales + 90,
-          y,
-          { width: 70, align: "right" }
-        );
-        y += 20;
+        y = filaPie(doc, cols, y, "Subtotal:", formatearNumero(subtotalConIva));
 
         const pct = Number(notaCredito.PorcentajeBonificacion) || 0;
         const bonificacionConIva =
           pct > 0 ? subtotalConIva * (pct / 100) : Number(notaCredito.ImporteBonificado) || 0;
-        doc.text("Bonificación:", xTotales, y, { width: 90, align: "right" });
-        doc.text(
-          textoImporteBonificado(bonificacionConIva, notaCredito.PorcentajeBonificacion),
-          xTotales + 70,
+        y = filaPie(
+          doc,
+          cols,
           y,
-          { width: 90, align: "right" }
+          etiquetaBonificacion(notaCredito.PorcentajeBonificacion),
+          importeBonificadoSolo(bonificacionConIva)
         );
-        y += 20;
       }
 
       doc.strokeColor("#000000").moveTo(20, 650).lineTo(580, 650).stroke();
       y += 10;
 
-      doc.fontSize(10);
-      const convertirNumeroAPalabras = require("../../utils/convertirNumeroAPalabras");
       const TotalEnPalabras = convertirNumeroAPalabras(notaCredito.ImporteTotal);
-      doc.text(`Son ${TotalEnPalabras}`, 20, yTotales);
+      yZonaElectronica = renderPieLeyendaIzquierda(doc, {
+        y: yTotales,
+        width: anchoLeyendaIzq,
+        totalEnPalabras: TotalEnPalabras,
+        observacion: notaCredito.Observacion,
+        mostrarDevoluciones: false,
+      });
 
-      if (notaCredito.Observacion) {
-        doc.text(`Observación: ${notaCredito.Observacion}`, 20, yTotales + 12);
-      }
-
-      doc.fontSize(12).text("TOTAL:", xTotales, y, { width: 90, align: "right" });
-      doc.text(
-        formatearNumero(notaCredito.ImporteTotal),
-        xTotales + 90,
-        y,
-        { width: 70, align: "right" }
-      );
+      doc.fontSize(12);
+      filaPie(doc, cols, y, "TOTAL:", formatearNumero(notaCredito.ImporteTotal));
     }
 
     // Renderizar información electrónica (QR, CAE, logo ARCA, etc.) si corresponde
     // NCF típicamente no es electrónica, pero por si acaso
     if (notaCredito.afip_cae) {
-      await renderElectronicInfo(doc, notaCredito, yTotales);
+      await renderElectronicInfo(doc, notaCredito, yZonaElectronica);
     }
   };
 

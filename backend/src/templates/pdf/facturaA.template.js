@@ -2,9 +2,18 @@ const renderHeader = require("./common/header");
 const renderClienteInfo = require("./common/clienteInfo.js");
 const renderItemsList = require("./common/itemsList.js");
 const renderElectronicInfo = require("./common/electronicInfo.js");
-const { textoImporteBonificado, lineasIvaDiscriminado } = require("./common/formatBonificacion");
+const { lineasIvaDiscriminado } = require("./common/formatBonificacion");
 const { renderPieExactoDiscriminado } = require("./common/pieDiscriminado");
+const {
+  columnasPie,
+  filaPie,
+  etiquetaBonificacion,
+  importeBonificadoSolo,
+} = require("./common/pieTotalesLayout");
+const { renderPieLeyendaIzquierda } = require("./common/pieLeyendaIzquierda");
+const { resolverYInicioQr } = require("./common/piePageBounds");
 const { usaMatematicaExacta } = require("../../utils/matematicaExacta");
+const { TYPOGRAPHY_DEFAULT } = require("./facturaA.typography");
 const path = require("path");
 
 /**
@@ -13,7 +22,7 @@ const path = require("path");
  * @param {Object} data - Datos de la factura
  */
 async function renderFacturaA(doc, data) {
-  const { factura, items, logoPath } = data;
+  const { factura, items, logoPath, typography = TYPOGRAPHY_DEFAULT } = data;
   // Si no se proporciona logoPath, usar el por defecto
   const finalLogoPath = logoPath || path.join(__dirname, "./common/logos/logoempresa.png");
 
@@ -41,6 +50,7 @@ async function renderFacturaA(doc, data) {
       documentNumber: `${factura.DocumentoSucursal}-${factura.DocumentoNumero}`,
       logoPath: finalLogoPath,
       isNotaCredito: false, // Indicar que es una factura
+      typography,
     });
 
     // Agregar indicador de original o duplicado
@@ -53,7 +63,7 @@ doc.fontSize(26).text(title, doc.page.width / 2 - 14, 26, {
 */
 
    
-    doc.fontSize(12).font("Helvetica-Bold");
+    doc.fontSize(typography.originalDuplicado || 12).font("Helvetica-Bold");
     if (isOriginal) {
       doc.text("ORIGINAL", 40, 2, { align: "center" });
     } else {
@@ -63,7 +73,7 @@ doc.fontSize(26).text(title, doc.page.width / 2 - 14, 26, {
 
     // Información del cliente
     y += 8;
-    y = renderClienteInfo(doc, factura, y);
+    y = renderClienteInfo(doc, factura, y, { fontSize: typography.cliente });
 
     const exacto = usaMatematicaExacta(factura.Fecha);
 
@@ -71,91 +81,94 @@ doc.fontSize(26).text(title, doc.page.width / 2 - 14, 26, {
     y = renderItemsList(doc, items, y, {
       showIva: true,
       exacto,
+      typography,
     });
 
     y = 660;
     let yTotales = y;
-    let xTotales = 420;
+    const cols = columnasPie(doc);
+    const anchoLeyendaIzq = Math.max(200, cols.xLabel - 28);
+    const convertirNumeroAPalabras = require("../../utils/convertirNumeroAPalabras");
 
-    doc.x = xTotales;
+    let yZonaElectronica = resolverYInicioQr(doc, yTotales, 8);
 
     if (exacto) {
-      renderPieExactoDiscriminado(doc, { items, documento: factura, y, xTotales });
-      doc.fontSize(10);
-      const convertirNumeroAPalabras = require("../../utils/convertirNumeroAPalabras");
+      renderPieExactoDiscriminado(doc, { items, documento: factura, y });
       const TotalEnPalabras = convertirNumeroAPalabras(factura.ImporteTotal);
-      doc.text(`Son ${TotalEnPalabras}`, 20, yTotales);
-      doc.text("No se aceptan devoluciones después de las 48hs", 20, yTotales + 12);
+      yZonaElectronica = renderPieLeyendaIzquierda(doc, {
+        y: yTotales,
+        width: anchoLeyendaIzq,
+        totalEnPalabras: TotalEnPalabras,
+        fontSize: typography.pie?.leyenda ?? 10,
+        mostrarDevoluciones: true,
+      });
     } else {
       doc.font("Helvetica-Bold");
       const hayBonificacion = Number(factura.ImporteBonificado) > 0;
       const subtotalA = hayBonificacion ? factura.ImporteBruto : factura.ImporteNeto;
-      doc.text("Subtotal:", xTotales, y, { width: 90, align: "right" });
-      doc.text(
-        subtotalA ? Number(subtotalA).toFixed(2) : "0.00",
-        xTotales + 90,
+      y = filaPie(
+        doc,
+        cols,
         y,
-        { width: 70, align: "right" }
+        "Subtotal:",
+        subtotalA ? Number(subtotalA).toFixed(2) : "0.00"
       );
-      y += 20;
 
       if (hayBonificacion) {
-        doc.text("Bonificación:", xTotales, y, { width: 90, align: "right" });
-        doc.text(
-          textoImporteBonificado(factura.ImporteBonificado, factura.PorcentajeBonificacion),
-          xTotales + 70,
+        y = filaPie(
+          doc,
+          cols,
           y,
-          { width: 90, align: "right" }
+          etiquetaBonificacion(factura.PorcentajeBonificacion),
+          importeBonificadoSolo(factura.ImporteBonificado)
         );
-        y += 20;
-
-        doc.text("Importe neto:", xTotales, y, { width: 90, align: "right" });
-        doc.text(
-          factura.ImporteNeto ? Number(factura.ImporteNeto).toFixed(2) : "0.00",
-          xTotales + 90,
+        y = filaPie(
+          doc,
+          cols,
           y,
-          { width: 70, align: "right" }
+          "Importe neto:",
+          factura.ImporteNeto ? Number(factura.ImporteNeto).toFixed(2) : "0.00"
         );
-        y += 20;
       }
 
       lineasIvaDiscriminado(factura).forEach((iva) => {
-        doc.text(`IVA ${iva.porcentaje}%:`, xTotales, y, { width: 90, align: "right" });
-        doc.text(iva.importe.toFixed(2), xTotales + 90, y, { width: 70, align: "right" });
-        y += 20;
+        y = filaPie(
+          doc,
+          cols,
+          y,
+          `IVA ${iva.porcentaje}%:`,
+          iva.importe.toFixed(2)
+        );
       });
 
       if (factura.ImportePercepcionIIBB && factura.ImportePercepcionIIBB > 0) {
-        doc.text("Perc. IIBB:", xTotales, y, { width: 90, align: "right" });
-        doc.text(factura.ImportePercepcionIIBB.toFixed(2), xTotales + 90, y, {
-          width: 70,
-          align: "right",
-        });
-        y += 20;
+        y = filaPie(doc, cols, y, "Perc. IIBB:", factura.ImportePercepcionIIBB.toFixed(2));
       }
 
       doc.strokeColor("#000000").moveTo(20, 650).lineTo(580, 650).stroke();
       y += 10;
 
-      doc.fontSize(10);
-      const convertirNumeroAPalabras = require("../../utils/convertirNumeroAPalabras");
-
       const TotalEnPalabras = convertirNumeroAPalabras(factura.ImporteTotal);
-      console.log("Total", factura.ImporteTotal);
-      doc.text(`Son ${TotalEnPalabras}`, 20, yTotales);
-      doc.text("No se aceptan devoluciones después de las 48hs", 20, yTotales + 12);
+      yZonaElectronica = renderPieLeyendaIzquierda(doc, {
+        y: yTotales,
+        width: anchoLeyendaIzq,
+        totalEnPalabras: TotalEnPalabras,
+        fontSize: typography.pie?.leyenda ?? 10,
+        mostrarDevoluciones: true,
+      });
 
-      doc.fontSize(12).text("TOTAL:", xTotales, y, { width: 90, align: "right" });
-      doc.text(
-        factura.ImporteTotal ? factura.ImporteTotal.toFixed(2) : "0.00",
-        xTotales + 90,
+      doc.fontSize(typography.pie?.total ?? 12);
+      filaPie(
+        doc,
+        cols,
         y,
-        { width: 70, align: "right" }
+        "TOTAL:",
+        factura.ImporteTotal ? factura.ImporteTotal.toFixed(2) : "0.00"
       );
     }
 
     // Renderizar información electrónica (QR, CAE, logo ARCA, etc.)
-    await renderElectronicInfo(doc, factura, yTotales);
+    await renderElectronicInfo(doc, factura, yZonaElectronica);
   };
 
   // Renderizar página original

@@ -5,12 +5,13 @@
  * @param {number} y - Posición Y inicial
  * @returns {number} - Posición Y final
  */
-function renderClienteInfo(doc, factura, y) {
-  
+function renderClienteInfo(doc, factura, y, options = {}) {
+  const fontSize = options.fontSize ?? 12;
+
   // Columna izquierda
   doc.x = 20;
   doc.y = y;
-  doc.fontSize(12)
+  doc.fontSize(fontSize)
     .text(`Cliente: ${factura.Cliente ? factura.Cliente.Descripcion : "N/A"}`)
     .text(`Domicilio: ${factura.Cliente ? [factura.Cliente.Calle, factura.Cliente.Numero].filter(Boolean).join(' ') || 'N/A' : "N/A"}`)
     .text(`Categoria IVA: ${factura.Cliente && factura.Cliente.CategoriaIva ? getCategoriaTxt(factura.Cliente.CategoriaIva) : "N/A"}`);
@@ -21,7 +22,7 @@ function renderClienteInfo(doc, factura, y) {
   // Columna central - más espacio para localidad
   doc.x = 250;
   doc.y = y;
-  doc.fontSize(12)
+  doc.fontSize(fontSize)
     .text(' ')
     .text(`Localidad: ${factura.Cliente ? factura.Cliente.Localidad : "N/A"}`)
     .text(factura.Cliente && factura.Cliente.Cuit ? formatearCuit(factura.Cliente.Cuit) : "CUIT: N/A");
@@ -29,7 +30,7 @@ function renderClienteInfo(doc, factura, y) {
   // Columna derecha - movida 6 caracteres más a la derecha
   doc.x = 460;
   doc.y = y;
-  doc.fontSize(12)
+  doc.fontSize(fontSize)
     .text(' ')
     .text(`Pago: ${getTipoPagoTxt(factura.PagoTipo)}`)
     .text(`Lista: ${factura.ListaNumero || factura.Cliente?.ListaPrecio || "N/A"}`);

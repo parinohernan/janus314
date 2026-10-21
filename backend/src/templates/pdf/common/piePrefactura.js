@@ -1,6 +1,6 @@
 const convertirNumeroAPalabras = require("../../../utils/convertirNumeroAPalabras");
 const { porcentajeBonificacionDesdeFactura } = require("../../../utils/bonificacionGeneral");
-const { textoImporteBonificado } = require("./formatBonificacion");
+const { etiquetaBonificacion, importeBonificadoSolo } = require("./pieTotalesLayout");
 const { redondear2, totalesPieConIva } = require("./precioItem");
 
 /**
@@ -25,13 +25,14 @@ function renderPiePrefactura(doc, { items, prefactura, y, xTotales = 370, interl
     doc.text(pie.subtotal.toFixed(2), xTotales + 90, y, { width: 70, align: "right" });
     y += interlineado;
 
-    doc.text("Bonificación:", xTotales, y, { width: 90, align: "right" });
-    doc.text(
-      textoImporteBonificado(pie.bonificacion, pie.porcentajeMostrar),
-      xTotales + 90,
-      y,
-      { width: 90, align: "right" }
-    );
+    doc.text(etiquetaBonificacion(pie.porcentajeMostrar), xTotales, y, {
+      width: 90,
+      align: "right",
+    });
+    doc.text(importeBonificadoSolo(pie.bonificacion), xTotales + 90, y, {
+      width: 70,
+      align: "right",
+    });
     y += interlineado;
   }
 
