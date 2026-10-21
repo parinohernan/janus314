@@ -2,57 +2,80 @@
   import { createEventDispatcher } from 'svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { AfipService } from '$lib/services/AfipService';
-  
-  // Props
+  import { NotaCreditoService } from '$lib/services/NotaCreditoService';
+  import {
+    requiereComprobanteAsociadoAfip,
+    tipoFacturaAsociadaPorNc
+  } from '$lib/utils/errorCae';
+
   export let show = false;
   export let factura: {
     DocumentoTipo: string;
     DocumentoSucursal: string;
     DocumentoNumero: string;
+    factura_tipo?: string | null;
+    factura_sucursal?: string | null;
+    factura_numero?: string | null;
   };
-  
-  // Estados
+
   let loading = false;
   let error: string | null = null;
   let errorDetalle: string | null = null;
   let caeData: any = null;
-  
-  // Event dispatcher para comunicarse con el componente padre
+
+  let asocSucursal = '';
+  let asocNumero = '';
+  let asocError: string | null = null;
+  let guardandoAsociado = false;
+
   const dispatch = createEventDispatcher();
-  
-  // Determinar si es una nota de crédito
+
   $: esNotaCredito = factura?.DocumentoTipo?.startsWith('NC');
-  
-  // Función para cerrar el modal
+  $: esNcFiscal = ['NCA', 'NCB', 'NCC'].includes(
+    String(factura?.DocumentoTipo || '').toUpperCase()
+  );
+  $: mostrarFormAsociado =
+    esNcFiscal &&
+    Boolean(error) &&
+    requiereComprobanteAsociadoAfip(error, errorDetalle);
+  $: asocTipo = tipoFacturaAsociadaPorNc(factura?.DocumentoTipo);
+
+  function initComprobanteAsociado() {
+    if (!factura) return;
+    asocSucursal = String(
+      factura.factura_sucursal || factura.DocumentoSucursal || ''
+    ).replace(/^0+/, '') || '1';
+    asocNumero = String(factura.factura_numero || '').replace(/^0+/, '');
+    asocError = null;
+  }
+
   function close() {
     show = false;
     dispatch('close');
   }
-  
-  // Función para solicitar CAE
+
   async function solicitarCae() {
     if (!factura) return;
-    
+
     loading = true;
     error = null;
     errorDetalle = null;
-    console.log('Solicitando CAE... t', factura);
     try {
-      // Obtener CAE del servicio
       const result = await AfipService.obtenerCae(
         factura.DocumentoTipo,
         factura.DocumentoSucursal,
         factura.DocumentoNumero
       );
-      
-      console.log('Respuesta de obtención de CAE:', result);
-      
+
       if (result.success) {
         caeData = result.data;
         dispatch('caeObtenido', caeData);
       } else {
         error = result.error || 'Error al obtener CAE';
         errorDetalle = result.detalle || null;
+        if (esNcFiscal && requiereComprobanteAsociadoAfip(error, errorDetalle)) {
+          initComprobanteAsociado();
+        }
       }
     } catch (err) {
       console.error('Error solicitando CAE:', err);
@@ -62,22 +85,63 @@
       loading = false;
     }
   }
-  
-  // Solicitar CAE automáticamente cuando se muestra el modal
+
+  async function guardarAsociadoYReintentar() {
+    if (!factura) return;
+    asocError = null;
+
+    const sucursal = asocSucursal.trim();
+    const numero = asocNumero.trim();
+    if (!sucursal || !numero) {
+      asocError = 'Indique punto de venta y número de la factura asociada.';
+      return;
+    }
+
+    guardandoAsociado = true;
+    try {
+      const guardado = await NotaCreditoService.actualizarComprobanteAsociado(
+        factura.DocumentoTipo,
+        factura.DocumentoSucursal,
+        factura.DocumentoNumero,
+        { tipo: asocTipo, sucursal, numero }
+      );
+
+      if (!guardado.success) {
+        asocError = guardado.error || 'No se pudo guardar el comprobante asociado';
+        return;
+      }
+
+      factura = {
+        ...factura,
+        factura_tipo: asocTipo,
+        factura_sucursal: sucursal.padStart(4, '0'),
+        factura_numero: numero.padStart(8, '0')
+      };
+
+      await solicitarCae();
+    } finally {
+      guardandoAsociado = false;
+    }
+  }
+
   $: if (show) {
+    caeData = null;
+    error = null;
+    errorDetalle = null;
+    initComprobanteAsociado();
     solicitarCae();
   }
 </script>
 
 {#if show}
-  <div 
-    class="modal-backdrop" 
+  <div
+    class="modal-backdrop"
     on:click|self={close}
     on:keydown={(e) => e.key === 'Escape' && close()}
     role="presentation"
   >
-    <div 
-      class="modal-content" 
+    <div
+      class="modal-content"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
@@ -85,14 +149,11 @@
     >
       <div class="modal-header">
         <h3 id="modal-title">Proceso de autorización ARCA</h3>
-        <button 
-          class="close-button" 
-          on:click={close}
-          aria-label="Cerrar"
-          type="button"
-        >×</button>
+        <button class="close-button" on:click={close} aria-label="Cerrar" type="button"
+          >×</button
+        >
       </div>
-      
+
       <div class="modal-body">
         {#if loading}
           <div class="loading-state">
@@ -110,13 +171,55 @@
                 <p>{errorDetalle}</p>
               </details>
             {/if}
-            <Button variant="secondary" on:click={solicitarCae}>Reintentar</Button>
+
+            {#if mostrarFormAsociado}
+              <div class="asoc-form">
+                <p class="asoc-lead">
+                  AFIP exige indicar la factura asociada. Ingresela y vuelva a solicitar el CAE.
+                </p>
+                <p class="asoc-tipo">Factura asociada: <strong>{asocTipo}</strong></p>
+                <div class="field-row">
+                  <label class="field">
+                    <span>Pto. venta</span>
+                    <input
+                      type="text"
+                      inputmode="numeric"
+                      bind:value={asocSucursal}
+                      disabled={guardandoAsociado}
+                      placeholder="1"
+                    />
+                  </label>
+                  <label class="field">
+                    <span>Número</span>
+                    <input
+                      type="text"
+                      inputmode="numeric"
+                      bind:value={asocNumero}
+                      disabled={guardandoAsociado}
+                      placeholder="12345678"
+                    />
+                  </label>
+                </div>
+                {#if asocError}
+                  <p class="asoc-error">{asocError}</p>
+                {/if}
+                <Button
+                  variant="primary"
+                  disabled={guardandoAsociado}
+                  on:click={guardarAsociadoYReintentar}
+                >
+                  {guardandoAsociado ? 'Guardando…' : 'Guardar y reintentar CAE'}
+                </Button>
+              </div>
+            {:else}
+              <Button variant="secondary" on:click={solicitarCae}>Reintentar</Button>
+            {/if}
           </div>
         {:else if caeData}
           <div class="success-state">
             <div class="success-icon" aria-hidden="true">✅</div>
             <h4>{esNotaCredito ? 'Nota de crédito' : 'Factura'} autorizada correctamente</h4>
-            
+
             <div class="cae-info">
               <div class="info-row">
                 <span class="label">CAE:</span>
@@ -133,7 +236,7 @@
                 </div>
               {/if}
             </div>
-            
+
             <div class="actions">
               <Button variant="primary" on:click={close}>Aceptar</Button>
               <Button variant="secondary" on:click={() => dispatch('imprimir')}>Imprimir</Button>
@@ -158,7 +261,7 @@
     justify-content: center;
     z-index: 1000;
   }
-  
+
   .modal-content {
     background-color: white;
     border-radius: 8px;
@@ -166,7 +269,7 @@
     max-width: 500px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   }
-  
+
   .modal-header {
     display: flex;
     justify-content: space-between;
@@ -174,13 +277,13 @@
     padding: 16px 20px;
     border-bottom: 1px solid #e2e8f0;
   }
-  
+
   .modal-header h3 {
     margin: 0;
     font-size: 1.25rem;
     font-weight: 600;
   }
-  
+
   .close-button {
     background: none;
     border: none;
@@ -189,19 +292,21 @@
     padding: 0;
     line-height: 1;
   }
-  
+
   .modal-body {
     padding: 20px;
   }
-  
-  .loading-state, .error-state, .success-state {
+
+  .loading-state,
+  .error-state,
+  .success-state {
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
     padding: 20px 0;
   }
-  
+
   .spinner {
     border: 4px solid #f3f3f3;
     border-top: 4px solid #3498db;
@@ -211,13 +316,18 @@
     animation: spin 2s linear infinite;
     margin-bottom: 16px;
   }
-  
+
   @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
   }
-  
-  .error-icon, .success-icon {
+
+  .error-icon,
+  .success-icon {
     font-size: 48px;
     margin-bottom: 16px;
   }
@@ -250,7 +360,62 @@
     white-space: pre-wrap;
     word-break: break-word;
   }
-  
+
+  .asoc-form {
+    width: 100%;
+    margin: 8px 0 16px;
+    text-align: left;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px;
+    background: #f8fafc;
+  }
+
+  .asoc-lead {
+    font-size: 0.875rem;
+    color: #475569;
+    margin: 0 0 12px;
+  }
+
+  .asoc-tipo {
+    font-size: 0.875rem;
+    margin: 0 0 10px;
+    color: #334155;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 10px;
+    font-size: 0.875rem;
+  }
+
+  .field span {
+    font-weight: 600;
+    color: #334155;
+  }
+
+  .field input,
+  .field select {
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 1rem;
+  }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 10px;
+  }
+
+  .asoc-error {
+    color: #b91c1c;
+    font-size: 0.875rem;
+    margin: 0 0 10px;
+  }
+
   .cae-info {
     width: 100%;
     margin: 20px 0;
@@ -259,23 +424,23 @@
     padding: 16px;
     background-color: #f8fafc;
   }
-  
+
   .info-row {
     display: flex;
     justify-content: space-between;
     padding: 8px 0;
     border-bottom: 1px solid #e2e8f0;
   }
-  
+
   .info-row:last-child {
     border-bottom: none;
   }
-  
+
   .label {
     font-weight: 600;
     color: #4a5568;
   }
-  
+
   .actions {
     display: flex;
     justify-content: center;
@@ -297,13 +462,26 @@
     color: #cbd5e1;
   }
 
-  :global(.dark) .cae-info {
+  :global(.dark) .cae-info,
+  :global(.dark) .asoc-form {
     background-color: #1e293b;
     border-color: #334155;
   }
 
-  :global(.dark) .label {
+  :global(.dark) .label,
+  :global(.dark) .field span {
     color: #cbd5e1;
+  }
+
+  :global(.dark) .asoc-lead {
+    color: #94a3b8;
+  }
+
+  :global(.dark) .field input,
+  :global(.dark) .field select {
+    background: #0f172a;
+    border-color: #475569;
+    color: #f1f5f9;
   }
 
   :global(.dark) .error-detalle {
@@ -315,4 +493,4 @@
   :global(.dark) .error-detalle p {
     color: #fecaca;
   }
-</style> 
+</style>

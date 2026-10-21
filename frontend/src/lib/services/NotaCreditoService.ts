@@ -135,6 +135,38 @@ export class NotaCreditoService {
 	/**
 	 * Obtiene el detalle de una nota de crédito específica
 	 */
+	public static async actualizarComprobanteAsociado(
+		ncTipo: string,
+		ncSucursal: string,
+		ncNumero: string,
+		facturaReferencia: { tipo: string; sucursal: string; numero: string }
+	): Promise<{ success: boolean; data?: unknown; error?: string }> {
+		try {
+			const response = await fetchWithAuth(
+				`/notascredito/comprobante-asociado/${ncTipo}/${ncSucursal}/${ncNumero}`,
+				{
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ FacturaReferencia: facturaReferencia })
+				}
+			);
+
+			const data = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				return {
+					success: false,
+					error: data.message || 'No se pudo guardar el comprobante asociado'
+				};
+			}
+			return { success: true, data };
+		} catch (error) {
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : 'Error desconocido'
+			};
+		}
+	}
+
 	public static async obtenerDetalleNotaCredito(
 		tipo: string,
 		sucursal: string,

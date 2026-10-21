@@ -696,6 +696,117 @@ exports.anularNotaCredito = async (req, res) => {
   }
 };
 
+const FACTURA_ASOCIADA_POR_NC = {
+  NCA: "FCA",
+  NCB: "FCB",
+  NCC: "FCC",
+};
+
+function padSucursal(valor) {
+  const digitos = String(valor || "").replace(/\D/g, "");
+  if (!digitos) return "";
+  return digitos.padStart(4, "0").slice(-4);
+}
+
+function padNumeroComprobante(valor) {
+  const digitos = String(valor || "").replace(/\D/g, "");
+  if (!digitos) return "";
+  return digitos.padStart(8, "0").slice(-8);
+}
+
+/** Guarda factura_tipo/sucursal/numero en la NC (CbteAsoc para AFIP vía grabar-cae). */
+exports.actualizarComprobanteAsociado = async (req, res) => {
+  try {
+    const { NotaCreditoCabeza } = req.models;
+    const { tipo, sucursal, numero } = req.params;
+    const body = req.body || {};
+    const ref = body.FacturaReferencia || body;
+
+    const ncTipo = String(tipo || "").toUpperCase();
+    if (!FACTURA_ASOCIADA_POR_NC[ncTipo]) {
+      return res.status(400).json({
+        success: false,
+        message: "Solo aplica a notas de crédito A, B o C (NCA, NCB, NCC).",
+      });
+    }
+
+    const facturaTipoRaw = ref.tipo || ref.factura_tipo;
+    const facturaSucursalRaw = ref.sucursal || ref.factura_sucursal;
+    const facturaNumeroRaw = ref.numero || ref.factura_numero;
+
+    const facturaTipo = normalizarTipoFactura(facturaTipoRaw);
+    const facturaSucursal = padSucursal(facturaSucursalRaw);
+    const facturaNumero = padNumeroComprobante(facturaNumeroRaw);
+
+    if (!facturaTipo || !facturaSucursal || !facturaNumero) {
+      return res.status(400).json({
+        success: false,
+        message: "Indique tipo, punto de venta y número de la factura asociada.",
+      });
+    }
+
+    const facturaEsperada = FACTURA_ASOCIADA_POR_NC[ncTipo];
+    if (facturaTipo !== facturaEsperada) {
+      return res.status(400).json({
+        success: false,
+        message: `Para una ${ncTipo} la factura asociada debe ser ${facturaEsperada}.`,
+      });
+    }
+
+    const notaCredito = await NotaCreditoCabeza.findOne({
+      where: {
+        DocumentoTipo: ncTipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero,
+      },
+    });
+
+    if (!notaCredito) {
+      return res.status(404).json({
+        success: false,
+        message: "Nota de crédito no encontrada",
+      });
+    }
+
+    if (notaCredito.FechaAnulacion) {
+      return res.status(400).json({
+        success: false,
+        message: "No se puede modificar una nota de crédito anulada",
+      });
+    }
+
+    if (notaCredito.afip_cae && String(notaCredito.afip_cae).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "La nota de crédito ya tiene CAE; no se puede cambiar el comprobante asociado.",
+      });
+    }
+
+    await notaCredito.update({
+      factura_tipo: facturaTipo,
+      factura_sucursal: facturaSucursal,
+      factura_numero: facturaNumero,
+    });
+
+    res.json({
+      success: true,
+      message: "Comprobante asociado actualizado",
+      data: {
+        factura_tipo: facturaTipo,
+        factura_sucursal: facturaSucursal,
+        factura_numero: facturaNumero,
+      },
+    });
+  } catch (error) {
+    console.error("Error al actualizar comprobante asociado:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al actualizar comprobante asociado",
+      error: error.message,
+    });
+  }
+};
+
 // Actualizar vendedor de una nota de crédito
 exports.actualizarVendedorNotaCredito = async (req, res) => {
   try {

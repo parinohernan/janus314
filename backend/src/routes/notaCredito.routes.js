@@ -13,6 +13,12 @@ router.get("/", notaCreditoController.listarNotasCredito);
 // Crear nota de crédito RÁPIDA (NCF) desde preventa - debe ir antes de /:tipo/:sucursal/:numero
 router.post("/rapida-from-preventa", notaCreditoController.crearNotaCreditoRapidaDesdePreventa);
 
+// Comprobante asociado (factura origen) para CAE AFIP en NC A/B/C
+router.put(
+  "/comprobante-asociado/:tipo/:sucursal/:numero",
+  notaCreditoController.actualizarComprobanteAsociado
+);
+
 // Obtener detalle de una nota de crédito
 router.get(
   "/:tipo/:sucursal/:numero",

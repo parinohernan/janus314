@@ -22,3 +22,20 @@ export function extraerErrorCae(cuerpo: unknown, fallback = 'Error al solicitar 
 	}
 	return { error };
 }
+
+/** AFIP 10197: NC/ND sin CbteAsoc en la base al solicitar CAE. */
+export function requiereComprobanteAsociadoAfip(...textos: (string | null | undefined)[]): boolean {
+	const unido = textos.filter(Boolean).join(' ');
+	return /10197|CbteAsoc|PeriodoAsoc/i.test(unido);
+}
+
+const FACTURA_POR_NC: Record<string, string> = {
+	NCA: 'FCA',
+	NCB: 'FCB',
+	NCC: 'FCC'
+};
+
+export function tipoFacturaAsociadaPorNc(documentoTipo?: string): string {
+	const t = String(documentoTipo || '').toUpperCase();
+	return FACTURA_POR_NC[t] || 'FCB';
+}
