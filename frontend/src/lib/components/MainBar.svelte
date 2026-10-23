@@ -7,6 +7,7 @@
   import Icon from '$lib/components/ui/Icon.svelte';
   import { toast } from '$lib/utils/toast';
   import { devOptions } from '$lib/stores/devOptionsStore';
+  import { JANUS314_VERSION } from '$lib/constants/app';
 
   let logo = "/janus314.png";
   let logoEmpresa = $state("");
@@ -134,6 +135,12 @@
         <h1 class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent animate-gradient">
           janus314
         </h1>
+        <span
+          class="rounded border border-gray-600 bg-gray-800/80 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-gray-400 sm:text-xs"
+          title="Versión del sistema"
+        >
+          v{JANUS314_VERSION}
+        </span>
       </a>
       
       <!-- Empresa -->

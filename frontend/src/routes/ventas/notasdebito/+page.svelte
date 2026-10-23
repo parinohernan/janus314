@@ -3,6 +3,12 @@
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
   import Button from '$lib/components/ui/Button.svelte';
+  import FiltroPeriodoFechas from '$lib/components/ui/FiltroPeriodoFechas.svelte';
+  import {
+    aISOFecha,
+    periodoInicialListado,
+    restaurarPeriodo
+  } from '$lib/utils/fechaFiltroListado';
   import { formatDate } from '$lib/utils/dateUtils';
   import { navigationState } from '$lib/stores/navigationState';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
@@ -55,16 +61,13 @@
   let loading: boolean = true;
   let error: string | null = null;
   
-  // Configurar fecha actual para los filtros
-  const hoy = new Date();
-  hoy.setHours(hoy.getHours() - 3); // Ajustar a GMT-3
-  const fechaFormateada = hoy.toISOString().substring(0, 10);
-  
+  const periodoDefault = periodoInicialListado();
+
   // Filtros
   let filtroTipo = '';
   let filtroCliente = '';
-  let filtroFechaDesde = fechaFormateada;
-  let filtroFechaHasta = fechaFormateada;
+  let fechaDesde: Date = periodoDefault.desde;
+  let fechaHasta: Date = periodoDefault.hasta;
   
   // Tipos de documento de notas de débito
   const tiposDocumento = [
@@ -95,8 +98,8 @@
       
       if (filtroTipo) params.append('tipo', filtroTipo);
       if (filtroCliente) params.append('clienteCodigo', filtroCliente);
-      if (filtroFechaDesde) params.append('fechaDesde', filtroFechaDesde);
-      if (filtroFechaHasta) params.append('fechaHasta', filtroFechaHasta);
+      params.append('fechaDesde', aISOFecha(fechaDesde));
+      params.append('fechaHasta', aISOFecha(fechaHasta));
       
       const response = await fetchWithAuth(`/notasdebito?${params}`);
       
@@ -122,8 +125,8 @@
         filters: {
           tipo: filtroTipo,
           cliente: filtroCliente,
-          fechaDesde: filtroFechaDesde,
-          fechaHasta: filtroFechaHasta,
+          fechaDesde: aISOFecha(fechaDesde),
+          fechaHasta: aISOFecha(fechaHasta),
           clienteBusqueda: clienteBusqueda
         }
       });
@@ -152,8 +155,8 @@
       filters: {
         tipo: filtroTipo,
         cliente: filtroCliente,
-        fechaDesde: filtroFechaDesde,
-        fechaHasta: filtroFechaHasta,
+        fechaDesde: aISOFecha(fechaDesde),
+        fechaHasta: aISOFecha(fechaHasta),
         clienteBusqueda: clienteBusqueda
       }
     };
@@ -172,8 +175,9 @@
   const resetearFiltros = () => {
     filtroTipo = '';
     filtroCliente = '';
-    filtroFechaDesde = fechaFormateada;
-    filtroFechaHasta = fechaFormateada;
+    const reinicio = periodoInicialListado();
+    fechaDesde = reinicio.desde;
+    fechaHasta = reinicio.hasta;
     clienteBusqueda = '';
     currentPage = 1;
     cargarNotasDebito();
@@ -290,15 +294,17 @@
       if (filtrosGuardados) {
         filtroTipo = filtrosGuardados.tipo || '';
         filtroCliente = filtrosGuardados.cliente || '';
-        filtroFechaDesde = filtrosGuardados.fechaDesde || fechaFormateada;
-        filtroFechaHasta = filtrosGuardados.fechaHasta || fechaFormateada;
+        ({ desde: fechaDesde, hasta: fechaHasta } = restaurarPeriodo(
+          filtrosGuardados.fechaDesde,
+          filtrosGuardados.fechaHasta
+        ));
         clienteBusqueda = filtrosGuardados.clienteBusqueda || '';
         
         console.log('✅ Filtros restaurados:', {
           filtroTipo,
           filtroCliente,
-          filtroFechaDesde,
-          filtroFechaHasta,
+          fechaDesde: aISOFecha(fechaDesde),
+          fechaHasta: aISOFecha(fechaHasta),
           clienteBusqueda
         });
       }
@@ -433,26 +439,10 @@
         {/if}
       </div>
       
-      <div>
-        <label for="filtroFechaDesde" class="block text-sm font-medium text-gray-700 mb-1">Fecha Desde</label>
-        <input 
-          id="filtroFechaDesde" 
-          type="date" 
-          bind:value={filtroFechaDesde}
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+      <div class="md:col-span-4">
+        <FiltroPeriodoFechas bind:desde={fechaDesde} bind:hasta={fechaHasta} idPrefix="notasdebito" />
       </div>
-      
-      <div>
-        <label for="filtroFechaHasta" class="block text-sm font-medium text-gray-700 mb-1">Fecha Hasta</label>
-        <input 
-          id="filtroFechaHasta" 
-          type="date" 
-          bind:value={filtroFechaHasta}
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-      
+
       <div class="md:col-span-4 flex justify-end space-x-2">
         <Button variant="secondary" on:click={resetearFiltros}>Limpiar Filtros</Button>
         <Button variant="primary" on:click={aplicarFiltros}>Aplicar Filtros</Button>

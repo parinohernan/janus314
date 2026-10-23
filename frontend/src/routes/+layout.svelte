@@ -15,6 +15,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
+	import { JANUS314_VERSION } from '$lib/constants/app';
 	
 	// Página móvil de subida (Compras): sin layout ERP; sigue exigiendo login como el resto
 	let esSubirImagenMovil = $derived($page.url.pathname === '/compras/subir-imagen');
@@ -200,7 +201,7 @@
 			<footer class="bg-gray-800 text-white text-center py-4 text-sm transition-all duration-300 {leftMargin}">
 				<div class="flex items-center justify-center">
 					<img src="/janus314.png" alt="janus314" class="w-10 h-10">
-					<span>janus314 - sistema de gestión comercial &copy; 2025 - Hernan Parino - v1.0.3</span>
+					<span>janus314 - sistema de gestión comercial &copy; 2025 - Hernan Parino - v{JANUS314_VERSION}</span>
 					<img src="/janus314.png" alt="janus314" class="w-10 h-10">
 				</div>
 			</footer>

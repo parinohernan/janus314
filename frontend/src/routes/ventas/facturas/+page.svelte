@@ -5,6 +5,12 @@
   import { page } from '$app/stores';
   import { PUBLIC_API_URL } from '$env/static/public';
   import Button from '$lib/components/ui/Button.svelte';
+  import FiltroPeriodoFechas from '$lib/components/ui/FiltroPeriodoFechas.svelte';
+  import {
+    aISOFecha,
+    periodoInicialListado,
+    restaurarPeriodo
+  } from '$lib/utils/fechaFiltroListado';
   import { formatDate } from '$lib/utils/dateUtils';
   import { navigationState } from '$lib/stores/navigationState';
   import { writable } from 'svelte/store';
@@ -83,18 +89,15 @@
   let loading: boolean = true;
   let error: string | null = null;
   
-  // Configurar fecha actual para los filtros
-  const hoy = new Date();
-  hoy.setHours(hoy.getHours() - 3); // Ajustar a GMT-3
-  const fechaFormateada = hoy.toISOString().substring(0, 10);
-  
+  const periodoDefault = periodoInicialListado();
+
   // Filtros
   let filtroTipo = '';
   let filtroCliente = '';
   let filtroVendedor = '';
   let filtroPagoTipo = '';
-  let filtroFechaDesde = fechaFormateada;
-  let filtroFechaHasta = fechaFormateada;
+  let fechaDesde: Date = periodoDefault.desde;
+  let fechaHasta: Date = periodoDefault.hasta;
   
   // Formas de pago para el filtro
   let formasPago: { value: string; label: string }[] = [];
@@ -200,8 +203,8 @@
       if (filtroCliente) params.append('cliente', filtroCliente);
       if (filtroVendedor) params.append('vendedor', filtroVendedor);
       if (filtroPagoTipo) params.append('pagoTipo', filtroPagoTipo);
-      if (filtroFechaDesde) params.append('fechaDesde', filtroFechaDesde);
-      if (filtroFechaHasta) params.append('fechaHasta', filtroFechaHasta);
+      params.append('fechaDesde', aISOFecha(fechaDesde));
+      params.append('fechaHasta', aISOFecha(fechaHasta));
       
       const response = await fetchWithAuth(`/facturas?${params}`);
       
@@ -231,8 +234,8 @@
           cliente: filtroCliente,
           vendedor: filtroVendedor,
           pagoTipo: filtroPagoTipo,
-          fechaDesde: filtroFechaDesde,
-          fechaHasta: filtroFechaHasta,
+          fechaDesde: aISOFecha(fechaDesde),
+          fechaHasta: aISOFecha(fechaHasta),
           clienteBusqueda: clienteBusqueda
         }
       });
@@ -262,8 +265,8 @@
         tipo: filtroTipo,
         cliente: filtroCliente,
         vendedor: filtroVendedor,
-        fechaDesde: filtroFechaDesde,
-        fechaHasta: filtroFechaHasta,
+        fechaDesde: aISOFecha(fechaDesde),
+        fechaHasta: aISOFecha(fechaHasta),
         clienteBusqueda: clienteBusqueda
       }
     };
@@ -284,8 +287,9 @@
     filtroCliente = '';
     filtroVendedor = '';
     filtroPagoTipo = '';
-    filtroFechaDesde = fechaFormateada;
-    filtroFechaHasta = fechaFormateada;
+    const reinicio = periodoInicialListado();
+    fechaDesde = reinicio.desde;
+    fechaHasta = reinicio.hasta;
     clienteBusqueda = '';
     currentPage = 1;
     cargarFacturas();
@@ -312,8 +316,8 @@
     if (filtroCliente) params.set('cliente', filtroCliente);
     if (filtroVendedor) params.set('vendedor', filtroVendedor);
     if (filtroPagoTipo) params.set('pagoTipo', filtroPagoTipo);
-    params.set('fechaDesde', filtroFechaDesde);
-    params.set('fechaHasta', filtroFechaHasta);
+    params.set('fechaDesde', aISOFecha(fechaDesde));
+    params.set('fechaHasta', aISOFecha(fechaHasta));
     params.set('page', currentPage.toString());
     params.set('scroll', Math.round(window.scrollY).toString());
     if (clienteBusqueda) params.set('clienteBusqueda', clienteBusqueda);
@@ -487,8 +491,10 @@
       filtroCliente = searchParams.get('cliente') || '';
       filtroVendedor = searchParams.get('vendedor') || '';
       filtroPagoTipo = searchParams.get('pagoTipo') || '';
-      filtroFechaDesde = searchParams.get('fechaDesde') || fechaFormateada;
-      filtroFechaHasta = searchParams.get('fechaHasta') || fechaFormateada;
+      ({ desde: fechaDesde, hasta: fechaHasta } = restaurarPeriodo(
+        searchParams.get('fechaDesde') ?? undefined,
+        searchParams.get('fechaHasta') ?? undefined
+      ));
       clienteBusqueda = searchParams.get('clienteBusqueda') || '';
       const pageParam = searchParams.get('page');
       currentPage = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
@@ -506,8 +512,10 @@
           filtroTipo = filtrosGuardados.tipo || '';
           filtroCliente = filtrosGuardados.cliente || '';
           filtroVendedor = filtrosGuardados.vendedor || '';
-          filtroFechaDesde = filtrosGuardados.fechaDesde || fechaFormateada;
-          filtroFechaHasta = filtrosGuardados.fechaHasta || fechaFormateada;
+          ({ desde: fechaDesde, hasta: fechaHasta } = restaurarPeriodo(
+            filtrosGuardados.fechaDesde,
+            filtrosGuardados.fechaHasta
+          ));
           clienteBusqueda = filtrosGuardados.clienteBusqueda || '';
         }
         if (typeof savedState.scroll === 'number') scrollToRestore = savedState.scroll;
@@ -815,26 +823,10 @@
         </select>
       </div>
       
-      <div>
-        <label for="filtroFechaDesde" class="block text-sm font-medium text-gray-700 mb-1">Fecha Desde</label>
-        <input 
-          id="filtroFechaDesde" 
-          type="date" 
-          bind:value={filtroFechaDesde}
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+      <div class="md:col-span-6">
+        <FiltroPeriodoFechas bind:desde={fechaDesde} bind:hasta={fechaHasta} idPrefix="facturas" />
       </div>
-      
-      <div>
-        <label for="filtroFechaHasta" class="block text-sm font-medium text-gray-700 mb-1">Fecha Hasta</label>
-        <input 
-          id="filtroFechaHasta" 
-          type="date" 
-          bind:value={filtroFechaHasta}
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-      
+
       <div class="md:col-span-6 flex justify-end space-x-2">
         <div class="relative" bind:this={loteMenuEl}>
           <Button
