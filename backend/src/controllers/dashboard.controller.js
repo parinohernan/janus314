@@ -139,33 +139,29 @@ exports.getEstadoVendedores = async (req, res) => {
  */
 exports.getResumenDia = async (req, res) => {
   try {
-    const { FacturaCabeza, FacturaItem } = req.models;
+    const { FacturaCabeza } = req.models;
 
     // Fecha de inicio del día
     const inicioHoy = moment().tz('America/Argentina/Buenos_Aires').startOf('day').toDate();
     const finHoy = moment().tz('America/Argentina/Buenos_Aires').endOf('day').toDate();
 
-    // Ventas del día
-    const ventasHoy = await FacturaCabeza.findAll({
-      where: {
-        Fecha: {
-          [Op.between]: [inicioHoy, finHoy]
-        },
-        Anulado: false
+    const whereVigente = {
+      Fecha: {
+        [Op.between]: [inicioHoy, finHoy]
       },
-      include: [{
-        model: FacturaItem,
-        as: 'items'
-      }]
+      FechaAnulacion: null
+    };
+
+    // Ventas del día (total desde cabecera; evita join con alias inexistente)
+    const ventasHoy = await FacturaCabeza.findAll({
+      where: whereVigente,
+      attributes: ['ImporteTotal']
     });
 
-    // Calcular totales
-    const montoTotal = ventasHoy.reduce((sum, factura) => {
-      const totalFactura = factura.items.reduce((itemSum, item) => 
-        itemSum + (parseFloat(item.Importe) || 0), 0
-      );
-      return sum + totalFactura;
-    }, 0);
+    const montoTotal = ventasHoy.reduce(
+      (sum, factura) => sum + (parseFloat(factura.ImporteTotal) || 0),
+      0
+    );
 
     const cantidadFacturas = ventasHoy.length;
 
@@ -181,20 +177,15 @@ exports.getResumenDia = async (req, res) => {
         Fecha: {
           [Op.between]: [inicioAyer, finAyer]
         },
-        Anulado: false
+        FechaAnulacion: null
       },
-      include: [{
-        model: FacturaItem,
-        as: 'items'
-      }]
+      attributes: ['ImporteTotal']
     });
 
-    const montoAyer = ventasAyer.reduce((sum, factura) => {
-      const totalFactura = factura.items.reduce((itemSum, item) => 
-        itemSum + (parseFloat(item.Importe) || 0), 0
-      );
-      return sum + totalFactura;
-    }, 0);
+    const montoAyer = ventasAyer.reduce(
+      (sum, factura) => sum + (parseFloat(factura.ImporteTotal) || 0),
+      0
+    );
 
     // Calcular comparativa
     const comparativa = montoAyer > 0 ? ((montoTotal - montoAyer) / montoAyer) * 100 : 0;
@@ -380,12 +371,9 @@ exports.getGraficos = async (req, res) => {
         Fecha: {
           [Op.between]: [hace7Dias, hoy]
         },
-        Anulado: false
+        FechaAnulacion: null
       },
-      include: [{
-        model: FacturaItem,
-        as: 'items'
-      }],
+      attributes: ['Fecha', 'ImporteTotal'],
       order: [['Fecha', 'ASC']]
     });
 
@@ -396,10 +384,10 @@ exports.getGraficos = async (req, res) => {
       ventasPorDia[fecha] = 0;
     }
 
-    ventasSemanales.forEach(factura => {
+    ventasSemanales.forEach((factura) => {
       const fecha = moment(factura.Fecha).tz('America/Argentina/Buenos_Aires').format('YYYY-MM-DD');
-      const total = factura.items.reduce((sum, item) => sum + (parseFloat(item.Importe) || 0), 0);
-      if (ventasPorDia.hasOwnProperty(fecha)) {
+      const total = parseFloat(factura.ImporteTotal) || 0;
+      if (Object.prototype.hasOwnProperty.call(ventasPorDia, fecha)) {
         ventasPorDia[fecha] += total;
       }
     });
@@ -420,7 +408,7 @@ exports.getGraficos = async (req, res) => {
             Fecha: {
               [Op.gte]: inicioMes
             },
-            Anulado: false
+            FechaAnulacion: null
           },
           attributes: []
         },
