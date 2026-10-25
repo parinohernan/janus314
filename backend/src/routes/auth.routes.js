@@ -4,14 +4,24 @@ const jwt = require('jsonwebtoken');
 const { logAuthEvent } = require('../utils/logger');
 const DBManager = require('../utils/DBManager');
 const { loginRateLimit } = require('../middleware/loginRateLimit');
+const { enforceLoginCaptcha } = require('../middleware/loginCaptcha');
+const loginAttemptTracker = require('../utils/loginAttemptTracker');
+const loginCaptcha = require('../services/loginCaptcha.service');
 const authService = require('../services/auth.service');
 
-function sendAuthError(res, error, usuario) {
+async function sendAuthError(res, error, usuario, req) {
   if (error.status && error.status < 500) {
     logAuthEvent(usuario || 'unknown', 'login', false, { error: error.message });
+    let requireCaptcha = false;
+    if (req && error.status === 401) {
+      const ip = loginAttemptTracker.clientIp(req);
+      const failures = await loginAttemptTracker.recordLoginFailure(ip);
+      requireCaptcha = failures >= loginAttemptTracker.CAPTCHA_THRESHOLD;
+    }
     return res.status(error.status).json({
       success: false,
-      error: error.message
+      error: error.message,
+      ...(requireCaptcha ? { requireCaptcha: true } : {})
     });
   }
   console.error('Error en autenticación:', error);
@@ -22,7 +32,42 @@ function sendAuthError(res, error, usuario) {
   });
 }
 
-router.post('/login', loginRateLimit, async (req, res) => {
+router.get('/login-guard', async (req, res) => {
+  try {
+    const ip = loginAttemptTracker.clientIp(req);
+    const requireCaptcha = await loginAttemptTracker.requiresCaptcha(ip);
+    res.json({
+      success: true,
+      requireCaptcha,
+      threshold: loginAttemptTracker.CAPTCHA_THRESHOLD
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'No se pudo consultar el estado de seguridad'
+    });
+  }
+});
+
+router.get('/captcha-challenge', async (req, res) => {
+  try {
+    const challenge = await loginCaptcha.createChallenge();
+    res.json({ success: true, ...challenge });
+  } catch (error) {
+    console.error('Error generando captcha:', error);
+    res.status(500).json({
+      success: false,
+      error: 'No se pudo generar la verificación'
+    });
+  }
+});
+
+async function clearFailuresOnSuccess(req) {
+  const ip = loginAttemptTracker.clientIp(req);
+  await loginAttemptTracker.clearLoginFailures(ip);
+}
+
+router.post('/login', loginRateLimit, enforceLoginCaptcha, async (req, res) => {
   try {
     const { usuario, password } = req.body;
     if (!usuario || !password) {
@@ -32,13 +77,14 @@ router.post('/login', loginRateLimit, async (req, res) => {
       });
     }
     const payload = await authService.loginWithPassword(usuario, password);
+    await clearFailuresOnSuccess(req);
     res.json(payload);
   } catch (error) {
-    sendAuthError(res, error, req.body?.usuario);
+    await sendAuthError(res, error, req.body?.usuario, req);
   }
 });
 
-router.post('/online/login', loginRateLimit, async (req, res) => {
+router.post('/online/login', loginRateLimit, enforceLoginCaptcha, async (req, res) => {
   try {
     const { usuario, password, empresa } = req.body;
     if (!usuario || !password || !empresa) {
@@ -48,9 +94,10 @@ router.post('/online/login', loginRateLimit, async (req, res) => {
       });
     }
     const payload = await authService.loginLegacy(usuario, password, empresa);
+    await clearFailuresOnSuccess(req);
     res.json(payload);
   } catch (error) {
-    sendAuthError(res, error, req.body?.usuario);
+    await sendAuthError(res, error, req.body?.usuario, req);
   }
 });
 
@@ -66,7 +113,7 @@ router.post('/asociar', loginRateLimit, async (req, res) => {
     });
     res.status(201).json(payload);
   } catch (error) {
-    sendAuthError(res, error, req.body?.usuario);
+    await sendAuthError(res, error, req.body?.usuario, req);
   }
 });
 
@@ -82,7 +129,7 @@ router.post('/superadmin/login', loginRateLimit, async (req, res) => {
     const payload = await authService.loginSuperadmin(usuario, password);
     res.json(payload);
   } catch (error) {
-    sendAuthError(res, error, req.body?.usuario);
+    sendAuthError(res, error, req.body?.usuario, req);
   }
 });
 

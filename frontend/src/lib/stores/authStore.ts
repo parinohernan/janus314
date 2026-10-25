@@ -16,6 +16,24 @@ interface AuthState {
   } | null;
 }
 
+export class AuthLoginError extends Error {
+  requireCaptcha: boolean;
+
+  constructor(message: string, requireCaptcha = false) {
+    super(message);
+    this.name = 'AuthLoginError';
+    this.requireCaptcha = requireCaptcha;
+  }
+}
+
+export type LoginCredentials = {
+  usuario: string;
+  password: string;
+  empresa?: string;
+  captchaId?: string;
+  captchaAnswer?: string;
+};
+
 // Credenciales por defecto para modo local
 const DEFAULT_CREDENTIALS = {
   usuario: 'admin',
@@ -32,7 +50,7 @@ function createAuthStore() {
 
   return {
     subscribe,
-    login: async (credentials: { usuario: string; password: string; empresa?: string }) => {
+    login: async (credentials: LoginCredentials) => {
       try {
         // En modo local, verificar credenciales por defecto
         if (authConfig.mode === 'local') {
@@ -81,10 +99,12 @@ function createAuthStore() {
         if (!response.ok) {
           const contentType = response.headers.get('content-type') || '';
           let errorMessage = `Error de autenticación (HTTP ${response.status})`;
+          let requireCaptcha = false;
           try {
             if (contentType.includes('application/json')) {
               const errorData = await response.json();
               errorMessage = errorData.error || errorMessage;
+              requireCaptcha = Boolean(errorData.requireCaptcha);
             } else {
               const text = await response.text();
               if (text) errorMessage = text;
@@ -93,9 +113,12 @@ function createAuthStore() {
             // ignorar parseos fallidos
           }
           if (response.status === 403) {
-            throw new Error(errorMessage || 'Acceso denegado - Solo los administradores pueden acceder al sistema');
+            throw new AuthLoginError(
+              errorMessage || 'Acceso denegado - Solo los administradores pueden acceder al sistema',
+              requireCaptcha
+            );
           }
-          throw new Error(errorMessage);
+          throw new AuthLoginError(errorMessage, requireCaptcha);
         }
 
         const data = await response.json();

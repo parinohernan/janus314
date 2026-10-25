@@ -1,10 +1,12 @@
 <script lang="ts">
-	import { auth } from '$lib/stores/authStore';
+	import { onMount } from 'svelte';
+	import { auth, AuthLoginError } from '$lib/stores/authStore';
 	import { esCajero, esContador, RUTA_INICIO_CAJERO, RUTA_INICIO_CONTADOR } from '$lib/utils/permisos';
 	import { goto } from '$app/navigation';
 	import { authConfig } from '$lib/config/auth.config';
 	import { PUBLIC_API_URL } from '$env/static/public';
 	import Button from '$lib/components/ui/Button.svelte';
+	import LoginCaptcha from '$lib/components/login/LoginCaptcha.svelte';
 	
 	let usuario = '';
 	let password = '';
@@ -18,7 +20,36 @@
 	let pasoAsociar = 1;
 	let claveVendedor = '';
 	let vendedorCodigo = '';
-	
+	let requireCaptcha = false;
+	let captchaId = '';
+	let captchaAnswer = '';
+	let captchaQuestion = '';
+	let captchaBlock: LoginCaptcha | undefined;
+
+	async function refreshLoginGuard() {
+		if (authConfig.mode !== 'online') return;
+		try {
+			const response = await fetch(`${PUBLIC_API_URL}${authConfig.endpoints.online.loginGuard}`);
+			const data = await response.json().catch(() => ({}));
+			if (response.ok && data.requireCaptcha) {
+				requireCaptcha = true;
+				await captchaBlock?.loadChallenge();
+			}
+		} catch {
+			/* ignorar: el login seguirá pidiendo captcha si hace falta */
+		}
+	}
+
+	async function enableCaptchaAfterFailure(flag: boolean) {
+		if (!flag) return;
+		requireCaptcha = true;
+		await captchaBlock?.loadChallenge();
+	}
+
+	onMount(() => {
+		void refreshLoginGuard();
+	});
+
 	function abrirAsociar() {
 		if (authConfig.mode !== 'online') return;
 		modoAsociar = true;
@@ -64,18 +95,31 @@
 			return;
 		}
 
+		if (requireCaptcha && authConfig.mode === 'online') {
+			if (!captchaId || !String(captchaAnswer).trim()) {
+				error = 'Completá la verificación de seguridad.';
+				return;
+			}
+		}
+
 		loading = true;
 		error = '';
 		exito = '';
 		
 		try {
+			const captchaFields =
+				requireCaptcha && authConfig.mode === 'online'
+					? { captchaId, captchaAnswer: String(captchaAnswer).trim() }
+					: {};
 			const credentials = authConfig.mode === 'online'
 				? (modoEmpresa
-					? { usuario, password, empresa }
-					: { usuario, password })
+					? { usuario, password, empresa, ...captchaFields }
+					: { usuario, password, ...captchaFields })
 				: { usuario, password };
 				
 			const data = await auth.login(credentials);
+			requireCaptcha = false;
+			captchaAnswer = '';
 			if (esCajero(data?.user)) {
 				goto(RUTA_INICIO_CAJERO);
 			} else if (esContador(data?.user)) {
@@ -85,6 +129,12 @@
 			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Credenciales inválidas';
+			if (e instanceof AuthLoginError) {
+				await enableCaptchaAfterFailure(e.requireCaptcha);
+			}
+			if (requireCaptcha) {
+				await captchaBlock?.loadChallenge();
+			}
 			console.error('Error de login:', e);
 		} finally {
 			loading = false;
@@ -271,6 +321,16 @@
 					</div>
 				{/if}
 			</div>
+
+			{#if requireCaptcha && authConfig.mode === 'online' && !modoAsociar}
+				<LoginCaptcha
+					bind:this={captchaBlock}
+					bind:captchaId
+					bind:captchaAnswer
+					bind:question={captchaQuestion}
+					{loading}
+				/>
+			{/if}
 			
 			<div>
 				<Button

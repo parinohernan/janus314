@@ -14,7 +14,9 @@ export const authConfig = {
       loginLegacy: '/auth/online/login',
       asociar: '/auth/asociar',
       logout: '/auth/online/logout',
-      verify: '/auth/online/verify'
+      verify: '/auth/online/verify',
+      loginGuard: '/auth/login-guard',
+      captchaChallenge: '/auth/captcha-challenge'
     }
   }
 }; 
