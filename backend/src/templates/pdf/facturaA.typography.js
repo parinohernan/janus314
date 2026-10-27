@@ -35,10 +35,10 @@ const TYPOGRAPHY_LEGIBLE = {
     tableMargin: 12,
     fontSize: null,
     headerFontSize: null,
-    fontSizeExacto: 11,
-    headerFontSizeExacto: 11,
-    fontSizeNormal: 12,
-    headerFontSizeNormal: 12,
+    fontSizeExacto: 10,
+    headerFontSizeExacto: 10,
+    fontSizeNormal: 10,
+    headerFontSizeNormal: 10,
   },
 };
 
