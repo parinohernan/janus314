@@ -20,8 +20,13 @@
     porcentajeBonificacionDesdeFactura
   } from '$lib/utils/notaCreditoTotales';
   import { alicuotaIvaArticulo, alicuotaIvaValor } from '$lib/utils/ivaArticulo';
+  import { getTodayISOArgentina } from '$lib/utils/dateUtils';
 
   const NOTA_CREDITO_NUEVA_PATH = '/ventas/notascredito/nueva';
+
+  function aplicarFechaHoyNc() {
+    notaCredito.Fecha = getTodayISOArgentina();
+  }
   let skipPersist = false;
 
   // Agregar variable para formas de pago
@@ -38,7 +43,7 @@
     DocumentoTipo: 'NCA',
     DocumentoSucursal: '',
     DocumentoNumero: '',
-    Fecha: new Date().toISOString().substring(0, 10),
+    Fecha: getTodayISOArgentina(),
     CodigoCliente: '',
     Cliente: null,
     ListaNumero: '1',
@@ -132,7 +137,6 @@
         }
         if (filters?.items && Array.isArray(filters.items) && filters.items.length > 0) {
           notaCredito.Items = filters.items.map((it) => ({ ...it, enEdicion: false }));
-          calcularTotales();
         }
         if (filters?.clienteBusqueda) {
           clienteBusqueda = filters.clienteBusqueda;
@@ -152,6 +156,10 @@
         if (savedState?.scroll && typeof window !== 'undefined') {
           requestAnimationFrame(() => window.scrollTo(0, savedState.scroll));
         }
+      }
+      aplicarFechaHoyNc();
+      if (notaCredito.Items.length > 0) {
+        calcularTotales();
       }
     } catch (err) {
       console.error('Error en inicialización:', err);
@@ -510,6 +518,8 @@
     }
     
     if (!validarNotaCredito()) return;
+
+    aplicarFechaHoyNc();
 
     try {
       loading = true;
@@ -948,8 +958,10 @@
         <input
           id="fecha"
           type="date"
+          readonly
           bind:value={notaCredito.Fecha}
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md cursor-default"
+          title="La nota de crédito siempre se emite con la fecha del día"
         />
       </div>
 

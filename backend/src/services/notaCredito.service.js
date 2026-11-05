@@ -8,6 +8,7 @@ const Cliente = require("../models/cliente.model");
 const { usaMatematicaExacta } = require("../utils/matematicaExacta");
 const { modeloPorConexion } = require("../utils/modeloPorConexion");
 const { aplicarTotalesAFactura } = require("../templates/pdf/common/precioItem");
+const { fechaHoyArgentina } = require("../utils/fechaArgentina");
 
 /**
  * Servicio para gestionar las operaciones de notas de crédito
@@ -27,6 +28,8 @@ const NotaCreditoService = {
         `Datos de nota de crédito inválidos: ${validacion.errors.join(", ")}`
       );
     }
+
+    notaCreditoData.Fecha = fechaHoyArgentina();
 
     // Definir los modelos para esta conexión
     const NotaCreditoCabezaEmpresa = modeloPorConexion(NotaCreditoCabeza, dbConnection, {

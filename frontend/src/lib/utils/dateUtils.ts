@@ -32,14 +32,15 @@ export function formatDateOnly(dateString: string): string {
 }
 
 /**
- * Obtiene la fecha actual en formato ISO para Argentina (GMT-3)
- * @returns Fecha en formato YYYY-MM-DD
+ * Fecha calendario de hoy en Argentina (YYYY-MM-DD), p. ej. comprobantes.
  */
 export function getTodayISOArgentina(): string {
-	const now = new Date();
-	// Ajustar a GMT-3
-	const argentinaTime = new Date(now.getTime() - (3 * 60 * 60 * 1000));
-	return argentinaTime.toISOString().split('T')[0];
+	return new Intl.DateTimeFormat('en-CA', {
+		timeZone: 'America/Argentina/Buenos_Aires',
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit'
+	}).format(new Date());
 }
 
 /**
