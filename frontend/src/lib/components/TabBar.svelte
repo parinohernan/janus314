@@ -2,6 +2,7 @@
   import { tabsStore } from '$lib/stores/tabsStore';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
+  import { get } from 'svelte/store';
   import { onMount } from 'svelte';
   import { 
     X, 
@@ -98,7 +99,15 @@
 
   function handleCloseTab(event: MouseEvent, tabId: string) {
     event.stopPropagation();
+    const wasActive = tabId === activeTabId;
     tabsStore.closeTab(tabId);
+    if (wasActive) {
+      const { tabs: restantes, activeTabId: nuevoActivo } = get(tabsStore);
+      const siguiente = restantes.find((t) => t.id === nuevoActivo);
+      if (siguiente && $page.url.pathname !== siguiente.url) {
+        goto(siguiente.url);
+      }
+    }
   }
 
   function handleCloseAllTabs() {

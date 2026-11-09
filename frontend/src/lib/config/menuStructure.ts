@@ -60,6 +60,7 @@ export const MENU_ENTRIES: MenuEntry[] = [
 	{ id: '/clientes/cuentascorrientes', url: '/clientes/cuentascorrientes', label: 'Cuentas Corrientes', parentId: 'clientes', parentLabel: 'Clientes' },
 	// Informes
 	{ id: 'informes', url: '', label: 'Informes', parentId: '', parentLabel: '' },
+	{ id: '/ventas/informes/estado-empresa', url: '/ventas/informes/estado-empresa', label: 'Estado de la empresa', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/facturacion', url: '/ventas/informes/facturacion', label: 'Facturación', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/facturacion-neta', url: '/ventas/informes/facturacion-neta', label: 'Facturación neta', parentId: 'informes', parentLabel: 'Informes' },
 	{ id: '/ventas/informes/vendedores', url: '/ventas/informes/vendedores', label: 'Vendedores', parentId: 'informes', parentLabel: 'Informes' },

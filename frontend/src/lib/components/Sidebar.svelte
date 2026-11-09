@@ -145,6 +145,7 @@
     'informes-proveedores': Factory,
     'informes-fechas': Calendar,
     'informes-iva': Percent,
+    'informes-estado': LayoutDashboard,
     
     // Submenús - Informes (nivel 2 - detalles)
     'facturacion': PieChart,
@@ -294,6 +295,11 @@
       label: 'Informes',
       icon: 'informes',
       items: [
+        {
+          label: 'Estado de la empresa',
+          url: '/ventas/informes/estado-empresa',
+          icon: 'informes-estado'
+        },
         { 
           label: 'Ventas', 
           url: '/ventas/informes',

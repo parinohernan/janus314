@@ -80,6 +80,7 @@ export function navigateToTab(
  */
 export function getLabelFromUrl(url: string): string {
   const etiquetasExactas: Record<string, string> = {
+    '/ventas/informes/estado-empresa': 'Estado de la empresa',
     '/desarrollador/base-de-datos': 'Base de datos - optimizar',
     '/desarrollador/resetear': 'Base de datos - resetear',
     '/desarrollador/clientes': 'Clientes - importar',
@@ -262,6 +263,17 @@ export function createTabFromUrl(
  * @param url - URL destino
  * @param options - Opciones adicionales
  */
+function shouldTrackTabUrl(url: string): boolean {
+  return (
+    url !== '/' &&
+    url !== '/login' &&
+    !url.startsWith('/admin') &&
+    !url.includes('/ventas/bot/') &&
+    !url.startsWith('/ventas/pos') &&
+    url !== '/compras/subir-imagen'
+  );
+}
+
 export function smartNavigate(
   url: string,
   event?: MouseEvent | KeyboardEvent,
@@ -277,6 +289,15 @@ export function smartNavigate(
   if (shouldNewTab) {
     createTabFromUrl(url, options?.label, options?.icon, options?.type);
   } else {
+    // Sincronizar pestaña aunque la URL ya sea la actual (goto no dispara afterNavigate)
+    if (shouldTrackTabUrl(url)) {
+      tabsStore.openTab({
+        url,
+        label: options?.label || getLabelFromUrl(url),
+        icon: options?.icon || getIconFromUrl(url),
+        type: options?.type || 'view'
+      });
+    }
     goto(url);
   }
 }
