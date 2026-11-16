@@ -25,6 +25,12 @@ export interface FacturaSinCae {
 	Cliente?: { Codigo: string; Descripcion: string };
 }
 
+export interface ComprobanteAsociadoCae {
+	tipo: string;
+	puntoVenta: string;
+	numero: string;
+}
+
 export class AfipService {
 	/**
 	 * Obtiene el CAE para una factura
@@ -33,10 +39,19 @@ export class AfipService {
 	 * @param numero Número de comprobante
 	 * @returns Resultado de la operación con el CAE
 	 */
-	public static async obtenerCae(tipo: string, puntoVenta: string, numero: string) {
+	public static async obtenerCae(
+		tipo: string,
+		puntoVenta: string,
+		numero: string,
+		comprobanteAsociado?: ComprobanteAsociadoCae | null
+	) {
 		try {
 			// Mapear tipos de documento a los códigos de AFIP si es necesario
 			const tipoAfip = this.mapearTipoDocumento(tipo);
+			const asociado = comprobanteAsociado;
+			const tieneAsociado = Boolean(
+				asociado?.tipo && asociado?.puntoVenta && asociado?.numero
+			);
 			// Llamar al endpoint de nuestro backend (que actúa como proxy)
 			console.log('Llamando al endpoint de nuestro backend...');
 			const response = await fetchWithAuth(`/afip/grabar-cae`, {
@@ -45,7 +60,8 @@ export class AfipService {
 					tipo: tipo,
 					puntoVenta,
 					numero,
-					solicitarCAE: true
+					solicitarCAE: true,
+					...(tieneAsociado ? { comprobanteAsociado: asociado } : {})
 				})
 			});
 

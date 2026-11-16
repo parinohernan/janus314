@@ -3,7 +3,11 @@ const NotaCreditoItem = require("../models/notaCreditoItem.model");
 const Articulo = require("../models/articulo.model");
 const Cliente = require("../models/cliente.model");
 const sequelize = require("../config/database");
-const { Op } = require("sequelize");
+const { Op, QueryTypes } = require("sequelize");
+const { esAdminOSuperadm } = require("../middleware/vendedorRoles");
+
+const DEV_PASSWORD = process.env.DEV_OPTIONS_PASSWORD || "tel0303456";
+const TIPOS_NC_FISCAL = new Set(["NCA", "NCB", "NCC"]);
 const numerosControlController = require("./numerosControl.controller");
 const NotaCreditoService = require("../services/notaCredito.service");
 const { aplicarBonificacionATotales } = require("../utils/bonificacionGeneral");
@@ -691,6 +695,209 @@ exports.anularNotaCredito = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error al anular nota de crédito",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Borra una NCA, NCB o NCC que todavía no tiene CAE.
+ * Revierte stock y deuda, y rebobina el número si era el último emitido.
+ */
+exports.eliminarNotaCreditoSinCae = async (req, res) => {
+  const {
+    NotaCreditoCabeza,
+    NotaCreditoItem,
+    Articulo,
+    MovimientoStock,
+    NumerosControl,
+    ReciboItem,
+  } = req.models;
+  const sequelizeEmpresa = NotaCreditoCabeza.sequelize;
+  let transaction;
+
+  try {
+    if (!esAdminOSuperadm(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Solo admin o superadmin pueden eliminar notas de crédito.",
+      });
+    }
+    if (String(req.body?.password || "") !== DEV_PASSWORD) {
+      return res.status(403).json({
+        success: false,
+        message: "Contraseña incorrecta.",
+      });
+    }
+
+    const tipo = String(req.params.tipo || "").toUpperCase();
+    const sucursal = String(req.params.sucursal || "");
+    const numero = String(req.params.numero || "");
+    if (!TIPOS_NC_FISCAL.has(tipo)) {
+      return res.status(400).json({
+        success: false,
+        message: "Solo se pueden eliminar notas de crédito A, B o C sin CAE.",
+      });
+    }
+
+    transaction = await sequelizeEmpresa.transaction();
+
+    const nota = await NotaCreditoCabeza.findOne({
+      where: {
+        DocumentoTipo: tipo,
+        DocumentoSucursal: sucursal,
+        DocumentoNumero: numero,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (!nota) {
+      await transaction.rollback();
+      return res.status(404).json({
+        success: false,
+        message: "Nota de crédito no encontrada",
+      });
+    }
+    if (nota.FechaAnulacion) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "La nota de crédito está anulada. No se elimina.",
+      });
+    }
+    if (nota.afip_cae && String(nota.afip_cae).trim()) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "La nota de crédito ya tiene CAE. No se puede eliminar.",
+      });
+    }
+
+    const imputada = await ReciboItem.findOne({
+      where: {
+        FacturaTipo: tipo,
+        FacturaSucursal: nota.DocumentoSucursal,
+        FacturaNumero: nota.DocumentoNumero,
+      },
+      transaction,
+    });
+    if (imputada) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "La nota de crédito está imputada en un recibo. No se puede eliminar.",
+      });
+    }
+
+    const utilizado = Number(nota.ImporteUtilizado) || 0;
+    const total = Number(nota.ImporteTotal) || 0;
+    if (utilizado > 0.0005 && utilizado + 0.0005 < total) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "La nota de crédito está usada en parte. No se puede eliminar.",
+      });
+    }
+    if (utilizado > total + 0.0005) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "El importe utilizado supera el total. No se puede eliminar.",
+      });
+    }
+
+    const clave = {
+      DocumentoTipo: tipo,
+      DocumentoSucursal: nota.DocumentoSucursal,
+      DocumentoNumero: nota.DocumentoNumero,
+    };
+
+    if (Number(nota.PorStock) === 1) {
+      const items = await NotaCreditoItem.findAll({
+        where: clave,
+        attributes: ["CodigoArticulo", "Cantidad"],
+        transaction,
+      });
+      for (const item of items) {
+        const articulo = await Articulo.findByPk(item.CodigoArticulo, {
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+        if (!articulo) continue;
+        const nuevoStock = parseFloat(articulo.Existencia) - parseFloat(item.Cantidad);
+        await articulo.update({ Existencia: nuevoStock }, { transaction });
+      }
+      await MovimientoStock.destroy({ where: clave, transaction });
+    }
+
+    if (utilizado <= 0.0005) {
+      await sequelizeEmpresa.query(
+        `UPDATE t_clientes
+            SET ImporteDeuda = COALESCE(ImporteDeuda, 0) + ?
+          WHERE Codigo = ?`,
+        {
+          replacements: [total, nota.CodigoCliente],
+          type: QueryTypes.UPDATE,
+          transaction,
+        }
+      );
+    }
+
+    const columnasValores = await sequelizeEmpresa.query(
+      `SELECT COLUMN_NAME AS columna
+         FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'notacreditovalores'
+          AND COLUMN_NAME IN ('DocumentoTipo', 'DocumentoSucursal', 'DocumentoNumero')`,
+      { type: QueryTypes.SELECT, transaction }
+    );
+    if (columnasValores.length === 3) {
+      await sequelizeEmpresa.query(
+        `DELETE FROM notacreditovalores
+          WHERE DocumentoTipo = ? AND DocumentoSucursal = ? AND DocumentoNumero = ?`,
+        { replacements: [tipo, nota.DocumentoSucursal, nota.DocumentoNumero], transaction }
+      );
+    }
+
+    await NotaCreditoItem.destroy({ where: clave, transaction });
+    await nota.destroy({ transaction });
+
+    let numeroRebobinado = false;
+    const numeroEntero = parseInt(String(nota.DocumentoNumero), 10);
+    const control = await NumerosControl.findOne({
+      where: { Codigo: tipo, Sucursal: nota.DocumentoSucursal },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (
+      control &&
+      Number.isFinite(numeroEntero) &&
+      Number(control.NumeroProximo) - 1 === numeroEntero
+    ) {
+      await control.update({ NumeroProximo: numeroEntero }, { transaction });
+      numeroRebobinado = true;
+    }
+
+    await transaction.commit();
+    res.json({
+      success: true,
+      numeroRebobinado,
+      message: numeroRebobinado
+        ? "Nota de crédito eliminada. El número volvió atrás."
+        : "Nota de crédito eliminada. El contador no cambió porque no era el último número emitido.",
+    });
+  } catch (error) {
+    if (transaction) {
+      try {
+        await transaction.rollback();
+      } catch (_) {
+        /* ya cerrada */
+      }
+    }
+    console.error("Error al eliminar nota de crédito sin CAE:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al eliminar la nota de crédito",
       error: error.message,
     });
   }

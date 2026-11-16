@@ -54,6 +54,14 @@
     dispatch('close');
   }
 
+  function comprobanteAsociadoActual() {
+    const tipo = String(factura?.factura_tipo || '').trim();
+    const puntoVenta = String(factura?.factura_sucursal || '').trim();
+    const numero = String(factura?.factura_numero || '').trim();
+    if (!tipo || !puntoVenta || !numero) return null;
+    return { tipo, puntoVenta, numero };
+  }
+
   async function solicitarCae() {
     if (!factura) return;
 
@@ -64,7 +72,8 @@
       const result = await AfipService.obtenerCae(
         factura.DocumentoTipo,
         factura.DocumentoSucursal,
-        factura.DocumentoNumero
+        factura.DocumentoNumero,
+        comprobanteAsociadoActual()
       );
 
       if (result.success) {

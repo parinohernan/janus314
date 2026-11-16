@@ -19,7 +19,19 @@ function buildArcaUrl(baseUrl, path) {
 exports.obtenerCae = async (req, res) => {
   console.log("**********Solicitando CAE...BACKEND", req.body);
   try {
-    const { tipo, puntoVenta, numero, solicitarCAE } = req.body;
+    const { tipo, puntoVenta, numero, solicitarCAE, comprobanteAsociado } = req.body;
+    const pedidoCae = { tipo, puntoVenta, numero, solicitarCAE };
+    if (
+      comprobanteAsociado?.tipo &&
+      comprobanteAsociado?.puntoVenta &&
+      comprobanteAsociado?.numero
+    ) {
+      pedidoCae.comprobanteAsociado = {
+        tipo: String(comprobanteAsociado.tipo).trim(),
+        puntoVenta: String(comprobanteAsociado.puntoVenta).trim(),
+        numero: String(comprobanteAsociado.numero).trim(),
+      };
+    }
 
     // Validar datos de entrada
     if (!tipo || !puntoVenta || !numero) {
@@ -48,12 +60,7 @@ exports.obtenerCae = async (req, res) => {
         "Content-Type": "application/json",
         Authorization: req.headers.authorization || "", // Pasar el token si es necesario
       },
-      body: JSON.stringify({
-        tipo,
-        puntoVenta,
-        numero,
-        solicitarCAE,
-      }),
+      body: JSON.stringify(pedidoCae),
     });
 
     // Procesar respuesta

@@ -34,6 +34,12 @@ router.put(
   notaCreditoController.anularNotaCredito
 );
 
+// Borrar NCA/NCB/NCC sin CAE (admin o superadm, con contraseña de desarrollador)
+router.delete(
+  "/:tipo/:sucursal/:numero",
+  notaCreditoController.eliminarNotaCreditoSinCae
+);
+
 // Actualizar vendedor de una nota de crédito
 router.put(
   "/vendedor/:tipo/:sucursal/:numero",

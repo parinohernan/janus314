@@ -20,6 +20,9 @@
   // Remover: import CaeManualModal from '$lib/components/facturas/CaeManualModal.svelte';
   import { fetchWithAuth } from '$lib/utils/fetchWithAuth';
   import { toast, confirm } from '$lib/utils/toast';
+  import { auth } from '$lib/stores/authStore';
+  import { devOptions } from '$lib/stores/devOptionsStore';
+  import { esAdminOSuperadm } from '$lib/utils/permisos';
   import { syncStackedTableRowHeights } from '$lib/utils/syncTableRowHeights';
 
   // Definición de interfaces
@@ -412,7 +415,60 @@
   // Remover: const handleCaeGuardado = ...
   
   // Al montar el componente
+  let ncAEliminar: NotaCredito | null = null;
+  let passwordEliminar = '';
+  let eliminando = false;
+
+  $: puedeBorrarNotas = esAdminOSuperadm($auth.user) && $devOptions;
+
+  function puedeEliminarSinCae(nc: NotaCredito): boolean {
+    if (!puedeBorrarNotas || nc.FechaAnulacion) return false;
+    if (nc.afip_cae && String(nc.afip_cae).trim()) return false;
+    return nc.DocumentoTipo === 'NCA' || nc.DocumentoTipo === 'NCB' || nc.DocumentoTipo === 'NCC';
+  }
+
+  function abrirEliminar(nc: NotaCredito) {
+    ncAEliminar = nc;
+    passwordEliminar = '';
+  }
+
+  function cerrarEliminar() {
+    if (eliminando) return;
+    ncAEliminar = null;
+    passwordEliminar = '';
+  }
+
+  const eliminarNotaCredito = async () => {
+    if (!ncAEliminar || eliminando) return;
+    if (!passwordEliminar) {
+      toast.error('Ingresá la contraseña de desarrollador');
+      return;
+    }
+    const { DocumentoTipo: tipo, DocumentoSucursal: sucursal, DocumentoNumero: numero } = ncAEliminar;
+    eliminando = true;
+    try {
+      const response = await fetchWithAuth(`/notascredito/${tipo}/${sucursal}/${numero}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ password: passwordEliminar })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'Error al eliminar la nota de crédito');
+      }
+      toast.success(data.message || 'Nota de crédito eliminada');
+      ncAEliminar = null;
+      passwordEliminar = '';
+      cargarNotasCredito();
+    } catch (err) {
+      console.error('Error eliminando nota de crédito:', err);
+      toast.error(err instanceof Error ? err.message : 'Error al eliminar la nota de crédito');
+    } finally {
+      eliminando = false;
+    }
+  };
+
   onMount(async () => {
+    devOptions.hydrate();
     // Cargar vendedores
     try {
       vendedoresLoading = true;
@@ -789,6 +845,18 @@
                           </svg>
                         </button>
                       {/if}
+                      {#if puedeBorrarNotas && puedeEliminarSinCae(nc)}
+                        <button
+                          class="text-red-700 hover:text-red-900"
+                          on:click={() => abrirEliminar(nc)}
+                          aria-label="Eliminar nota de crédito sin CAE"
+                          title="Eliminar nota sin CAE"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      {/if}
                     </div>
                   </td>
                 </tr>
@@ -868,6 +936,59 @@
 </div>
 
 <!-- Usar el componente CaeModal importado -->
+{#if ncAEliminar}
+  <div
+    class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+    on:click={cerrarEliminar}
+    role="presentation"
+  >
+    <div
+      class="relative top-20 mx-auto p-5 border w-11/12 max-w-md shadow-lg rounded-md bg-white"
+      on:click|stopPropagation
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-eliminar-nc-title"
+    >
+      <h3 id="modal-eliminar-nc-title" class="text-lg font-semibold text-gray-900 mb-2">
+        Eliminar {ncAEliminar.DocumentoTipo} {ncAEliminar.DocumentoSucursal}-{ncAEliminar.DocumentoNumero}
+      </h3>
+      <p class="text-sm text-gray-600 mb-4">
+        Borra la cabecera y los ítems, deshace stock y deuda, y si es el último número emitido el contador vuelve atrás.
+        Si hay varias, empezá por la de número más alto.
+      </p>
+      <label class="block text-sm font-medium text-gray-700 mb-1" for="password-eliminar-nc">
+        Contraseña de desarrollador
+      </label>
+      <input
+        id="password-eliminar-nc"
+        type="password"
+        class="w-full border border-gray-300 rounded-md px-3 py-2 mb-4 disabled:opacity-50"
+        bind:value={passwordEliminar}
+        disabled={eliminando}
+        autocomplete="off"
+      />
+      <div class="flex justify-end gap-2">
+        <button
+          type="button"
+          class="px-3 py-2 text-sm rounded-md border border-gray-300 text-gray-700 disabled:opacity-50"
+          on:click={cerrarEliminar}
+          disabled={eliminando}
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="px-3 py-2 text-sm rounded-md bg-red-600 text-white disabled:opacity-50"
+          on:click={eliminarNotaCredito}
+          disabled={eliminando || !passwordEliminar}
+        >
+          {eliminando ? 'Eliminando…' : 'Eliminar'}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 {#if mostrarModalCAE && notaCreditoSeleccionada}
   <CaeModal 
     show={mostrarModalCAE} 
